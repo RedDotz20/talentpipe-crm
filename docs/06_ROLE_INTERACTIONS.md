@@ -1,0 +1,124 @@
+# TalentPipe — Role Interactions (Frontend & Backend)
+
+**Purpose:** Defines the six roles, the permission matrix, and per-role frontend/backend behavior flowcharts. Use this to implement both the frontend `<RoleGuard>` and the backend authorization checks consistently. Authoritative role rules are mirrored in `00_PROJECT_INSTRUCTIONS.md` §6.
+
+Six roles: **SuperAdmin, Org Admin, Recruiter, Hiring Manager, Interviewer, Candidate.** SuperAdmin is platform-level (no tenant); the other four internal roles belong to exactly one tenant; Candidate is unauthenticated and external.
+
+> **Canonical source:** `00_PROJECT_INSTRUCTIONS.md` supersedes this doc. Where they differ, follow `00_PROJECT_INSTRUCTIONS.md`.
+
+**Data note (resolved):** Interview feedback is a **separate `INTERVIEW_FEEDBACK` table** joined 1:1 to `Interview` (per `04_ERD_DIAGRAM.md`), submitted via `POST /interviews/:id/feedback`. It is not a plain field on `Interview`.
+
+## Permission Matrix
+
+| Capability | SuperAdmin | Org Admin | Recruiter | Hiring Manager | Interviewer | Candidate |
+|---|---|---|---|---|---|---|
+| Manage all tenants | ✅ | — | — | — | — | — |
+| Manage own tenant settings | — | ✅ | — | — | — | — |
+| Invite/remove users, assign roles | — | ✅ | — | — | — | — |
+| Configure pipeline stages | — | ✅ | — | — | — | — |
+| Create/edit job postings | — | ✅ | ✅ | — | — | — |
+| View candidates & applications | — | ✅ | ✅ | ✅ | — | — |
+| Move applications through pipeline | — | ✅ | ✅ | ✅ | — | — |
+| Add notes | — | ✅ | ✅ | ✅ | — | — |
+| Schedule interviews | — | ✅ | ✅ | ✅ | — | — |
+| View own assigned interviews | — | — | — | — | ✅ | — |
+| Submit interview feedback | — | — | — | — | ✅ (if assigned) | — |
+| Browse public job listings | — | — | — | — | — | ✅ |
+| Submit an application | — | — | — | — | — | ✅ |
+
+## 1. SuperAdmin
+
+**Frontend:** `/platform/*` route tree, separate `PlatformShell` layout (not the tenant dashboard). Sees `TenantsList`, `TenantDetail`, `PlatformStats`.
+**Backend:** Authorized by role check only — has no `tenantId`, so tenant-scoping middleware doesn't apply to `/platform/*` routes; a separate `requireRole('SuperAdmin')` guard protects them instead.
+
+```mermaid
+flowchart LR
+  A[SuperAdmin logs in] --> B[Platform dashboard]
+  B --> C[View all tenants]
+  C --> D{Action needed?}
+  D -->|Abuse/non-payment| E[Suspend tenant]
+  D -->|Reinstate| F[Reactivate tenant]
+  D -->|Monitoring| G[View platform-wide stats]
+```
+
+## 2. Org Admin
+
+**Frontend:** Full internal dashboard plus `/org/settings`, `/org/users`, pipeline stage editor.
+**Backend:** `tenantId` derived from JWT; authorized for all Org Admin-marked routes within that tenant only.
+
+```mermaid
+flowchart LR
+  A[Org Admin logs in] --> B[Tenant dashboard]
+  B --> C[Invite recruiters/HMs/interviewers]
+  B --> D[Configure pipeline stages]
+  B --> E[Create job postings]
+  E --> F[Publish to public careers page]
+  B --> G[Oversee applications across all postings]
+```
+
+## 3. Recruiter
+
+**Frontend:** Job postings CRUD, candidate list, pipeline board, notes, interview scheduling.
+**Backend:** Tenant-scoped; authorized for job-posting, candidate, application, note, and interview endpoints — not org/user management.
+
+```mermaid
+flowchart LR
+  A[Recruiter logs in] --> B[Create job posting]
+  B --> C[Set required skills]
+  C --> D[Publish]
+  D --> E[Candidates apply via public page]
+  E --> F[Review pipeline board]
+  F --> G[Move candidate through stages]
+  G --> H[Schedule interview]
+  H --> I[Add notes based on feedback]
+```
+
+## 4. Hiring Manager
+
+**Frontend:** Read/act on applications and pipeline for postings relevant to their team; interview feedback visibility; cannot create job postings (v1 assumption — adjust if your scope differs).
+**Backend:** Same tenant-scoped authorization tier as Recruiter for applications/interviews; excluded from job-posting create/edit if you want that distinction enforced (optional, confirm against your own scope decision).
+
+```mermaid
+flowchart LR
+  A[Hiring Manager logs in] --> B[View applications for their postings]
+  B --> C[Review resume + match score]
+  C --> D[Check interview feedback]
+  D --> E{Decision}
+  E -->|Advance| F[Move to next stage]
+  E -->|Reject| G[Move to Rejected]
+```
+
+## 5. Interviewer
+
+**Frontend:** Scoped view — only sees interviews assigned to them (`/interviews?assignedToMe=true`), submits feedback forms. No access to full candidate list, job postings, or org settings.
+**Backend:** `GET /interviews` for an Interviewer is implicitly filtered to `interviewerId = current user` at the query layer, not just hidden in the UI — enforce this server-side, since a UI-only restriction is not real access control.
+
+```mermaid
+flowchart LR
+  A[Interviewer logs in] --> B[See assigned interviews only]
+  B --> C[Conduct interview]
+  C --> D[Submit feedback: rating + comments]
+  D --> E[Feedback visible to Recruiter/HM]
+```
+
+## 6. Candidate (unauthenticated, external)
+
+**Frontend:** `/careers/:tenantSlug` — separate public shell, no login, no dashboard chrome.
+**Backend:** Only `/public/*` routes; every request rate-limited by IP; no session/account created.
+
+```mermaid
+flowchart LR
+  A[Candidate visits careers page] --> B[Browse open job postings]
+  B --> C[Select a job]
+  C --> D[Fill application form]
+  D --> E[Upload resume]
+  E --> F[Submit]
+  F --> G{Rate limit check}
+  G -->|Under limit| H[Application queued for processing]
+  G -->|Over limit| I[429 — try again later]
+  H --> J[Resume parsed + skill-matched in background]
+```
+
+## Key Enforcement Reminder
+
+Every non-SuperAdmin, non-Candidate role check above has **two layers**: the frontend `RoleGuard` (hides UI the user shouldn't see) and the backend authorization check (actually blocks the request). The frontend layer is for UX only — the backend layer is what makes it secure. Never rely on the frontend guard alone; write a backend test per role that asserts a forbidden action returns 403, not just that the button is hidden.
