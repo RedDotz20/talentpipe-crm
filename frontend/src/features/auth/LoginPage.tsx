@@ -1,0 +1,40 @@
+import { useState } from 'react';
+import { useNavigate, Link } from '@tanstack/react-router';
+import { Container, Paper, Title, TextInput, PasswordInput, Button, Text, Alert } from '@mantine/core';
+import { useAuthStore } from '../../shared/api/useAuth';
+
+export function LoginPage() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const login = useAuthStore((s) => s.login);
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    try {
+      await login(email, password);
+      navigate({ to: '/dashboard' });
+    } catch {
+      setError('Invalid email or password');
+    }
+  };
+
+  return (
+    <Container size={420} my={40}>
+      <Title ta="center">Welcome back</Title>
+      <Paper withBorder shadow="md" p={30} mt={30} radius="md">
+        <form onSubmit={handleSubmit}>
+          {error && <Alert color="red" mb="md">{error}</Alert>}
+          <TextInput label="Email" placeholder="you@company.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <PasswordInput label="Password" placeholder="Your password" required mt="md" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <Button fullWidth mt="xl" type="submit">Sign in</Button>
+        </form>
+        <Text c="dimmed" size="sm" ta="center" mt="md">
+          Don't have an account? <Link to="/signup">Sign up</Link>
+        </Text>
+      </Paper>
+    </Container>
+  );
+}
