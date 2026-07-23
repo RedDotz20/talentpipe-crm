@@ -1,4 +1,10 @@
 import { create } from 'zustand';
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api',
+  withCredentials: true,
+});
 
 interface AuthState {
   accessToken: string | null;
@@ -13,8 +19,6 @@ interface AuthState {
   isAuthenticated: () => boolean;
 }
 
-const API = 'http://localhost:3000/api';
-
 export const useAuthStore = create<AuthState>((set, get) => ({
   accessToken: localStorage.getItem('accessToken'),
   refreshToken: localStorage.getItem('refreshToken'),
@@ -23,13 +27,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   role: localStorage.getItem('role'),
 
   login: async (email, password) => {
-    const res = await fetch(`${API}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    if (!res.ok) throw new Error('Login failed');
-    const data = await res.json();
+    const { data } = await api.post('/auth/login', { email, password });
     const payload = JSON.parse(atob(data.accessToken.split('.')[1]));
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
@@ -40,15 +38,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signup: async (data) => {
-    const res = await fetch(`${API}/auth/signup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error('Signup failed');
+    const { data: res } = await api.post('/auth/signup', data);
+    const payload = JSON.parse(atob(res.accessToken.split('.')[1]));
+    localStorage.setItem('accessToken', res.accessToken);
+    localStorage.setItem('refreshToken', res.refreshToken);
+    localStorage.setItem('userId', payload.sub);
+    localStorage.setItem('tenantId', payload.tenantId);
+    localStorage.setItem('role', payload.role);
+    set({ accessToken: res.accessToken, refreshToken: res.refreshToken, userId: payload.sub, tenantId: payload.tenantId, role: payload.role });
   },
 
-  logout: () => {
+  logout: async () => {
+    const accessToken = get().accessToken;
+    if (accessToken) {
+      try {
+        await api.post('/auth/logout', {}, { headers: { Authorization: `Bearer ${accessToken}` } });
+      } catch {
+        // best-effort server-side invalidation
+      }
+    }
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('userId');
@@ -60,22 +68,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   refreshAuth: async () => {
     const refreshToken = get().refreshToken;
     if (!refreshToken) return;
-    const res = await fetch(`${API}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
-    });
-    if (!res.ok) {
+    try {
+      const { data } = await api.post('/auth/refresh', { refreshToken });
+      localStorage.setItem('accessToken', data.accessToken);
+      if (data.refreshToken) {
+        localStorage.setItem('refreshToken', data.refreshToken);
+      }
+      set({ accessToken: data.accessToken, refreshToken: data.refreshToken ?? refreshToken });
+    } catch {
       get().logout();
-      return;
     }
-    const data = await res.json();
-    const payload = JSON.parse(atob(data.accessToken.split('.')[1]));
-    localStorage.setItem('accessToken', data.accessToken);
-    if (data.refreshToken) {
-      localStorage.setItem('refreshToken', data.refreshToken);
-    }
-    set({ accessToken: data.accessToken, refreshToken: data.refreshToken ?? refreshToken });
   },
 
   isAuthenticated: () => {
