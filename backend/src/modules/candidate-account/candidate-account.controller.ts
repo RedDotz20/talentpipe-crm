@@ -15,7 +15,6 @@ import { BookmarkJobSchema, UpdateProfileSchema } from './dto/candidate-apply.dt
 import { getCurrentUser } from '../../interceptors/tenant-context';
 
 @Controller('candidate')
-@UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
 export class CandidateAccountController {
   constructor(
     private readonly candidateAccountService: CandidateAccountService,
@@ -35,6 +34,7 @@ export class CandidateAccountController {
   }
 
   @Post('jobs/:tenantId/:jobId/apply')
+  @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
   async apply(
     @Param('tenantId') tenantId: string,
     @Param('jobId') jobId: string,
@@ -50,12 +50,14 @@ export class CandidateAccountController {
   }
 
   @Get('applications')
+  @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
   async getApplications() {
     const { userId } = getCurrentUser();
     return this.candidateAccountService.getApplications(userId);
   }
 
   @Post('bookmarks')
+  @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
   async addBookmark(@Body() body: unknown) {
     const { tenantId, jobPostingId } = BookmarkJobSchema.parse(body);
     const { userId } = getCurrentUser();
@@ -67,18 +69,21 @@ export class CandidateAccountController {
   }
 
   @Delete('bookmarks/:id')
+  @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
   async removeBookmark(@Param('id') id: string) {
     const { userId } = getCurrentUser();
     return this.candidateAccountService.removeBookmark(userId, id);
   }
 
   @Get('bookmarks')
+  @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
   async getBookmarks() {
     const { userId } = getCurrentUser();
     return this.candidateAccountService.getBookmarks(userId);
   }
 
   @Get('profile')
+  @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
   async getProfile() {
     const { userId } = getCurrentUser();
     return this.candidateAccountService.getProfile(userId);

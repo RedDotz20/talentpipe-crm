@@ -176,7 +176,7 @@ export class CandidateAccountService {
     if (!account) throw new NotFoundException('Candidate account not found');
 
     const { passwordHash, ...profile } = account;
-    return profile;
+    return { ...profile, role: 'Candidate' };
   }
 
   async updateProfile(

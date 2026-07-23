@@ -21,11 +21,12 @@ export function SettingsPage() {
 
   const apiBase = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
 
-  const getAuthHeaders = () => {
+  const getAuthHeaders = (): Record<string, string> => {
     const token = useAuthStore.getState().accessToken;
-    return token
-      ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
-      : { 'Content-Type': 'application/json' };
+    return {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
   };
 
   useEffect(() => {
