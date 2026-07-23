@@ -9,6 +9,7 @@ import { DrizzleSchemaService } from '../../database/drizzle-schema.service';
 import { drizzleProvider } from '../../database/drizzle.provider';
 import { TenantRepository } from '../../repositories/tenant.repository';
 import { UserRepository } from '../../repositories/user.repository';
+import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { UserRepository } from '../../repositories/user.repository';
     drizzleProvider,
     TenantRepository,
     UserRepository,
+    CandidateAccountRepository,
   ],
   exports: [JwtStrategy, PassportModule],
 })

@@ -9,6 +9,10 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
+import {
+  CandidateSignupDto,
+  CandidateLoginDto,
+} from './dto/candidate-auth.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -31,6 +35,17 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async login(@Body() dto: { email: string; password: string }) {
     return this.authService.login(dto);
+  }
+
+  @Post('candidate/signup')
+  async candidateSignup(@Body() dto: CandidateSignupDto) {
+    return this.authService.candidateSignup(dto);
+  }
+
+  @Post('candidate/login')
+  @HttpCode(HttpStatus.OK)
+  async candidateLogin(@Body() dto: CandidateLoginDto) {
+    return this.authService.candidateLogin(dto);
   }
 
   @Post('refresh')

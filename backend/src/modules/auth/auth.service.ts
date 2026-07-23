@@ -9,6 +9,7 @@ import { hashPassword, verifyPassword } from '../../shared/password';
 import { DrizzleSchemaService } from '../../database/drizzle-schema.service';
 import { TenantRepository } from '../../repositories/tenant.repository';
 import { UserRepository } from '../../repositories/user.repository';
+import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
 import {
   userEmails,
   refreshTokens,
@@ -16,6 +17,10 @@ import {
   users,
   pipelineStages,
 } from '../../database/schema';
+import {
+  CandidateSignupDto,
+  CandidateLoginDto,
+} from './dto/candidate-auth.dto';
 import { eq } from 'drizzle-orm';
 import * as argon2 from 'argon2';
 
@@ -26,6 +31,7 @@ export class AuthService {
     private drizzleSchema: DrizzleSchemaService,
     private tenantRepo: TenantRepository,
     private userRepo: UserRepository,
+    private candidateAccountRepo: CandidateAccountRepository,
   ) {}
 
   async signup(dto: {
@@ -159,6 +165,46 @@ export class AuthService {
     } finally {
       tenantRelease();
     }
+  }
+
+  async candidateSignup(dto: CandidateSignupDto) {
+    const existing = await this.candidateAccountRepo.findByEmail(dto.email);
+    if (existing) throw new ConflictException('Email already taken');
+
+    const passwordHash = await hashPassword(dto.password);
+    const account = await this.candidateAccountRepo.create({
+      email: dto.email,
+      passwordHash,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      phone: dto.phone,
+    });
+
+    return this.generateCandidateTokens(account.id);
+  }
+
+  async candidateLogin(dto: CandidateLoginDto) {
+    const account = await this.candidateAccountRepo.findByEmail(dto.email);
+    if (!account) throw new UnauthorizedException('Invalid credentials');
+
+    const valid = await verifyPassword(account.passwordHash, dto.password);
+    if (!valid) throw new UnauthorizedException('Invalid credentials');
+
+    return this.generateCandidateTokens(account.id);
+  }
+
+  private async generateCandidateTokens(candidateAccountId: string) {
+    const accessToken = this.jwtService.sign(
+      { sub: candidateAccountId, role: 'Candidate' },
+      { expiresIn: '15m' },
+    );
+
+    const refreshToken = this.jwtService.sign(
+      { sub: candidateAccountId, role: 'Candidate' },
+      { secret: process.env.JWT_REFRESH_SECRET!, expiresIn: '7d' },
+    );
+
+    return { accessToken, refreshToken };
   }
 
   async logout(userId: string) {
