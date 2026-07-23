@@ -5,6 +5,10 @@ import { AppShell } from './AppShell';
 import { CandidateShell } from '../shared/components/CandidateShell';
 import { CandidateLoginPage } from '../features/candidate/login/LoginPage';
 import { CandidateSignupPage } from '../features/candidate/signup/SignupPage';
+import { JobSearchPage } from '../features/candidate/dashboard/JobSearchPage';
+import { ApplicationsPage } from '../features/candidate/applications/ApplicationsPage';
+import { BookmarksPage } from '../features/candidate/bookmarks/BookmarksPage';
+import { SettingsPage } from '../features/candidate/settings/SettingsPage';
 
 const rootRoute = new RootRoute({
   component: AppShell,
@@ -47,13 +51,31 @@ const candidateSignupRoute = new Route({
 const candidateDashboardRoute = new Route({
   getParentRoute: () => candidateRootRoute,
   path: '/candidate/dashboard',
-  component: () => <div>Candidate Dashboard</div>,
+  component: JobSearchPage,
+});
+
+const candidateApplicationsRoute = new Route({
+  getParentRoute: () => candidateRootRoute,
+  path: '/candidate/applications',
+  component: ApplicationsPage,
+});
+
+const candidateBookmarksRoute = new Route({
+  getParentRoute: () => candidateRootRoute,
+  path: '/candidate/bookmarks',
+  component: BookmarksPage,
+});
+
+const candidateSettingsRoute = new Route({
+  getParentRoute: () => candidateRootRoute,
+  path: '/candidate/settings',
+  component: SettingsPage,
 });
 
 const routeTree = rootRoute.addChildren([
   loginRoute, signupRoute, dashboardRoute,
   candidateRootRoute.addChildren([
-    candidateLoginRoute, candidateSignupRoute, candidateDashboardRoute,
+    candidateLoginRoute, candidateSignupRoute, candidateDashboardRoute, candidateApplicationsRoute, candidateBookmarksRoute, candidateSettingsRoute,
   ]),
 ]);
 
