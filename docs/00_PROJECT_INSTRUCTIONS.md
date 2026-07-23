@@ -33,15 +33,15 @@
 
 **What:** Multi-tenant ATS. Each company manages its own job postings, candidate pipelines, interviews, and hiring notes — with provably isolated data.
 
-**Personas:** Org Admin, Recruiter, Hiring Manager, Interviewer (tenant-scoped); Candidate (unauthenticated); SuperAdmin (platform-level, no tenant).
+**Personas:** Org Admin, Recruiter, Hiring Manager, Interviewer (tenant-scoped); Candidate (authenticated, global accounts — signup, login, dashboard); SuperAdmin (platform-level, no tenant).
 
 **In scope v1:** tenant signup/auth/RBAC; job posting CRUD + required skills; public careers page + apply flow; candidate/application pipeline (Kanban); resume upload + skill-match scoring; rate limiting on public endpoints; interviews + feedback; notes; Redis cache + BullMQ background jobs; Docker + CI/CD.
 
-**Out of scope v1:** real billing, native mobile, calendar sync, ML semantic matching, candidate accounts.
+**Out of scope v1:** real billing, native mobile, calendar sync, ML semantic matching.
 
 **Success metrics:** single-interaction stage move; <2 min apply flow; zero cross-tenant leakage under test; rate limiter blocks scripted spam; skill score visible within seconds of upload.
 
-**Feature priority (MoSCoW):** Must — tenancy/auth/RBAC, job CRUD, public apply, pipeline, resume+match, rate limiting. Should — interviews+feedback, notes, dashboard cache. Could — email notifications, customizable stages. Won't — billing, calendar, candidate accounts.
+**Feature priority (MoSCoW):** Must — tenancy/auth/RBAC, job CRUD, public apply, pipeline, resume+match, rate limiting. Should — interviews+feedback, notes, dashboard cache, candidate accounts. Could — email notifications, customizable stages. Won't — billing, calendar.
 
 ---
 
@@ -67,13 +67,14 @@ Enforced via the 8-layer strategy in §7.
 | `TenantsModule` | Org creation/settings, plan info (tenant-scoped) |
 | `UsersModule` | Recruiters/admins within tenant, invites, role changes |
 | `JobPostingsModule` | CRUD, required-skills config, publish/close |
-| `CandidatesModule` | Candidate records (public apply or manual entry) |
+| `CandidatesModule` | Tenant-scoped candidate records (company's view of who applied) |
 | `ApplicationsModule` | Pipeline — stage transitions, Kanban data, notes |
 | `ResumeModule` | File upload, text extraction, skill extraction |
 | `SkillMatchingModule` | Score computation vs job posting requirements |
 | `InterviewsModule` | Scheduling, feedback capture |
 | `NotificationsModule` | Email queue (stage changes, reminders) via BullMQ |
-| `PublicApplyModule` | **Unauthenticated** careers API — listing + apply submission (rate-limited) |
+| `PublicApplyModule` | **Unauthenticated** careers API — listing + apply submission (rate-limited); secondary path vs authenticated apply |
+| `CandidateAccountModule` | Candidate auth (signup/login), global /candidate/* API for dashboard, job search, applications history, bookmarks |
 | `PlatformModule` | **SuperAdmin only** — cross-tenant tenant list/suspend/stats; uses SEPARATE unscoped repositories (`platformTenantsRepository`), reachable only via `requireRole('SuperAdmin')` guard, in its own `/platform/*` route file |
 
 The `PublicApplyModule` is the only internet-exposed unauthenticated surface — Redis rate limiting matters most here (scripted spam) + honeypot + file-type/size validation.
@@ -85,6 +86,9 @@ Internal:        GET /job-postings | POST /job-postings | PATCH /job-postings/:i
                  GET /applications?stage= | PATCH /applications/:id/stage | POST /applications/:id/notes
                  GET /candidates/:id | POST /interviews | POST /interviews/:id/feedback
 Public:          GET /public/:tenantSlug/jobs | POST /public/:tenantSlug/jobs/:id/apply
+Candidate:      POST /auth/candidate/signup | POST /auth/candidate/login
+                GET /candidate/jobs | POST /candidate/jobs/:tenantId/:jobId/apply
+                GET /candidate/applications | POST/DELETE /candidate/bookmarks
 Platform(SA):    GET /platform/tenants | PATCH /platform/tenants/:id/suspend | GET /platform/stats
 ```
 Full endpoint list with roles in §5.
@@ -93,7 +97,7 @@ Full endpoint list with roles in §5.
 
 ## 4. Data Model (ERD consolidated)
 
-Entities: **TENANT**, **USER**, **JOB_POSTING**, **CANDIDATE**, **APPLICATION**, **PIPELINE_STAGE**, **RESUME**, **SKILL**, **INTERVIEW**, **INTERVIEW_FEEDBACK**, **NOTE**.
+Entities: **TENANT**, **USER**, **JOB_POSTING**, **CANDIDATE**, **APPLICATION**, **PIPELINE_STAGE**, **RESUME**, **SKILL**, **INTERVIEW**, **INTERVIEW_FEEDBACK**, **NOTE**, **CANDIDATE_ACCOUNT**, **JOB_LISTINGS_INDEX**, **CANDIDATE_APPLICATIONS_INDEX**, **CANDIDATE_BOOKMARK**.
 
 Relationships:
 - TENANT ||--o{ USER / JOB_POSTING / CANDIDATE / PIPELINE_STAGE
@@ -101,6 +105,10 @@ Relationships:
 - APPLICATION }o--|| PIPELINE_STAGE ; APPLICATION ||--o{ NOTE / INTERVIEW
 - CANDIDATE ||--o| RESUME ; RESUME }o--o{ SKILL ; JOB_POSTING }o--o{ SKILL
 - USER ||--o{ INTERVIEW ; INTERVIEW ||--o| INTERVIEW_FEEDBACK ; USER ||--o{ NOTE
+- CANDIDATE_ACCOUNT }o--o{ JOB_LISTINGS_INDEX ; CANDIDATE_ACCOUNT ||--o{ CANDIDATE_APPLICATIONS_INDEX
+- CANDIDATE_ACCOUNT ||--o{ CANDIDATE_BOOKMARK ; CANDIDATE_BOOKMARK }o--|| JOB_LISTINGS_INDEX
+
+**Cross-schema flow:** CANDIDATE_ACCOUNT lives in the `public` schema (global). CANDIDATE_APPLICATIONS_INDEX and CANDIDATE_BOOKMARK also live in `public` (cross-tenant). JOB_LISTINGS_INDEX is a materialized/public view of OPEN job postings across all tenant schemas. The unauthenticated `/public/*` API and authenticated `/candidate/*` API both query these public-schema tables, never touching tenant schemas directly.
 
 **Key fields:**
 - `USER.tenantId` — **nullable** (null = SuperAdmin).
@@ -112,7 +120,7 @@ Relationships:
 
 ---
 
-## 5. API Endpoint Reference (roles: SA/OA/R/HM/IV/—/PUBLIC)
+## 5. API Endpoint Reference (roles: SA/OA/R/HM/IV/—/PUBLIC/CANDIDATE)
 
 | Method | Path | Roles | Desc |
 |---|---|---|---|
@@ -142,6 +150,16 @@ Relationships:
 | GET | `/public/:tenantSlug/jobs` | PUBLIC | Careers listing |
 | GET | `/public/:tenantSlug/jobs/:id` | PUBLIC | Job detail |
 | POST | `/public/:tenantSlug/jobs/:id/apply` | PUBLIC (rate-limited) | Apply + resume |
+| POST | `/auth/candidate/signup` | PUBLIC | Create candidate account |
+| POST | `/auth/candidate/login` | PUBLIC | Candidate login |
+| GET | `/candidate/jobs` | CANDIDATE | List open jobs (from index) |
+| GET | `/candidate/jobs/:tenantId/:jobId` | CANDIDATE | Job detail |
+| POST | `/candidate/jobs/:tenantId/:jobId/apply` | CANDIDATE | Apply with account |
+| GET | `/candidate/applications` | CANDIDATE | Application history |
+| POST | `/candidate/bookmarks` | CANDIDATE | Save job |
+| DELETE | `/candidate/bookmarks/:id` | CANDIDATE | Remove bookmark |
+| GET | `/candidate/bookmarks` | CANDIDATE | List bookmarks |
+| GET/PATCH | `/candidate/profile` | CANDIDATE | View/update profile |
 | GET/POST | `/platform/tenants[/:id]` | SA | Tenant mgmt |
 | PATCH | `/platform/tenants/:id/suspend` | SA | Suspend |
 | GET | `/platform/stats` | SA | Platform stats |
@@ -162,7 +180,12 @@ Relationships:
 | Move applications / add notes | — | ✅ | ✅ | ✅ | — | — |
 | Schedule interviews | — | ✅ | ✅ | ✅ | — | — |
 | View own interviews / submit feedback | — | — | — | — | ✅ | — |
-| Browse/public apply | — | — | — | — | — | ✅ |
+| Browse & apply (public, no auth) | — | — | — | — | — | ✅ |
+| Login/signup to account | — | — | — | — | — | ✅ |
+| Apply via account | — | — | — | — | — | ✅ |
+| View application history | — | — | — | — | — | ✅ |
+| Bookmark/save jobs | — | — | — | — | — | ✅ |
+| Manage profile | — | — | — | — | — | ✅ |
 
 **Enforcement rule:** every non-SA, non-Candidate check has TWO layers — frontend `RoleGuard` (UX only) + backend authorization (real block). Write a backend test per role asserting forbidden action → 403. Interviewer `GET /interviews` is server-side filtered to `interviewerId = currentUser`, not just UI-hidden.
 
@@ -219,15 +242,22 @@ Relationships:
     /public-careers JobListingPage, JobDetailPage, ApplyForm (honeypot), ApplySuccessPage
     /admin       OrgSettingsForm, UserManagementTable, PipelineStageEditor
     /platform    TenantsList, TenantDetail, PlatformStats
+    /candidate
+      /login          CandidateLoginPage
+      /signup         CandidateSignupPage
+      /dashboard      CandidateDashboard
+      /applications   ApplicationsHistory
+      /bookmarks      BookmarksList
+      /settings       CandidateSettings
   /shared
-    /components  AppShell, PlatformShell, DataTable, EmptyState, ConfirmDialog,
+    /components  AppShell, PlatformShell, CandidateShell, DataTable, EmptyState, ConfirmDialog,
                  FileUploadZone, RoleGuard
     /hooks      useAuth, useTenant, usePermission (can('applications:move-stage'))
     /api        useJobPostings, useApplications, useCandidates, useInterviews, ...
     /types      mirror Zod schemas
     /utils
 ```
-**Routing:** `/login`,`/signup` public; `/careers/:tenantSlug/*` public no-auth; `/dashboard`,`/job-postings`,`/candidates`,`/pipeline`,`/interviews` authenticated; `/org/*` OA; `/platform/*` SA (separate `PlatformShell`). `<RoleGuard>` wraps role-gated routes.
+**Routing:** `/login`,`/signup` public; `/careers/:tenantSlug/*` public no-auth; `/candidate/login`,`/candidate/signup`,`/candidate/dashboard`,`/candidate/applications`,`/candidate/bookmarks`,`/candidate/settings` candidate authenticated; `/dashboard`,`/job-postings`,`/candidates`,`/pipeline`,`/interviews` authenticated; `/org/*` OA; `/platform/*` SA (separate `PlatformShell`). `<RoleGuard>` wraps role-gated routes.
 
 ---
 
@@ -244,6 +274,8 @@ Relationships:
 8. Interviews + feedback
 9. Docker Compose full stack + GitHub Actions CI
 10. Deploy; swap MinIO → S3/MinIO prod config
+
+> **Note:** Candidate Accounts have been added to the milestone plan. Authenticated candidate features (signup, login, dashboard, applications history, bookmarks, profile management) are a Should priority and will be built alongside or after M5 (Public Careers). Implementation adds `CandidateAccountModule`, global-schema tables (`CANDIDATE_ACCOUNT`, `JOB_LISTINGS_INDEX`, `CANDIDATE_APPLICATIONS_INDEX`, `CANDIDATE_BOOKMARK`), and `/candidate/*` API routes. The unauthenticated `/public/*` apply path remains as a secondary flow.
 
 **Testing:**
 - Unit: skill-match score (0/all/partial edge cases), stage-transition rules.

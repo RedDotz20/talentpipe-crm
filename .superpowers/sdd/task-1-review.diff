@@ -1,0 +1,2907 @@
+diff --git a/backend/drizzle/20260723191416_fresh_blindfold/migration.sql b/backend/drizzle/20260723191416_fresh_blindfold/migration.sql
+new file mode 100644
+index 0000000..c722e04
+--- /dev/null
++++ b/backend/drizzle/20260723191416_fresh_blindfold/migration.sql
+@@ -0,0 +1,54 @@
++CREATE TABLE "candidate_accounts" (
++	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
++	"email" varchar(255) NOT NULL UNIQUE,
++	"password_hash" varchar(255) NOT NULL,
++	"first_name" varchar(100) NOT NULL,
++	"last_name" varchar(100) NOT NULL,
++	"phone" varchar(50),
++	"created_at" timestamp DEFAULT now() NOT NULL
++);
++--> statement-breakpoint
++CREATE TABLE "candidate_applications_index" (
++	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
++	"candidate_account_id" uuid NOT NULL,
++	"tenant_id" varchar(36) NOT NULL,
++	"job_posting_id" uuid NOT NULL,
++	"application_id" uuid NOT NULL,
++	"job_title" varchar(255) NOT NULL,
++	"company_name" varchar(255) NOT NULL,
++	"status" varchar(50) NOT NULL,
++	"applied_at" timestamp DEFAULT now() NOT NULL
++);
++--> statement-breakpoint
++CREATE TABLE "candidate_bookmarks" (
++	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
++	"candidate_account_id" uuid NOT NULL,
++	"tenant_id" varchar(36) NOT NULL,
++	"job_posting_id" uuid NOT NULL,
++	"job_title" varchar(255) NOT NULL,
++	"company_name" varchar(255) NOT NULL,
++	"created_at" timestamp DEFAULT now() NOT NULL
++);
++--> statement-breakpoint
++CREATE TABLE "job_listings_index" (
++	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
++	"tenant_id" varchar(36) NOT NULL,
++	"job_posting_id" uuid NOT NULL UNIQUE,
++	"title" varchar(255) NOT NULL,
++	"description" text,
++	"company_name" varchar(255) NOT NULL,
++	"company_slug" varchar(100) NOT NULL,
++	"status" varchar(50) NOT NULL,
++	"created_at" timestamp DEFAULT now() NOT NULL,
++	"updated_at" timestamp DEFAULT now() NOT NULL
++);
++--> statement-breakpoint
++CREATE INDEX "idx_candidate_applications_account" ON "candidate_applications_index" ("candidate_account_id");--> statement-breakpoint
++CREATE INDEX "idx_candidate_applications_tenant_job" ON "candidate_applications_index" ("tenant_id","job_posting_id");--> statement-breakpoint
++CREATE INDEX "idx_candidate_bookmarks_account" ON "candidate_bookmarks" ("candidate_account_id");--> statement-breakpoint
++CREATE INDEX "idx_candidate_bookmarks_tenant_job" ON "candidate_bookmarks" ("tenant_id","job_posting_id");--> statement-breakpoint
++CREATE INDEX "idx_job_listings_status" ON "job_listings_index" ("status");--> statement-breakpoint
++CREATE INDEX "idx_job_listings_company" ON "job_listings_index" ("company_name");--> statement-breakpoint
++CREATE INDEX "idx_job_listings_tenant" ON "job_listings_index" ("tenant_id");--> statement-breakpoint
++ALTER TABLE "candidate_applications_index" ADD CONSTRAINT "candidate_applications_index_uYdiuY2jVa7F_fkey" FOREIGN KEY ("candidate_account_id") REFERENCES "candidate_accounts"("id");--> statement-breakpoint
++ALTER TABLE "candidate_bookmarks" ADD CONSTRAINT "candidate_bookmarks_g51nMlw5YP98_fkey" FOREIGN KEY ("candidate_account_id") REFERENCES "candidate_accounts"("id");
+\ No newline at end of file
+diff --git a/backend/drizzle/20260723191416_fresh_blindfold/snapshot.json b/backend/drizzle/20260723191416_fresh_blindfold/snapshot.json
+new file mode 100644
+index 0000000..0d54fc4
+--- /dev/null
++++ b/backend/drizzle/20260723191416_fresh_blindfold/snapshot.json
+@@ -0,0 +1,2437 @@
++{
++  "version": "8",
++  "dialect": "postgres",
++  "id": "290c864c-8ecc-40bd-a4a9-df5c0d6ed263",
++  "prevIds": [
++    "5a72adad-32a6-4b9a-9a81-80c61403900a"
++  ],
++  "ddl": [
++    {
++      "isRlsEnabled": false,
++      "name": "applications",
++      "entityType": "tables",
++      "schema": "public"
++    },
++    {
++      "isRlsEnabled": false,
++      "name": "audit_logs",
++      "entityType": "tables",
++      "schema": "public"
++    },
++    {
++      "isRlsEnabled": false,
++      "name": "candidate_accounts",
++      "entityType": "tables",
++      "schema": "public"
++    },
++    {
++      "isRlsEnabled": false,
++      "name": "candidate_applications_index",
++      "entityType": "tables",
++      "schema": "public"
++    },
++    {
++      "isRlsEnabled": false,
++      "name": "candidate_bookmarks",
++      "entityType": "tables",
++      "schema": "public"
++    },
++    {
++      "isRlsEnabled": false,
++      "name": "candidates",
++      "entityType": "tables",
++      "schema": "public"
++    },
++    {
++      "isRlsEnabled": false,
++      "name": "interview_feedbacks",
++      "entityType": "tables",
++      "schema": "public"
++    },
++    {
++      "isRlsEnabled": false,
++      "name": "interviews",
++      "entityType": "tables",
++      "schema": "public"
++    },
++    {
++      "isRlsEnabled": false,
++      "name": "job_listings_index",
++      "entityType": "tables",
++      "schema": "public"
++    },
++    {
++      "isRlsEnabled": false,
++      "name": "job_postings",
++      "entityType": "tables",
++      "schema": "public"
++    },
++    {
++      "isRlsEnabled": false,
++      "name": "job_required_skills",
++      "entityType": "tables",
++      "schema": "public"
++    },
++    {
++      "isRlsEnabled": false,
++      "name": "notes",
++      "entityType": "tables",
++      "schema": "public"
++    },
++    {
++      "isRlsEnabled": false,
++      "name": "pipeline_stages",
++      "entityType": "tables",
++      "schema": "public"
++    },
++    {
++      "isRlsEnabled": false,
++      "name": "refresh_tokens",
++      "entityType": "tables",
++      "schema": "public"
++    },
++    {
++      "isRlsEnabled": false,
++      "name": "resume_skills",
++      "entityType": "tables",
++      "schema": "public"
++    },
++    {
++      "isRlsEnabled": false,
++      "name": "resumes",
++      "entityType": "tables",
++      "schema": "public"
++    },
++    {
++      "isRlsEnabled": false,
++      "name": "skills",
++      "entityType": "tables",
++      "schema": "public"
++    },
++    {
++      "isRlsEnabled": false,
++      "name": "tenants",
++      "entityType": "tables",
++      "schema": "public"
++    },
++    {
++      "isRlsEnabled": false,
++      "name": "user_emails",
++      "entityType": "tables",
++      "schema": "public"
++    },
++    {
++      "isRlsEnabled": false,
++      "name": "users",
++      "entityType": "tables",
++      "schema": "public"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "gen_random_uuid()",
++      "generated": null,
++      "identity": null,
++      "name": "id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "applications"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "candidate_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "applications"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "job_posting_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "applications"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": false,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "current_stage_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "applications"
++    },
++    {
++      "type": "double precision",
++      "typeSchema": null,
++      "notNull": false,
++      "dimensions": 0,
++      "default": "0",
++      "generated": null,
++      "identity": null,
++      "name": "match_score",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "applications"
++    },
++    {
++      "type": "timestamp",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "now()",
++      "generated": null,
++      "identity": null,
++      "name": "applied_at",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "applications"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "gen_random_uuid()",
++      "generated": null,
++      "identity": null,
++      "name": "id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "audit_logs"
++    },
++    {
++      "type": "varchar(36)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "tenant_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "audit_logs"
++    },
++    {
++      "type": "varchar(36)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "user_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "audit_logs"
++    },
++    {
++      "type": "varchar(100)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "action",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "audit_logs"
++    },
++    {
++      "type": "varchar(36)",
++      "typeSchema": null,
++      "notNull": false,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "resource_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "audit_logs"
++    },
++    {
++      "type": "text",
++      "typeSchema": null,
++      "notNull": false,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "metadata",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "audit_logs"
++    },
++    {
++      "type": "timestamp",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "now()",
++      "generated": null,
++      "identity": null,
++      "name": "created_at",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "audit_logs"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "gen_random_uuid()",
++      "generated": null,
++      "identity": null,
++      "name": "id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidate_accounts"
++    },
++    {
++      "type": "varchar(255)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "email",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidate_accounts"
++    },
++    {
++      "type": "varchar(255)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "password_hash",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidate_accounts"
++    },
++    {
++      "type": "varchar(100)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "first_name",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidate_accounts"
++    },
++    {
++      "type": "varchar(100)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "last_name",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidate_accounts"
++    },
++    {
++      "type": "varchar(50)",
++      "typeSchema": null,
++      "notNull": false,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "phone",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidate_accounts"
++    },
++    {
++      "type": "timestamp",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "now()",
++      "generated": null,
++      "identity": null,
++      "name": "created_at",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidate_accounts"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "gen_random_uuid()",
++      "generated": null,
++      "identity": null,
++      "name": "id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidate_applications_index"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "candidate_account_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidate_applications_index"
++    },
++    {
++      "type": "varchar(36)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "tenant_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidate_applications_index"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "job_posting_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidate_applications_index"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "application_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidate_applications_index"
++    },
++    {
++      "type": "varchar(255)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "job_title",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidate_applications_index"
++    },
++    {
++      "type": "varchar(255)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "company_name",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidate_applications_index"
++    },
++    {
++      "type": "varchar(50)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "status",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidate_applications_index"
++    },
++    {
++      "type": "timestamp",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "now()",
++      "generated": null,
++      "identity": null,
++      "name": "applied_at",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidate_applications_index"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "gen_random_uuid()",
++      "generated": null,
++      "identity": null,
++      "name": "id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidate_bookmarks"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "candidate_account_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidate_bookmarks"
++    },
++    {
++      "type": "varchar(36)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "tenant_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidate_bookmarks"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "job_posting_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidate_bookmarks"
++    },
++    {
++      "type": "varchar(255)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "job_title",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidate_bookmarks"
++    },
++    {
++      "type": "varchar(255)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "company_name",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidate_bookmarks"
++    },
++    {
++      "type": "timestamp",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "now()",
++      "generated": null,
++      "identity": null,
++      "name": "created_at",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidate_bookmarks"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "gen_random_uuid()",
++      "generated": null,
++      "identity": null,
++      "name": "id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidates"
++    },
++    {
++      "type": "varchar(255)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "name",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidates"
++    },
++    {
++      "type": "varchar(255)",
++      "typeSchema": null,
++      "notNull": false,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "email",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidates"
++    },
++    {
++      "type": "varchar(50)",
++      "typeSchema": null,
++      "notNull": false,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "phone",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidates"
++    },
++    {
++      "type": "timestamp",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "now()",
++      "generated": null,
++      "identity": null,
++      "name": "created_at",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "candidates"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "gen_random_uuid()",
++      "generated": null,
++      "identity": null,
++      "name": "id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "interview_feedbacks"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "interview_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "interview_feedbacks"
++    },
++    {
++      "type": "integer",
++      "typeSchema": null,
++      "notNull": false,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "rating",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "interview_feedbacks"
++    },
++    {
++      "type": "text",
++      "typeSchema": null,
++      "notNull": false,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "comments",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "interview_feedbacks"
++    },
++    {
++      "type": "timestamp",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "now()",
++      "generated": null,
++      "identity": null,
++      "name": "submitted_at",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "interview_feedbacks"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "gen_random_uuid()",
++      "generated": null,
++      "identity": null,
++      "name": "id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "interviews"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "application_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "interviews"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "interviewer_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "interviews"
++    },
++    {
++      "type": "timestamp",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "scheduled_at",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "interviews"
++    },
++    {
++      "type": "varchar(50)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "'scheduled'",
++      "generated": null,
++      "identity": null,
++      "name": "status",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "interviews"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "gen_random_uuid()",
++      "generated": null,
++      "identity": null,
++      "name": "id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "job_listings_index"
++    },
++    {
++      "type": "varchar(36)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "tenant_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "job_listings_index"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "job_posting_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "job_listings_index"
++    },
++    {
++      "type": "varchar(255)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "title",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "job_listings_index"
++    },
++    {
++      "type": "text",
++      "typeSchema": null,
++      "notNull": false,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "description",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "job_listings_index"
++    },
++    {
++      "type": "varchar(255)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "company_name",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "job_listings_index"
++    },
++    {
++      "type": "varchar(100)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "company_slug",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "job_listings_index"
++    },
++    {
++      "type": "varchar(50)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "status",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "job_listings_index"
++    },
++    {
++      "type": "timestamp",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "now()",
++      "generated": null,
++      "identity": null,
++      "name": "created_at",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "job_listings_index"
++    },
++    {
++      "type": "timestamp",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "now()",
++      "generated": null,
++      "identity": null,
++      "name": "updated_at",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "job_listings_index"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "gen_random_uuid()",
++      "generated": null,
++      "identity": null,
++      "name": "id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "job_postings"
++    },
++    {
++      "type": "varchar(255)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "title",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "job_postings"
++    },
++    {
++      "type": "text",
++      "typeSchema": null,
++      "notNull": false,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "description",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "job_postings"
++    },
++    {
++      "type": "varchar(50)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "'draft'",
++      "generated": null,
++      "identity": null,
++      "name": "status",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "job_postings"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": false,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "created_by_user_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "job_postings"
++    },
++    {
++      "type": "timestamp",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "now()",
++      "generated": null,
++      "identity": null,
++      "name": "created_at",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "job_postings"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "job_posting_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "job_required_skills"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "skill_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "job_required_skills"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "gen_random_uuid()",
++      "generated": null,
++      "identity": null,
++      "name": "id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "notes"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "application_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "notes"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "author_user_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "notes"
++    },
++    {
++      "type": "text",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "content",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "notes"
++    },
++    {
++      "type": "timestamp",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "now()",
++      "generated": null,
++      "identity": null,
++      "name": "created_at",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "notes"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "gen_random_uuid()",
++      "generated": null,
++      "identity": null,
++      "name": "id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "pipeline_stages"
++    },
++    {
++      "type": "varchar(100)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "name",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "pipeline_stages"
++    },
++    {
++      "type": "integer",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "0",
++      "generated": null,
++      "identity": null,
++      "name": "order",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "pipeline_stages"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "gen_random_uuid()",
++      "generated": null,
++      "identity": null,
++      "name": "id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "refresh_tokens"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "user_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "refresh_tokens"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "tenant_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "refresh_tokens"
++    },
++    {
++      "type": "varchar(255)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "token_hash",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "refresh_tokens"
++    },
++    {
++      "type": "timestamp",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "expires_at",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "refresh_tokens"
++    },
++    {
++      "type": "timestamp",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "now()",
++      "generated": null,
++      "identity": null,
++      "name": "created_at",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "refresh_tokens"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "resume_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "resume_skills"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "skill_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "resume_skills"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "gen_random_uuid()",
++      "generated": null,
++      "identity": null,
++      "name": "id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "resumes"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "candidate_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "resumes"
++    },
++    {
++      "type": "varchar(512)",
++      "typeSchema": null,
++      "notNull": false,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "file_url",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "resumes"
++    },
++    {
++      "type": "text",
++      "typeSchema": null,
++      "notNull": false,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "parsed_text",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "resumes"
++    },
++    {
++      "type": "timestamp",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "now()",
++      "generated": null,
++      "identity": null,
++      "name": "uploaded_at",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "resumes"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "gen_random_uuid()",
++      "generated": null,
++      "identity": null,
++      "name": "id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "skills"
++    },
++    {
++      "type": "varchar(255)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "name",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "skills"
++    },
++    {
++      "type": "varchar(100)",
++      "typeSchema": null,
++      "notNull": false,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "category",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "skills"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "gen_random_uuid()",
++      "generated": null,
++      "identity": null,
++      "name": "id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "tenants"
++    },
++    {
++      "type": "varchar(255)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "name",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "tenants"
++    },
++    {
++      "type": "varchar(100)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "slug",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "tenants"
++    },
++    {
++      "type": "varchar(50)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "'free'",
++      "generated": null,
++      "identity": null,
++      "name": "plan",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "tenants"
++    },
++    {
++      "type": "timestamp",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "now()",
++      "generated": null,
++      "identity": null,
++      "name": "created_at",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "tenants"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "gen_random_uuid()",
++      "generated": null,
++      "identity": null,
++      "name": "id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "user_emails"
++    },
++    {
++      "type": "varchar(255)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "email",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "user_emails"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "tenant_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "user_emails"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "user_id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "user_emails"
++    },
++    {
++      "type": "uuid",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "gen_random_uuid()",
++      "generated": null,
++      "identity": null,
++      "name": "id",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "users"
++    },
++    {
++      "type": "varchar(255)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "email",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "users"
++    },
++    {
++      "type": "varchar(255)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": null,
++      "generated": null,
++      "identity": null,
++      "name": "password_hash",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "users"
++    },
++    {
++      "type": "varchar(50)",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "'OrgAdmin'",
++      "generated": null,
++      "identity": null,
++      "name": "role",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "users"
++    },
++    {
++      "type": "timestamp",
++      "typeSchema": null,
++      "notNull": true,
++      "dimensions": 0,
++      "default": "now()",
++      "generated": null,
++      "identity": null,
++      "name": "created_at",
++      "entityType": "columns",
++      "schema": "public",
++      "table": "users"
++    },
++    {
++      "nameExplicit": true,
++      "columns": [
++        {
++          "value": "job_posting_id",
++          "isExpression": false,
++          "asc": true,
++          "nullsFirst": false,
++          "opclass": null
++        },
++        {
++          "value": "current_stage_id",
++          "isExpression": false,
++          "asc": true,
++          "nullsFirst": false,
++          "opclass": null
++        }
++      ],
++      "isUnique": false,
++      "where": null,
++      "with": "",
++      "method": "btree",
++      "concurrently": false,
++      "name": "idx_applications_job_stage",
++      "entityType": "indexes",
++      "schema": "public",
++      "table": "applications"
++    },
++    {
++      "nameExplicit": true,
++      "columns": [
++        {
++          "value": "tenant_id",
++          "isExpression": false,
++          "asc": true,
++          "nullsFirst": false,
++          "opclass": null
++        },
++        {
++          "value": "action",
++          "isExpression": false,
++          "asc": true,
++          "nullsFirst": false,
++          "opclass": null
++        }
++      ],
++      "isUnique": false,
++      "where": null,
++      "with": "",
++      "method": "btree",
++      "concurrently": false,
++      "name": "idx_audit_logs_tenant_action",
++      "entityType": "indexes",
++      "schema": "public",
++      "table": "audit_logs"
++    },
++    {
++      "nameExplicit": true,
++      "columns": [
++        {
++          "value": "candidate_account_id",
++          "isExpression": false,
++          "asc": true,
++          "nullsFirst": false,
++          "opclass": null
++        }
++      ],
++      "isUnique": false,
++      "where": null,
++      "with": "",
++      "method": "btree",
++      "concurrently": false,
++      "name": "idx_candidate_applications_account",
++      "entityType": "indexes",
++      "schema": "public",
++      "table": "candidate_applications_index"
++    },
++    {
++      "nameExplicit": true,
++      "columns": [
++        {
++          "value": "tenant_id",
++          "isExpression": false,
++          "asc": true,
++          "nullsFirst": false,
++          "opclass": null
++        },
++        {
++          "value": "job_posting_id",
++          "isExpression": false,
++          "asc": true,
++          "nullsFirst": false,
++          "opclass": null
++        }
++      ],
++      "isUnique": false,
++      "where": null,
++      "with": "",
++      "method": "btree",
++      "concurrently": false,
++      "name": "idx_candidate_applications_tenant_job",
++      "entityType": "indexes",
++      "schema": "public",
++      "table": "candidate_applications_index"
++    },
++    {
++      "nameExplicit": true,
++      "columns": [
++        {
++          "value": "candidate_account_id",
++          "isExpression": false,
++          "asc": true,
++          "nullsFirst": false,
++          "opclass": null
++        }
++      ],
++      "isUnique": false,
++      "where": null,
++      "with": "",
++      "method": "btree",
++      "concurrently": false,
++      "name": "idx_candidate_bookmarks_account",
++      "entityType": "indexes",
++      "schema": "public",
++      "table": "candidate_bookmarks"
++    },
++    {
++      "nameExplicit": true,
++      "columns": [
++        {
++          "value": "tenant_id",
++          "isExpression": false,
++          "asc": true,
++          "nullsFirst": false,
++          "opclass": null
++        },
++        {
++          "value": "job_posting_id",
++          "isExpression": false,
++          "asc": true,
++          "nullsFirst": false,
++          "opclass": null
++        }
++      ],
++      "isUnique": false,
++      "where": null,
++      "with": "",
++      "method": "btree",
++      "concurrently": false,
++      "name": "idx_candidate_bookmarks_tenant_job",
++      "entityType": "indexes",
++      "schema": "public",
++      "table": "candidate_bookmarks"
++    },
++    {
++      "nameExplicit": true,
++      "columns": [
++        {
++          "value": "email",
++          "isExpression": false,
++          "asc": true,
++          "nullsFirst": false,
++          "opclass": null
++        }
++      ],
++      "isUnique": false,
++      "where": null,
++      "with": "",
++      "method": "btree",
++      "concurrently": false,
++      "name": "idx_candidates_email",
++      "entityType": "indexes",
++      "schema": "public",
++      "table": "candidates"
++    },
++    {
++      "nameExplicit": true,
++      "columns": [
++        {
++          "value": "interviewer_id",
++          "isExpression": false,
++          "asc": true,
++          "nullsFirst": false,
++          "opclass": null
++        }
++      ],
++      "isUnique": false,
++      "where": null,
++      "with": "",
++      "method": "btree",
++      "concurrently": false,
++      "name": "idx_interviews_interviewer",
++      "entityType": "indexes",
++      "schema": "public",
++      "table": "interviews"
++    },
++    {
++      "nameExplicit": true,
++      "columns": [
++        {
++          "value": "application_id",
++          "isExpression": false,
++          "asc": true,
++          "nullsFirst": false,
++          "opclass": null
++        }
++      ],
++      "isUnique": false,
++      "where": null,
++      "with": "",
++      "method": "btree",
++      "concurrently": false,
++      "name": "idx_interviews_application",
++      "entityType": "indexes",
++      "schema": "public",
++      "table": "interviews"
++    },
++    {
++      "nameExplicit": true,
++      "columns": [
++        {
++          "value": "status",
++          "isExpression": false,
++          "asc": true,
++          "nullsFirst": false,
++          "opclass": null
++        }
++      ],
++      "isUnique": false,
++      "where": null,
++      "with": "",
++      "method": "btree",
++      "concurrently": false,
++      "name": "idx_job_listings_status",
++      "entityType": "indexes",
++      "schema": "public",
++      "table": "job_listings_index"
++    },
++    {
++      "nameExplicit": true,
++      "columns": [
++        {
++          "value": "company_name",
++          "isExpression": false,
++          "asc": true,
++          "nullsFirst": false,
++          "opclass": null
++        }
++      ],
++      "isUnique": false,
++      "where": null,
++      "with": "",
++      "method": "btree",
++      "concurrently": false,
++      "name": "idx_job_listings_company",
++      "entityType": "indexes",
++      "schema": "public",
++      "table": "job_listings_index"
++    },
++    {
++      "nameExplicit": true,
++      "columns": [
++        {
++          "value": "tenant_id",
++          "isExpression": false,
++          "asc": true,
++          "nullsFirst": false,
++          "opclass": null
++        }
++      ],
++      "isUnique": false,
++      "where": null,
++      "with": "",
++      "method": "btree",
++      "concurrently": false,
++      "name": "idx_job_listings_tenant",
++      "entityType": "indexes",
++      "schema": "public",
++      "table": "job_listings_index"
++    },
++    {
++      "nameExplicit": true,
++      "columns": [
++        {
++          "value": "job_posting_id",
++          "isExpression": false,
++          "asc": true,
++          "nullsFirst": false,
++          "opclass": null
++        },
++        {
++          "value": "skill_id",
++          "isExpression": false,
++          "asc": true,
++          "nullsFirst": false,
++          "opclass": null
++        }
++      ],
++      "isUnique": true,
++      "where": null,
++      "with": "",
++      "method": "btree",
++      "concurrently": false,
++      "name": "idx_job_required_skills_unique",
++      "entityType": "indexes",
++      "schema": "public",
++      "table": "job_required_skills"
++    },
++    {
++      "nameExplicit": true,
++      "columns": [
++        {
++          "value": "application_id",
++          "isExpression": false,
++          "asc": true,
++          "nullsFirst": false,
++          "opclass": null
++        }
++      ],
++      "isUnique": false,
++      "where": null,
++      "with": "",
++      "method": "btree",
++      "concurrently": false,
++      "name": "idx_notes_application",
++      "entityType": "indexes",
++      "schema": "public",
++      "table": "notes"
++    },
++    {
++      "nameExplicit": true,
++      "columns": [
++        {
++          "value": "order",
++          "isExpression": false,
++          "asc": true,
++          "nullsFirst": false,
++          "opclass": null
++        }
++      ],
++      "isUnique": false,
++      "where": null,
++      "with": "",
++      "method": "btree",
++      "concurrently": false,
++      "name": "idx_pipeline_stages_order",
++      "entityType": "indexes",
++      "schema": "public",
++      "table": "pipeline_stages"
++    },
++    {
++      "nameExplicit": true,
++      "columns": [
++        {
++          "value": "user_id",
++          "isExpression": false,
++          "asc": true,
++          "nullsFirst": false,
++          "opclass": null
++        }
++      ],
++      "isUnique": false,
++      "where": null,
++      "with": "",
++      "method": "btree",
++      "concurrently": false,
++      "name": "idx_refresh_tokens_user",
++      "entityType": "indexes",
++      "schema": "public",
++      "table": "refresh_tokens"
++    },
++    {
++      "nameExplicit": true,
++      "columns": [
++        {
++          "value": "resume_id",
++          "isExpression": false,
++          "asc": true,
++          "nullsFirst": false,
++          "opclass": null
++        },
++        {
++          "value": "skill_id",
++          "isExpression": false,
++          "asc": true,
++          "nullsFirst": false,
++          "opclass": null
++        }
++      ],
++      "isUnique": true,
++      "where": null,
++      "with": "",
++      "method": "btree",
++      "concurrently": false,
++      "name": "idx_resume_skills_unique",
++      "entityType": "indexes",
++      "schema": "public",
++      "table": "resume_skills"
++    },
++    {
++      "nameExplicit": true,
++      "columns": [
++        {
++          "value": "candidate_id",
++          "isExpression": false,
++          "asc": true,
++          "nullsFirst": false,
++          "opclass": null
++        }
++      ],
++      "isUnique": false,
++      "where": null,
++      "with": "",
++      "method": "btree",
++      "concurrently": false,
++      "name": "idx_resumes_candidate",
++      "entityType": "indexes",
++      "schema": "public",
++      "table": "resumes"
++    },
++    {
++      "nameExplicit": false,
++      "columns": [
++        "candidate_id"
++      ],
++      "schemaTo": "public",
++      "tableTo": "candidates",
++      "columnsTo": [
++        "id"
++      ],
++      "onUpdate": "NO ACTION",
++      "onDelete": "NO ACTION",
++      "name": "applications_candidate_id_candidates_id_fkey",
++      "entityType": "fks",
++      "schema": "public",
++      "table": "applications"
++    },
++    {
++      "nameExplicit": false,
++      "columns": [
++        "job_posting_id"
++      ],
++      "schemaTo": "public",
++      "tableTo": "job_postings",
++      "columnsTo": [
++        "id"
++      ],
++      "onUpdate": "NO ACTION",
++      "onDelete": "NO ACTION",
++      "name": "applications_job_posting_id_job_postings_id_fkey",
++      "entityType": "fks",
++      "schema": "public",
++      "table": "applications"
++    },
++    {
++      "nameExplicit": false,
++      "columns": [
++        "current_stage_id"
++      ],
++      "schemaTo": "public",
++      "tableTo": "pipeline_stages",
++      "columnsTo": [
++        "id"
++      ],
++      "onUpdate": "NO ACTION",
++      "onDelete": "NO ACTION",
++      "name": "applications_current_stage_id_pipeline_stages_id_fkey",
++      "entityType": "fks",
++      "schema": "public",
++      "table": "applications"
++    },
++    {
++      "nameExplicit": false,
++      "columns": [
++        "candidate_account_id"
++      ],
++      "schemaTo": "public",
++      "tableTo": "candidate_accounts",
++      "columnsTo": [
++        "id"
++      ],
++      "onUpdate": "NO ACTION",
++      "onDelete": "NO ACTION",
++      "name": "candidate_applications_index_uYdiuY2jVa7F_fkey",
++      "entityType": "fks",
++      "schema": "public",
++      "table": "candidate_applications_index"
++    },
++    {
++      "nameExplicit": false,
++      "columns": [
++        "candidate_account_id"
++      ],
++      "schemaTo": "public",
++      "tableTo": "candidate_accounts",
++      "columnsTo": [
++        "id"
++      ],
++      "onUpdate": "NO ACTION",
++      "onDelete": "NO ACTION",
++      "name": "candidate_bookmarks_g51nMlw5YP98_fkey",
++      "entityType": "fks",
++      "schema": "public",
++      "table": "candidate_bookmarks"
++    },
++    {
++      "nameExplicit": false,
++      "columns": [
++        "interview_id"
++      ],
++      "schemaTo": "public",
++      "tableTo": "interviews",
++      "columnsTo": [
++        "id"
++      ],
++      "onUpdate": "NO ACTION",
++      "onDelete": "NO ACTION",
++      "name": "interview_feedbacks_interview_id_interviews_id_fkey",
++      "entityType": "fks",
++      "schema": "public",
++      "table": "interview_feedbacks"
++    },
++    {
++      "nameExplicit": false,
++      "columns": [
++        "application_id"
++      ],
++      "schemaTo": "public",
++      "tableTo": "applications",
++      "columnsTo": [
++        "id"
++      ],
++      "onUpdate": "NO ACTION",
++      "onDelete": "NO ACTION",
++      "name": "interviews_application_id_applications_id_fkey",
++      "entityType": "fks",
++      "schema": "public",
++      "table": "interviews"
++    },
++    {
++      "nameExplicit": false,
++      "columns": [
++        "interviewer_id"
++      ],
++      "schemaTo": "public",
++      "tableTo": "users",
++      "columnsTo": [
++        "id"
++      ],
++      "onUpdate": "NO ACTION",
++      "onDelete": "NO ACTION",
++      "name": "interviews_interviewer_id_users_id_fkey",
++      "entityType": "fks",
++      "schema": "public",
++      "table": "interviews"
++    },
++    {
++      "nameExplicit": false,
++      "columns": [
++        "created_by_user_id"
++      ],
++      "schemaTo": "public",
++      "tableTo": "users",
++      "columnsTo": [
++        "id"
++      ],
++      "onUpdate": "NO ACTION",
++      "onDelete": "NO ACTION",
++      "name": "job_postings_created_by_user_id_users_id_fkey",
++      "entityType": "fks",
++      "schema": "public",
++      "table": "job_postings"
++    },
++    {
++      "nameExplicit": false,
++      "columns": [
++        "job_posting_id"
++      ],
++      "schemaTo": "public",
++      "tableTo": "job_postings",
++      "columnsTo": [
++        "id"
++      ],
++      "onUpdate": "NO ACTION",
++      "onDelete": "NO ACTION",
++      "name": "job_required_skills_job_posting_id_job_postings_id_fkey",
++      "entityType": "fks",
++      "schema": "public",
++      "table": "job_required_skills"
++    },
++    {
++      "nameExplicit": false,
++      "columns": [
++        "application_id"
++      ],
++      "schemaTo": "public",
++      "tableTo": "applications",
++      "columnsTo": [
++        "id"
++      ],
++      "onUpdate": "NO ACTION",
++      "onDelete": "NO ACTION",
++      "name": "notes_application_id_applications_id_fkey",
++      "entityType": "fks",
++      "schema": "public",
++      "table": "notes"
++    },
++    {
++      "nameExplicit": false,
++      "columns": [
++        "author_user_id"
++      ],
++      "schemaTo": "public",
++      "tableTo": "users",
++      "columnsTo": [
++        "id"
++      ],
++      "onUpdate": "NO ACTION",
++      "onDelete": "NO ACTION",
++      "name": "notes_author_user_id_users_id_fkey",
++      "entityType": "fks",
++      "schema": "public",
++      "table": "notes"
++    },
++    {
++      "nameExplicit": false,
++      "columns": [
++        "resume_id"
++      ],
++      "schemaTo": "public",
++      "tableTo": "resumes",
++      "columnsTo": [
++        "id"
++      ],
++      "onUpdate": "NO ACTION",
++      "onDelete": "NO ACTION",
++      "name": "resume_skills_resume_id_resumes_id_fkey",
++      "entityType": "fks",
++      "schema": "public",
++      "table": "resume_skills"
++    },
++    {
++      "nameExplicit": false,
++      "columns": [
++        "candidate_id"
++      ],
++      "schemaTo": "public",
++      "tableTo": "candidates",
++      "columnsTo": [
++        "id"
++      ],
++      "onUpdate": "NO ACTION",
++      "onDelete": "NO ACTION",
++      "name": "resumes_candidate_id_candidates_id_fkey",
++      "entityType": "fks",
++      "schema": "public",
++      "table": "resumes"
++    },
++    {
++      "columns": [
++        "id"
++      ],
++      "nameExplicit": false,
++      "name": "applications_pkey",
++      "schema": "public",
++      "table": "applications",
++      "entityType": "pks"
++    },
++    {
++      "columns": [
++        "id"
++      ],
++      "nameExplicit": false,
++      "name": "audit_logs_pkey",
++      "schema": "public",
++      "table": "audit_logs",
++      "entityType": "pks"
++    },
++    {
++      "columns": [
++        "id"
++      ],
++      "nameExplicit": false,
++      "name": "candidate_accounts_pkey",
++      "schema": "public",
++      "table": "candidate_accounts",
++      "entityType": "pks"
++    },
++    {
++      "columns": [
++        "id"
++      ],
++      "nameExplicit": false,
++      "name": "candidate_applications_index_pkey",
++      "schema": "public",
++      "table": "candidate_applications_index",
++      "entityType": "pks"
++    },
++    {
++      "columns": [
++        "id"
++      ],
++      "nameExplicit": false,
++      "name": "candidate_bookmarks_pkey",
++      "schema": "public",
++      "table": "candidate_bookmarks",
++      "entityType": "pks"
++    },
++    {
++      "columns": [
++        "id"
++      ],
++      "nameExplicit": false,
++      "name": "candidates_pkey",
++      "schema": "public",
++      "table": "candidates",
++      "entityType": "pks"
++    },
++    {
++      "columns": [
++        "id"
++      ],
++      "nameExplicit": false,
++      "name": "interview_feedbacks_pkey",
++      "schema": "public",
++      "table": "interview_feedbacks",
++      "entityType": "pks"
++    },
++    {
++      "columns": [
++        "id"
++      ],
++      "nameExplicit": false,
++      "name": "interviews_pkey",
++      "schema": "public",
++      "table": "interviews",
++      "entityType": "pks"
++    },
++    {
++      "columns": [
++        "id"
++      ],
++      "nameExplicit": false,
++      "name": "job_listings_index_pkey",
++      "schema": "public",
++      "table": "job_listings_index",
++      "entityType": "pks"
++    },
++    {
++      "columns": [
++        "id"
++      ],
++      "nameExplicit": false,
++      "name": "job_postings_pkey",
++      "schema": "public",
++      "table": "job_postings",
++      "entityType": "pks"
++    },
++    {
++      "columns": [
++        "id"
++      ],
++      "nameExplicit": false,
++      "name": "notes_pkey",
++      "schema": "public",
++      "table": "notes",
++      "entityType": "pks"
++    },
++    {
++      "columns": [
++        "id"
++      ],
++      "nameExplicit": false,
++      "name": "pipeline_stages_pkey",
++      "schema": "public",
++      "table": "pipeline_stages",
++      "entityType": "pks"
++    },
++    {
++      "columns": [
++        "id"
++      ],
++      "nameExplicit": false,
++      "name": "refresh_tokens_pkey",
++      "schema": "public",
++      "table": "refresh_tokens",
++      "entityType": "pks"
++    },
++    {
++      "columns": [
++        "id"
++      ],
++      "nameExplicit": false,
++      "name": "resumes_pkey",
++      "schema": "public",
++      "table": "resumes",
++      "entityType": "pks"
++    },
++    {
++      "columns": [
++        "id"
++      ],
++      "nameExplicit": false,
++      "name": "skills_pkey",
++      "schema": "public",
++      "table": "skills",
++      "entityType": "pks"
++    },
++    {
++      "columns": [
++        "id"
++      ],
++      "nameExplicit": false,
++      "name": "tenants_pkey",
++      "schema": "public",
++      "table": "tenants",
++      "entityType": "pks"
++    },
++    {
++      "columns": [
++        "id"
++      ],
++      "nameExplicit": false,
++      "name": "user_emails_pkey",
++      "schema": "public",
++      "table": "user_emails",
++      "entityType": "pks"
++    },
++    {
++      "columns": [
++        "id"
++      ],
++      "nameExplicit": false,
++      "name": "users_pkey",
++      "schema": "public",
++      "table": "users",
++      "entityType": "pks"
++    },
++    {
++      "nameExplicit": false,
++      "columns": [
++        "email"
++      ],
++      "nullsNotDistinct": false,
++      "name": "candidate_accounts_email_key",
++      "schema": "public",
++      "table": "candidate_accounts",
++      "entityType": "uniques"
++    },
++    {
++      "nameExplicit": false,
++      "columns": [
++        "interview_id"
++      ],
++      "nullsNotDistinct": false,
++      "name": "interview_feedbacks_interview_id_key",
++      "schema": "public",
++      "table": "interview_feedbacks",
++      "entityType": "uniques"
++    },
++    {
++      "nameExplicit": false,
++      "columns": [
++        "job_posting_id"
++      ],
++      "nullsNotDistinct": false,
++      "name": "job_listings_index_job_posting_id_key",
++      "schema": "public",
++      "table": "job_listings_index",
++      "entityType": "uniques"
++    },
++    {
++      "nameExplicit": false,
++      "columns": [
++        "name"
++      ],
++      "nullsNotDistinct": false,
++      "name": "skills_name_key",
++      "schema": "public",
++      "table": "skills",
++      "entityType": "uniques"
++    },
++    {
++      "nameExplicit": false,
++      "columns": [
++        "slug"
++      ],
++      "nullsNotDistinct": false,
++      "name": "tenants_slug_key",
++      "schema": "public",
++      "table": "tenants",
++      "entityType": "uniques"
++    },
++    {
++      "nameExplicit": false,
++      "columns": [
++        "email"
++      ],
++      "nullsNotDistinct": false,
++      "name": "user_emails_email_key",
++      "schema": "public",
++      "table": "user_emails",
++      "entityType": "uniques"
++    },
++    {
++      "nameExplicit": false,
++      "columns": [
++        "email"
++      ],
++      "nullsNotDistinct": false,
++      "name": "users_email_key",
++      "schema": "public",
++      "table": "users",
++      "entityType": "uniques"
++    }
++  ],
++  "renames": []
++}
+\ No newline at end of file
+diff --git a/backend/src/database/schema.ts b/backend/src/database/schema.ts
+index ac20509..4908245 100644
+--- a/backend/src/database/schema.ts
++++ b/backend/src/database/schema.ts
+@@ -1,148 +1,306 @@
+-import { pgTable, uuid, varchar, text, integer, doublePrecision, timestamp, uniqueIndex, index } from 'drizzle-orm/pg-core';
++import {
++  pgTable,
++  uuid,
++  varchar,
++  text,
++  integer,
++  doublePrecision,
++  timestamp,
++  uniqueIndex,
++  index,
++} from 'drizzle-orm/pg-core';
+ 
+ // ── Public Schema Tables ──
+ 
+ export const tenants = pgTable('tenants', {
+   id: uuid('id').defaultRandom().primaryKey(),
+   name: varchar('name', { length: 255 }).notNull(),
+   slug: varchar('slug', { length: 100 }).notNull().unique(),
+   plan: varchar('plan', { length: 50 }).default('free').notNull(),
+   createdAt: timestamp('created_at').defaultNow().notNull(),
+ });
+ 
+ export const skills = pgTable('skills', {
+   id: uuid('id').defaultRandom().primaryKey(),
+   name: varchar('name', { length: 255 }).notNull().unique(),
+   category: varchar('category', { length: 100 }),
+ });
+ 
+-export const auditLogs = pgTable('audit_logs', {
+-  id: uuid('id').defaultRandom().primaryKey(),
+-  tenantId: varchar('tenant_id', { length: 36 }).notNull(),
+-  userId: varchar('user_id', { length: 36 }).notNull(),
+-  action: varchar('action', { length: 100 }).notNull(),
+-  resourceId: varchar('resource_id', { length: 36 }),
+-  metadata: text('metadata'),
+-  createdAt: timestamp('created_at').defaultNow().notNull(),
+-}, (table) => ({
+-  tenantActionIdx: index('idx_audit_logs_tenant_action').on(table.tenantId, table.action),
+-}));
++export const auditLogs = pgTable(
++  'audit_logs',
++  {
++    id: uuid('id').defaultRandom().primaryKey(),
++    tenantId: varchar('tenant_id', { length: 36 }).notNull(),
++    userId: varchar('user_id', { length: 36 }).notNull(),
++    action: varchar('action', { length: 100 }).notNull(),
++    resourceId: varchar('resource_id', { length: 36 }),
++    metadata: text('metadata'),
++    createdAt: timestamp('created_at').defaultNow().notNull(),
++  },
++  (table) => ({
++    tenantActionIdx: index('idx_audit_logs_tenant_action').on(
++      table.tenantId,
++      table.action,
++    ),
++  }),
++);
+ 
+ export const userEmails = pgTable('user_emails', {
+   id: uuid('id').defaultRandom().primaryKey(),
+   email: varchar('email', { length: 255 }).notNull().unique(),
+   tenantId: uuid('tenant_id').notNull(),
+   userId: uuid('user_id').notNull(),
+ });
+ 
+-export const refreshTokens = pgTable('refresh_tokens', {
+-  id: uuid('id').defaultRandom().primaryKey(),
+-  userId: uuid('user_id').notNull(),
+-  tenantId: uuid('tenant_id').notNull(),
+-  tokenHash: varchar('token_hash', { length: 255 }).notNull(),
+-  expiresAt: timestamp('expires_at').notNull(),
+-  createdAt: timestamp('created_at').defaultNow().notNull(),
+-}, (table) => ({
+-  userIdx: index('idx_refresh_tokens_user').on(table.userId),
+-}));
++export const refreshTokens = pgTable(
++  'refresh_tokens',
++  {
++    id: uuid('id').defaultRandom().primaryKey(),
++    userId: uuid('user_id').notNull(),
++    tenantId: uuid('tenant_id').notNull(),
++    tokenHash: varchar('token_hash', { length: 255 }).notNull(),
++    expiresAt: timestamp('expires_at').notNull(),
++    createdAt: timestamp('created_at').defaultNow().notNull(),
++  },
++  (table) => ({
++    userIdx: index('idx_refresh_tokens_user').on(table.userId),
++  }),
++);
+ 
+ // ── Tenant Schema Tables (recreated per tenant) ──
+ 
+ export const users = pgTable('users', {
+   id: uuid('id').defaultRandom().primaryKey(),
+   email: varchar('email', { length: 255 }).notNull().unique(),
+   passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+   role: varchar('role', { length: 50 }).default('OrgAdmin').notNull(),
+   createdAt: timestamp('created_at').defaultNow().notNull(),
+ });
+ 
+ export const jobPostings = pgTable('job_postings', {
+   id: uuid('id').defaultRandom().primaryKey(),
+   title: varchar('title', { length: 255 }).notNull(),
+   description: text('description'),
+   status: varchar('status', { length: 50 }).default('draft').notNull(),
+   createdByUserId: uuid('created_by_user_id').references(() => users.id),
+   createdAt: timestamp('created_at').defaultNow().notNull(),
+ });
+ 
+-export const candidates = pgTable('candidates', {
+-  id: uuid('id').defaultRandom().primaryKey(),
+-  name: varchar('name', { length: 255 }).notNull(),
+-  email: varchar('email', { length: 255 }),
+-  phone: varchar('phone', { length: 50 }),
+-  createdAt: timestamp('created_at').defaultNow().notNull(),
+-}, (table) => ({
+-  emailIdx: index('idx_candidates_email').on(table.email),
+-}));
++export const candidates = pgTable(
++  'candidates',
++  {
++    id: uuid('id').defaultRandom().primaryKey(),
++    name: varchar('name', { length: 255 }).notNull(),
++    email: varchar('email', { length: 255 }),
++    phone: varchar('phone', { length: 50 }),
++    createdAt: timestamp('created_at').defaultNow().notNull(),
++  },
++  (table) => ({
++    emailIdx: index('idx_candidates_email').on(table.email),
++  }),
++);
+ 
+-export const pipelineStages = pgTable('pipeline_stages', {
+-  id: uuid('id').defaultRandom().primaryKey(),
+-  name: varchar('name', { length: 100 }).notNull(),
+-  order: integer('order').default(0).notNull(),
+-}, (table) => ({
+-  orderIdx: index('idx_pipeline_stages_order').on(table.order),
+-}));
++export const pipelineStages = pgTable(
++  'pipeline_stages',
++  {
++    id: uuid('id').defaultRandom().primaryKey(),
++    name: varchar('name', { length: 100 }).notNull(),
++    order: integer('order').default(0).notNull(),
++  },
++  (table) => ({
++    orderIdx: index('idx_pipeline_stages_order').on(table.order),
++  }),
++);
+ 
+-export const applications = pgTable('applications', {
+-  id: uuid('id').defaultRandom().primaryKey(),
+-  candidateId: uuid('candidate_id').notNull().references(() => candidates.id),
+-  jobPostingId: uuid('job_posting_id').notNull().references(() => jobPostings.id),
+-  currentStageId: uuid('current_stage_id').references(() => pipelineStages.id),
+-  matchScore: doublePrecision('match_score').default(0),
+-  appliedAt: timestamp('applied_at').defaultNow().notNull(),
+-}, (table) => ({
+-  jobStageIdx: index('idx_applications_job_stage').on(table.jobPostingId, table.currentStageId),
+-}));
+-
+-export const resumes = pgTable('resumes', {
+-  id: uuid('id').defaultRandom().primaryKey(),
+-  candidateId: uuid('candidate_id').notNull().references(() => candidates.id),
+-  fileUrl: varchar('file_url', { length: 512 }),
+-  parsedText: text('parsed_text'),
+-  uploadedAt: timestamp('uploaded_at').defaultNow().notNull(),
+-}, (table) => ({
+-  candidateIdx: index('idx_resumes_candidate').on(table.candidateId),
+-}));
+-
+-export const resumeSkills = pgTable('resume_skills', {
+-  resumeId: uuid('resume_id').notNull().references(() => resumes.id),
+-  skillId: uuid('skill_id').notNull(),
+-}, (table) => ({
+-  uniqueIdx: uniqueIndex('idx_resume_skills_unique').on(table.resumeId, table.skillId),
+-}));
+-
+-export const jobRequiredSkills = pgTable('job_required_skills', {
+-  jobPostingId: uuid('job_posting_id').notNull().references(() => jobPostings.id),
+-  skillId: uuid('skill_id').notNull(),
+-}, (table) => ({
+-  uniqueIdx: uniqueIndex('idx_job_required_skills_unique').on(table.jobPostingId, table.skillId),
+-}));
+-
+-export const interviews = pgTable('interviews', {
+-  id: uuid('id').defaultRandom().primaryKey(),
+-  applicationId: uuid('application_id').notNull().references(() => applications.id),
+-  interviewerId: uuid('interviewer_id').notNull().references(() => users.id),
+-  scheduledAt: timestamp('scheduled_at').notNull(),
+-  status: varchar('status', { length: 50 }).default('scheduled').notNull(),
+-}, (table) => ({
+-  interviewerIdx: index('idx_interviews_interviewer').on(table.interviewerId),
+-  applicationIdx: index('idx_interviews_application').on(table.applicationId),
+-}));
++export const applications = pgTable(
++  'applications',
++  {
++    id: uuid('id').defaultRandom().primaryKey(),
++    candidateId: uuid('candidate_id')
++      .notNull()
++      .references(() => candidates.id),
++    jobPostingId: uuid('job_posting_id')
++      .notNull()
++      .references(() => jobPostings.id),
++    currentStageId: uuid('current_stage_id').references(
++      () => pipelineStages.id,
++    ),
++    matchScore: doublePrecision('match_score').default(0),
++    appliedAt: timestamp('applied_at').defaultNow().notNull(),
++  },
++  (table) => ({
++    jobStageIdx: index('idx_applications_job_stage').on(
++      table.jobPostingId,
++      table.currentStageId,
++    ),
++  }),
++);
++
++export const resumes = pgTable(
++  'resumes',
++  {
++    id: uuid('id').defaultRandom().primaryKey(),
++    candidateId: uuid('candidate_id')
++      .notNull()
++      .references(() => candidates.id),
++    fileUrl: varchar('file_url', { length: 512 }),
++    parsedText: text('parsed_text'),
++    uploadedAt: timestamp('uploaded_at').defaultNow().notNull(),
++  },
++  (table) => ({
++    candidateIdx: index('idx_resumes_candidate').on(table.candidateId),
++  }),
++);
++
++export const resumeSkills = pgTable(
++  'resume_skills',
++  {
++    resumeId: uuid('resume_id')
++      .notNull()
++      .references(() => resumes.id),
++    skillId: uuid('skill_id').notNull(),
++  },
++  (table) => ({
++    uniqueIdx: uniqueIndex('idx_resume_skills_unique').on(
++      table.resumeId,
++      table.skillId,
++    ),
++  }),
++);
++
++export const jobRequiredSkills = pgTable(
++  'job_required_skills',
++  {
++    jobPostingId: uuid('job_posting_id')
++      .notNull()
++      .references(() => jobPostings.id),
++    skillId: uuid('skill_id').notNull(),
++  },
++  (table) => ({
++    uniqueIdx: uniqueIndex('idx_job_required_skills_unique').on(
++      table.jobPostingId,
++      table.skillId,
++    ),
++  }),
++);
++
++export const interviews = pgTable(
++  'interviews',
++  {
++    id: uuid('id').defaultRandom().primaryKey(),
++    applicationId: uuid('application_id')
++      .notNull()
++      .references(() => applications.id),
++    interviewerId: uuid('interviewer_id')
++      .notNull()
++      .references(() => users.id),
++    scheduledAt: timestamp('scheduled_at').notNull(),
++    status: varchar('status', { length: 50 }).default('scheduled').notNull(),
++  },
++  (table) => ({
++    interviewerIdx: index('idx_interviews_interviewer').on(table.interviewerId),
++    applicationIdx: index('idx_interviews_application').on(table.applicationId),
++  }),
++);
+ 
+ export const interviewFeedbacks = pgTable('interview_feedbacks', {
+   id: uuid('id').defaultRandom().primaryKey(),
+-  interviewId: uuid('interview_id').notNull().unique().references(() => interviews.id),
++  interviewId: uuid('interview_id')
++    .notNull()
++    .unique()
++    .references(() => interviews.id),
+   rating: integer('rating'),
+   comments: text('comments'),
+   submittedAt: timestamp('submitted_at').defaultNow().notNull(),
+ });
+ 
+-export const notes = pgTable('notes', {
++export const notes = pgTable(
++  'notes',
++  {
++    id: uuid('id').defaultRandom().primaryKey(),
++    applicationId: uuid('application_id')
++      .notNull()
++      .references(() => applications.id),
++    authorUserId: uuid('author_user_id')
++      .notNull()
++      .references(() => users.id),
++    content: text('content').notNull(),
++    createdAt: timestamp('created_at').defaultNow().notNull(),
++  },
++  (table) => ({
++    applicationIdx: index('idx_notes_application').on(table.applicationId),
++  }),
++);
++
++// ── Public Candidate Schema Tables ──
++
++export const candidateAccounts = pgTable('candidate_accounts', {
+   id: uuid('id').defaultRandom().primaryKey(),
+-  applicationId: uuid('application_id').notNull().references(() => applications.id),
+-  authorUserId: uuid('author_user_id').notNull().references(() => users.id),
+-  content: text('content').notNull(),
++  email: varchar('email', { length: 255 }).notNull().unique(),
++  passwordHash: varchar('password_hash', { length: 255 }).notNull(),
++  firstName: varchar('first_name', { length: 100 }).notNull(),
++  lastName: varchar('last_name', { length: 100 }).notNull(),
++  phone: varchar('phone', { length: 50 }),
+   createdAt: timestamp('created_at').defaultNow().notNull(),
+-}, (table) => ({
+-  applicationIdx: index('idx_notes_application').on(table.applicationId),
+-}));
++});
++
++export const candidateBookmarks = pgTable(
++  'candidate_bookmarks',
++  {
++    id: uuid('id').defaultRandom().primaryKey(),
++    candidateAccountId: uuid('candidate_account_id')
++      .notNull()
++      .references(() => candidateAccounts.id),
++    tenantId: varchar('tenant_id', { length: 36 }).notNull(),
++    jobPostingId: uuid('job_posting_id').notNull(),
++    jobTitle: varchar('job_title', { length: 255 }).notNull(),
++    companyName: varchar('company_name', { length: 255 }).notNull(),
++    createdAt: timestamp('created_at').defaultNow().notNull(),
++  },
++  (table) => ({
++    accountIdx: index('idx_candidate_bookmarks_account').on(table.candidateAccountId),
++    tenantJobIdx: index('idx_candidate_bookmarks_tenant_job').on(table.tenantId, table.jobPostingId),
++  }),
++);
++
++export const candidateApplicationsIndex = pgTable(
++  'candidate_applications_index',
++  {
++    id: uuid('id').defaultRandom().primaryKey(),
++    candidateAccountId: uuid('candidate_account_id')
++      .notNull()
++      .references(() => candidateAccounts.id),
++    tenantId: varchar('tenant_id', { length: 36 }).notNull(),
++    jobPostingId: uuid('job_posting_id').notNull(),
++    applicationId: uuid('application_id').notNull(),
++    jobTitle: varchar('job_title', { length: 255 }).notNull(),
++    companyName: varchar('company_name', { length: 255 }).notNull(),
++    status: varchar('status', { length: 50 }).notNull(),
++    appliedAt: timestamp('applied_at').defaultNow().notNull(),
++  },
++  (table) => ({
++    accountIdx: index('idx_candidate_applications_account').on(table.candidateAccountId),
++    tenantJobIdx: index('idx_candidate_applications_tenant_job').on(table.tenantId, table.jobPostingId),
++  }),
++);
++
++export const jobListingsIndex = pgTable(
++  'job_listings_index',
++  {
++    id: uuid('id').defaultRandom().primaryKey(),
++    tenantId: varchar('tenant_id', { length: 36 }).notNull(),
++    jobPostingId: uuid('job_posting_id').notNull().unique(),
++    title: varchar('title', { length: 255 }).notNull(),
++    description: text('description'),
++    companyName: varchar('company_name', { length: 255 }).notNull(),
++    companySlug: varchar('company_slug', { length: 100 }).notNull(),
++    status: varchar('status', { length: 50 }).notNull(),
++    createdAt: timestamp('created_at').defaultNow().notNull(),
++    updatedAt: timestamp('updated_at').defaultNow().notNull(),
++  },
++  (table) => ({
++    statusIdx: index('idx_job_listings_status').on(table.status),
++    companyIdx: index('idx_job_listings_company').on(table.companyName),
++    tenantIdx: index('idx_job_listings_tenant').on(table.tenantId),
++  }),
++);

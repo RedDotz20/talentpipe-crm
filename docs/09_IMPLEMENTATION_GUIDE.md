@@ -96,6 +96,12 @@ Create `backend/src/database/schema.ts` with ALL tables below.
 - `tenants`: id (uuid pk), name (varchar 255), slug (varchar 100, unique), plan (varchar 50, default 'free'), createdAt (timestamp). Unique index on slug.
 - `skills`: id (uuid pk), name (varchar 255, unique), category (varchar 100). Unique index on name.
 - `auditLogs`: id (uuid pk), tenantId (varchar 36), userId (varchar 36), action (varchar 100), resourceId (varchar 36), metadata (text), createdAt (timestamp). Index on (tenantId, action).
+- `candidateAccounts`: id (uuid pk), email (varchar 255, unique), passwordHash (varchar 255), firstName (varchar 255), lastName (varchar 255), phone (varchar 50), createdAt (timestamp). Unique index on email.
+- `candidateBookmarks`: id (uuid pk), candidateAccountId (uuid FK to candidateAccounts.id), tenantId (varchar 36), jobPostingId (uuid FK), createdAt (timestamp). Index on (candidateAccountId, tenantId).
+- `candidateApplicationsIndex`: id (uuid pk), candidateAccountId (uuid FK to candidateAccounts.id), tenantId (varchar 36), jobPostingId (uuid FK), applicationId (uuid), status (varchar 50), appliedAt (timestamp). Index on (candidateAccountId).
+- `jobListingsIndex`: id (uuid pk), tenantId (varchar 36), jobPostingId (uuid, unique), title (varchar 255), description (text), companyName (varchar 255), companySlug (varchar 100), status (varchar 50), createdAt (timestamp), updatedAt (timestamp). Unique index on jobPostingId.
+
+> **Note:** These four tables (candidateAccounts, candidateBookmarks, candidateApplicationsIndex, jobListingsIndex) are in the public schema and are NOT cloned into per-tenant template schemas. They exist once for the entire system — candidate accounts are cross-tenant by design.
 
 **Tenant-schema tables (no tenantId columns):**
 - `users`: id, email (unique), passwordHash, role (default 'OrgAdmin'), createdAt. Unique index on email.
@@ -132,6 +138,8 @@ CREATE TABLE template.interview (LIKE public.interview INCLUDING ALL);
 CREATE TABLE template.interview_feedback (LIKE public.interview_feedback INCLUDING ALL);
 CREATE TABLE template.note (LIKE public.note INCLUDING ALL);
 ```
+
+> **Note:** The four candidate-related public tables (candidate_accounts, candidate_bookmarks, candidate_applications_index, job_listings_index) are NOT cloned into the template schema. They exist only in the public schema — candidate accounts are cross-tenant and must not be tenant-isolated.
 
 ### Step 1.3 — Drizzle provider
 Create `backend/src/database/drizzle.provider.ts` — export `DRIZZLE_PROVIDER` symbol and `drizzleProvider` factory creating a `Pool` from `DATABASE_URL` env + `drizzle(pool)`.
@@ -342,6 +350,8 @@ Create `MatchScoreBadge.tsx` — percentage, green >=70%, yellow >=40%, red <40%
 
 ## Phase 5 — Public Careers & Apply
 
+> **Note:** Phase 5 (public careers) is the unauthenticated flow. Phase 5b (below) adds the authenticated candidate experience. Both coexist.
+
 ### Step 5.1 — Install Redis client
 ```
 cd backend && npm install ioredis
@@ -376,6 +386,94 @@ for i in $(seq 1 25); do curl ...; done  # first 20 -> 200, rest -> 429
 ```
 
 **Commit:** `git add -A && git commit -m "phase5: public careers page and rate-limited apply — backend + frontend"`
+
+---
+
+## Phase 5b — Candidate Accounts & Dashboard
+
+### Step 5b.1 — Add public schema tables
+Add to `backend/src/database/schema.ts`:
+- `candidateAccounts`: id, email (unique), passwordHash, firstName, lastName, phone, createdAt
+- `candidateBookmarks`: id, candidateAccountId (FK → candidateAccounts.id), tenantId, jobPostingId, createdAt
+- `candidateApplicationsIndex`: id, candidateAccountId (FK → candidateAccounts.id), tenantId, jobPostingId, applicationId, status, appliedAt
+- `jobListingsIndex`: id, tenantId, jobPostingId (unique), title, description, companyName, companySlug, status, createdAt, updatedAt
+
+Run: `cd backend && npx drizzle-kit generate && npx drizzle-kit migrate`
+
+### Step 5b.2 — CandidateAuthGuard
+Create `backend/src/shared/candidate-auth.guard.ts`:
+```typescript
+@Injectable()
+export class CandidateAuthGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest();
+    return request.user?.role === 'Candidate';
+  }
+}
+```
+
+### Step 5b.3 — Update AuthModule
+In `auth.controller.ts`: add POST /auth/candidate/signup and POST /auth/candidate/login.
+In `auth.service.ts`: add `candidateSignup(dto)` and `candidateLogin(dto)` — both operate on `candidateAccounts` table (public schema). Return JWT with `{ sub: candidateAccountId, role: 'Candidate' }` (no tenantId).
+
+### Step 5b.4 — Create CandidateAccountModule
+Create `backend/src/modules/candidate-account/` with:
+- `candidate-account.controller.ts` — all /candidate/* endpoints
+- `candidate-account.service.ts` — business logic
+- `candidate-account.module.ts` — imports, providers, guards
+
+Endpoints:
+```
+GET    /candidate/jobs                              — CANDIDATE (list from jobListingsIndex)
+GET    /candidate/jobs/:tenantId/:jobId             — CANDIDATE (job detail)
+POST   /candidate/jobs/:tenantId/:jobId/apply       — CANDIDATE (write to tenant schema + index)
+GET    /candidate/applications                      — CANDIDATE (from candidateApplicationsIndex)
+GET    /candidate/applications/:id                  — CANDIDATE (detail)
+POST   /candidate/bookmarks                         — CANDIDATE (save)
+DELETE /candidate/bookmarks/:id                     — CANDIDATE (remove)
+GET    /candidate/bookmarks                         — CANDIDATE (list)
+GET    /candidate/profile                           — CANDIDATE (view)
+PATCH  /candidate/profile                           — CANDIDATE (update)
+```
+
+### Step 5b.5 — Update ApplicationsModule
+In the stage transition handler (`PATCH /applications/:id/stage`): after updating the tenant's application record, also update `candidateApplicationsIndex` status field for that application.
+
+### Step 5b.6 — Update JobPostingsModule
+In the publish/close handlers (`POST /job-postings/:id/publish`, `POST /job-postings/:id/close`): sync the `jobListingsIndex` table — upsert on publish, update status on close.
+
+### Step 5b.7 — Frontend: Candidate shell & auth
+Create `frontend/src/shared/components/CandidateShell.tsx` — minimal layout (no sidebar, simple header with logo + nav to dashboard/applications/bookmarks/settings).
+
+Create `frontend/src/features/candidate/login/LoginPage.tsx` — email + password form, calls POST /auth/candidate/login.
+Create `frontend/src/features/candidate/signup/SignupPage.tsx` — email + password + name form, calls POST /auth/candidate/signup.
+
+### Step 5b.8 — Frontend: Candidate dashboard
+Create `frontend/src/features/candidate/dashboard/DashboardPage.tsx` — search bar + job listing cards from GET /candidate/jobs.
+Create `frontend/src/features/candidate/applications/ApplicationsPage.tsx` — table of applications with status badges.
+Create `frontend/src/features/candidate/bookmarks/BookmarksPage.tsx` — grid of bookmarked jobs with apply/unbookmark actions.
+Create `frontend/src/features/candidate/settings/SettingsPage.tsx` — profile edit form.
+
+### Step 5b.9 — Frontend routing
+Update `frontend/src/app/router.tsx` — add:
+```
+/candidate/login, /candidate/signup (public)
+/candidate/dashboard, /candidate/applications, /candidate/bookmarks, /candidate/settings (CANDIDATE role, CandidateShell layout)
+```
+
+### Step 5b.10 — Verify
+```
+# Backend
+curl -X POST http://localhost:3000/auth/candidate/signup -d '{"email":"c@c.com","password":"pass","firstName":"Jane","lastName":"Doe"}'  -> { accessToken, refreshToken }
+CANDIDATE_TOKEN=...
+curl http://localhost:3000/candidate/jobs -H "Authorization: Bearer $CANDIDATE_TOKEN"  -> [ { jobs from all tenants } ]
+curl -X POST http://localhost:3000/candidate/jobs/<tenantId>/<jobId>/apply -H "Authorization: Bearer $CANDIDATE_TOKEN"  -> { applicationId }
+
+# Existing unauthenticated apply still works
+curl -X POST http://localhost:3000/public/testcorp/jobs/<id>/apply -d '{"name":"Jane","email":"j@e.com"}'  -> 200
+```
+
+**Commit:** `git add -A && git commit -m "phase5b: candidate accounts and dashboard — backend + frontend"`
 
 ---
 

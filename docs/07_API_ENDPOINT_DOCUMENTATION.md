@@ -10,7 +10,7 @@ All internal (non-public) endpoints are implicitly tenant-scoped via the authent
 
 **Cross-tenant access convention:** if an authenticated request references a resource ID that exists but in another tenant's schema (which should be unreachable via `search_path` scoping), the API returns `404 Not Found` — not `403 Forbidden`. This avoids confirming to a caller that a given resource ID exists in another tenant. The schema boundary ensures this never happens in normal operation. See `05_DATA_ISOLATION_STRATEGY.md` for the full enforcement approach.
 
-Legend for **Roles**: SA = SuperAdmin, OA = Org Admin, R = Recruiter, HM = Hiring Manager, IV = Interviewer, — = any authenticated tenant user, PUBLIC = no auth.
+Legend for **Roles**: SA = SuperAdmin, OA = Org Admin, R = Recruiter, HM = Hiring Manager, IV = Interviewer, — = any authenticated tenant user, PUBLIC = no auth, CANDIDATE = candidate account holder (authenticated)
 
 ---
 
@@ -20,6 +20,8 @@ Legend for **Roles**: SA = SuperAdmin, OA = Org Admin, R = Recruiter, HM = Hirin
 |---|---|---|---|
 | POST | `/auth/signup` | PUBLIC | Creates a new Tenant + first Org Admin user |
 | POST | `/auth/login` | PUBLIC | Returns access + refresh tokens |
+| POST | `/auth/candidate/signup` | PUBLIC | Creates a new candidate account (email, password, name) |
+| POST | `/auth/candidate/login` | PUBLIC | Candidate login, returns access + refresh tokens |
 | POST | `/auth/refresh` | PUBLIC | Exchanges refresh token for new access token |
 | POST | `/auth/logout` | — | Revokes current refresh token |
 
@@ -87,6 +89,21 @@ Note: the primary resume upload path is via `POST /public/:tenantSlug/jobs/:id/a
 | GET | `/interviews/:id` | OA, R, HM, IV (if assigned) | Interview detail |
 | POST | `/interviews/:id/feedback` | IV (if assigned) | Submit rating + comments |
 | PATCH | `/interviews/:id` | OA, R, HM | Reschedule / cancel |
+
+## Candidate (authenticated)
+
+| Method | Path | Roles | Description |
+|---|---|---|---|
+| GET | `/candidate/jobs` | CANDIDATE | List all open jobs across tenants (from job_listings_index), searchable |
+| GET | `/candidate/jobs/:tenantId/:jobId` | CANDIDATE | Job posting detail |
+| POST | `/candidate/jobs/:tenantId/:jobId/apply` | CANDIDATE | Submit application (writes to tenant schema + public index) |
+| GET | `/candidate/applications` | CANDIDATE | Application history with statuses |
+| GET | `/candidate/applications/:id` | CANDIDATE | Application detail |
+| POST | `/candidate/bookmarks` | CANDIDATE | Bookmark a job |
+| DELETE | `/candidate/bookmarks/:id` | CANDIDATE | Remove a bookmark |
+| GET | `/candidate/bookmarks` | CANDIDATE | List bookmarks |
+| GET | `/candidate/profile` | CANDIDATE | View profile |
+| PATCH | `/candidate/profile` | CANDIDATE | Update profile |
 
 ## Skills (shared taxonomy)
 

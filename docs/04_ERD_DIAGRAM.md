@@ -27,11 +27,26 @@ erDiagram
   INTERVIEW ||--o| INTERVIEW_FEEDBACK : produces
   USER ||--o{ NOTE : authors
 
+  CANDIDATE_ACCOUNT ||--o{ CANDIDATE_APPLICATIONS_INDEX : tracks
+  CANDIDATE_ACCOUNT ||--o{ CANDIDATE_BOOKMARK : saves
+  TENANT ||--o{ JOB_LISTINGS_INDEX : indexed_in
+  JOB_POSTING ||--o| JOB_LISTINGS_INDEX : indexed_as
+
   TENANT {
     uuid id PK
     string name
     string slug "used in public careers URL"
     string plan
+    datetime createdAt
+  }
+
+  CANDIDATE_ACCOUNT {
+    uuid id PK
+    string email
+    string passwordHash
+    string firstName
+    string lastName
+    string phone
     datetime createdAt
   }
 
@@ -112,6 +127,37 @@ erDiagram
     text content
     datetime createdAt
   }
+
+  CANDIDATE_APPLICATIONS_INDEX {
+    uuid id PK
+    uuid candidateAccountId FK
+    string tenantId
+    uuid jobPostingId
+    uuid applicationId
+    string status
+    datetime appliedAt
+  }
+
+  CANDIDATE_BOOKMARK {
+    uuid id PK
+    uuid candidateAccountId FK
+    string tenantId
+    uuid jobPostingId
+    datetime createdAt
+  }
+
+  JOB_LISTINGS_INDEX {
+    uuid id PK
+    string tenantId
+    uuid jobPostingId FK
+    string title
+    text description
+    string companyName
+    string companySlug
+    string status
+    datetime createdAt
+    datetime updatedAt
+  }
 ```
 
 ## Notes on Key Design Decisions
@@ -125,6 +171,8 @@ erDiagram
 **`APPLICATION.matchScore`** is denormalized (computed once at application time and stored, not calculated on every read) — recompute it via a background job if the job posting's required skills change after applications already exist.
 
 **No table carries `tenantId`** — isolation is provided by the PostgreSQL schema boundary, not by a column. Each tenant's tables live in their own schema (e.g. `tenant_abc123.job_postings`). The `SKILL` table lives in the `public` schema as a shared taxonomy. When implementing, write an automated test that asserts a query in Tenant A's schema cannot reach Tenant B's schema.
+
+**`CANDIDATE_ACCOUNT` lives in the `public` schema** while per-tenant tables like `candidates`, `applications`, and `job_postings` remain schema-scoped. Cross-schema index tables (`JOB_LISTINGS_INDEX`, `CANDIDATE_APPLICATIONS_INDEX`, `CANDIDATE_BOOKMARK`) act as a bridge, populated by triggers or application-level writes, enabling the candidate dashboard to query across tenants without breaking schema isolation. This avoids querying every tenant schema at runtime while keeping source-of-truth data protected inside tenant boundaries.
 
 ## Isolation Is Enforced at the Schema Level, Not Just in App Code
 

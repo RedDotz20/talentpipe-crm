@@ -13,7 +13,7 @@ Two types of tables:
 
 | Schema | Contents | Access |
 |---|---|---|
-| `public` | `tenant`, `skill`, `audit_log` | SuperAdmin + all tenants (`search_path` fallback) |
+| `public` | `tenant`, `skill`, `audit_log`, `candidate_account`, `candidate_bookmark`, `candidate_applications_index`, `job_listings_index` | Su
 | `tenant_<id>` | `user`, `job_posting`, `candidate`, `application`, `pipeline_stage`, `resume`, `resume_skill`, `job_required_skill`, `interview`, `interview_feedback`, `note` | Tenant-scoped queries via `search_path` |
 
 Tenant schemas are created at signup by cloning a `template` schema. Migrations run against `public` and `template`, then propagate to existing tenant schemas.
@@ -87,11 +87,14 @@ export const auditLogs = pgTable(
   }),
 )
 
-// =============================================================================
-// TENANT-SCOPED TABLES — cloned into each tenant_<id> schema
-// =============================================================================
-
-// --- User ---
+// --- Candidate Account (global, public schema) ---
+export const candidateAccounts = pgTable(
+  'candidate_account',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    email: varchar('email', { length: 255 }).notNull().unique(),
+    passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+    firstN
 export const users = pgTable(
   'user',
   {

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["../AGENTS.md", ".opencode/rules.md"],
+  "references": {
+    "docs": {
+      "path": "../docs",
+      "description": "Project documentation — specs, architecture, ERD, API docs, data model, isolation strategy"
+    }
+  },
+  "watcher": {
+    "ignore": [
+      "node_modules/**",
+      "dist/**",
+      "**/package-lock.json",
+      "**/*.tsbuildinfo",
+      ".git/**",
+      "drizzle/meta/**",
+      "**/*.log"
+    ]
+  }
+}

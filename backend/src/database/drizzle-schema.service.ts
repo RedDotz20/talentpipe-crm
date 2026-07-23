@@ -13,14 +13,16 @@ export class DrizzleSchemaService {
   async forCurrentTenant(): Promise<{ db: DrizzleDB; release: () => void }> {
     const schemaName = getSchema();
     const client = await this.pool.connect();
-    await client.query(`SET search_path TO ${schemaName}, public`);
+    await client.query(`SET search_path TO "${schemaName}", public`);
     const db = drizzle({ client });
     return { db, release: () => client.release() };
   }
 
-  async forSchema(schemaName: string): Promise<{ db: DrizzleDB; release: () => void }> {
+  async forSchema(
+    schemaName: string,
+  ): Promise<{ db: DrizzleDB; release: () => void }> {
     const client = await this.pool.connect();
-    await client.query(`SET search_path TO ${schemaName}, public`);
+    await client.query(`SET search_path TO "${schemaName}", public`);
     const db = drizzle({ client });
     return { db, release: () => client.release() };
   }

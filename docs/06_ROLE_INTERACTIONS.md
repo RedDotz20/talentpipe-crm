@@ -2,7 +2,7 @@
 
 **Purpose:** Defines the six roles, the permission matrix, and per-role frontend/backend behavior flowcharts. Use this to implement both the frontend `<RoleGuard>` and the backend authorization checks consistently. Authoritative role rules are mirrored in `00_PROJECT_INSTRUCTIONS.md` §6.
 
-Six roles: **SuperAdmin, Org Admin, Recruiter, Hiring Manager, Interviewer, Candidate.** SuperAdmin is platform-level (no tenant); the other four internal roles belong to exactly one tenant; Candidate is unauthenticated and external.
+Six roles: **SuperAdmin, Org Admin, Recruiter, Hiring Manager, Interviewer, Candidate.** SuperAdmin is platform-level (no tenant); the other four internal roles belong to exactly one tenant; Candidate is an authenticated global account holder with a personal dashboard (application history, bookmarks, profile).
 
 > **Canonical source:** `00_PROJECT_INSTRUCTIONS.md` supersedes this doc. Where they differ, follow `00_PROJECT_INSTRUCTIONS.md`.
 
@@ -23,8 +23,12 @@ Six roles: **SuperAdmin, Org Admin, Recruiter, Hiring Manager, Interviewer, Cand
 | Schedule interviews | — | ✅ | ✅ | ✅ | — | — |
 | View own assigned interviews | — | — | — | — | ✅ | — |
 | Submit interview feedback | — | — | — | — | ✅ (if assigned) | — |
-| Browse public job listings | — | — | — | — | — | ✅ |
-| Submit an application | — | — | — | — | — | ✅ |
+| Browse public job listings (also works unauthenticated via `/public/*`) | — | — | — | — | — | ✅ |
+| Submit an application (also works unauthenticated via `/public/*`) | — | — | — | — | — | ✅ |
+| View own application history | — | — | — | — | — | ✅ |
+| Bookmark/save jobs | — | — | — | — | — | ✅ |
+| Manage profile | — | — | — | — | — | ✅ |
+| Login to candidate account | — | — | — | — | — | ✅ |
 
 ## 1. SuperAdmin
 
@@ -101,24 +105,28 @@ flowchart LR
   D --> E[Feedback visible to Recruiter/HM]
 ```
 
-## 6. Candidate (unauthenticated, external)
+## 6. Candidate (authenticated, global account)
 
-**Frontend:** `/careers/:tenantSlug` — separate public shell, no login, no dashboard chrome.
-**Backend:** Only `/public/*` routes; every request rate-limited by IP; no session/account created.
+**Frontend:** `/candidate/*` route tree, separate `CandidateShell` layout (minimal chrome, no AppShell sidebar). Logged-in candidates have a dashboard showing all open jobs across tenants, application history with real-time statuses, and bookmarked/saved jobs.
+
+**Backend:** JWT with `role: 'Candidate'` and no `tenantId`. All `/candidate/*` routes use `CandidateAuthGuard`. Operates in the public schema — tenant data is accessed via cross-schema index tables (`job_listings_index`, `candidate_applications_index`).
+
+**Dual apply path:** The original unauthenticated public apply (`POST /public/:tenantSlug/jobs/:id/apply`) still works for candidates without accounts. Authenticated candidates should use the `/candidate/jobs/:tenantId/:jobId/apply` endpoint instead.
 
 ```mermaid
 flowchart LR
-  A[Candidate visits careers page] --> B[Browse open job postings]
-  B --> C[Select a job]
-  C --> D[Fill application form]
-  D --> E[Upload resume]
-  E --> F[Submit]
-  F --> G{Rate limit check}
-  G -->|Under limit| H[Application queued for processing]
-  G -->|Over limit| I[429 — try again later]
-  H --> J[Resume parsed + skill-matched in background]
+  A[Candidate signs up] --> B[Candidate dashboard]
+  B --> C[Search all open jobs]
+  C --> D[View job detail]
+  D --> E[Apply with saved profile]
+  D --> F[Bookmark for later]
+  B --> G[View application history]
+  G --> H[See real-time status per tenant]
+  H --> I[Follow up interview invites]
 ```
 
 ## Key Enforcement Reminder
 
 Every non-SuperAdmin, non-Candidate role check above has **two layers**: the frontend `RoleGuard` (hides UI the user shouldn't see) and the backend authorization check (actually blocks the request). The frontend layer is for UX only — the backend layer is what makes it secure. Never rely on the frontend guard alone; write a backend test per role that asserts a forbidden action returns 403, not just that the button is hidden.
+
+Candidate accounts are a special case — they live in the public schema and have no tenantId. Their role is 'Candidate' and they are authenticated but operate outside the tenant context. A separate `CandidateAuthGuard` protects `/candidate/*` routes.

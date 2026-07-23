@@ -22,7 +22,14 @@ import { UserRepository } from '../../repositories/user.repository';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, DrizzleSchemaService, drizzleProvider, TenantRepository, UserRepository],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    DrizzleSchemaService,
+    drizzleProvider,
+    TenantRepository,
+    UserRepository,
+  ],
   exports: [JwtStrategy, PassportModule],
 })
 export class AuthModule {}

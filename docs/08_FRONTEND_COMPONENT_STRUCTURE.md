@@ -19,6 +19,7 @@ React + TypeScript + Mantine + TanStack Query/Router. Feature-folder structure, 
     /dashboard
     /job-postings
     /candidates
+    /candidate               # candidate-facing (separate shell)
     /pipeline
     /resumes
     /interviews
@@ -27,6 +28,7 @@ React + TypeScript + Mantine + TanStack Query/Router. Feature-folder structure, 
     /platform                # SuperAdmin-only, cross-tenant
   /shared
     /components
+    CandidateShell.tsx
     /hooks
     /api
     /types
@@ -49,9 +51,16 @@ React + TypeScript + Mantine + TanStack Query/Router. Feature-folder structure, 
 /org/settings            → Org Admin only
 /org/users                → Org Admin only
 /platform/*                → SuperAdmin only (separate route tree, not nested under /org)
+
+/candidate/login           → public (candidate auth)
+/candidate/signup          → public (candidate auth)
+/candidate/dashboard       → Candidate (job search)
+/candidate/applications    → Candidate (history)
+/candidate/bookmarks       → Candidate (saved jobs)
+/candidate/settings        → Candidate (profile)
 ```
 
-A `<RoleGuard roles={[...]}>` wrapper component (in `/shared/components`) checks the current user's role from `useAuth()` and either renders children or redirects/shows a 403 view. `/platform/*` uses a distinct top-level layout (`PlatformShell`) rather than reusing the tenant dashboard shell, since a SuperAdmin isn't scoped to one tenant.
+A `<RoleGuard roles={[...]}>` wrapper component (in `/shared/components`) checks the current user's role from `useAuth()` and either renders children or redirects/shows a 403 view. `/platform/*` uses a distinct top-level layout (`PlatformShell`) rather than reusing the tenant dashboard shell, since a SuperAdmin isn't scoped to one tenant. `/candidate/*` routes use `CandidateShell.tsx` — a separate layout with no admin chrome, styled for job-seeking candidates.
 
 ## 3. Feature Modules
 
@@ -109,11 +118,21 @@ A `<RoleGuard roles={[...]}>` wrapper component (in `/shared/components`) checks
 - `TenantDetail.tsx` — usage stats, suspend/reactivate
 - `PlatformStats.tsx`
 
+### `/features/candidate` (authenticated, separate shell)
+- `LoginPage.tsx` — candidate login (separate from org login)
+- `SignupPage.tsx` — candidate registration (email, password, name)
+- `DashboardPage.tsx` — job search/browse across all tenants
+- `JobDetailPage.tsx` — full job posting detail with Apply/Bookmark buttons
+- `ApplicationsPage.tsx` — application history with status badges per tenant
+- `BookmarksPage.tsx` — saved/bookmarked jobs list
+- `SettingsPage.tsx` — profile editing (name, email, password)
+
 ## 4. Shared Layer
 
 `/shared/components`
 - `AppShell.tsx` — sidebar + topbar layout for internal dashboard
 - `PlatformShell.tsx` — separate shell for SuperAdmin views
+- `CandidateShell.tsx` — separate shell for candidate-facing pages
 - `DataTable.tsx` — thin wrapper around Mantine's table + TanStack Table for sorting/pagination
 - `EmptyState.tsx`, `ConfirmDialog.tsx`, `FileUploadZone.tsx`, `RoleGuard.tsx`
 
@@ -135,3 +154,4 @@ A `<RoleGuard roles={[...]}>` wrapper component (in `/shared/components`) checks
 5. Public careers pages (separate shell, no auth)
 6. Interviews + feedback
 7. Admin (`/org/settings`, `/org/users`) and Platform (`/platform/*`) views last — least visually interesting, least urgent for a demo
+8. Candidate accounts — signup, job search, applications, bookmarks (cross-tenant index tables required)

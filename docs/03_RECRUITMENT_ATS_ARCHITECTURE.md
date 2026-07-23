@@ -62,7 +62,21 @@ Interview (tenant's schema)
 
 Note (tenant's schema)
  └─ id, applicationId, authorId, content, createdAt
+
+CandidateAccount (lives in `public` schema — global identity)
+ └─ id, email, passwordHash, firstName, lastName, phone
+
+CandidateApplicationsIndex (lives in `public` schema — cross-tenant)
+ └─ id, candidateAccountId, tenantId, jobPostingId, applicationId, status, appliedAt
+
+CandidateBookmark (lives in `public` schema)
+ └─ id, candidateAccountId, tenantId, jobPostingId, createdAt
+
+JobListingsIndex (lives in `public` schema — cross-tenant)
+ └─ id, tenantId, jobPostingId, title, description, companyName, companySlug, status, createdAt
 ```
+
+**Candidates exist in two forms:** (1) global `candidate_accounts` in the public schema (auth identity + profile), and (2) per-tenant `candidates` records (snapshot at application time for the tenant's hiring context).
 
 **Skill matching** doesn't need ML to be legitimate for this project: extract skill keywords from parsed resume text against your `Skill` taxonomy (simple normalized string/token matching — e.g. "React.js", "ReactJS", "React" all map to one Skill row), then compute `matchScore` as `(matched required skills / total required skills)`. That's honest, testable, and explainable. If you want a v2 flex later, swapping in embeddings-based semantic matching (via a free local model or OpenAI embeddings) becomes a clean "here's how I'd improve it" answer in interviews — don't build that first.
 
@@ -77,6 +91,7 @@ Note (tenant's schema)
 | `UsersModule` | Recruiters/admins within a tenant, invites |
 | `JobPostingsModule` | CRUD on job postings, required-skills config |
 | `CandidatesModule` | Candidate records (created via public apply or manual entry) |
+| `CandidateAccountModule` | Candidate auth (signup/login), global `/candidate/*` API: dashboard, job search, applications history, bookmarks, profile |
 | `ApplicationsModule` | The pipeline — stage transitions, Kanban board data, notes |
 | `ResumeModule` | File upload, text extraction, skill extraction |
 | `SkillMatchingModule` | Score computation against a JobPosting's requirements |
@@ -111,6 +126,17 @@ POST   /interviews/:id/feedback
 -- Public, unauthenticated, rate-limited --
 GET    /public/:tenantSlug/jobs                  (careers page listing)
 POST   /public/:tenantSlug/jobs/:id/apply         (candidate submits application + resume)
+
+-- Candidate (authenticated, cross-tenant) --
+GET    /candidate/jobs                       (list open jobs from index)
+POST   /candidate/jobs/:tenantId/:jobId/apply (apply with account)
+GET    /candidate/applications                (history)
+POST   /candidate/bookmarks
+DELETE /candidate/bookmarks/:id
+
+-- Candidate auth --
+POST   /auth/candidate/signup
+POST   /auth/candidate/login
 ```
 
 ---
@@ -137,6 +163,7 @@ This gives you **three distinct, explainable Redis use cases** instead of one �
     /auth
     /job-postings
     /pipeline          (Kanban board — dnd-kit for drag/drop stage changes)
+    /candidate
     /candidates
     /interviews
     /public-careers    (separate unauthenticated route group — job listing + apply form)
@@ -166,6 +193,7 @@ Feature-folder structure matches what you already prefer. The Kanban pipeline bo
 3. Applications/Pipeline module — get the Kanban board working end-to-end
 4. Resume upload (local disk first) → text extraction → skill extraction → matchScore
 5. Public careers page + public apply endpoint, unauthenticated
+5b. Candidate accounts + dashboard — `candidate_accounts` auth, job search, apply-as-candidate, bookmarks, history
 6. Redis: rate limiting on public apply + login, dashboard query caching
 7. BullMQ: move resume parsing and notification emails to background jobs
 8. Interviews module + feedback
