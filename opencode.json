@@ -1,0 +1,61 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "AGENTS.md"
+  ],
+  "references": {
+    "docs": {
+      "path": "docs",
+      "description": "Project documentation index — specs, architecture, ERD, API docs, data model, implementation guide"
+    }
+  },
+  "plugin": [
+    "superpowers@git+https://github.com/obra/superpowers.git"
+  ],
+  "watcher": {
+    "ignore": [
+      "node_modules/**",
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/build/**",
+      "**/.next/**",
+      "**/.turbo/**",
+      "**/.tanstack/**",
+      "**/volumes/**",
+      "**/package-lock.json",
+      "**/pnpm-lock.yaml",
+      "**/yarn.lock",
+      "**/*.tsbuildinfo",
+      ".git/**",
+      "**/.git/**",
+      "drizzle/**/meta/**",
+      "**/*.log",
+      "**/.eslintcache"
+    ]
+  },
+  "agent": {
+    "talentpipe-planning": {
+      "description": "TalentPipe Architect & Planner — focus on logic design, ERD mapping, and step-by-step milestone tracking without code generation blocks",
+      "instructions": "agents/talentpipe-planning.md",
+      "mode": "all"
+    },
+    "talentpipe-builder": {
+      "description": "TalentPipe Core Software Engineer — writes clean, functional code (No OOP) for NestJS repositories and React/Mantine features",
+      "instructions": "agents/talentpipe-builder.md",
+      "mode": "all"
+    },
+    "talentpipe-debugger": {
+      "description": "TalentPipe Bugger & QA Specialist — diagnoses schema isolation failures, eslint/oxlint errors, and Jest testing failures",
+      "instructions": "agents/talentpipe-debugger.md",
+      "mode": "all"
+    }
+  },
+  "permission": {
+    "skill": {
+      "superpowers-*": "allow"
+    },
+    "tools": {
+      "*-mcp_*": "allow"
+    }
+  }
+}
