@@ -10,11 +10,23 @@ import { ApplicationsPage } from '../features/candidate/applications/Application
 import { BookmarksPage } from '../features/candidate/bookmarks/BookmarksPage';
 import { SettingsPage } from '../features/candidate/settings/SettingsPage';
 
+import { Link } from '@tanstack/react-router';
+import { Container, Title, Text, Button } from '@mantine/core';
+
 const rootRoute = new RootRoute({
   component: AppShell,
+  notFoundComponent: () => (
+    <Container ta="center" py="xl">
+      <Title>404</Title>
+      <Text c="dimmed" mb="lg">Page not found</Text>
+      <Button component={Link} to="/dashboard">Go home</Button>
+    </Container>
+  ),
 });
 
-const candidateRootRoute = new RootRoute({
+const candidateLayoutRoute = new Route({
+  getParentRoute: () => rootRoute,
+  id: 'candidate',
   component: CandidateShell,
 });
 
@@ -37,44 +49,44 @@ const dashboardRoute = new Route({
 });
 
 const candidateLoginRoute = new Route({
-  getParentRoute: () => candidateRootRoute,
+  getParentRoute: () => candidateLayoutRoute,
   path: '/candidate/login',
   component: CandidateLoginPage,
 });
 
 const candidateSignupRoute = new Route({
-  getParentRoute: () => candidateRootRoute,
+  getParentRoute: () => candidateLayoutRoute,
   path: '/candidate/signup',
   component: CandidateSignupPage,
 });
 
 const candidateDashboardRoute = new Route({
-  getParentRoute: () => candidateRootRoute,
+  getParentRoute: () => candidateLayoutRoute,
   path: '/candidate/dashboard',
   component: JobSearchPage,
 });
 
 const candidateApplicationsRoute = new Route({
-  getParentRoute: () => candidateRootRoute,
+  getParentRoute: () => candidateLayoutRoute,
   path: '/candidate/applications',
   component: ApplicationsPage,
 });
 
 const candidateBookmarksRoute = new Route({
-  getParentRoute: () => candidateRootRoute,
+  getParentRoute: () => candidateLayoutRoute,
   path: '/candidate/bookmarks',
   component: BookmarksPage,
 });
 
 const candidateSettingsRoute = new Route({
-  getParentRoute: () => candidateRootRoute,
+  getParentRoute: () => candidateLayoutRoute,
   path: '/candidate/settings',
   component: SettingsPage,
 });
 
 const routeTree = rootRoute.addChildren([
   loginRoute, signupRoute, dashboardRoute,
-  candidateRootRoute.addChildren([
+  candidateLayoutRoute.addChildren([
     candidateLoginRoute, candidateSignupRoute, candidateDashboardRoute, candidateApplicationsRoute, candidateBookmarksRoute, candidateSettingsRoute,
   ]),
 ]);
