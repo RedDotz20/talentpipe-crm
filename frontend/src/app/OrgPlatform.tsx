@@ -4,7 +4,7 @@ import { useDisclosure } from '@mantine/hooks';
 import { IconDashboard, IconBriefcase, IconUsers, IconLayoutKanban, IconCalendarEvent } from '@tabler/icons-react';
 import { useAuthStore } from '../shared/api/useAuth';
 
-export function AppShell() {
+export function OrgPlatform() {
   const [opened] = useDisclosure();
   const isAuth = useAuthStore((s) => s.isAuthenticated());
   const role = useAuthStore((s) => s.role);

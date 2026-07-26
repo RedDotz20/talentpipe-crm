@@ -1,7 +1,7 @@
-import { createRouter, Route, RootRoute } from '@tanstack/react-router';
+import { createRouter, Route, RootRoute, redirect } from '@tanstack/react-router';
 import { LoginPage } from '../features/auth/LoginPage';
 import { SignupPage } from '../features/auth/SignupPage';
-import { AppShell } from './AppShell';
+import { OrgPlatform } from './OrgPlatform';
 import { CandidateShell } from '../shared/components/CandidateShell';
 import { CandidateLoginPage } from '../features/candidate/login/LoginPage';
 import { CandidateSignupPage } from '../features/candidate/signup/SignupPage';
@@ -9,12 +9,13 @@ import { JobSearchPage } from '../features/candidate/dashboard/JobSearchPage';
 import { ApplicationsPage } from '../features/candidate/applications/ApplicationsPage';
 import { BookmarksPage } from '../features/candidate/bookmarks/BookmarksPage';
 import { SettingsPage } from '../features/candidate/settings/SettingsPage';
+import { useAuthStore } from '../shared/api/useAuth';
 
 import { Link } from '@tanstack/react-router';
 import { Container, Title, Text, Button } from '@mantine/core';
 
 const rootRoute = new RootRoute({
-  component: AppShell,
+  component: OrgPlatform,
   notFoundComponent: () => (
     <Container ta="center" py="xl">
       <Title>404</Title>
@@ -30,15 +31,26 @@ const candidateLayoutRoute = new Route({
   component: CandidateShell,
 });
 
+function redirectToDashboard() {
+  const { role, isAuthenticated } = useAuthStore.getState();
+  if (!isAuthenticated()) return;
+  if (role === 'Candidate') {
+    throw redirect({ to: '/candidate/dashboard' });
+  }
+  throw redirect({ to: '/dashboard' });
+}
+
 const loginRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/login',
+  beforeLoad: redirectToDashboard,
   component: LoginPage,
 });
 
 const signupRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/signup',
+  beforeLoad: redirectToDashboard,
   component: SignupPage,
 });
 
@@ -51,12 +63,22 @@ const dashboardRoute = new Route({
 const candidateLoginRoute = new Route({
   getParentRoute: () => candidateLayoutRoute,
   path: '/candidate/login',
+  beforeLoad: () => {
+    if (useAuthStore.getState().isAuthenticated()) {
+      throw redirect({ to: '/candidate/dashboard' });
+    }
+  },
   component: CandidateLoginPage,
 });
 
 const candidateSignupRoute = new Route({
   getParentRoute: () => candidateLayoutRoute,
   path: '/candidate/signup',
+  beforeLoad: () => {
+    if (useAuthStore.getState().isAuthenticated()) {
+      throw redirect({ to: '/candidate/dashboard' });
+    }
+  },
   component: CandidateSignupPage,
 });
 
