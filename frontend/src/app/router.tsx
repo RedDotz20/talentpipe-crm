@@ -2,6 +2,7 @@ import { createRouter, Route, RootRoute, redirect } from '@tanstack/react-router
 import { LoginPage } from '../features/auth/LoginPage';
 import { SignupPage } from '../features/auth/SignupPage';
 import { OrgPlatform } from './OrgPlatform';
+import { SuperAdminPlatform } from './SuperAdminPlatform';
 import { CandidatePlatform } from '../shared/components/CandidatePlatform';
 import { CandidateLoginPage } from '../features/candidate/login/LoginPage';
 import { CandidateSignupPage } from '../features/candidate/signup/SignupPage';
@@ -9,13 +10,25 @@ import { JobSearchPage } from '../features/candidate/dashboard/JobSearchPage';
 import { ApplicationsPage } from '../features/candidate/applications/ApplicationsPage';
 import { BookmarksPage } from '../features/candidate/bookmarks/BookmarksPage';
 import { SettingsPage } from '../features/candidate/settings/SettingsPage';
+import { TenantsPage } from '../features/admin/TenantsPage';
 import { useAuthStore } from '../shared/api/useAuth';
 
 import { Link } from '@tanstack/react-router';
 import { Container, Title, Text, Button } from '@mantine/core';
 
+function redirectToDashboard() {
+  const { role, isAuthenticated } = useAuthStore.getState();
+  if (!isAuthenticated()) return;
+  if (role === 'Candidate') {
+    throw redirect({ to: '/candidate/dashboard' });
+  }
+  if (role === 'SuperAdmin') {
+    throw redirect({ to: '/platform/tenants' });
+  }
+  throw redirect({ to: '/dashboard' });
+}
+
 const rootRoute = new RootRoute({
-  component: OrgPlatform,
   notFoundComponent: () => (
     <Container ta="center" py="xl">
       <Title>404</Title>
@@ -24,21 +37,6 @@ const rootRoute = new RootRoute({
     </Container>
   ),
 });
-
-const candidateLayoutRoute = new Route({
-  getParentRoute: () => rootRoute,
-  id: 'candidate',
-  component: CandidatePlatform,
-});
-
-function redirectToDashboard() {
-  const { role, isAuthenticated } = useAuthStore.getState();
-  if (!isAuthenticated()) return;
-  if (role === 'Candidate') {
-    throw redirect({ to: '/candidate/dashboard' });
-  }
-  throw redirect({ to: '/dashboard' });
-}
 
 const loginRoute = new Route({
   getParentRoute: () => rootRoute,
@@ -54,10 +52,40 @@ const signupRoute = new Route({
   component: SignupPage,
 });
 
-const dashboardRoute = new Route({
+// ── Org Platform (OrgAdmin, Recruiter, HiringManager, Interviewer) ──
+
+const orgLayoutRoute = new Route({
   getParentRoute: () => rootRoute,
+  id: 'org',
+  component: OrgPlatform,
+});
+
+const orgDashboardRoute = new Route({
+  getParentRoute: () => orgLayoutRoute,
   path: '/dashboard',
   component: () => <div>Dashboard</div>,
+});
+
+// ── SuperAdmin Platform ──
+
+const superAdminLayoutRoute = new Route({
+  getParentRoute: () => rootRoute,
+  id: 'super-admin',
+  component: SuperAdminPlatform,
+});
+
+const tenantsRoute = new Route({
+  getParentRoute: () => superAdminLayoutRoute,
+  path: '/platform/tenants',
+  component: TenantsPage,
+});
+
+// ── Candidate Platform ──
+
+const candidateLayoutRoute = new Route({
+  getParentRoute: () => rootRoute,
+  id: 'candidate',
+  component: CandidatePlatform,
 });
 
 const candidateLoginRoute = new Route({
@@ -107,9 +135,12 @@ const candidateSettingsRoute = new Route({
 });
 
 const routeTree = rootRoute.addChildren([
-  loginRoute, signupRoute, dashboardRoute,
+  loginRoute, signupRoute,
+  orgLayoutRoute.addChildren([orgDashboardRoute]),
+  superAdminLayoutRoute.addChildren([tenantsRoute]),
   candidateLayoutRoute.addChildren([
-    candidateLoginRoute, candidateSignupRoute, candidateDashboardRoute, candidateApplicationsRoute, candidateBookmarksRoute, candidateSettingsRoute,
+    candidateLoginRoute, candidateSignupRoute, candidateDashboardRoute,
+    candidateApplicationsRoute, candidateBookmarksRoute, candidateSettingsRoute,
   ]),
 ]);
 
