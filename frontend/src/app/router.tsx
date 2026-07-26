@@ -2,7 +2,7 @@ import { createRouter, Route, RootRoute, redirect } from '@tanstack/react-router
 import { LoginPage } from '../features/auth/LoginPage';
 import { SignupPage } from '../features/auth/SignupPage';
 import { OrgPlatform } from './OrgPlatform';
-import { CandidateShell } from '../shared/components/CandidateShell';
+import { CandidatePlatform } from '../shared/components/CandidatePlatform';
 import { CandidateLoginPage } from '../features/candidate/login/LoginPage';
 import { CandidateSignupPage } from '../features/candidate/signup/SignupPage';
 import { JobSearchPage } from '../features/candidate/dashboard/JobSearchPage';
@@ -28,7 +28,7 @@ const rootRoute = new RootRoute({
 const candidateLayoutRoute = new Route({
   getParentRoute: () => rootRoute,
   id: 'candidate',
-  component: CandidateShell,
+  component: CandidatePlatform,
 });
 
 function redirectToDashboard() {

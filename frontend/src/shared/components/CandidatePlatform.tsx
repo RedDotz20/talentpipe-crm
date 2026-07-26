@@ -2,7 +2,7 @@ import { Container, Group, Title, Anchor, Button } from '@mantine/core';
 import { Outlet, useNavigate } from '@tanstack/react-router';
 import { useAuthStore } from '../api/useAuth';
 
-export function CandidateShell() {
+export function CandidatePlatform() {
   const navigate = useNavigate();
   const role = useAuthStore((s) => s.role);
   const logout = useAuthStore((s) => s.logout);
