@@ -1,11 +1,1 @@
-Task 1: complete (commits 2128021..2128021, review clean)
-Task 2: complete (commits 2128021..4c09157, review clean)
-Task 3: complete (commits 4c09157..ac2a4da, review clean)
-Task 4: complete (commits ac2a4da..03b939f, review clean)
-Task 5: complete (commits 03b939f..79a3616, review clean)
-Task 1: complete (commits c414666..a85c575, review clean)
-Task 2: complete (commits a85c575..104c6b2, review clean)
-Task 3: complete (commits 104c6b2..87c8b47, review clean — noted login.tsx redirects will be replaced in Task 4)
-Task 4: complete (commits 87c8b47..3be19ea, review clean)
-Task 5: complete (commits 3be19ea..e3612dd + fix 3aeab35, review clean after fixes)
-Task 6: complete (commits 3aeab35..d8424fc, review clean)
+

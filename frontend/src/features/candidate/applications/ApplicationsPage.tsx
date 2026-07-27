@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { Title, Table, Badge, Loader, Group, Text } from '@mantine/core';
+import { Title, Table, Badge, Loader, Group, Text, Alert } from '@mantine/core';
 import { useAuthStore } from '../../../shared/api/useAuth';
+import { useApplications } from '../../../shared/hooks/useApplications';
 
 interface Application {
   id: string;
@@ -21,45 +21,16 @@ const statusColors: Record<string, string> = {
 };
 
 export function ApplicationsPage() {
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const navigate = useNavigate();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
+  const { data: applications = [], isLoading, error } = useApplications();
 
-  const apiBase = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
+  if (!isAuthenticated) {
+    navigate({ to: '/auth/signin' });
+    return null;
+  }
 
-  const getAuthHeaders = (): Record<string, string> => {
-    const token = useAuthStore.getState().accessToken;
-    return {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
-  };
-
-  useEffect(() => {
-    const token = useAuthStore.getState().accessToken;
-    if (!token) {
-      navigate({ to: '/auth/signin' });
-      return;
-    }
-
-    setLoading(true);
-    fetch(`${apiBase}/candidate/applications`, { headers: getAuthHeaders() })
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch applications');
-        return res.json();
-      })
-      .then((data) => {
-        setApplications(Array.isArray(data) ? data : data.applications ?? []);
-        setLoading(false);
-      })
-      .catch(() => {
-        setError('Failed to load applications');
-        setLoading(false);
-      });
-  }, []);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <Group justify="center" py="xl">
         <Loader />
@@ -68,14 +39,14 @@ export function ApplicationsPage() {
   }
 
   if (error) {
-    return <Text c="red">{error}</Text>;
+    return <Alert color="red">Failed to load applications: {error.message}</Alert>;
   }
 
   if (applications.length === 0) {
     return <Text>No applications yet</Text>;
   }
 
-  const rows = applications.map((app) => (
+  const rows = applications.map((app: Application) => (
     <Table.Tr key={app.id}>
       <Table.Td>{app.jobTitle}</Table.Td>
       <Table.Td>{app.companyName}</Table.Td>

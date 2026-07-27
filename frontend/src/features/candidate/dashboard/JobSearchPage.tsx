@@ -1,21 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Card, Text, Title, Badge, Button, Group, Stack, Loader, Modal, TextInput, Textarea, Alert } from '@mantine/core';
 import { useAuthStore } from '../../../shared/api/useAuth';
-
-interface Job {
-  id: string;
-  title: string;
-  companyName: string;
-  location: string;
-  employmentType: string;
-}
+import { useJobs } from '../../../shared/hooks/useJobs';
+import { useApply } from '../../../shared/hooks/useApply';
+import type { Job } from '../../../shared/hooks/useJobs';
 
 export function JobSearchPage() {
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const navigate = useNavigate();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
+  const { data: jobs = [], isLoading: jobsLoading, error: jobsError } = useJobs();
+  const { mutate: apply, isPending: isApplying, reset: resetApply } = useApply();
 
   // Apply modal state
   const [applyModalOpen, setApplyModalOpen] = useState(false);
@@ -26,42 +21,29 @@ export function JobSearchPage() {
   const [applyPhone, setApplyPhone] = useState('');
   const [applyCoverLetter, setApplyCoverLetter] = useState('');
   const [applyResumeUrl, setApplyResumeUrl] = useState('');
-  const [applySubmitting, setApplySubmitting] = useState(false);
   const [applySuccess, setApplySuccess] = useState(false);
   const [applyError, setApplyError] = useState('');
 
-  const apiBase = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
+  if (!isAuthenticated) {
+    navigate({ to: '/auth/signin' });
+    return null;
+  }
 
-  const getAuthHeaders = (): Record<string, string> => {
-    const token = useAuthStore.getState().accessToken;
-    return {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
-  };
+  if (jobsLoading) {
+    return (
+      <Group justify="center" py="xl">
+        <Loader />
+      </Group>
+    );
+  }
 
-  useEffect(() => {
-    const token = useAuthStore.getState().accessToken;
-    if (!token) {
-      navigate({ to: '/auth/signin' });
-      return;
-    }
+  if (jobsError) {
+    return <Alert color="red">Failed to load jobs: {jobsError.message}</Alert>;
+  }
 
-    setLoading(true);
-    fetch(`${apiBase}/candidate/jobs`, { headers: getAuthHeaders() })
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch jobs');
-        return res.json();
-      })
-      .then((data) => {
-        setJobs(Array.isArray(data) ? data : data.jobs ?? []);
-        setLoading(false);
-      })
-      .catch(() => {
-        setError('Failed to load jobs');
-        setLoading(false);
-      });
-  }, []);
+  if (jobs.length === 0) {
+    return <Text>No jobs available</Text>;
+  }
 
   const openApplyModal = (jobId: string) => {
     setSelectedJobId(jobId);
@@ -76,52 +58,31 @@ export function JobSearchPage() {
     setApplyModalOpen(true);
   };
 
-  const handleApply = async () => {
+  const handleApply = () => {
     if (!selectedJobId) return;
-    setApplySubmitting(true);
-    setApplyError('');
-    try {
-      const res = await fetch(`${apiBase}/candidate/jobs/${selectedJobId}/apply`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          firstName: applyFirstName,
-          lastName: applyLastName,
-          email: applyEmail,
-          phone: applyPhone,
-          coverLetter: applyCoverLetter,
-          resumeUrl: applyResumeUrl,
-        }),
-      });
-      if (!res.ok) throw new Error('Application failed');
-      setApplySuccess(true);
-      setApplySubmitting(false);
-    } catch {
-      setApplyError('Failed to submit application');
-      setApplySubmitting(false);
-    }
+    apply(
+      { jobId: selectedJobId, data: { firstName: applyFirstName, lastName: applyLastName, email: applyEmail, phone: applyPhone || undefined, coverLetter: applyCoverLetter || undefined, resumeUrl: applyResumeUrl || undefined } },
+      {
+        onSuccess: () => {
+          setApplySuccess(true);
+        },
+        onError: () => {
+          setApplyError('Failed to submit application');
+        },
+      }
+    );
   };
 
-  if (loading) {
-    return (
-      <Group justify="center" py="xl">
-        <Loader />
-      </Group>
-    );
-  }
-
-  if (error) {
-    return <Text c="red">{error}</Text>;
-  }
-
-  if (jobs.length === 0) {
-    return <Text>No jobs available</Text>;
-  }
+  const closeModal = () => {
+    setApplyModalOpen(false);
+    setSelectedJobId(null);
+    resetApply();
+  };
 
   return (
     <Stack>
       <Title order={2}>Job Search</Title>
-      {jobs.map((job) => (
+      {jobs.map((job: Job) => (
         <Card key={job.id} shadow="sm" padding="lg" radius="md" withBorder>
           <Group justify="space-between" mb="xs">
             <div>
@@ -137,14 +98,14 @@ export function JobSearchPage() {
 
       <Modal
         opened={applyModalOpen}
-        onClose={() => setApplyModalOpen(false)}
+        onClose={closeModal}
         title="Apply for Job"
         size="md"
       >
         {applySuccess ? (
           <Stack>
             <Alert color="green">Application submitted successfully!</Alert>
-            <Button onClick={() => setApplyModalOpen(false)}>Close</Button>
+            <Button onClick={closeModal}>Close</Button>
           </Stack>
         ) : (
           <Stack>
@@ -185,7 +146,7 @@ export function JobSearchPage() {
               value={applyResumeUrl}
               onChange={(e) => setApplyResumeUrl(e.currentTarget.value)}
             />
-            <Button onClick={handleApply} loading={applySubmitting} fullWidth mt="md">
+            <Button onClick={handleApply} loading={isApplying} fullWidth mt="md">
               Submit Application
             </Button>
           </Stack>

@@ -1,70 +1,21 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { Card, Text, Title, Badge, Button, Group, Stack, Loader } from '@mantine/core';
+import { Card, Text, Title, Badge, Button, Group, Stack, Loader, Alert } from '@mantine/core';
 import { useAuthStore } from '../../../shared/api/useAuth';
-
-interface Bookmark {
-  id: string;
-  jobListingId: string;
-  title: string;
-  companyName: string;
-  location: string;
-  employmentType: string;
-}
+import { useBookmarks, useRemoveBookmark } from '../../../shared/hooks';
+import type { Bookmark } from '../../../shared/hooks/useBookmarks';
 
 export function BookmarksPage() {
-  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const navigate = useNavigate();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
+  const { data: bookmarks = [], isLoading: bookmarksLoading, error: bookmarksError } = useBookmarks();
+  const { mutate: removeBookmark, isPending: isRemoving } = useRemoveBookmark();
 
-  const apiBase = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
+  if (!isAuthenticated) {
+    navigate({ to: '/auth/signin' });
+    return null;
+  }
 
-  const getAuthHeaders = (): Record<string, string> => {
-    const token = useAuthStore.getState().accessToken;
-    return {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
-  };
-
-  useEffect(() => {
-    const token = useAuthStore.getState().accessToken;
-    if (!token) {
-      navigate({ to: '/auth/signin' });
-      return;
-    }
-
-    setLoading(true);
-    fetch(`${apiBase}/candidate/bookmarks`, { headers: getAuthHeaders() })
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch bookmarks');
-        return res.json();
-      })
-      .then((data) => {
-        setBookmarks(Array.isArray(data) ? data : data.bookmarks ?? []);
-        setLoading(false);
-      })
-      .catch(() => {
-        setError('Failed to load bookmarks');
-        setLoading(false);
-      });
-  }, []);
-
-  const handleRemove = async (jobListingId: string) => {
-    try {
-      const res = await fetch(`${apiBase}/candidate/bookmarks/${jobListingId}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-      });
-      if (!res.ok) throw new Error('Failed to remove bookmark');
-      setBookmarks((prev) => prev.filter((b) => b.jobListingId !== jobListingId));
-    } catch {
-      setError('Failed to remove bookmark');
-    }
-  };
-
-  if (loading) {
+  if (bookmarksLoading) {
     return (
       <Group justify="center" py="xl">
         <Loader />
@@ -72,8 +23,8 @@ export function BookmarksPage() {
     );
   }
 
-  if (error) {
-    return <Text c="red">{error}</Text>;
+  if (bookmarksError) {
+    return <Alert color="red">Failed to load bookmarks: {bookmarksError.message}</Alert>;
   }
 
   if (bookmarks.length === 0) {
@@ -83,7 +34,7 @@ export function BookmarksPage() {
   return (
     <Stack>
       <Title order={2}>My Bookmarks</Title>
-      {bookmarks.map((bookmark) => (
+      {bookmarks.map((bookmark: Bookmark) => (
         <Card key={bookmark.id} shadow="sm" padding="lg" radius="md" withBorder>
           <Group justify="space-between" mb="xs">
             <div>
@@ -93,7 +44,12 @@ export function BookmarksPage() {
             <Badge>{bookmark.employmentType}</Badge>
           </Group>
           <Text size="sm" mb="md">{bookmark.location}</Text>
-          <Button color="red" variant="outline" onClick={() => handleRemove(bookmark.jobListingId)}>
+          <Button
+            color="red"
+            variant="outline"
+            onClick={() => removeBookmark(bookmark.jobListingId)}
+            loading={isRemoving}
+          >
             Remove Bookmark
           </Button>
         </Card>

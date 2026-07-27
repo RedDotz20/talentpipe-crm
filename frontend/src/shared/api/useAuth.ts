@@ -1,10 +1,5 @@
 import { create } from 'zustand';
-import axios from 'axios';
-
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api',
-  withCredentials: true,
-});
+import { authApi } from './authApi';
 
 interface AuthState {
   accessToken: string | null;
@@ -39,7 +34,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   role: localStorage.getItem('role'),
 
   signin: async (email, password) => {
-    const { data } = await api.post('/auth/signin', { email, password });
+    const { data } = await authApi.signin(email, password);
     const payload = JSON.parse(atob(data.accessToken.split('.')[1]));
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
@@ -60,7 +55,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   candidateSignup: async (data) => {
-    const { data: res } = await api.post('/auth/signup', data);
+    const { data: res } = await authApi.candidateSignup(data);
     const payload = JSON.parse(atob(res.accessToken.split('.')[1]));
     localStorage.setItem('accessToken', res.accessToken);
     localStorage.setItem('refreshToken', res.refreshToken);
@@ -76,7 +71,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
   },
   orgSignup: async (data) => {
-    const { data: res } = await api.post('/auth/org/signup', data);
+    const { data: res } = await authApi.orgSignup(data);
     const payload = JSON.parse(atob(res.accessToken.split('.')[1]));
     localStorage.setItem('accessToken', res.accessToken);
     localStorage.setItem('refreshToken', res.refreshToken);
@@ -96,7 +91,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const accessToken = get().accessToken;
     if (accessToken) {
       try {
-        await api.post('/auth/logout', {}, { headers: { Authorization: `Bearer ${accessToken}` } });
+        await authApi.logout();
       } catch {
         // best-effort server-side invalidation
       }
@@ -113,7 +108,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const refreshToken = get().refreshToken;
     if (!refreshToken) return;
     try {
-      const { data } = await api.post('/auth/refresh', { refreshToken });
+      const { data } = await authApi.refreshAuth(refreshToken);
       localStorage.setItem('accessToken', data.accessToken);
       if (data.refreshToken) {
         localStorage.setItem('refreshToken', data.refreshToken);
