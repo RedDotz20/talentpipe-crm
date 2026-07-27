@@ -13,8 +13,15 @@ export class TenantContextInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest();
     const user = request.user as TenantContext | undefined;
 
+    const tenantId =
+      user?.role === 'SuperAdmin' || !user?.tenantId ? 'public' : user.tenantId;
+
     const ctx: TenantContext = user
-      ? { tenantId: user.tenantId, userId: user.userId, role: user.role }
+      ? {
+          tenantId,
+          userId: user.userId,
+          role: user.role,
+        }
       : { tenantId: 'public', userId: '', role: 'anonymous' };
 
     return new Observable((subscriber) => {

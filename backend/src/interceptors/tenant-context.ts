@@ -15,7 +15,9 @@ export function getTenantId(): string {
 }
 
 export function getSchema(): string {
-  return `tenant_${getTenantId()}`;
+  const tenantId = getTenantId();
+  if (tenantId === 'public') return 'public';
+  return `tenant_${tenantId}`;
 }
 
 export function getCurrentUser(): TenantContext {

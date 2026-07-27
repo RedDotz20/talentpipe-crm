@@ -16,6 +16,7 @@ import {
   tenants,
   users,
   pipelineStages,
+  superAdmins,
 } from '../../database/schema';
 import { CandidateSignupDto } from './dto/candidate-auth.dto';
 import { eq } from 'drizzle-orm';
@@ -169,7 +170,26 @@ export class AuthService {
 
     // Fallback: try candidate login
     const account = await this.candidateAccountRepo.findByEmail(dto.email);
-    if (!account) throw new UnauthorizedException('Invalid credentials');
+    if (!account) {
+      // Try superadmin login
+      const { db: pubDb3, release: pubRelease3 } =
+        await this.drizzleSchema.forPublic();
+      try {
+        const adminResult = await pubDb3
+          .select()
+          .from(superAdmins)
+          .where(eq(superAdmins.email, dto.email))
+          .execute();
+        if (adminResult.length === 0)
+          throw new UnauthorizedException('Invalid credentials');
+        const admin = adminResult[0];
+        const valid = await verifyPassword(admin.passwordHash, dto.password);
+        if (!valid) throw new UnauthorizedException('Invalid credentials');
+        return this.generateSuperAdminTokens(admin.id);
+      } finally {
+        pubRelease3();
+      }
+    }
 
     const valid = await verifyPassword(account.passwordHash, dto.password);
     if (!valid) throw new UnauthorizedException('Invalid credentials');
@@ -207,6 +227,43 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
+  private async generateSuperAdminTokens(superAdminId: string) {
+    const accessToken = this.jwtService.sign(
+      { sub: superAdminId, tenantId: null, role: 'SuperAdmin' },
+      { expiresIn: '15m' },
+    );
+
+    const refreshToken = this.jwtService.sign(
+      { sub: superAdminId, tenantId: null, role: 'SuperAdmin' },
+      { secret: process.env.JWT_REFRESH_SECRET!, expiresIn: '7d' },
+    );
+
+    const tokenHash = await argon2.hash(refreshToken);
+    const nilTenantId = '00000000-0000-0000-0000-000000000000';
+
+    const { db, release } = await this.drizzleSchema.forPublic();
+    try {
+      await db
+        .delete(refreshTokens)
+        .where(eq(refreshTokens.userId, superAdminId))
+        .execute();
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      await db
+        .insert(refreshTokens)
+        .values({
+          userId: superAdminId,
+          tenantId: nilTenantId,
+          tokenHash,
+          expiresAt,
+        })
+        .execute();
+    } finally {
+      release();
+    }
+
+    return { accessToken, refreshToken };
+  }
+
   async logout(userId: string) {
     const { db, release } = await this.drizzleSchema.forPublic();
     try {
@@ -220,7 +277,7 @@ export class AuthService {
   }
 
   async refresh(dto: { refreshToken: string }) {
-    let payload: { sub: string; tenantId: string; role: string };
+    let payload: { sub: string; tenantId: string | null; role: string };
     try {
       payload = this.jwtService.verify(dto.refreshToken, {
         secret: process.env.JWT_REFRESH_SECRET!,
@@ -255,7 +312,12 @@ export class AuthService {
       if (!tokenMatches)
         throw new UnauthorizedException('Invalid refresh token');
 
-      return this.generateTokens(payload.sub, payload.tenantId, payload.role);
+      const tenantId =
+        payload.role === 'SuperAdmin'
+          ? '00000000-0000-0000-0000-000000000000'
+          : (payload.tenantId as string);
+
+      return this.generateTokens(payload.sub, tenantId, payload.role);
     } finally {
       release();
     }
