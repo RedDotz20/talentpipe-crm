@@ -7,14 +7,14 @@ export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const login = useAuthStore((s) => s.login);
+  const signin = useAuthStore((s) => s.signin);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     try {
-      await login(email, password);
+      await signin(email, password);
       navigate({ to: '/dashboard' });
     } catch {
       setError('Invalid email or password');

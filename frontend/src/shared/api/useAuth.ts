@@ -12,8 +12,20 @@ interface AuthState {
   userId: string | null;
   tenantId: string | null;
   role: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (data: { companyName: string; slug: string; email: string; password: string }) => Promise<void>;
+  signin: (email: string, password: string) => Promise<void>;
+  candidateSignup: (data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+    phone?: string;
+  }) => Promise<void>;
+  orgSignup: (data: {
+    companyName: string;
+    slug: string;
+    email: string;
+    password: string;
+  }) => Promise<void>;
   logout: () => void;
   refreshAuth: () => Promise<void>;
   isAuthenticated: () => boolean;
@@ -26,26 +38,58 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   tenantId: localStorage.getItem('tenantId'),
   role: localStorage.getItem('role'),
 
-  login: async (email, password) => {
-    const { data } = await api.post('/auth/login', { email, password });
+  signin: async (email, password) => {
+    const { data } = await api.post('/auth/signin', { email, password });
     const payload = JSON.parse(atob(data.accessToken.split('.')[1]));
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
     localStorage.setItem('userId', payload.sub);
-    localStorage.setItem('tenantId', payload.tenantId);
+    if (payload.tenantId) {
+      localStorage.setItem('tenantId', payload.tenantId);
+    } else {
+      localStorage.removeItem('tenantId');
+    }
     localStorage.setItem('role', payload.role);
-    set({ accessToken: data.accessToken, refreshToken: data.refreshToken, userId: payload.sub, tenantId: payload.tenantId, role: payload.role });
+    set({
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+      userId: payload.sub,
+      tenantId: payload.tenantId ?? null,
+      role: payload.role,
+    });
   },
 
-  signup: async (data) => {
+  candidateSignup: async (data) => {
     const { data: res } = await api.post('/auth/signup', data);
+    const payload = JSON.parse(atob(res.accessToken.split('.')[1]));
+    localStorage.setItem('accessToken', res.accessToken);
+    localStorage.setItem('refreshToken', res.refreshToken);
+    localStorage.setItem('userId', payload.sub);
+    localStorage.removeItem('tenantId');
+    localStorage.setItem('role', payload.role);
+    set({
+      accessToken: res.accessToken,
+      refreshToken: res.refreshToken,
+      userId: payload.sub,
+      tenantId: null,
+      role: payload.role,
+    });
+  },
+  orgSignup: async (data) => {
+    const { data: res } = await api.post('/auth/org/signup', data);
     const payload = JSON.parse(atob(res.accessToken.split('.')[1]));
     localStorage.setItem('accessToken', res.accessToken);
     localStorage.setItem('refreshToken', res.refreshToken);
     localStorage.setItem('userId', payload.sub);
     localStorage.setItem('tenantId', payload.tenantId);
     localStorage.setItem('role', payload.role);
-    set({ accessToken: res.accessToken, refreshToken: res.refreshToken, userId: payload.sub, tenantId: payload.tenantId, role: payload.role });
+    set({
+      accessToken: res.accessToken,
+      refreshToken: res.refreshToken,
+      userId: payload.sub,
+      tenantId: payload.tenantId,
+      role: payload.role,
+    });
   },
 
   logout: async () => {

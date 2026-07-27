@@ -6,7 +6,7 @@ import { useAuthStore } from '../../shared/api/useAuth';
 export function SignupPage() {
   const [form, setForm] = useState({ companyName: '', slug: '', email: '', password: '', confirmPassword: '' });
   const [error, setError] = useState('');
-  const signup = useAuthStore((s) => s.signup);
+  const orgSignup = useAuthStore((s) => s.orgSignup);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -17,7 +17,7 @@ export function SignupPage() {
       return;
     }
     try {
-      await signup({ companyName: form.companyName, slug: form.slug, email: form.email, password: form.password });
+      await orgSignup({ companyName: form.companyName, slug: form.slug, email: form.email, password: form.password });
       navigate({ to: '/login' });
     } catch {
       setError('Signup failed');
