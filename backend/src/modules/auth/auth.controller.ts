@@ -9,17 +9,14 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
-import {
-  CandidateSignupDto,
-  CandidateLoginDto,
-} from './dto/candidate-auth.dto';
+import { CandidateSignupDto } from './dto/candidate-auth.dto';
 
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  @Post('signup')
-  async signup(
+  @Post('org/signup')
+  async orgSignup(
     @Body()
     dto: {
       companyName: string;
@@ -28,24 +25,18 @@ export class AuthController {
       password: string;
     },
   ) {
-    return this.authService.signup(dto);
+    return this.authService.orgSignup(dto);
   }
 
-  @Post('login')
+  @Post('signin')
   @HttpCode(HttpStatus.OK)
-  async login(@Body() dto: { email: string; password: string }) {
-    return this.authService.login(dto);
+  async signin(@Body() dto: { email: string; password: string }) {
+    return this.authService.signin(dto);
   }
 
-  @Post('candidate/signup')
-  async candidateSignup(@Body() dto: CandidateSignupDto) {
+  @Post('signup')
+  async signup(@Body() dto: CandidateSignupDto) {
     return this.authService.candidateSignup(dto);
-  }
-
-  @Post('candidate/login')
-  @HttpCode(HttpStatus.OK)
-  async candidateLogin(@Body() dto: CandidateLoginDto) {
-    return this.authService.candidateLogin(dto);
   }
 
   @Post('refresh')

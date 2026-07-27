@@ -17,10 +17,7 @@ import {
   users,
   pipelineStages,
 } from '../../database/schema';
-import {
-  CandidateSignupDto,
-  CandidateLoginDto,
-} from './dto/candidate-auth.dto';
+import { CandidateSignupDto } from './dto/candidate-auth.dto';
 import { eq } from 'drizzle-orm';
 import * as argon2 from 'argon2';
 
@@ -34,7 +31,7 @@ export class AuthService {
     private candidateAccountRepo: CandidateAccountRepository,
   ) {}
 
-  async signup(dto: {
+  async orgSignup(dto: {
     companyName: string;
     slug: string;
     email: string;
@@ -131,40 +128,53 @@ export class AuthService {
     return this.generateTokens(userId, tenantId, 'OrgAdmin');
   }
 
-  async login(dto: { email: string; password: string }) {
+  async signin(dto: { email: string; password: string }) {
+    // First: try org user login
     const { db: pubDb, release } = await this.drizzleSchema.forPublic();
-    let emailRecord: { tenantId: string; userId: string };
+    let emailRecord: { tenantId: string; userId: string } | null = null;
     try {
       const records = await pubDb
         .select()
         .from(userEmails)
         .where(eq(userEmails.email, dto.email))
         .execute();
-      if (records.length === 0)
-        throw new UnauthorizedException('Invalid credentials');
-      emailRecord = records[0];
+      if (records.length > 0) {
+        emailRecord = records[0];
+      }
     } finally {
       release();
     }
 
-    const { db: tenantDb, release: tenantRelease } =
-      await this.drizzleSchema.forSchema(`tenant_${emailRecord.tenantId}`);
-    try {
-      const userResult = await tenantDb
-        .select()
-        .from(users)
-        .where(eq(users.email, dto.email))
-        .execute();
-      if (userResult.length === 0)
-        throw new UnauthorizedException('Invalid credentials');
-      const user = userResult[0];
-      const valid = await verifyPassword(user.passwordHash, dto.password);
-      if (!valid) throw new UnauthorizedException('Invalid credentials');
+    if (emailRecord) {
+      // Org user login flow
+      const { db: tenantDb, release: tenantRelease } =
+        await this.drizzleSchema.forSchema(`tenant_${emailRecord.tenantId}`);
+      try {
+        const userResult = await tenantDb
+          .select()
+          .from(users)
+          .where(eq(users.email, dto.email))
+          .execute();
+        if (userResult.length === 0)
+          throw new UnauthorizedException('Invalid credentials');
+        const user = userResult[0];
+        const valid = await verifyPassword(user.passwordHash, dto.password);
+        if (!valid) throw new UnauthorizedException('Invalid credentials');
 
-      return this.generateTokens(user.id, emailRecord.tenantId, user.role);
-    } finally {
-      tenantRelease();
+        return this.generateTokens(user.id, emailRecord.tenantId, user.role);
+      } finally {
+        tenantRelease();
+      }
     }
+
+    // Fallback: try candidate login
+    const account = await this.candidateAccountRepo.findByEmail(dto.email);
+    if (!account) throw new UnauthorizedException('Invalid credentials');
+
+    const valid = await verifyPassword(account.passwordHash, dto.password);
+    if (!valid) throw new UnauthorizedException('Invalid credentials');
+
+    return this.generateCandidateTokens(account.id);
   }
 
   async candidateSignup(dto: CandidateSignupDto) {
@@ -179,16 +189,6 @@ export class AuthService {
       lastName: dto.lastName,
       phone: dto.phone,
     });
-
-    return this.generateCandidateTokens(account.id);
-  }
-
-  async candidateLogin(dto: CandidateLoginDto) {
-    const account = await this.candidateAccountRepo.findByEmail(dto.email);
-    if (!account) throw new UnauthorizedException('Invalid credentials');
-
-    const valid = await verifyPassword(account.passwordHash, dto.password);
-    if (!valid) throw new UnauthorizedException('Invalid credentials');
 
     return this.generateCandidateTokens(account.id);
   }
