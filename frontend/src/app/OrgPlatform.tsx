@@ -13,15 +13,15 @@ export function OrgPlatform() {
 
   const handleLogout = () => {
     logout();
-    navigate({ to: '/login' });
+    navigate({ to: '/auth/signin' });
   };
 
   const navItems = [
-    { label: 'Dashboard', icon: IconDashboard, to: '/dashboard' },
-    { label: 'Job Postings', icon: IconBriefcase, to: '/job-postings' },
-    { label: 'Candidates', icon: IconUsers, to: '/candidates' },
-    { label: 'Pipeline', icon: IconLayoutKanban, to: '/pipeline' },
-    { label: 'Interviews', icon: IconCalendarEvent, to: '/interviews' },
+    { label: 'Dashboard', icon: IconDashboard, to: '/org/dashboard' },
+    { label: 'Job Postings', icon: IconBriefcase, to: '/org/job-postings' },
+    { label: 'Candidates', icon: IconUsers, to: '/org/candidates' },
+    { label: 'Pipeline', icon: IconLayoutKanban, to: '/org/pipeline' },
+    { label: 'Interviews', icon: IconCalendarEvent, to: '/org/interviews' },
   ];
 
   return (
