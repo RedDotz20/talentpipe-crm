@@ -14,10 +14,7 @@ export class CandidateApplicationsIndexRepository {
         .select()
         .from(candidateApplicationsIndex)
         .where(
-          eq(
-            candidateApplicationsIndex.candidateAccountId,
-            candidateAccountId,
-          ),
+          eq(candidateApplicationsIndex.candidateAccountId, candidateAccountId),
         )
         .orderBy(desc(candidateApplicationsIndex.appliedAt))
         .execute();
@@ -54,9 +51,7 @@ export class CandidateApplicationsIndexRepository {
       const rows = await db
         .update(candidateApplicationsIndex)
         .set({ status })
-        .where(
-          eq(candidateApplicationsIndex.applicationId, applicationId),
-        )
+        .where(eq(candidateApplicationsIndex.applicationId, applicationId))
         .returning()
         .execute();
       return rows[0] ?? null;

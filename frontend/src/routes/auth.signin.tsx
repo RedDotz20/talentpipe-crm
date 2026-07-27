@@ -6,15 +6,15 @@ function redirectToDashboard() {
   const { role, isAuthenticated } = useAuthStore.getState();
   if (!isAuthenticated()) return;
   if (role === 'Candidate') {
-    throw redirect({ to: '/candidate/dashboard' });
+    throw redirect({ to: '/dashboard' });
   }
   if (role === 'SuperAdmin') {
-    throw redirect({ to: '/platform/tenants' });
+    throw redirect({ to: '/admin/tenants' });
   }
-  throw redirect({ to: '/dashboard' });
+  throw redirect({ to: '/org/dashboard' });
 }
 
-export const Route = createFileRoute('/login')({
+export const Route = createFileRoute('/auth/signin')({
   beforeLoad: redirectToDashboard,
   component: SignInPage,
 });

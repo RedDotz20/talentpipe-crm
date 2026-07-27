@@ -258,8 +258,13 @@ export const candidateBookmarks = pgTable(
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({
-    accountIdx: index('idx_candidate_bookmarks_account').on(table.candidateAccountId),
-    tenantJobIdx: index('idx_candidate_bookmarks_tenant_job').on(table.tenantId, table.jobPostingId),
+    accountIdx: index('idx_candidate_bookmarks_account').on(
+      table.candidateAccountId,
+    ),
+    tenantJobIdx: index('idx_candidate_bookmarks_tenant_job').on(
+      table.tenantId,
+      table.jobPostingId,
+    ),
   }),
 );
 
@@ -279,8 +284,13 @@ export const candidateApplicationsIndex = pgTable(
     appliedAt: timestamp('applied_at').defaultNow().notNull(),
   },
   (table) => ({
-    accountIdx: index('idx_candidate_applications_account').on(table.candidateAccountId),
-    tenantJobIdx: index('idx_candidate_applications_tenant_job').on(table.tenantId, table.jobPostingId),
+    accountIdx: index('idx_candidate_applications_account').on(
+      table.candidateAccountId,
+    ),
+    tenantJobIdx: index('idx_candidate_applications_tenant_job').on(
+      table.tenantId,
+      table.jobPostingId,
+    ),
   }),
 );
 

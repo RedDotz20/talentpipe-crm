@@ -5,8 +5,15 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const allowedOrigins = process.env.CORS_ORIGIN?.split(',') ?? [];
   app.enableCors({
-    origin(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-      if (!origin || allowedOrigins.includes(origin) || /^https?:\/\/localhost:\d+$/.test(origin)) {
+    origin(
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) {
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        /^https?:\/\/localhost:\d+$/.test(origin)
+      ) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));

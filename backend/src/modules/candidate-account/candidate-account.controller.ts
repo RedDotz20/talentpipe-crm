@@ -11,7 +11,10 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { CandidateAuthGuard } from '../../shared/candidate-auth.guard';
 import { CandidateAccountService } from './candidate-account.service';
-import { BookmarkJobSchema, UpdateProfileSchema } from './dto/candidate-apply.dto';
+import {
+  BookmarkJobSchema,
+  UpdateProfileSchema,
+} from './dto/candidate-apply.dto';
 import { getCurrentUser } from '../../interceptors/tenant-context';
 
 @Controller('candidate')

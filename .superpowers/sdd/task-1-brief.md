@@ -1,32 +1,156 @@
-# Task 1: Add public schema tables to Drizzle schema
+### Task 1: Backend — Restructure auth endpoints
 
-## Context
-This is the first task for adding candidate accounts. We need 4 new public-schema tables that live alongside the existing tables in `schema.ts`. These are NOT cloned into tenant schemas — they live only in `public`.
+**Files:**
+- Modify: `backend/src/modules/auth/auth.controller.ts`
+- Modify: `backend/src/modules/auth/auth.service.ts`
 
-## Files
-- Modify: `backend/src/database/schema.ts`
+**Interfaces:**
+- Consumes: existing `AuthService` methods (login, signup, candidateSignup, candidateLogin)
+- Produces: `POST /auth/signin` (unified), `POST /auth/signup` (candidate), `POST /auth/org/signup` (tenant)
 
-## Requirements
-Append these 4 table definitions after the existing `notes` table at the end of `schema.ts`. Use the same drizzle-orm/pg-core imports already at the top of the file.
+- [ ] **Step 1: Update auth.controller.ts — restructure endpoints**
 
-1. `candidate_accounts` — `id` (uuid pk defaultRandom), `email` (varchar 255 notNull unique), `passwordHash` (varchar 255 notNull), `firstName` (varchar 100 notNull), `lastName` (varchar 100 notNull), `phone` (varchar 50), `createdAt` (timestamp defaultNow notNull). Unique index on email.
+```typescript
+import {
+  Controller,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+import { AuthService } from './auth.service';
+import { CandidateSignupDto } from './dto/candidate-auth.dto';
 
-2. `candidate_bookmarks` — `id` (uuid pk defaultRandom), `candidateAccountId` (uuid notNull FK → candidateAccounts.id), `tenantId` (varchar 36 notNull), `jobPostingId` (uuid notNull), `jobTitle` (varchar 255 notNull), `companyName` (varchar 255 notNull), `createdAt` (timestamp defaultNow notNull). Indexes on candidateAccountId, and on (tenantId, jobPostingId).
+@Controller('auth')
+export class AuthController {
+  constructor(private authService: AuthService) {}
 
-3. `candidate_applications_index` — `id` (uuid pk defaultRandom), `candidateAccountId` (uuid notNull FK → candidateAccounts.id), `tenantId` (varchar 36 notNull), `jobPostingId` (uuid notNull), `applicationId` (uuid notNull), `jobTitle` (varchar 255 notNull), `companyName` (varchar 255 notNull), `status` (varchar 50 notNull), `appliedAt` (timestamp defaultNow notNull). Indexes on candidateAccountId, and on (tenantId, jobPostingId).
+  @Post('org/signup')
+  async orgSignup(
+    @Body()
+    dto: {
+      companyName: string;
+      slug: string;
+      email: string;
+      password: string;
+    },
+  ) {
+    return this.authService.orgSignup(dto);
+  }
 
-4. `job_listings_index` — `id` (uuid pk defaultRandom), `tenantId` (varchar 36 notNull), `jobPostingId` (uuid notNull unique), `title` (varchar 255 notNull), `description` (text), `companyName` (varchar 255 notNull), `companySlug` (varchar 100 notNull), `status` (varchar 50 notNull), `createdAt` (timestamp defaultNow notNull), `updatedAt` (timestamp defaultNow notNull). Indexes on status, companyName, tenantId.
+  @Post('signin')
+  @HttpCode(HttpStatus.OK)
+  async signin(@Body() dto: { email: string; password: string }) {
+    return this.authService.signin(dto);
+  }
 
-Table name strings should be snake_case plural as shown. Follow the exact naming pattern used by existing tables (e.g., `'candidate_accounts'` not `'candidateAccount'`).
+  @Post('signup')
+  async signup(@Body() dto: CandidateSignupDto) {
+    return this.authService.candidateSignup(dto);
+  }
 
-## Deliverables
-1. Modified `backend/src/database/schema.ts` with the 4 new table definitions appended
-2. Run `npx drizzle-kit generate && npx drizzle-kit migrate` to create the migration
-3. Commit with message: `feat: add candidate_accounts, candidate_bookmarks, candidate_applications_index, job_listings_index tables`
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  async refresh(@Body() dto: { refreshToken: string }) {
+    return this.authService.refresh(dto);
+  }
 
-## Report file
-Write your report to `.superpowers/sdd/task-1-report.md` containing:
-- Status (DONE / NEEDS_CONTEXT / BLOCKED)
-- Commits made (full SHAs)
-- Test verification output
-- Any concerns
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard('jwt'))
+  async logout(@Request() req: any) {
+    await this.authService.logout(req.user.userId);
+    return { message: 'Logged out' };
+  }
+}
+```
+
+- [ ] **Step 2: Update auth.service.ts — rename `signup` → `orgSignup`, add unified `signin`**
+
+Change the `signup` method name to `orgSignup`:
+
+```typescript
+  async orgSignup(dto: {
+    companyName: string;
+    slug: string;
+    email: string;
+    password: string;
+  }) {
+    // ... same body as current signup()
+  }
+```
+
+Add unified `signin` that replaces both `login` and `candidateLogin`:
+
+```typescript
+  async signin(dto: { email: string; password: string }) {
+    // First: try org user login
+    const { db: pubDb, release } = await this.drizzleSchema.forPublic();
+    let emailRecord: { tenantId: string; userId: string } | null = null;
+    try {
+      const records = await pubDb
+        .select()
+        .from(userEmails)
+        .where(eq(userEmails.email, dto.email))
+        .execute();
+      if (records.length > 0) {
+        emailRecord = records[0];
+      }
+    } finally {
+      release();
+    }
+
+    if (emailRecord) {
+      // Org user login flow
+      const { db: tenantDb, release: tenantRelease } =
+        await this.drizzleSchema.forSchema(`tenant_${emailRecord.tenantId}`);
+      try {
+        const userResult = await tenantDb
+          .select()
+          .from(users)
+          .where(eq(users.email, dto.email))
+          .execute();
+        if (userResult.length === 0)
+          throw new UnauthorizedException('Invalid credentials');
+        const user = userResult[0];
+        const valid = await verifyPassword(user.passwordHash, dto.password);
+        if (!valid) throw new UnauthorizedException('Invalid credentials');
+
+        return this.generateTokens(user.id, emailRecord.tenantId, user.role);
+      } finally {
+        tenantRelease();
+      }
+    }
+
+    // Fallback: try candidate login
+    const account = await this.candidateAccountRepo.findByEmail(dto.email);
+    if (!account) throw new UnauthorizedException('Invalid credentials');
+
+    const valid = await verifyPassword(account.passwordHash, dto.password);
+    if (!valid) throw new UnauthorizedException('Invalid credentials');
+
+    return this.generateCandidateTokens(account.id);
+  }
+```
+
+Remove the old `login()` and `candidateLogin()` methods entirely.
+
+**Important:** The existing `signup` method and the DTO import for `CandidateLoginDto` should be removed. Keep `CandidateSignupDto`.
+
+- [ ] **Step 3: Run typecheck and lint**
+
+Run: `cd backend && npm run typecheck && npm run lint`
+Expected: No type/lint errors from the refactored code.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add backend/src/modules/auth/auth.controller.ts backend/src/modules/auth/auth.service.ts
+git commit -m "feat(auth): unify signin, rename signup -> org/signup"
+```
+
+---
+
