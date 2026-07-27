@@ -1,6 +1,4 @@
-import { useNavigate } from '@tanstack/react-router';
 import { Title, Table, Badge, Loader, Group, Text, Alert } from '@mantine/core';
-import { useAuthStore } from '../../../shared/api/useAuth';
 import { useApplications } from '../../../shared/hooks/useApplications';
 
 interface Application {
@@ -21,14 +19,7 @@ const statusColors: Record<string, string> = {
 };
 
 export function ApplicationsPage() {
-  const navigate = useNavigate();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
   const { data: applications = [], isLoading, error } = useApplications();
-
-  if (!isAuthenticated) {
-    navigate({ to: '/auth/signin' });
-    return null;
-  }
 
   if (isLoading) {
     return (

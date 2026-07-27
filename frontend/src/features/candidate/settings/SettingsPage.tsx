@@ -1,17 +1,8 @@
-import { useNavigate } from '@tanstack/react-router';
 import { Title, TextInput, Stack, Loader, Group, Text, Alert } from '@mantine/core';
-import { useAuthStore } from '../../../shared/api/useAuth';
 import { useProfile } from '../../../shared/hooks/useProfile';
 
 export function SettingsPage() {
-  const navigate = useNavigate();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
   const { data: profile, isLoading, error } = useProfile();
-
-  if (!isAuthenticated) {
-    navigate({ to: '/auth/signin' });
-    return null;
-  }
 
   if (isLoading) {
     return (

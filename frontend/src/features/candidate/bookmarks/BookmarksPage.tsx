@@ -1,19 +1,10 @@
-import { useNavigate } from '@tanstack/react-router';
 import { Card, Text, Title, Badge, Button, Group, Stack, Loader, Alert } from '@mantine/core';
-import { useAuthStore } from '../../../shared/api/useAuth';
 import { useBookmarks, useRemoveBookmark } from '../../../shared/hooks';
 import type { Bookmark } from '../../../shared/hooks/useBookmarks';
 
 export function BookmarksPage() {
-  const navigate = useNavigate();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
   const { data: bookmarks = [], isLoading: bookmarksLoading, error: bookmarksError } = useBookmarks();
   const { mutate: removeBookmark, isPending: isRemoving } = useRemoveBookmark();
-
-  if (!isAuthenticated) {
-    navigate({ to: '/auth/signin' });
-    return null;
-  }
 
   if (bookmarksLoading) {
     return (

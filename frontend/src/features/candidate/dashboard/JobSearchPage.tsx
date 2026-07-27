@@ -1,14 +1,10 @@
 import { useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
 import { Card, Text, Title, Badge, Button, Group, Stack, Loader, Modal, TextInput, Textarea, Alert } from '@mantine/core';
-import { useAuthStore } from '../../../shared/api/useAuth';
 import { useJobs } from '../../../shared/hooks/useJobs';
 import { useApply } from '../../../shared/hooks/useApply';
 import type { Job } from '../../../shared/hooks/useJobs';
 
 export function JobSearchPage() {
-  const navigate = useNavigate();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
   const { data: jobs = [], isLoading: jobsLoading, error: jobsError } = useJobs();
   const { mutate: apply, isPending: isApplying, reset: resetApply } = useApply();
 
@@ -23,11 +19,6 @@ export function JobSearchPage() {
   const [applyResumeUrl, setApplyResumeUrl] = useState('');
   const [applySuccess, setApplySuccess] = useState(false);
   const [applyError, setApplyError] = useState('');
-
-  if (!isAuthenticated) {
-    navigate({ to: '/auth/signin' });
-    return null;
-  }
 
   if (jobsLoading) {
     return (

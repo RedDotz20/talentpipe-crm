@@ -1,6 +1,17 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, redirect } from '@tanstack/react-router';
 import { SuperAdminPlatform } from '../app/SuperAdminPlatform';
+import { useAuthStore } from '../shared/api/useAuth';
 
 export const Route = createFileRoute('/admin')({
+  beforeLoad: () => {
+    if (!useAuthStore.getState().isAuthenticated()) {
+      throw redirect({ to: '/auth/signin' });
+    }
+    const { role } = useAuthStore.getState();
+    if (role !== 'SuperAdmin') {
+      if (role === 'Candidate') throw redirect({ to: '/dashboard' });
+      throw redirect({ to: '/org/dashboard' });
+    }
+  },
   component: SuperAdminPlatform,
 });

@@ -4,12 +4,7 @@ import { useAuthStore } from '../api/useAuth';
 
 export function CandidatePlatform() {
   const navigate = useNavigate();
-  const role = useAuthStore((s) => s.role);
   const logout = useAuthStore((s) => s.logout);
-
-  if (role !== 'Candidate') {
-    return null;
-  }
 
   return (
     <>
