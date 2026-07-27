@@ -8,11 +8,11 @@ export const Route = createFileRoute('/')({
       throw redirect({ to: '/auth/signin' });
     }
     if (role === 'Candidate') {
-    throw redirect({ to: '/org/dashboard' });
+      throw redirect({ to: '/dashboard' });
     }
     if (role === 'SuperAdmin') {
       throw redirect({ to: '/admin/tenants' });
     }
-    throw redirect({ to: '/dashboard' });
+    throw redirect({ to: '/org/dashboard' });
   },
 });
