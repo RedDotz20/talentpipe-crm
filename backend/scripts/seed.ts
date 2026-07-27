@@ -50,7 +50,32 @@ async function seedOrg(client: any): Promise<void> {
     ['acme-corp'],
   );
   if (existing.rows.length > 0) {
-    console.log('[SKIP] Org tenant acme-corp already exists');
+    const tenantId = existing.rows[0].id;
+    const passwordHash = await hash('Admin123!');
+    await client.query(
+      `UPDATE "tenant_${tenantId}"."users" SET password_hash = $1 WHERE email = $2`,
+      [passwordHash, 'admin@acme.com'],
+    );
+    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_MS).toISOString();
+    const rawToken = randomUUID();
+    const tokenHash = await hash(rawToken);
+    const userResult = await client.query(
+      `SELECT id FROM "tenant_${tenantId}"."users" WHERE email = $1`,
+      ['admin@acme.com'],
+    );
+    if (userResult.rows.length > 0) {
+      const userId = userResult.rows[0].id;
+      await client.query(
+        `DELETE FROM public.refresh_tokens WHERE user_id = $1`,
+        [userId],
+      );
+      await client.query(
+        `INSERT INTO public.refresh_tokens (id, user_id, tenant_id, token_hash, expires_at)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [randomUUID(), userId, tenantId, tokenHash, expiresAt],
+      );
+    }
+    console.log(`[UPDATE] Org admin password reset for Acme Corp (tenant: ${tenantId})`);
     return;
   }
 
