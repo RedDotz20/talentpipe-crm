@@ -11,7 +11,7 @@ export function SuperAdminPlatform() {
 
   const handleLogout = () => {
     logout();
-    navigate({ to: '/login' });
+    navigate({ to: '/auth/signin' });
   };
 
   return (
@@ -32,7 +32,7 @@ export function SuperAdminPlatform() {
           label="Tenants"
           leftSection={<IconBuildingEstate size="1rem" />}
           component={Link}
-          to="/platform/tenants"
+          to="/admin/tenants"
         />
       </MantineShell.Navbar>
 
