@@ -7,6 +7,7 @@ import { useAuthStore } from '../../../shared/api/useAuth';
 export function CandidateSignupPage() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const candidateSignup = useAuthStore((s) => s.candidateSignup);
 
   const form = useForm({
     initialValues: { firstName: '', lastName: '', email: '', password: '', confirmPassword: '' },
@@ -19,33 +20,13 @@ export function CandidateSignupPage() {
       return;
     }
     try {
-      const baseUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
-      const res = await fetch(`${baseUrl}/auth/candidate/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          firstName: values.firstName,
-          lastName: values.lastName,
-          email: values.email,
-          password: values.password,
-        }),
+      await candidateSignup({
+        firstName: values.firstName,
+        lastName: values.lastName,
+        email: values.email,
+        password: values.password,
       });
-      if (!res.ok) throw new Error('Signup failed');
-      const data = await res.json();
-      const payload = JSON.parse(atob(data.accessToken.split('.')[1]));
-      localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('refreshToken', data.refreshToken);
-      localStorage.setItem('userId', payload.sub);
-      localStorage.removeItem('tenantId');
-      localStorage.setItem('role', payload.role);
-      useAuthStore.setState({
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-        userId: payload.sub,
-        tenantId: null,
-        role: payload.role,
-      });
-      navigate({ to: '/candidate/dashboard' });
+      navigate({ to: '/dashboard' });
     } catch {
       setError('Signup failed');
     }
@@ -65,7 +46,7 @@ export function CandidateSignupPage() {
           <Button fullWidth mt="xl" type="submit">Create account</Button>
         </form>
         <Text c="dimmed" size="sm" ta="center" mt="md">
-          Already have an account? <Link to="/candidate/login">Sign in</Link>
+          Already have an account? <Link to="/auth/signin">Sign in</Link>
         </Text>
       </Paper>
     </Container>

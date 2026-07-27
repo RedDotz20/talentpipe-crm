@@ -3,7 +3,7 @@ import { useNavigate, Link } from '@tanstack/react-router';
 import { Container, Paper, Title, TextInput, PasswordInput, Button, Text, Alert } from '@mantine/core';
 import { useAuthStore } from '../../shared/api/useAuth';
 
-export function LoginPage() {
+export function SignInPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -15,7 +15,14 @@ export function LoginPage() {
     setError('');
     try {
       await signin(email, password);
-      navigate({ to: '/dashboard' });
+      const role = useAuthStore.getState().role;
+      if (role === 'Candidate') {
+        navigate({ to: '/dashboard' });
+      } else if (role === 'SuperAdmin') {
+        navigate({ to: '/admin/tenants' });
+      } else {
+        navigate({ to: '/org/dashboard' });
+      }
     } catch {
       setError('Invalid email or password');
     }
@@ -32,7 +39,10 @@ export function LoginPage() {
           <Button fullWidth mt="xl" type="submit">Sign in</Button>
         </form>
         <Text c="dimmed" size="sm" ta="center" mt="md">
-          Don't have an account? <Link to="/signup">Sign up</Link>
+          Don't have an account? <Link to="/auth/signup">Sign up as candidate</Link>
+        </Text>
+        <Text c="dimmed" size="sm" ta="center" mt="xs">
+          <Link to="/auth/org/signup">Create a company account</Link>
         </Text>
       </Paper>
     </Container>

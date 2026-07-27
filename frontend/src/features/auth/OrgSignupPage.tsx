@@ -3,7 +3,7 @@ import { useNavigate, Link } from '@tanstack/react-router';
 import { Container, Paper, Title, TextInput, PasswordInput, Button, Text, Alert } from '@mantine/core';
 import { useAuthStore } from '../../shared/api/useAuth';
 
-export function SignupPage() {
+export function OrgSignupPage() {
   const [form, setForm] = useState({ companyName: '', slug: '', email: '', password: '', confirmPassword: '' });
   const [error, setError] = useState('');
   const orgSignup = useAuthStore((s) => s.orgSignup);
@@ -18,7 +18,7 @@ export function SignupPage() {
     }
     try {
       await orgSignup({ companyName: form.companyName, slug: form.slug, email: form.email, password: form.password });
-      navigate({ to: '/login' });
+      navigate({ to: '/auth/signin' });
     } catch {
       setError('Signup failed');
     }
@@ -41,7 +41,7 @@ export function SignupPage() {
           <Button fullWidth mt="xl" type="submit">Create account</Button>
         </form>
         <Text c="dimmed" size="sm" ta="center" mt="md">
-          Already have an account? <Link to="/login">Sign in</Link>
+          Already have an account? <Link to="/auth/signin">Sign in</Link>
         </Text>
       </Paper>
     </Container>

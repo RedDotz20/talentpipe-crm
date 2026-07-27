@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { SignupPage } from '../features/auth/SignupPage';
+import { OrgSignupPage } from '../features/auth/OrgSignupPage';
 import { useAuthStore } from '../shared/api/useAuth';
 
 function redirectToDashboard() {
@@ -16,5 +16,5 @@ function redirectToDashboard() {
 
 export const Route = createFileRoute('/signup')({
   beforeLoad: redirectToDashboard,
-  component: SignupPage,
+  component: OrgSignupPage,
 });
