@@ -67,6 +67,14 @@ export const refreshTokens = pgTable(
   }),
 );
 
+export const superAdmins = pgTable('super_admins', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+  name: varchar('name', { length: 100 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 // ── Tenant Schema Tables (recreated per tenant) ──
 
 export const users = pgTable('users', {
