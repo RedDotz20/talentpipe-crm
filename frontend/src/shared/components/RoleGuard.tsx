@@ -11,7 +11,7 @@ export function RoleGuard({ allowedRoles, children }: Props) {
   const role = useAuthStore((s) => s.role);
   const isAuth = useAuthStore((s) => s.isAuthenticated());
 
-  if (!isAuth) return <Navigate to="/login" />;
+  if (!isAuth) return <Navigate to="/auth/signin" />;
   if (!allowedRoles.includes(role!)) return <div>403 - Forbidden</div>;
   return <>{children}</>;
 }

@@ -7,7 +7,7 @@ export const Route = createRootRoute({
     <Container ta="center" py="xl">
       <Title>404</Title>
       <Text c="dimmed" mb="lg">Page not found</Text>
-      <Button component={Link} to="/login">Go home</Button>
+      <Button component={Link} to="/auth/signin">Go home</Button>
     </Container>
   ),
   component: () => (
