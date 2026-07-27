@@ -19,7 +19,7 @@ export function CandidatePlatform() {
         <Anchor onClick={() => navigate({ to: '/applications' })}>Applications</Anchor>
         <Anchor onClick={() => navigate({ to: '/bookmarks' })}>Bookmarks</Anchor>
         <Anchor onClick={() => navigate({ to: '/settings' })}>Settings</Anchor>
-        <Button variant="subtle" onClick={() => { logout(); navigate({ to: '/auth/signin' }); }}>Logout</Button>
+        <Button variant="subtle" onClick={async () => { await logout(); navigate({ to: '/auth/signin' }); }}>Logout</Button>
       </Group>
       <Container size="lg" py="xl">
         <Outlet />
