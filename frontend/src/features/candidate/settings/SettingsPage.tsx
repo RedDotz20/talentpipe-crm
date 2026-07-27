@@ -32,7 +32,7 @@ export function SettingsPage() {
   useEffect(() => {
     const token = useAuthStore.getState().accessToken;
     if (!token) {
-      navigate({ to: '/candidate/login' });
+      navigate({ to: '/auth/signin' });
       return;
     }
 

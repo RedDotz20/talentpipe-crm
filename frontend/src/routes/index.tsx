@@ -5,13 +5,13 @@ export const Route = createFileRoute('/')({
   beforeLoad: () => {
     const { role, isAuthenticated } = useAuthStore.getState();
     if (!isAuthenticated()) {
-      throw redirect({ to: '/login' });
+      throw redirect({ to: '/auth/signin' });
     }
     if (role === 'Candidate') {
-      throw redirect({ to: '/candidate/dashboard' });
+    throw redirect({ to: '/org/dashboard' });
     }
     if (role === 'SuperAdmin') {
-      throw redirect({ to: '/platform/tenants' });
+      throw redirect({ to: '/admin/tenants' });
     }
     throw redirect({ to: '/dashboard' });
   },
