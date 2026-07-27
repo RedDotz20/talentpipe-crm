@@ -8,18 +8,18 @@ export function CandidatePlatform() {
   const logout = useAuthStore((s) => s.logout);
 
   if (role !== 'Candidate') {
-    return null; // will be handled by route guards
+    return null;
   }
 
   return (
     <>
       <Group p="md" style={{ borderBottom: '1px solid #eee' }}>
         <Title order={3}>TalentPipe</Title>
-        <Anchor onClick={() => navigate({ to: '/candidate/dashboard' })}>Jobs</Anchor>
-        <Anchor onClick={() => navigate({ to: '/candidate/applications' })}>Applications</Anchor>
-        <Anchor onClick={() => navigate({ to: '/candidate/bookmarks' })}>Bookmarks</Anchor>
-        <Anchor onClick={() => navigate({ to: '/candidate/settings' })}>Settings</Anchor>
-        <Button variant="subtle" onClick={() => { logout(); navigate({ to: '/candidate/login' }); }}>Logout</Button>
+        <Anchor onClick={() => navigate({ to: '/dashboard' })}>Jobs</Anchor>
+        <Anchor onClick={() => navigate({ to: '/applications' })}>Applications</Anchor>
+        <Anchor onClick={() => navigate({ to: '/bookmarks' })}>Bookmarks</Anchor>
+        <Anchor onClick={() => navigate({ to: '/settings' })}>Settings</Anchor>
+        <Button variant="subtle" onClick={() => { logout(); navigate({ to: '/auth/signin' }); }}>Logout</Button>
       </Group>
       <Container size="lg" py="xl">
         <Outlet />
