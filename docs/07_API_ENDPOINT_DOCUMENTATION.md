@@ -17,11 +17,10 @@ Legend for **Roles**: SA = SuperAdmin, OA = Org Admin, R = Recruiter, HM = Hirin
 ## Auth
 
 | Method | Path | Roles | Description |
-|---|---|---|---|
-| POST | `/auth/signup` | PUBLIC | Creates a new Tenant + first Org Admin user |
-| POST | `/auth/login` | PUBLIC | Returns access + refresh tokens |
-| POST | `/auth/candidate/signup` | PUBLIC | Creates a new candidate account (email, password, name) |
-| POST | `/auth/candidate/login` | PUBLIC | Candidate login, returns access + refresh tokens |
+|---|---|---|---|---|
+| POST | `/auth/signin` | PUBLIC | Unified sign-in — accepts email+password, routes to org or candidate auth based on account type |
+| POST | `/auth/signup` | PUBLIC | Creates a new candidate account (email, password, name) |
+| POST | `/auth/org/signup` | PUBLIC | Creates a new Tenant + first Org Admin user |
 | POST | `/auth/refresh` | PUBLIC | Exchanges refresh token for new access token |
 | POST | `/auth/logout` | — | Revokes current refresh token |
 
