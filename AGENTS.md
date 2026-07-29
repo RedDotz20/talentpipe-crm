@@ -50,6 +50,17 @@ docker compose up -d                # Start postgres:16 + redis:7 + minio
 
 **Important:** `npm run lint` on backend runs **eslint** (tsc check is separate via `typecheck`). Frontend uses **oxlint** (not eslint). Backend uses **Jest** (not Vitest).
 
+## First-time bootstrap (or after `docker compose down -v`)
+
+Migrations and the seed are **not** run automatically. On a fresh DB you must, in order:
+
+1. `docker compose up -d` (wait for postgres to be ready)
+2. Apply the three migrations under `backend/drizzle/*/migration.sql` via `psql` (see `docs/00b_LOCAL_DEV_BOOTSTRAP.md` for the exact one-liners)
+3. Apply `backend/drizzle/template-schema.sql`
+4. `cd backend && npm run seed` (creates the 3 sample accounts)
+
+Without steps 2–4 you'll get `relation "..." does not exist` on the first login. Full runbook with checks after each step: `docs/00b_LOCAL_DEV_BOOTSTRAP.md`.
+
 ## Architecture
 
 ### Multi-Tenancy (schema-per-tenant)
@@ -143,6 +154,7 @@ frontend/src/
 | # | File | Content | Agent Use |
 |---|------|---------|-----------|
 | 00 | `docs/00_PROJECT_INSTRUCTIONS.md` | **Canonical spec** — consolidates all 8 source docs into one single-source-of-truth | Read first when starting a new milestone. Overrides any contradiction in 01–09. |
+| 00b | `docs/00b_LOCAL_DEV_BOOTSTRAP.md` | **Local dev runbook** — docker up → migrations → template schema → seed → start backend/frontend → login. Includes checks after each step, daily loop, nuke-and-restart, and troubleshooting table. | Read first when you haven't run the project in a while, after `docker compose down -v`, or when something is broken and you forgot the sequence. |
 | 01 | `docs/01_TALENTPIPE_PRD_SRS.md` | Product requirements & software requirements spec | Understand feature scope, user stories, and acceptance criteria for a given milestone. |
 | 02 | `docs/02_TECHNICAL_OVERVIEW.md` | High-level architecture decisions, stack rationale | Context on *why* specific tech was chosen (NestJS, Drizzle, schema-per-tenant, etc.). |
 | 03 | `docs/03_RECRUITMENT_ATS_ARCHITECTURE.md` | System architecture — modules, data flow, integration points | Reference when wiring cross-module interactions (e.g., apply → resume parsing → pipeline). |
