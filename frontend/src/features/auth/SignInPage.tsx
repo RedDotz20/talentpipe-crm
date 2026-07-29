@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { SubmitEvent } from 'react';
 import { useNavigate, Link } from '@tanstack/react-router';
 import { Container, Paper, Title, TextInput, PasswordInput, Button, Text, Alert } from '@mantine/core';
 import { useSignIn } from '@/hooks/auth';
@@ -10,19 +11,20 @@ export function SignInPage() {
   const [error, setError] = useState('');
   const { mutateAsync: signin, isPending } = useSignIn();
   const navigate = useNavigate();
+  const getAuthState = useAuthStore.getState;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: SubmitEvent) => {
     e.preventDefault();
     setError('');
     try {
       await signin({ email, password });
-      const currentRole = useAuthStore.getState().role;
+      const currentRole = getAuthState().role;
       if (currentRole === 'Candidate') {
-        navigate({ to: '/dashboard' });
+        await navigate({to: '/dashboard'});
       } else if (currentRole === 'SuperAdmin') {
-        navigate({ to: '/admin/tenants' });
+        await navigate({ to: '/admin/tenants' });
       } else {
-        navigate({ to: '/org/dashboard' });
+        await navigate({ to: '/org/dashboard' });
       }
     } catch {
       setError('Invalid email or password');
