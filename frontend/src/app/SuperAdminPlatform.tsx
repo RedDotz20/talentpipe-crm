@@ -2,11 +2,11 @@ import { Outlet, Link, useNavigate } from '@tanstack/react-router';
 import { AppShell as MantineShell, Group, Text, Button, NavLink } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { IconBuildingEstate } from '@tabler/icons-react';
-import { useAuthStore } from '../shared/api/useAuth';
+import { useLogout } from '../shared/hooks/auth';
 
 export function SuperAdminPlatform() {
   const [opened] = useDisclosure();
-  const logout = useAuthStore((s) => s.logout);
+  const { mutateAsync: logout } = useLogout();
   const navigate = useNavigate();
 
   const handleLogout = async () => {

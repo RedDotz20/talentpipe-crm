@@ -1,5 +1,5 @@
 import { Title, TextInput, Stack, Loader, Group, Text, Alert } from '@mantine/core';
-import { useProfile } from '../../../shared/hooks/useProfile';
+import { useProfile } from '../../../shared/hooks/candidate';
 
 export function SettingsPage() {
   const { data: profile, isLoading, error } = useProfile();

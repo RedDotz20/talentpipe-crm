@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useNavigate, Link } from '@tanstack/react-router';
 import { Container, Paper, Title, TextInput, PasswordInput, Button, Text, Alert } from '@mantine/core';
-import { useAuthStore } from '../../shared/api/useAuth';
+import { useOrgSignup } from '../../shared/hooks/auth';
 
 export function OrgSignupPage() {
   const [form, setForm] = useState({ companyName: '', slug: '', email: '', password: '', confirmPassword: '' });
   const [error, setError] = useState('');
-  const orgSignup = useAuthStore((s) => s.orgSignup);
+  const { mutateAsync: orgSignup, isPending } = useOrgSignup();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,7 +38,7 @@ export function OrgSignupPage() {
           <TextInput label="Email" placeholder="you@company.com" required mt="md" value={form.email} onChange={update('email')} />
           <PasswordInput label="Password" placeholder="Your password" required mt="md" value={form.password} onChange={update('password')} />
           <PasswordInput label="Confirm password" placeholder="Confirm password" required mt="md" value={form.confirmPassword} onChange={update('confirmPassword')} />
-          <Button fullWidth mt="xl" type="submit">Create account</Button>
+          <Button fullWidth mt="xl" type="submit" loading={isPending}>Create account</Button>
         </form>
         <Text c="dimmed" size="sm" ta="center" mt="md">
           Already have an account? <Link to="/auth/signin">Sign in</Link>

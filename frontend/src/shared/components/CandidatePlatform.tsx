@@ -1,10 +1,10 @@
 import { Container, Group, Title, Anchor, Button } from '@mantine/core';
 import { Outlet, useNavigate } from '@tanstack/react-router';
-import { useAuthStore } from '../api/useAuth';
+import { useLogout } from '../hooks/auth';
 
 export function CandidatePlatform() {
   const navigate = useNavigate();
-  const logout = useAuthStore((s) => s.logout);
+  const { mutateAsync: logout } = useLogout();
 
   return (
     <>

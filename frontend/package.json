@@ -30,6 +30,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@tanstack/react-query-devtools": "^5.101.4",
     "@tanstack/router-plugin": "^1.168.23",
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",

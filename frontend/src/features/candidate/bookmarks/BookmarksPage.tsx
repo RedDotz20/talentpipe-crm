@@ -1,6 +1,6 @@
 import { Card, Text, Title, Badge, Button, Group, Stack, Loader, Alert } from '@mantine/core';
-import { useBookmarks, useRemoveBookmark } from '../../../shared/hooks';
-import type { Bookmark } from '../../../shared/hooks/useBookmarks';
+import { useBookmarks, useRemoveBookmark } from '../../../shared/hooks/candidate';
+import type { Bookmark } from '../../../shared/hooks/candidate';
 
 export function BookmarksPage() {
   const { data: bookmarks = [], isLoading: bookmarksLoading, error: bookmarksError } = useBookmarks();

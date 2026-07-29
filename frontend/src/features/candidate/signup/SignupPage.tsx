@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { useNavigate, Link } from '@tanstack/react-router';
 import { Container, Paper, Title, TextInput, PasswordInput, Button, Text, Alert } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { useAuthStore } from '../../../shared/api/useAuth';
+import { useCandidateSignup } from '../../../shared/hooks/auth';
 
 export function CandidateSignupPage() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
-  const candidateSignup = useAuthStore((s) => s.candidateSignup);
+  const { mutateAsync: candidateSignup, isPending } = useCandidateSignup();
 
   const form = useForm({
     initialValues: { firstName: '', lastName: '', email: '', password: '', confirmPassword: '' },
@@ -21,10 +21,10 @@ export function CandidateSignupPage() {
     }
     try {
       await candidateSignup({
-        firstName: values.firstName,
-        lastName: values.lastName,
-        email: values.email,
-        password: values.password,
+        firstName: values.firstName!,
+        lastName: values.lastName!,
+        email: values.email!,
+        password: values.password!,
       });
       navigate({ to: '/dashboard' });
     } catch {
@@ -43,7 +43,7 @@ export function CandidateSignupPage() {
           <TextInput label="Email" placeholder="you@example.com" required mt="md" {...form.getInputProps('email')} />
           <PasswordInput label="Password" placeholder="Your password" required mt="md" {...form.getInputProps('password')} />
           <PasswordInput label="Confirm password" placeholder="Confirm password" required mt="md" {...form.getInputProps('confirmPassword')} />
-          <Button fullWidth mt="xl" type="submit">Create account</Button>
+          <Button fullWidth mt="xl" type="submit" loading={isPending}>Create account</Button>
         </form>
         <Text c="dimmed" size="sm" ta="center" mt="md">
           Already have an account? <Link to="/auth/signin">Sign in</Link>

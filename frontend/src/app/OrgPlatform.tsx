@@ -3,11 +3,12 @@ import { AppShell as MantineShell, Group, Text, Button, NavLink } from '@mantine
 import { useDisclosure } from '@mantine/hooks';
 import { IconDashboard, IconBriefcase, IconUsers, IconLayoutKanban, IconCalendarEvent } from '@tabler/icons-react';
 import { useAuthStore } from '../shared/api/useAuth';
+import { useLogout } from '../shared/hooks/auth';
 
 export function OrgPlatform() {
   const [opened] = useDisclosure();
   const role = useAuthStore((s) => s.role);
-  const logout = useAuthStore((s) => s.logout);
+  const { mutateAsync: logout } = useLogout();
   const navigate = useNavigate();
 
   const handleLogout = async () => {

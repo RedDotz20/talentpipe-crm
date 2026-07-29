@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Card, Text, Title, Badge, Button, Group, Stack, Loader, Modal, TextInput, Textarea, Alert } from '@mantine/core';
-import { useJobs } from '../../../shared/hooks/useJobs';
-import { useApply } from '../../../shared/hooks/useApply';
-import type { Job } from '../../../shared/hooks/useJobs';
+import { useJobs } from '../../../shared/hooks/candidate';
+import { useApply } from '../../../shared/hooks/candidate';
+import type { Job } from '../../../shared/hooks/candidate';
 
 export function JobSearchPage() {
   const { data: jobs = [], isLoading: jobsLoading, error: jobsError } = useJobs();

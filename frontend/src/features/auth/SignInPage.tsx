@@ -1,24 +1,25 @@
 import { useState } from 'react';
 import { useNavigate, Link } from '@tanstack/react-router';
 import { Container, Paper, Title, TextInput, PasswordInput, Button, Text, Alert } from '@mantine/core';
+import { useSignIn } from '../../shared/hooks/auth';
 import { useAuthStore } from '../../shared/api/useAuth';
 
 export function SignInPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const signin = useAuthStore((s) => s.signin);
+  const { mutateAsync: signin, isPending } = useSignIn();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     try {
-      await signin(email, password);
-      const role = useAuthStore.getState().role;
-      if (role === 'Candidate') {
+      await signin({ email, password });
+      const currentRole = useAuthStore.getState().role;
+      if (currentRole === 'Candidate') {
         navigate({ to: '/dashboard' });
-      } else if (role === 'SuperAdmin') {
+      } else if (currentRole === 'SuperAdmin') {
         navigate({ to: '/admin/tenants' });
       } else {
         navigate({ to: '/org/dashboard' });
@@ -36,7 +37,7 @@ export function SignInPage() {
           {error && <Alert color="red" mb="md">{error}</Alert>}
           <TextInput label="Email" placeholder="you@company.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
           <PasswordInput label="Password" placeholder="Your password" required mt="md" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <Button fullWidth mt="xl" type="submit">Sign in</Button>
+          <Button fullWidth mt="xl" type="submit" loading={isPending}>Sign in</Button>
         </form>
         <Text c="dimmed" size="sm" ta="center" mt="md">
           Don't have an account? <Link to="/auth/signup">Sign up as candidate</Link>
