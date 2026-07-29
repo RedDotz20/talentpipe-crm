@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, Link } from '@tanstack/react-router';
 import { Container, Paper, Title, TextInput, PasswordInput, Button, Text, Alert } from '@mantine/core';
-import { useSignIn } from '../../shared/hooks/auth';
-import { useAuthStore } from '../../shared/api/useAuth';
+import { useSignIn } from '../../hooks/auth';
+import { useAuthStore } from '../../api/useAuth';
 
 export function SignInPage() {
   const [email, setEmail] = useState('');

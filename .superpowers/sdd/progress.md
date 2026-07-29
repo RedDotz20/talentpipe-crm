@@ -1,1 +1,15 @@
+# SDD Progress Ledger
 
+Task 1: complete (directories created)
+Task 2: complete (global API files moved to src/api/)
+Task 3: complete (RoleGuard moved to src/components/)
+Task 4: complete (auth hooks moved to src/hooks/auth/)
+Task 5: complete (candidate API + types extracted)
+Task 6: complete (candidate hooks moved to candidate-portal/hooks/)
+Task 7: complete (candidate pages moved to candidate-portal/)
+Task 8: complete (platform layouts moved to feature dashboards)
+Task 9: complete (auth page imports updated)
+Task 10: complete (routes restructured to directory-based)
+Task 11: complete (old files/directories deleted)
+Task 12: complete (route tree regenerated)
+Task 13: complete (typecheck ✅, lint ✅, build ✅)

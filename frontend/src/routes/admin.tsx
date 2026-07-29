@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { SuperAdminPlatform } from '../app/SuperAdminPlatform';
-import { useAuthStore } from '../shared/api/useAuth';
+import { SuperAdminPlatform } from '../features/admin/layout';
+import { useAuthStore } from '../api/useAuth';
 
 export const Route = createFileRoute('/admin')({
   beforeLoad: () => {

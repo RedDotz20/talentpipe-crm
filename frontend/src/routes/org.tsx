@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { OrgPlatform } from '../app/OrgPlatform';
-import { useAuthStore } from '../shared/api/useAuth';
+import { OrgPlatform } from '../features/org/layout';
+import { useAuthStore } from '../api/useAuth';
 
 export const Route = createFileRoute('/org')({
   beforeLoad: () => {
