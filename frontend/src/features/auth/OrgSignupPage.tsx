@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from '@tanstack/react-router';
 import { Container, Paper, Title, TextInput, PasswordInput, Button, Text, Alert } from '@mantine/core';
-import { useOrgSignup } from '../../hooks/auth';
+import { useOrgSignup } from '@/hooks/auth';
 
 export function OrgSignupPage() {
   const [form, setForm] = useState({ companyName: '', slug: '', email: '', password: '', confirmPassword: '' });

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Navigate } from '@tanstack/react-router';
-import { useAuthStore } from '../api/useAuth';
+import { useAuthStore } from '@/api/useAuth';
 
 interface Props {
   allowedRoles: string[];

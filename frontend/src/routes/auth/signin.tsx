@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { SignInPage } from '../../features/auth/SignInPage';
-import { useAuthStore } from '../../api/useAuth';
+import { SignInPage } from '@/features/auth/SignInPage';
+import { useAuthStore } from '@/api/useAuth';
 
 function redirectToDashboard() {
   const { role, isAuthenticated } = useAuthStore.getState();

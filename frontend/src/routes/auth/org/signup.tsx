@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { OrgSignupPage } from '../../../features/auth/OrgSignupPage';
-import { useAuthStore } from '../../../api/useAuth';
+import { OrgSignupPage } from '@/features/auth/OrgSignupPage';
+import { useAuthStore } from '@/api/useAuth';
 
 export const Route = createFileRoute('/auth/org/signup')({
   beforeLoad: () => {

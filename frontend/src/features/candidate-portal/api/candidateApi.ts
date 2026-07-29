@@ -1,5 +1,5 @@
-import { apiClient } from '../../../api/client';
-import type { Job, Application, Bookmark, Profile, ApplyData } from '../types';
+import { apiClient } from '@/api/client';
+import type { Job, Application, Bookmark, Profile, ApplyData } from '@/features/candidate-portal/types';
 
 export const candidateApi = {
   getJobs: async (search?: string): Promise<Job[]> => {

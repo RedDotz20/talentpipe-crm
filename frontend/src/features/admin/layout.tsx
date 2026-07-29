@@ -2,7 +2,7 @@ import { Outlet, Link, useNavigate } from '@tanstack/react-router';
 import { AppShell as MantineShell, Group, Text, Button, NavLink } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { IconBuildingEstate } from '@tabler/icons-react';
-import { useLogout } from '../../hooks/auth';
+import { useLogout } from '@/hooks/auth';
 
 export function SuperAdminPlatform() {
   const [opened] = useDisclosure();

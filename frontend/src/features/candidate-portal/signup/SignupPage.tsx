@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from '@tanstack/react-router';
 import { Container, Paper, Title, TextInput, PasswordInput, Button, Text, Alert } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { useCandidateSignup } from '../../../hooks/auth';
+import { useCandidateSignup } from '@/hooks/auth';
 
 export function CandidateSignupPage() {
   const [error, setError] = useState('');
