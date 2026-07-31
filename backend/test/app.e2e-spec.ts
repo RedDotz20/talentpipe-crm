@@ -14,7 +14,6 @@ interface SigninSuccessResponse {
   message: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument
 describe('App e2e', () => {
   let app: INestApplication;
 
@@ -36,7 +35,7 @@ describe('App e2e', () => {
 
   describe('Envelope contract', () => {
     it('POST /auth/signin — valid creds returns { data, message } envelope', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as unknown as string)
         .post('/api/auth/signin')
         .send({ email: 'admin@acme.com', password: 'Admin123!' });
       if (res.status === 401) {
@@ -44,9 +43,9 @@ describe('App e2e', () => {
         return;
       }
       expect(res.status).toBe(200);
+
       const body = res.body as SigninSuccessResponse;
       expect(body).toEqual(
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         expect.objectContaining({
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           data: expect.objectContaining({
@@ -61,12 +60,15 @@ describe('App e2e', () => {
     });
 
     it('POST /auth/signin — bad creds returns { error: { code: "UNAUTHORIZED", message } }', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as unknown as string)
         .post('/api/auth/signin')
         .send({ email: 'admin@acme.com', password: 'wrong' });
       expect(res.status).toBe(401);
+
       const body = res.body as ErrorResponse;
+
       expect(body).toEqual({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         error: { code: 'UNAUTHORIZED', message: expect.any(String) },
       });
     });
