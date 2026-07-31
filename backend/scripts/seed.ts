@@ -197,8 +197,8 @@ async function seedSkills(client: any): Promise<void> {
   for (const skill of SKILLS) {
     await client.query(
       `INSERT INTO public.skills (id, name, category)
-       SELECT $1, $2, $3
-       WHERE NOT EXISTS (SELECT 1 FROM public.skills WHERE name = $2)`,
+       SELECT $1::uuid, $2::varchar, $3::varchar
+       WHERE NOT EXISTS (SELECT 1 FROM public.skills WHERE name = $2::varchar)`,
       [randomUUID(), skill.name, skill.category],
     );
   }

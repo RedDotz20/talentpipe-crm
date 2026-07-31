@@ -5,7 +5,11 @@ import { CandidateRepository } from '../../repositories/candidate.repository';
 
 describe('CandidatesService', () => {
   let service: CandidatesService;
-  const candidateRepo = { findAll: jest.fn(), findById: jest.fn(), create: jest.fn() };
+  const candidateRepo = {
+    findAll: jest.fn(),
+    findById: jest.fn(),
+    create: jest.fn(),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -34,7 +38,10 @@ describe('CandidatesService', () => {
 
   it('getOne returns the candidate', async () => {
     candidateRepo.findById.mockResolvedValue({ id: 'c1', name: 'Jane' });
-    await expect(service.getOne('c1')).resolves.toEqual({ id: 'c1', name: 'Jane' });
+    await expect(service.getOne('c1')).resolves.toEqual({
+      id: 'c1',
+      name: 'Jane',
+    });
   });
 
   it('create delegates to the repository', async () => {

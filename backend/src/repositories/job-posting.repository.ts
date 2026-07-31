@@ -46,7 +46,11 @@ export class JobPostingRepository extends BaseRepository {
 
   async update(
     id: string,
-    data: Partial<{ title: string; description: string | null; status: string }>,
+    data: Partial<{
+      title: string;
+      description: string | null;
+      status: string;
+    }>,
   ) {
     return this.withDb('current', async (db) => {
       const rows = await db

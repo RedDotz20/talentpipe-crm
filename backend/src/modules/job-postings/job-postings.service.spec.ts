@@ -8,10 +8,7 @@ import { TenantRepository } from '../../repositories/tenant.repository';
 import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
 
 const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
-  asyncStorage.run(
-    { tenantId: 't1', userId: 'u1', role: 'OrgAdmin' },
-    fn,
-  );
+  asyncStorage.run({ tenantId: 't1', userId: 'u1', role: 'OrgAdmin' }, fn);
 
 describe('JobPostingsService', () => {
   let service: JobPostingsService;
@@ -84,7 +81,11 @@ describe('JobPostingsService', () => {
       createdByUserId: 'u1',
     });
     expect(jobPostingRepo.setRequiredSkills).toHaveBeenCalledWith('p1', ['s1']);
-    expect(result).toEqual({ id: 'p1', title: 'Eng', requiredSkillIds: ['s1'] });
+    expect(result).toEqual({
+      id: 'p1',
+      title: 'Eng',
+      requiredSkillIds: ['s1'],
+    });
   });
 
   it('create rejects unknown skill ids', async () => {
@@ -106,11 +107,15 @@ describe('JobPostingsService', () => {
       status: 'open',
     });
     jobPostingRepo.getRequiredSkillIds.mockResolvedValue([]);
-    tenantRepo.findById.mockResolvedValue({ id: 't1', name: 'Acme', slug: 'acme' });
+    tenantRepo.findById.mockResolvedValue({
+      id: 't1',
+      name: 'Acme',
+      slug: 'acme',
+    });
 
-    await expect(
-      runInContext(() => service.publish('p1')),
-    ).resolves.toEqual(expect.objectContaining({ id: 'p1', requiredSkillIds: [] }));
+    await expect(runInContext(() => service.publish('p1'))).resolves.toEqual(
+      expect.objectContaining({ id: 'p1', requiredSkillIds: [] }),
+    );
 
     expect(jobListingsIndexRepo.upsert).toHaveBeenCalledWith({
       tenantId: 't1',
@@ -125,9 +130,9 @@ describe('JobPostingsService', () => {
 
   it('publish rejects non-draft postings', async () => {
     jobPostingRepo.findById.mockResolvedValue({ id: 'p1', status: 'open' });
-    await expect(
-      runInContext(() => service.publish('p1')),
-    ).rejects.toThrow(ConflictException);
+    await expect(runInContext(() => service.publish('p1'))).rejects.toThrow(
+      ConflictException,
+    );
   });
 
   it('close syncs the listing index with status closed', async () => {
@@ -139,7 +144,11 @@ describe('JobPostingsService', () => {
       status: 'closed',
     });
     jobPostingRepo.getRequiredSkillIds.mockResolvedValue([]);
-    tenantRepo.findById.mockResolvedValue({ id: 't1', name: 'Acme', slug: 'acme' });
+    tenantRepo.findById.mockResolvedValue({
+      id: 't1',
+      name: 'Acme',
+      slug: 'acme',
+    });
 
     await runInContext(() => service.close('p1'));
 
@@ -150,9 +159,9 @@ describe('JobPostingsService', () => {
 
   it('remove blocks open postings and otherwise deletes listing + posting', async () => {
     jobPostingRepo.findById.mockResolvedValue({ id: 'p1', status: 'open' });
-    await expect(
-      runInContext(() => service.remove('p1')),
-    ).rejects.toThrow(ConflictException);
+    await expect(runInContext(() => service.remove('p1'))).rejects.toThrow(
+      ConflictException,
+    );
 
     jobPostingRepo.findById.mockResolvedValue({ id: 'p1', status: 'draft' });
     await runInContext(() => service.remove('p1'));

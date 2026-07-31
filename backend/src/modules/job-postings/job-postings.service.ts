@@ -3,7 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { getTenantId, TenantContext } from '../../common/context/tenant-context';
+import {
+  getTenantId,
+  TenantContext,
+} from '../../common/context/tenant-context';
 import { JobPostingRepository } from '../../repositories/job-posting.repository';
 import { SkillRepository } from '../../repositories/skill.repository';
 import { TenantRepository } from '../../repositories/tenant.repository';
@@ -41,7 +44,10 @@ export class JobPostingsService {
       createdByUserId: user.userId,
     });
     if (dto.requiredSkillIds?.length) {
-      await this.jobPostingRepo.setRequiredSkills(posting.id, dto.requiredSkillIds);
+      await this.jobPostingRepo.setRequiredSkills(
+        posting.id,
+        dto.requiredSkillIds,
+      );
     }
     return this.getOne(posting.id);
   }
@@ -52,7 +58,11 @@ export class JobPostingsService {
     if (dto.requiredSkillIds) {
       await this.assertSkillsExist(dto.requiredSkillIds);
     }
-    const patch: Partial<{ title: string; description: string | null; status: string }> = {};
+    const patch: Partial<{
+      title: string;
+      description: string | null;
+      status: string;
+    }> = {};
     if (dto.title !== undefined) patch.title = dto.title;
     if (dto.description !== undefined) patch.description = dto.description;
     if (Object.keys(patch).length > 0) {
@@ -88,7 +98,9 @@ export class JobPostingsService {
     const posting = await this.jobPostingRepo.findById(id);
     if (!posting) throw new NotFoundException('Job posting not found');
     if (posting.status === 'open') {
-      throw new ConflictException('Open postings must be closed before deletion');
+      throw new ConflictException(
+        'Open postings must be closed before deletion',
+      );
     }
     const tenantId = getTenantId();
     await this.jobPostingRepo.delete(id);

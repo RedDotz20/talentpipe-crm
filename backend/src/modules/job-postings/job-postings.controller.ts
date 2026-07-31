@@ -42,7 +42,8 @@ export class JobPostingsController {
   @UseGuards(AuthGuard('jwt'))
   @Roles(...EDIT_ROLES)
   create(
-    @Body(new ZodValidationPipe(CreateJobPostingSchema)) dto: CreateJobPostingDto,
+    @Body(new ZodValidationPipe(CreateJobPostingSchema))
+    dto: CreateJobPostingDto,
     @CurrentUser() user: TenantContext,
   ) {
     return this.jobPostingsService.create(user, dto);
@@ -60,7 +61,8 @@ export class JobPostingsController {
   @Roles(...EDIT_ROLES)
   update(
     @Param('id') id: string,
-    @Body(new ZodValidationPipe(UpdateJobPostingSchema)) dto: UpdateJobPostingDto,
+    @Body(new ZodValidationPipe(UpdateJobPostingSchema))
+    dto: UpdateJobPostingDto,
   ) {
     return this.jobPostingsService.update(id, dto);
   }
