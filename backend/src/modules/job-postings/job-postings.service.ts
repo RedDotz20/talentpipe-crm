@@ -66,7 +66,10 @@ export class JobPostingsService {
     if (dto.title !== undefined) patch.title = dto.title;
     if (dto.description !== undefined) patch.description = dto.description;
     if (Object.keys(patch).length > 0) {
-      await this.jobPostingRepo.update(id, patch);
+      const updated = await this.jobPostingRepo.update(id, patch);
+      if (posting.status !== 'draft' && updated) {
+        await this.syncListing(updated);
+      }
     }
     if (dto.requiredSkillIds) {
       await this.jobPostingRepo.setRequiredSkills(id, dto.requiredSkillIds);

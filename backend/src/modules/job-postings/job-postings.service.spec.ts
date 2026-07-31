@@ -157,6 +157,61 @@ describe('JobPostingsService', () => {
     );
   });
 
+  it('update resyncs the listing index for non-draft postings', async () => {
+    jobPostingRepo.findById.mockResolvedValue({
+      id: 'p1',
+      title: 'Eng',
+      description: null,
+      status: 'open',
+    });
+    jobPostingRepo.update.mockResolvedValue({
+      id: 'p1',
+      title: 'Eng v2',
+      description: null,
+      status: 'open',
+    });
+    jobPostingRepo.getRequiredSkillIds.mockResolvedValue([]);
+    tenantRepo.findById.mockResolvedValue({
+      id: 't1',
+      name: 'Acme',
+      slug: 'acme',
+    });
+
+    await runInContext(() => service.update('p1', { title: 'Eng v2' }));
+
+    expect(jobListingsIndexRepo.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Eng v2', status: 'open' }),
+    );
+  });
+
+  it('update does not resync the listing index for draft postings', async () => {
+    jobPostingRepo.findById.mockResolvedValue({
+      id: 'p1',
+      title: 'Eng',
+      description: null,
+      status: 'draft',
+    });
+    jobPostingRepo.update.mockResolvedValue({
+      id: 'p1',
+      title: 'Eng v2',
+      description: null,
+      status: 'draft',
+    });
+    jobPostingRepo.getRequiredSkillIds.mockResolvedValue([]);
+    tenantRepo.findById.mockResolvedValue({
+      id: 't1',
+      name: 'Acme',
+      slug: 'acme',
+    });
+
+    await runInContext(() => service.update('p1', { title: 'Eng v2' }));
+
+    expect(jobPostingRepo.update).toHaveBeenCalledWith('p1', {
+      title: 'Eng v2',
+    });
+    expect(jobListingsIndexRepo.upsert).not.toHaveBeenCalled();
+  });
+
   it('remove blocks open postings and otherwise deletes listing + posting', async () => {
     jobPostingRepo.findById.mockResolvedValue({ id: 'p1', status: 'open' });
     await expect(runInContext(() => service.remove('p1'))).rejects.toThrow(
