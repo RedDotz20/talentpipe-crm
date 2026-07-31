@@ -3,6 +3,7 @@ import { APP_INTERCEPTOR, APP_GUARD, APP_FILTER } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './modules/auth/auth.module';
 import { CandidateAccountModule } from './modules/candidate-account/candidate-account.module';
+import { JobPostingsModule } from './modules/job-postings/job-postings.module';
 import { HealthModule } from './modules/health/health.module';
 import { TenantContextInterceptor } from './common/interceptors/tenant-context.interceptor';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
@@ -15,6 +16,7 @@ import { LoggerMiddleware } from './common/middlewares/logger.middleware';
     ConfigModule.forRoot({ isGlobal: true }),
     AuthModule,
     CandidateAccountModule,
+    JobPostingsModule,
     HealthModule,
   ],
   providers: [
