@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, Link } from '@tanstack/react-router';
-import { Container, Paper, Title, TextInput, PasswordInput, Button, Text, Alert } from '@mantine/core';
+import { Anchor, Button, PasswordInput, Text, TextInput } from '@mantine/core';
 import { useOrgSignup } from '@/hooks/auth';
+import { AuthLayout } from './AuthLayout';
 
 export function OrgSignupPage() {
   const [form, setForm] = useState({ companyName: '', slug: '', email: '', password: '', confirmPassword: '' });
@@ -28,22 +29,28 @@ export function OrgSignupPage() {
     setForm((f) => ({ ...f, [field]: e.target.value }));
 
   return (
-    <Container size={420} my={40}>
-      <Title ta="center">Create your company</Title>
-      <Paper withBorder shadow="md" p={30} mt={30} radius="md">
-        <form onSubmit={handleSubmit}>
-          {error && <Alert color="red" mb="md">{error}</Alert>}
-          <TextInput label="Company name" placeholder="Acme Inc" required value={form.companyName} onChange={update('companyName')} />
-          <TextInput label="Company slug" placeholder="acme" required mt="md" value={form.slug} onChange={update('slug')} />
-          <TextInput label="Email" placeholder="you@company.com" required mt="md" value={form.email} onChange={update('email')} />
-          <PasswordInput label="Password" placeholder="Your password" required mt="md" value={form.password} onChange={update('password')} />
-          <PasswordInput label="Confirm password" placeholder="Confirm password" required mt="md" value={form.confirmPassword} onChange={update('confirmPassword')} />
-          <Button fullWidth mt="xl" type="submit" loading={isPending}>Create account</Button>
-        </form>
-        <Text c="dimmed" size="sm" ta="center" mt="md">
-          Already have an account? <Link to="/auth/signin">Sign in</Link>
-        </Text>
-      </Paper>
-    </Container>
+    <AuthLayout title="Create your company">
+      <form onSubmit={handleSubmit}>
+        {error && (
+          <Text c="red" size="sm" mb="md">
+            {error}
+          </Text>
+        )}
+        <TextInput label="Company name" placeholder="Acme Inc" size="md" radius="md" required value={form.companyName} onChange={update('companyName')} />
+        <TextInput label="Company slug" placeholder="acme" size="md" radius="md" required mt="md" value={form.slug} onChange={update('slug')} />
+        <TextInput label="Email" placeholder="you@company.com" size="md" radius="md" required mt="md" value={form.email} onChange={update('email')} />
+        <PasswordInput label="Password" placeholder="Your password" size="md" radius="md" required mt="md" value={form.password} onChange={update('password')} />
+        <PasswordInput label="Confirm password" placeholder="Confirm password" size="md" radius="md" required mt="md" value={form.confirmPassword} onChange={update('confirmPassword')} />
+        <Button fullWidth mt="xl" size="md" radius="md" type="submit" loading={isPending}>
+          Create account
+        </Button>
+      </form>
+      <Text ta="center" mt="md">
+        Already have an account?{' '}
+        <Anchor component={Link} to="/auth/signin" fw={500}>
+          Sign in
+        </Anchor>
+      </Text>
+    </AuthLayout>
   );
 }

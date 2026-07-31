@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import type { SubmitEvent } from 'react';
 import { useNavigate, Link } from '@tanstack/react-router';
-import { Container, Paper, Title, TextInput, PasswordInput, Button, Text, Alert } from '@mantine/core';
+import { Anchor, Button, Checkbox, PasswordInput, Text, TextInput } from '@mantine/core';
 import { useSignIn } from '@/hooks/auth';
 import { useAuthStore } from '@/api/useAuth';
+import { AuthLayout } from './AuthLayout';
 
 export function SignInPage() {
   const [email, setEmail] = useState('');
@@ -32,22 +33,49 @@ export function SignInPage() {
   };
 
   return (
-    <Container size={420} my={40}>
-      <Title ta="center">Welcome back</Title>
-      <Paper withBorder shadow="md" p={30} mt={30} radius="md">
-        <form onSubmit={handleSubmit}>
-          {error && <Alert color="red" mb="md">{error}</Alert>}
-          <TextInput label="Email" placeholder="you@company.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
-          <PasswordInput label="Password" placeholder="Your password" required mt="md" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <Button fullWidth mt="xl" type="submit" loading={isPending}>Sign in</Button>
-        </form>
-        <Text c="dimmed" size="sm" ta="center" mt="md">
-          Don't have an account? <Link to="/auth/signup">Sign up as candidate</Link>
-        </Text>
-        <Text c="dimmed" size="sm" ta="center" mt="xs">
-          <Link to="/auth/org/signup">Create a company account</Link>
-        </Text>
-      </Paper>
-    </Container>
+    <AuthLayout title="Welcome back to TalentPipe!">
+      <form onSubmit={handleSubmit}>
+        {error && (
+          <Text c="red" size="sm" mb="md">
+            {error}
+          </Text>
+        )}
+        <TextInput
+          label="Email address"
+          placeholder="hello@gmail.com"
+          size="md"
+          radius="md"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <PasswordInput
+          label="Password"
+          placeholder="Your password"
+          mt="md"
+          size="md"
+          radius="md"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <Checkbox label="Keep me logged in" mt="xl" size="md" />
+        <Button fullWidth mt="xl" size="md" radius="md" type="submit" loading={isPending}>
+          Login
+        </Button>
+      </form>
+
+      <Text ta="center" mt="md">
+        Don&apos;t have an account?{' '}
+        <Anchor component={Link} to="/auth/signup" fw={500}>
+          Register
+        </Anchor>
+      </Text>
+      <Text ta="center" mt="xs">
+        <Anchor component={Link} to="/auth/org/signup" fw={500}>
+          Create a company account
+        </Anchor>
+      </Text>
+    </AuthLayout>
   );
 }
