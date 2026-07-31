@@ -1,37 +1,14 @@
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
-import { PassportModule } from '@nestjs/passport';
-import { ConfigService } from '@nestjs/config';
+import { AuthCoreModule } from '../../common/auth/auth-core.module';
+import { RepositoriesModule } from '../../repositories/repositories.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { JwtStrategy } from './jwt.strategy';
-import { DrizzleSchemaService } from '../../database/drizzle-schema.service';
-import { drizzleProvider } from '../../database/drizzle.provider';
-import { TenantRepository } from '../../repositories/tenant.repository';
-import { UserRepository } from '../../repositories/user.repository';
-import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
+import { TokenService } from './services/token.service';
+import { TenantProvisioningService } from './services/tenant-provisioning.service';
 
 @Module({
-  imports: [
-    PassportModule.register({ defaultStrategy: 'jwt' }),
-    JwtModule.registerAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        secret: config.get('JWT_SECRET'),
-        signOptions: { expiresIn: '15m' },
-      }),
-    }),
-  ],
+  imports: [AuthCoreModule, RepositoriesModule],
   controllers: [AuthController],
-  providers: [
-    AuthService,
-    JwtStrategy,
-    DrizzleSchemaService,
-    drizzleProvider,
-    TenantRepository,
-    UserRepository,
-    CandidateAccountRepository,
-  ],
-  exports: [JwtStrategy, PassportModule],
+  providers: [AuthService, TokenService, TenantProvisioningService],
 })
 export class AuthModule {}

@@ -8,10 +8,4 @@ export const CandidateSignupSchema = z.object({
   phone: z.string().max(50).optional(),
 });
 
-export const CandidateLoginSchema = z.object({
-  email: z.string().email(),
-  password: z.string(),
-});
-
 export type CandidateSignupDto = z.infer<typeof CandidateSignupSchema>;
-export type CandidateLoginDto = z.infer<typeof CandidateLoginSchema>;
