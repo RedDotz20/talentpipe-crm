@@ -35,7 +35,8 @@ backend/src/
 │   ├── interceptors/                # tenant-context.interceptor.ts, response.interceptor.ts
 │   ├── filters/                     # api-exception.filter.ts (moved from shared/)
 │   ├── middlewares/                 # logger.middleware.ts (renamed from shared/logger.ts)
-│   └── pipes/                       # zod-validation.pipe.ts (NEW)
+│   ├── pipes/                       # zod-validation.pipe.ts (NEW)
+│   └── password.ts                  # moved from shared/password.ts
 │
 ├── database/
 │   ├── database.module.ts           # NEW: single owner of pool + DrizzleSchemaService
