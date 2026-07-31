@@ -126,7 +126,8 @@ export class AuthService {
       pubRelease2();
     }
 
-    return this.generateTokens(userId, tenantId, 'OrgAdmin');
+    const tokens = await this.generateTokens(userId, tenantId, 'OrgAdmin');
+    return { data: tokens, message: 'Company created' };
   }
 
   async signin(dto: { email: string; password: string }) {
@@ -162,7 +163,12 @@ export class AuthService {
         const valid = await verifyPassword(user.passwordHash, dto.password);
         if (!valid) throw new UnauthorizedException('Invalid credentials');
 
-        return this.generateTokens(user.id, emailRecord.tenantId, user.role);
+        const tokens = await this.generateTokens(
+          user.id,
+          emailRecord.tenantId,
+          user.role,
+        );
+        return { data: tokens, message: 'Signed in' };
       } finally {
         tenantRelease();
       }
@@ -185,7 +191,10 @@ export class AuthService {
         const admin = adminResult[0];
         const valid = await verifyPassword(admin.passwordHash, dto.password);
         if (!valid) throw new UnauthorizedException('Invalid credentials');
-        return this.generateSuperAdminTokens(admin.id);
+        return {
+          data: await this.generateSuperAdminTokens(admin.id),
+          message: 'Signed in',
+        };
       } finally {
         pubRelease3();
       }
@@ -194,7 +203,10 @@ export class AuthService {
     const valid = await verifyPassword(account.passwordHash, dto.password);
     if (!valid) throw new UnauthorizedException('Invalid credentials');
 
-    return this.generateCandidateTokens(account.id);
+    return {
+      data: await this.generateCandidateTokens(account.id),
+      message: 'Signed in',
+    };
   }
 
   async candidateSignup(dto: CandidateSignupDto) {
@@ -210,7 +222,8 @@ export class AuthService {
       phone: dto.phone,
     });
 
-    return this.generateCandidateTokens(account.id);
+    const tokens = await this.generateCandidateTokens(account.id);
+    return { data: tokens, message: 'Account created' };
   }
 
   private async generateCandidateTokens(candidateAccountId: string) {
