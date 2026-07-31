@@ -12,8 +12,13 @@ function makeHost(): ArgumentsHost {
 }
 
 function capture(host: ArgumentsHost) {
-  const json = host.switchToHttp().getResponse().status().json as jest.Mock;
-  const status = host.switchToHttp().getResponse().status as jest.Mock;
+  const http = host.switchToHttp() as unknown as {
+    getResponse: () => { status: jest.Mock };
+  };
+  const response = http.getResponse();
+  const statusMock = response.status() as { json: jest.Mock };
+  const json = statusMock.json;
+  const status = response.status;
   return { status, json };
 }
 
