@@ -4,6 +4,8 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './modules/auth/auth.module';
 import { CandidateAccountModule } from './modules/candidate-account/candidate-account.module';
 import { JobPostingsModule } from './modules/job-postings/job-postings.module';
+import { CandidatesModule } from './modules/candidates/candidates.module';
+import { SkillsModule } from './modules/skills/skills.module';
 import { HealthModule } from './modules/health/health.module';
 import { TenantContextInterceptor } from './common/interceptors/tenant-context.interceptor';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
@@ -17,6 +19,8 @@ import { LoggerMiddleware } from './common/middlewares/logger.middleware';
     AuthModule,
     CandidateAccountModule,
     JobPostingsModule,
+    CandidatesModule,
+    SkillsModule,
     HealthModule,
   ],
   providers: [

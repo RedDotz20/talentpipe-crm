@@ -148,6 +148,66 @@ async function seedCandidate(client: any): Promise<void> {
   console.log('[OK] Candidate created: candidate@test.com');
 }
 
+const SKILLS: { name: string; category: string }[] = [
+  { name: 'JavaScript', category: 'Language' },
+  { name: 'TypeScript', category: 'Language' },
+  { name: 'Python', category: 'Language' },
+  { name: 'Java', category: 'Language' },
+  { name: 'Go', category: 'Language' },
+  { name: 'Rust', category: 'Language' },
+  { name: 'C#', category: 'Language' },
+  { name: 'SQL', category: 'Language' },
+  { name: 'PHP', category: 'Language' },
+  { name: 'Ruby', category: 'Language' },
+  { name: 'React', category: 'Frontend' },
+  { name: 'Vue.js', category: 'Frontend' },
+  { name: 'Angular', category: 'Frontend' },
+  { name: 'Next.js', category: 'Frontend' },
+  { name: 'HTML/CSS', category: 'Frontend' },
+  { name: 'Tailwind CSS', category: 'Frontend' },
+  { name: 'Node.js', category: 'Backend' },
+  { name: 'NestJS', category: 'Backend' },
+  { name: 'Express', category: 'Backend' },
+  { name: 'REST API', category: 'Backend' },
+  { name: 'GraphQL', category: 'Backend' },
+  { name: 'gRPC', category: 'Backend' },
+  { name: 'PostgreSQL', category: 'Database' },
+  { name: 'MySQL', category: 'Database' },
+  { name: 'MongoDB', category: 'Database' },
+  { name: 'Redis', category: 'Database' },
+  { name: 'Docker', category: 'DevOps' },
+  { name: 'Kubernetes', category: 'DevOps' },
+  { name: 'AWS', category: 'Cloud' },
+  { name: 'Azure', category: 'Cloud' },
+  { name: 'GCP', category: 'Cloud' },
+  { name: 'CI/CD', category: 'DevOps' },
+  { name: 'Terraform', category: 'DevOps' },
+  { name: 'Unit Testing', category: 'Testing' },
+  { name: 'Integration Testing', category: 'Testing' },
+  { name: 'Playwright', category: 'Testing' },
+  { name: 'Cypress', category: 'Testing' },
+  { name: 'Jest', category: 'Testing' },
+  { name: 'Project Management', category: 'Soft Skill' },
+  { name: 'Team Leadership', category: 'Soft Skill' },
+  { name: 'Communication', category: 'Soft Skill' },
+  { name: 'Agile/Scrum', category: 'Soft Skill' },
+];
+
+async function seedSkills(client: any): Promise<void> {
+  for (const skill of SKILLS) {
+    await client.query(
+      `INSERT INTO public.skills (id, name, category)
+       SELECT $1, $2, $3
+       WHERE NOT EXISTS (SELECT 1 FROM public.skills WHERE name = $2)`,
+      [randomUUID(), skill.name, skill.category],
+    );
+  }
+  const count = await client.query(
+    'SELECT count(*)::int AS n FROM public.skills',
+  );
+  console.log(`[OK] Skills seeded: ${count.rows[0].n} total`);
+}
+
 async function main(): Promise<void> {
   const client = await pool.connect();
   try {
@@ -155,6 +215,7 @@ async function main(): Promise<void> {
     await seedSuperAdmin(client);
     await seedOrg(client);
     await seedCandidate(client);
+    await seedSkills(client);
     await client.query('COMMIT');
     console.log('\nSeed complete.');
   } catch (err) {
