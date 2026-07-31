@@ -14,6 +14,12 @@ export interface TokenSubject {
   role: string;
 }
 
+interface TokenPayload {
+  sub: string;
+  role: string;
+  tenantId?: string;
+}
+
 @Injectable()
 export class TokenService {
   constructor(
@@ -24,13 +30,11 @@ export class TokenService {
 
   async issueTokens(subject: TokenSubject) {
     const tenantId = subject.tenantId ?? NIL_TENANT_ID;
-    const payload: Record<string, unknown> = {
+    const payload: TokenPayload = {
       sub: subject.id,
       role: subject.role,
+      tenantId: subject.tenantId ?? undefined,
     };
-    if (subject.tenantId) {
-      payload.tenantId = subject.tenantId;
-    }
 
     const accessToken = this.jwtService.sign(payload, {
       expiresIn: ACCESS_TTL,
@@ -40,7 +44,9 @@ export class TokenService {
       expiresIn: '7d',
     });
 
-    const tokenHash = await argon2.hash(refreshToken);
+    const tokenHash: string = await (argon2.hash(
+      refreshToken,
+    ) as Promise<string>);
     const expiresAt = new Date(Date.now() + REFRESH_TTL_MS);
 
     await this.refreshTokenRepo.deleteByUser(subject.id);
@@ -65,10 +71,7 @@ export class TokenService {
       throw new UnauthorizedException('Refresh token expired');
     }
 
-    const tokenMatches = await argon2.verify(
-      stored.tokenHash,
-      refreshToken,
-    );
+    const tokenMatches = await argon2.verify(stored.tokenHash, refreshToken);
     if (!tokenMatches) throw new UnauthorizedException('Invalid refresh token');
 
     return this.issueTokens({

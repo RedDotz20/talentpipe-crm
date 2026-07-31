@@ -32,11 +32,7 @@ export class UserRepository extends BaseRepository {
     schema = 'current',
   ) {
     return this.withDb(schema, async (db) => {
-      const rows = await db
-        .insert(users)
-        .values(data)
-        .returning()
-        .execute();
+      const rows = await db.insert(users).values(data).returning().execute();
       return rows[0];
     });
   }

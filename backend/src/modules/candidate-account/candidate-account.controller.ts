@@ -73,7 +73,10 @@ export class CandidateAccountController {
 
   @Delete('bookmarks/:id')
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
-  async removeBookmark(@Param('id') id: string, @CurrentUser() user: TenantContext) {
+  async removeBookmark(
+    @Param('id') id: string,
+    @CurrentUser() user: TenantContext,
+  ) {
     return this.candidateAccountService.removeBookmark(user.userId, id);
   }
 

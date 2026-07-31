@@ -20,7 +20,10 @@ export class RefreshTokenRepository extends BaseRepository {
 
   async deleteByUser(userId: string) {
     return this.withDb('public', (db) =>
-      db.delete(refreshTokens).where(eq(refreshTokens.userId, userId)).execute(),
+      db
+        .delete(refreshTokens)
+        .where(eq(refreshTokens.userId, userId))
+        .execute(),
     );
   }
 

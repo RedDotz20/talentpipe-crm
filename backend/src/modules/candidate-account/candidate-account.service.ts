@@ -6,7 +6,6 @@ import { JobListingsIndexRepository } from '../../repositories/job-listings-inde
 import { CandidateRepository } from '../../repositories/candidate.repository';
 import { ApplicationRepository } from '../../repositories/application.repository';
 import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
-import { UpdateProfileDto } from './dto/profile.dto';
 
 @Injectable()
 export class CandidateAccountService {
@@ -67,7 +66,8 @@ export class CandidateAccountService {
     }
 
     const firstStage = await this.pipelineStageRepo.findFirst(schemaName);
-    if (!firstStage) throw new NotFoundException('No pipeline stages configured');
+    if (!firstStage)
+      throw new NotFoundException('No pipeline stages configured');
 
     const application = await this.applicationRepo.create(
       {
@@ -137,14 +137,14 @@ export class CandidateAccountService {
       await this.candidateAccountRepo.findById(candidateAccountId);
     if (!account) throw new NotFoundException('Candidate account not found');
 
-    const { passwordHash, ...profile } = account;
-    return { ...profile, role: 'Candidate' };
-  }
-
-  async updateProfile(
-    candidateAccountId: string,
-    _data: UpdateProfileDto,
-  ) {
-    return this.getProfile(candidateAccountId);
+    return {
+      id: account.id,
+      email: account.email,
+      firstName: account.firstName,
+      lastName: account.lastName,
+      phone: account.phone,
+      createdAt: account.createdAt,
+      role: 'Candidate',
+    };
   }
 }

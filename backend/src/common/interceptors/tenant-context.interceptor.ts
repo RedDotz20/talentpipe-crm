@@ -10,8 +10,10 @@ import { asyncStorage, TenantContext } from '../context/tenant-context';
 @Injectable()
 export class TenantContextInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const request = context.switchToHttp().getRequest();
-    const user = request.user as TenantContext | undefined;
+    const request = context
+      .switchToHttp()
+      .getRequest<{ user?: TenantContext }>();
+    const user = request.user;
 
     const tenantId =
       user?.role === 'SuperAdmin' || !user?.tenantId ? 'public' : user.tenantId;

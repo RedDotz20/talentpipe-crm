@@ -2,8 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
-import { ApiExceptionFilter } from '../src/shared/api-exception.filter';
-import { ResponseInterceptor } from '../src/shared/response.interceptor';
 
 interface ErrorResponse {
   error: { code: string; message: string };
@@ -24,8 +22,6 @@ describe('App e2e', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalFilters(new ApiExceptionFilter());
-    app.useGlobalInterceptors(new ResponseInterceptor());
     await app.init();
   });
 
@@ -39,7 +35,6 @@ describe('App e2e', () => {
         .post('/api/auth/signin')
         .send({ email: 'admin@acme.com', password: 'Admin123!' });
       if (res.status === 401) {
-        // seed not present in this env — skip
         return;
       }
       expect(res.status).toBe(200);

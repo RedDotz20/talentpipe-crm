@@ -12,7 +12,10 @@ jest.mock('argon2', () => ({
 
 describe('TokenService', () => {
   let service: TokenService;
-  const jwtService = { sign: jest.fn().mockReturnValue('token'), verify: jest.fn() };
+  const jwtService = {
+    sign: jest.fn().mockReturnValue('token'),
+    verify: jest.fn(),
+  };
   const configService = { get: jest.fn().mockReturnValue('refresh-secret') };
   const refreshTokenRepo = {
     deleteByUser: jest.fn().mockResolvedValue(undefined),
@@ -57,13 +60,17 @@ describe('TokenService', () => {
           userId: 'u1',
           tenantId: 't1',
           tokenHash: 'hashed-value',
-          expiresAt: expect.any(Date),
+          expiresAt: expect.any(Date) as Date,
         }),
       );
     });
 
     it('maps a null tenantId to the nil uuid in the stored row', async () => {
-      await service.issueTokens({ id: 'u1', tenantId: null, role: 'Candidate' });
+      await service.issueTokens({
+        id: 'u1',
+        tenantId: null,
+        role: 'Candidate',
+      });
       expect(refreshTokenRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           tenantId: '00000000-0000-0000-0000-000000000000',
@@ -74,7 +81,11 @@ describe('TokenService', () => {
 
   describe('rotate', () => {
     it('throws UnauthorizedException when no stored record exists', async () => {
-      jwtService.verify.mockReturnValue({ sub: 'u1', tenantId: null, role: 'Candidate' });
+      jwtService.verify.mockReturnValue({
+        sub: 'u1',
+        tenantId: null,
+        role: 'Candidate',
+      });
       refreshTokenRepo.findLatestByUser.mockResolvedValue(null);
       await expect(service.rotate('refresh-token')).rejects.toThrow(
         UnauthorizedException,
@@ -82,7 +93,11 @@ describe('TokenService', () => {
     });
 
     it('throws UnauthorizedException on an expired stored record', async () => {
-      jwtService.verify.mockReturnValue({ sub: 'u1', tenantId: 't1', role: 'OrgAdmin' });
+      jwtService.verify.mockReturnValue({
+        sub: 'u1',
+        tenantId: 't1',
+        role: 'OrgAdmin',
+      });
       refreshTokenRepo.findLatestByUser.mockResolvedValue({
         expiresAt: new Date(Date.now() - 1000),
         tokenHash: 'hashed-value',
@@ -94,7 +109,11 @@ describe('TokenService', () => {
     });
 
     it('re-issues tokens for a valid stored record', async () => {
-      jwtService.verify.mockReturnValue({ sub: 'u1', tenantId: 't1', role: 'OrgAdmin' });
+      jwtService.verify.mockReturnValue({
+        sub: 'u1',
+        tenantId: 't1',
+        role: 'OrgAdmin',
+      });
       refreshTokenRepo.findLatestByUser.mockResolvedValue({
         expiresAt: new Date(Date.now() + 60_000),
         tokenHash: 'hashed-value',

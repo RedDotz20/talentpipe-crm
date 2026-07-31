@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { hashPassword, verifyPassword } from '../../common/password';
 import { TokenService } from './services/token.service';
 import { TenantProvisioningService } from './services/tenant-provisioning.service';
@@ -23,7 +27,8 @@ export class AuthService {
   ) {}
 
   async orgSignup(dto: OrgSignupDto) {
-    const { tenantId, userId } = await this.tenantProvisioning.createTenant(dto);
+    const { tenantId, userId } =
+      await this.tenantProvisioning.createTenant(dto);
     const tokens = await this.tokenService.issueTokens({
       id: userId,
       tenantId,

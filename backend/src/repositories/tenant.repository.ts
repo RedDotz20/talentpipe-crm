@@ -43,11 +43,7 @@ export class TenantRepository extends BaseRepository {
 
   async create(data: { id: string; name: string; slug: string }) {
     return this.withDb('public', async (db) => {
-      const rows = await db
-        .insert(tenants)
-        .values(data)
-        .returning()
-        .execute();
+      const rows = await db.insert(tenants).values(data).returning().execute();
       return rows[0];
     });
   }

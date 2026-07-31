@@ -7,7 +7,10 @@ import { UserEmailRepository } from '../../../repositories/user-email.repository
 import { PipelineStageRepository } from '../../../repositories/pipeline-stage.repository';
 
 jest.mock('crypto', () => ({ randomUUID: jest.fn(() => 'uuid-1') }));
-jest.mock('argon2', () => ({ hash: jest.fn().mockResolvedValue('hash'), verify: jest.fn() }));
+jest.mock('argon2', () => ({
+  hash: jest.fn().mockResolvedValue('hash'),
+  verify: jest.fn(),
+}));
 
 describe('TenantProvisioningService', () => {
   let service: TenantProvisioningService;
@@ -18,7 +21,9 @@ describe('TenantProvisioningService', () => {
   };
   const userRepo = { create: jest.fn().mockResolvedValue({ id: 'uuid-1' }) };
   const userEmailRepo = { create: jest.fn().mockResolvedValue({ id: 'e1' }) };
-  const pipelineStageRepo = { createMany: jest.fn().mockResolvedValue(undefined) };
+  const pipelineStageRepo = {
+    createMany: jest.fn().mockResolvedValue(undefined),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();

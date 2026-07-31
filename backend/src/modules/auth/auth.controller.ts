@@ -14,7 +14,10 @@ import { TenantContext } from '../../common/context/tenant-context';
 import { OrgSignupSchema, OrgSignupDto } from './dto/org-signup.dto';
 import { SigninSchema, SigninDto } from './dto/signin.dto';
 import { RefreshSchema, RefreshDto } from './dto/refresh.dto';
-import { CandidateSignupSchema, CandidateSignupDto } from './dto/candidate-auth.dto';
+import {
+  CandidateSignupSchema,
+  CandidateSignupDto,
+} from './dto/candidate-auth.dto';
 
 @Controller('auth')
 export class AuthController {

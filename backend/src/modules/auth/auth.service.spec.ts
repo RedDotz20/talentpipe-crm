@@ -8,7 +8,10 @@ import { UserRepository } from '../../repositories/user.repository';
 import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
 import { SuperAdminRepository } from '../../repositories/super-admin.repository';
 
-jest.mock('argon2', () => ({ hash: jest.fn(), verify: jest.fn().mockResolvedValue(true) }));
+jest.mock('argon2', () => ({
+  hash: jest.fn(),
+  verify: jest.fn().mockResolvedValue(true),
+}));
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -71,7 +74,10 @@ describe('AuthService', () => {
 
   describe('signin', () => {
     it('signs in an org user found via the email index', async () => {
-      userEmailRepo.findByEmail.mockResolvedValue({ tenantId: 't1', userId: 'u1' });
+      userEmailRepo.findByEmail.mockResolvedValue({
+        tenantId: 't1',
+        userId: 'u1',
+      });
       userRepo.findByEmail.mockResolvedValue({
         id: 'u1',
         email: 'admin@acme.com',
