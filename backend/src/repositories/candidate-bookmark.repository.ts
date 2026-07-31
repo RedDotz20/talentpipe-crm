@@ -1,23 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { eq, and } from 'drizzle-orm';
-import { DrizzleSchemaService } from '../database/drizzle-schema.service';
 import { candidateBookmarks } from '../database/schema';
+import { BaseRepository } from './base.repository';
 
 @Injectable()
-export class CandidateBookmarkRepository {
-  constructor(private drizzleSchema: DrizzleSchemaService) {}
-
+export class CandidateBookmarkRepository extends BaseRepository {
   async findByCandidate(candidateAccountId: string) {
-    const { db, release } = await this.drizzleSchema.forPublic();
-    try {
+    return this.withDb('public', async (db) => {
       return db
         .select()
         .from(candidateBookmarks)
         .where(eq(candidateBookmarks.candidateAccountId, candidateAccountId))
         .execute();
-    } finally {
-      release();
-    }
+    });
   }
 
   async findByJob(
@@ -25,8 +20,7 @@ export class CandidateBookmarkRepository {
     tenantId: string,
     jobPostingId: string,
   ) {
-    const { db, release } = await this.drizzleSchema.forPublic();
-    try {
+    return this.withDb('public', async (db) => {
       const rows = await db
         .select()
         .from(candidateBookmarks)
@@ -39,9 +33,7 @@ export class CandidateBookmarkRepository {
         )
         .execute();
       return rows[0] ?? null;
-    } finally {
-      release();
-    }
+    });
   }
 
   async create(data: {
@@ -51,23 +43,19 @@ export class CandidateBookmarkRepository {
     jobTitle: string;
     companyName: string;
   }) {
-    const { db, release } = await this.drizzleSchema.forPublic();
-    try {
+    return this.withDb('public', async (db) => {
       const rows = await db
         .insert(candidateBookmarks)
         .values(data)
         .returning()
         .execute();
       return rows[0];
-    } finally {
-      release();
-    }
+    });
   }
 
   async delete(id: string, candidateAccountId: string) {
-    const { db, release } = await this.drizzleSchema.forPublic();
-    try {
-      return db
+    return this.withDb('public', (db) =>
+      db
         .delete(candidateBookmarks)
         .where(
           and(
@@ -75,9 +63,7 @@ export class CandidateBookmarkRepository {
             eq(candidateBookmarks.candidateAccountId, candidateAccountId),
           ),
         )
-        .execute();
-    } finally {
-      release();
-    }
+        .execute(),
+    );
   }
 }

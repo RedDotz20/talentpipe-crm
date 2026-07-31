@@ -1,15 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { eq, and, desc } from 'drizzle-orm';
-import { DrizzleSchemaService } from '../database/drizzle-schema.service';
 import { jobListingsIndex } from '../database/schema';
+import { BaseRepository } from './base.repository';
 
 @Injectable()
-export class JobListingsIndexRepository {
-  constructor(private drizzleSchema: DrizzleSchemaService) {}
-
+export class JobListingsIndexRepository extends BaseRepository {
   async findAll(search?: string) {
-    const { db, release } = await this.drizzleSchema.forPublic();
-    try {
+    return this.withDb('public', async (db) => {
       const results = await db
         .select()
         .from(jobListingsIndex)
@@ -27,14 +24,11 @@ export class JobListingsIndexRepository {
       }
 
       return results;
-    } finally {
-      release();
-    }
+    });
   }
 
   async findById(tenantId: string, jobPostingId: string) {
-    const { db, release } = await this.drizzleSchema.forPublic();
-    try {
+    return this.withDb('public', async (db) => {
       const rows = await db
         .select()
         .from(jobListingsIndex)
@@ -46,9 +40,7 @@ export class JobListingsIndexRepository {
         )
         .execute();
       return rows[0] ?? null;
-    } finally {
-      release();
-    }
+    });
   }
 
   async upsert(data: {
@@ -60,8 +52,7 @@ export class JobListingsIndexRepository {
     companySlug: string;
     status: string;
   }) {
-    const { db, release } = await this.drizzleSchema.forPublic();
-    try {
+    return this.withDb('public', async (db) => {
       const existing = await db
         .select()
         .from(jobListingsIndex)
@@ -101,15 +92,12 @@ export class JobListingsIndexRepository {
           .execute();
         return rows[0];
       }
-    } finally {
-      release();
-    }
+    });
   }
 
   async delete(tenantId: string, jobPostingId: string) {
-    const { db, release } = await this.drizzleSchema.forPublic();
-    try {
-      return db
+    return this.withDb('public', (db) =>
+      db
         .delete(jobListingsIndex)
         .where(
           and(
@@ -117,9 +105,7 @@ export class JobListingsIndexRepository {
             eq(jobListingsIndex.jobPostingId, jobPostingId),
           ),
         )
-        .execute();
-    } finally {
-      release();
-    }
+        .execute(),
+    );
   }
 }

@@ -1,15 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { eq, desc } from 'drizzle-orm';
-import { DrizzleSchemaService } from '../database/drizzle-schema.service';
 import { candidateApplicationsIndex } from '../database/schema';
+import { BaseRepository } from './base.repository';
 
 @Injectable()
-export class CandidateApplicationsIndexRepository {
-  constructor(private drizzleSchema: DrizzleSchemaService) {}
-
+export class CandidateApplicationsIndexRepository extends BaseRepository {
   async findByCandidate(candidateAccountId: string) {
-    const { db, release } = await this.drizzleSchema.forPublic();
-    try {
+    return this.withDb('public', async (db) => {
       return db
         .select()
         .from(candidateApplicationsIndex)
@@ -18,9 +15,7 @@ export class CandidateApplicationsIndexRepository {
         )
         .orderBy(desc(candidateApplicationsIndex.appliedAt))
         .execute();
-    } finally {
-      release();
-    }
+    });
   }
 
   async create(data: {
@@ -32,22 +27,18 @@ export class CandidateApplicationsIndexRepository {
     companyName: string;
     status: string;
   }) {
-    const { db, release } = await this.drizzleSchema.forPublic();
-    try {
+    return this.withDb('public', async (db) => {
       const rows = await db
         .insert(candidateApplicationsIndex)
         .values(data)
         .returning()
         .execute();
       return rows[0];
-    } finally {
-      release();
-    }
+    });
   }
 
   async updateStatus(applicationId: string, status: string) {
-    const { db, release } = await this.drizzleSchema.forPublic();
-    try {
+    return this.withDb('public', async (db) => {
       const rows = await db
         .update(candidateApplicationsIndex)
         .set({ status })
@@ -55,8 +46,6 @@ export class CandidateApplicationsIndexRepository {
         .returning()
         .execute();
       return rows[0] ?? null;
-    } finally {
-      release();
-    }
+    });
   }
 }
