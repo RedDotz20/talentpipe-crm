@@ -17,7 +17,7 @@ export class CandidateRepository extends BaseRepository {
   }
 
   async create(
-    data: { name: string; email: string; phone?: string },
+    data: { name: string; email: string; phone?: string | null },
     schema = 'current',
   ) {
     return this.withDb(schema, async (db) => {

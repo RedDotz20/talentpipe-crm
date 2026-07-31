@@ -9,13 +9,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { CandidateAuthGuard } from '../../shared/candidate-auth.guard';
+import { CandidateAuthGuard } from '../../common/guards/candidate-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { TenantContext } from '../../common/context/tenant-context';
 import { CandidateAccountService } from './candidate-account.service';
-import {
-  BookmarkJobSchema,
-  UpdateProfileSchema,
-} from './dto/candidate-apply.dto';
-import { getCurrentUser } from '../../interceptors/tenant-context';
+import { BookmarkJobSchema, BookmarkJobDto } from './dto/bookmark.dto';
+import { ApplyJobSchema, ApplyJobDto } from './dto/apply.dto';
 
 @Controller('candidate')
 export class CandidateAccountController {
@@ -41,11 +41,11 @@ export class CandidateAccountController {
   async apply(
     @Param('tenantId') tenantId: string,
     @Param('jobId') jobId: string,
-    @Body() body: { phone?: string },
+    @Body(new ZodValidationPipe(ApplyJobSchema)) body: ApplyJobDto,
+    @CurrentUser() user: TenantContext,
   ) {
-    const { userId } = getCurrentUser();
     return this.candidateAccountService.apply(
-      userId,
+      user.userId,
       tenantId,
       jobId,
       body.phone,
@@ -54,41 +54,38 @@ export class CandidateAccountController {
 
   @Get('applications')
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
-  async getApplications() {
-    const { userId } = getCurrentUser();
-    return this.candidateAccountService.getApplications(userId);
+  async getApplications(@CurrentUser() user: TenantContext) {
+    return this.candidateAccountService.getApplications(user.userId);
   }
 
   @Post('bookmarks')
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
-  async addBookmark(@Body() body: unknown) {
-    const { tenantId, jobPostingId } = BookmarkJobSchema.parse(body);
-    const { userId } = getCurrentUser();
+  async addBookmark(
+    @Body(new ZodValidationPipe(BookmarkJobSchema)) body: BookmarkJobDto,
+    @CurrentUser() user: TenantContext,
+  ) {
     return this.candidateAccountService.addBookmark(
-      userId,
-      tenantId,
-      jobPostingId,
+      user.userId,
+      body.tenantId,
+      body.jobPostingId,
     );
   }
 
   @Delete('bookmarks/:id')
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
-  async removeBookmark(@Param('id') id: string) {
-    const { userId } = getCurrentUser();
-    return this.candidateAccountService.removeBookmark(userId, id);
+  async removeBookmark(@Param('id') id: string, @CurrentUser() user: TenantContext) {
+    return this.candidateAccountService.removeBookmark(user.userId, id);
   }
 
   @Get('bookmarks')
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
-  async getBookmarks() {
-    const { userId } = getCurrentUser();
-    return this.candidateAccountService.getBookmarks(userId);
+  async getBookmarks(@CurrentUser() user: TenantContext) {
+    return this.candidateAccountService.getBookmarks(user.userId);
   }
 
   @Get('profile')
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
-  async getProfile() {
-    const { userId } = getCurrentUser();
-    return this.candidateAccountService.getProfile(userId);
+  async getProfile(@CurrentUser() user: TenantContext) {
+    return this.candidateAccountService.getProfile(user.userId);
   }
 }

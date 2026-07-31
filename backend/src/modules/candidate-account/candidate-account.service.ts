@@ -1,24 +1,23 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
-import { DrizzleSchemaService } from '../../database/drizzle-schema.service';
 import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
 import { CandidateBookmarkRepository } from '../../repositories/candidate-bookmark.repository';
 import { CandidateApplicationsIndexRepository } from '../../repositories/candidate-applications-index.repository';
 import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
-import {
-  candidates,
-  applications,
-  pipelineStages,
-} from '../../database/schema';
+import { CandidateRepository } from '../../repositories/candidate.repository';
+import { ApplicationRepository } from '../../repositories/application.repository';
+import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
+import { UpdateProfileDto } from './dto/profile.dto';
 
 @Injectable()
 export class CandidateAccountService {
   constructor(
-    private readonly drizzleSchema: DrizzleSchemaService,
     private readonly candidateAccountRepo: CandidateAccountRepository,
     private readonly candidateBookmarkRepo: CandidateBookmarkRepository,
     private readonly candidateApplicationsIndexRepo: CandidateApplicationsIndexRepository,
     private readonly jobListingsIndexRepo: JobListingsIndexRepository,
+    private readonly candidateRepo: CandidateRepository,
+    private readonly applicationRepo: ApplicationRepository,
+    private readonly pipelineStageRepo: PipelineStageRepository,
   ) {}
 
   async getJobs(search?: string) {
@@ -40,78 +39,45 @@ export class CandidateAccountService {
     jobPostingId: string,
     phone?: string,
   ) {
-    // 1. Check job exists and is open
     const job = await this.jobListingsIndexRepo.findById(
       tenantId,
       jobPostingId,
     );
     if (!job) throw new NotFoundException('Job posting not found');
 
-    // 2. Get candidate account info
     const account =
       await this.candidateAccountRepo.findById(candidateAccountId);
     if (!account) throw new NotFoundException('Candidate account not found');
 
-    // 3-7. Switch to tenant schema, find/create candidate, create application
-    let application: { id: string };
-    let stageName: string;
+    const schemaName = `tenant_${tenantId}`;
 
-    const { db, release } = await this.drizzleSchema.forSchema(
-      `tenant_${tenantId}`,
+    let candidate = await this.candidateRepo.findByEmail(
+      account.email,
+      schemaName,
     );
-    try {
-      // 4. Find or create candidates record by matching email
-      let candidate = await db
-        .select()
-        .from(candidates)
-        .where(eq(candidates.email, account.email))
-        .execute()
-        .then((rows) => rows[0] ?? null);
-
-      if (!candidate) {
-        const [newCandidate] = await db
-          .insert(candidates)
-          .values({
-            name: `${account.firstName} ${account.lastName}`,
-            email: account.email,
-            phone: phone || account.phone,
-          })
-          .returning()
-          .execute();
-        candidate = newCandidate;
-      }
-
-      // 5. Get first pipeline stage (ordered by stage order)
-      const [firstStage] = await db
-        .select()
-        .from(pipelineStages)
-        .orderBy(pipelineStages.order)
-        .limit(1)
-        .execute();
-
-      if (!firstStage) {
-        throw new NotFoundException('No pipeline stages configured');
-      }
-
-      stageName = firstStage.name;
-
-      // 6. Create applications record
-      const [app] = await db
-        .insert(applications)
-        .values({
-          candidateId: candidate.id,
-          jobPostingId,
-          currentStageId: firstStage.id,
-        })
-        .returning()
-        .execute();
-      application = app;
-    } finally {
-      // 7. Release tenant DB client
-      release();
+    if (!candidate) {
+      candidate = await this.candidateRepo.create(
+        {
+          name: `${account.firstName} ${account.lastName}`,
+          email: account.email,
+          phone: phone || account.phone,
+        },
+        schemaName,
+      );
     }
 
-    // 8. Create index entry in public schema
+    const firstStage = await this.pipelineStageRepo.findFirst(schemaName);
+    if (!firstStage) throw new NotFoundException('No pipeline stages configured');
+
+    const application = await this.applicationRepo.create(
+      {
+        candidateId: candidate.id,
+        jobPostingId,
+        currentStageId: firstStage.id,
+      },
+      schemaName,
+    );
+
     await this.candidateApplicationsIndexRepo.create({
       candidateAccountId,
       tenantId,
@@ -119,10 +85,9 @@ export class CandidateAccountService {
       applicationId: application.id,
       jobTitle: job.title,
       companyName: job.companyName,
-      status: stageName,
+      status: firstStage.name,
     });
 
-    // 9. Return applicationId
     return { applicationId: application.id };
   }
 
@@ -141,7 +106,6 @@ export class CandidateAccountService {
     tenantId: string,
     jobPostingId: string,
   ) {
-    // 1. Check if already bookmarked (idempotent)
     const existing = await this.candidateBookmarkRepo.findByJob(
       candidateAccountId,
       tenantId,
@@ -149,14 +113,12 @@ export class CandidateAccountService {
     );
     if (existing) return existing;
 
-    // 2. Get job details
     const job = await this.jobListingsIndexRepo.findById(
       tenantId,
       jobPostingId,
     );
     if (!job) throw new NotFoundException('Job posting not found');
 
-    // 3. Create bookmark
     return this.candidateBookmarkRepo.create({
       candidateAccountId,
       tenantId,
@@ -181,13 +143,8 @@ export class CandidateAccountService {
 
   async updateProfile(
     candidateAccountId: string,
-    _data: {
-      firstName?: string;
-      lastName?: string;
-      phone?: string;
-    },
+    _data: UpdateProfileDto,
   ) {
-    // Stub — just return current profile for now
     return this.getProfile(candidateAccountId);
   }
 }
