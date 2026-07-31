@@ -23,12 +23,14 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Token expired or invalid, logout
-      useAuthStore.getState().logout();
-      if (typeof window !== 'undefined') {
-        window.location.href = '/auth/signin';
+      const { accessToken, logout } = useAuthStore.getState();
+      if (accessToken) {
+        logout();
+        if (typeof window !== 'undefined') {
+          window.location.href = '/auth/signin';
+        }
       }
     }
     return Promise.reject(error);
-  }
+  },
 );
