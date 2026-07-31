@@ -1,6 +1,6 @@
 # TalentPipe — Data Model Definition
 
-**Purpose:** The complete Drizzle (PostgreSQL) schema — every table, field, type, relationship, and index. Use this when writing migrations, repositories, and seed data.
+**Purpose:** The complete Drizzle (PostgreSQL) schema — every table, field, type, relationship, and index. Use this when writing migrations, repositories, and seed data. The canonical source is `backend/src/database/schema.ts` — this doc mirrors it.
 
 **Architecture:** See `00_PROJECT_INSTRUCTIONS.md` §3.1 for the schema-per-tenant model.
 **ERD:** See `04_ERD_DIAGRAM.md` for the conceptual entity diagram.
@@ -9,319 +9,311 @@
 
 ## Schema Organization
 
-Two types of tables:
+Two groups of tables:
 
 | Schema | Contents | Access |
 |---|---|---|
-| `public` | `tenant`, `skill`, `audit_log`, `candidate_account`, `candidate_bookmark`, `candidate_applications_index`, `job_listings_index` | Su
-| `tenant_<id>` | `user`, `job_posting`, `candidate`, `application`, `pipeline_stage`, `resume`, `resume_skill`, `job_required_skill`, `interview`, `interview_feedback`, `note` | Tenant-scoped queries via `search_path` |
+| `public` | `tenants`, `skills`, `audit_logs`, `user_emails`, `refresh_tokens`, `super_admins`, `candidate_accounts`, `candidate_bookmarks`, `candidate_applications_index`, `job_listings_index` | Global/platform data + cross-tenant indexes |
+| `tenant_<id>` | `users`, `job_postings`, `candidates`, `pipeline_stages`, `applications`, `resumes`, `resume_skills`, `job_required_skills`, `interviews`, `interview_feedbacks`, `notes` | Tenant-scoped queries via `search_path` |
 
-Tenant schemas are created at signup by cloning a `template` schema. Migrations run against `public` and `template`, then propagate to existing tenant schemas.
+Tenant schemas are created at signup by cloning the `template` schema (`backend/drizzle/template-schema.sql`). Drizzle migrations apply to `public`; the `template` schema and existing tenant schemas are updated manually (see `00b_LOCAL_DEV_BOOTSTRAP.md` "Editing the schema").
 
 ---
 
 ## Full Drizzle Schema
 
-Install: `drizzle-orm pg @types/pg`
-
 Path: `backend/src/database/schema.ts`
 
 ```typescript
 import {
-  pgTable,
-  uuid,
-  varchar,
-  timestamp,
-  text,
-  integer,
-  float,
-  boolean,
-  uniqueIndex,
-  index,
-  foreignKey,
-} from 'drizzle-orm/pg-core'
+  pgTable, uuid, varchar, text, integer, doublePrecision, timestamp,
+  uniqueIndex, index,
+} from 'drizzle-orm/pg-core';
 
-// =============================================================================
-// PUBLIC SCHEMA — shared across all tenants
-// =============================================================================
+// ── Public Schema Tables ──
 
-export const tenants = pgTable(
-  'tenant',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    name: varchar('name', { length: 255 }).notNull(),
-    slug: varchar('slug', { length: 100 }).notNull().unique(),
-    plan: varchar('plan', { length: 50 }).notNull().default('free'),
-    createdAt: timestamp('created_at').notNull().defaultNow(),
-  },
-  (table) => ({
-    slugIdx: uniqueIndex('tenant_slug_idx').on(table.slug),
-  }),
-)
+export const tenants = pgTable('tenants', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  slug: varchar('slug', { length: 100 }).notNull().unique(),
+  plan: varchar('plan', { length: 50 }).default('free').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
 
-export const skills = pgTable(
-  'skill',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    name: varchar('name', { length: 255 }).notNull().unique(),
-    category: varchar('category', { length: 100 }),
-  },
-  (table) => ({
-    nameIdx: uniqueIndex('skill_name_idx').on(table.name),
-  }),
-)
+export const skills = pgTable('skills', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: varchar('name', { length: 255 }).notNull().unique(),
+  category: varchar('category', { length: 100 }),
+});
 
 export const auditLogs = pgTable(
-  'audit_log',
+  'audit_logs',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
+    id: uuid('id').defaultRandom().primaryKey(),
     tenantId: varchar('tenant_id', { length: 36 }).notNull(),
     userId: varchar('user_id', { length: 36 }).notNull(),
     action: varchar('action', { length: 100 }).notNull(),
     resourceId: varchar('resource_id', { length: 36 }),
     metadata: text('metadata'),
-    createdAt: timestamp('created_at').notNull().defaultNow(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({
-    tenantActionIdx: index('audit_tenant_action_idx').on(table.tenantId, table.action),
+    tenantActionIdx: index('idx_audit_logs_tenant_action').on(
+      table.tenantId, table.action,
+    ),
   }),
-)
+);
 
-// --- Candidate Account (global, public schema) ---
-export const candidateAccounts = pgTable(
-  'candidate_account',
+export const userEmails = pgTable('user_emails', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  tenantId: uuid('tenant_id').notNull(),
+  userId: uuid('user_id').notNull(),
+});
+
+export const refreshTokens = pgTable(
+  'refresh_tokens',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
-    email: varchar('email', { length: 255 }).notNull().unique(),
-    passwordHash: varchar('password_hash', { length: 255 }).notNull(),
-    firstN
-export const users = pgTable(
-  'user',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    email: varchar('email', { length: 255 }).notNull().unique(),
-    passwordHash: varchar('password_hash', { length: 255 }).notNull(),
-    role: varchar('role', { length: 50 }).notNull().default('OrgAdmin'),
-    // roles: SuperAdmin | OrgAdmin | Recruiter | HiringManager | Interviewer
-    createdAt: timestamp('created_at').notNull().defaultNow(),
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id').notNull(),
+    tenantId: uuid('tenant_id').notNull(), // nil uuid for SuperAdmin/Candidate
+    tokenHash: varchar('token_hash', { length: 255 }).notNull(),
+    expiresAt: timestamp('expires_at').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({
-    emailIdx: uniqueIndex('user_email_idx').on(table.email),
+    userIdx: index('idx_refresh_tokens_user').on(table.userId),
   }),
-)
+);
 
-// --- Job Posting ---
-export const jobPostings = pgTable(
-  'job_posting',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    title: varchar('title', { length: 255 }).notNull(),
-    description: text('description'),
-    status: varchar('status', { length: 50 }).notNull().default('draft'),
-    // status: draft | open | closed
-    createdByUserId: uuid('created_by_user_id')
-      .references(() => users.id),
-    createdAt: timestamp('created_at').notNull().defaultNow(),
-  },
-)
+export const superAdmins = pgTable('super_admins', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+  name: varchar('name', { length: 100 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
 
-// --- Candidate ---
+// ── Tenant Schema Tables (recreated per tenant) ──
+
+export const users = pgTable('users', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+  role: varchar('role', { length: 50 }).default('OrgAdmin').notNull(),
+  // roles: OrgAdmin | Recruiter | HiringManager | Interviewer
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const jobPostings = pgTable('job_postings', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  title: varchar('title', { length: 255 }).notNull(),
+  description: text('description'),
+  status: varchar('status', { length: 50 }).default('draft').notNull(),
+  // status: draft | open | closed
+  createdByUserId: uuid('created_by_user_id').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 export const candidates = pgTable(
-  'candidate',
+  'candidates',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
+    id: uuid('id').defaultRandom().primaryKey(),
     name: varchar('name', { length: 255 }).notNull(),
-    email: varchar('email', { length: 255 }).notNull(),
+    email: varchar('email', { length: 255 }),
     phone: varchar('phone', { length: 50 }),
-    createdAt: timestamp('created_at').notNull().defaultNow(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({
-    emailIdx: index('candidate_email_idx').on(table.email),
+    emailIdx: index('idx_candidates_email').on(table.email),
   }),
-)
+);
 
-// --- Pipeline Stage ---
 export const pipelineStages = pgTable(
-  'pipeline_stage',
+  'pipeline_stages',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
+    id: uuid('id').defaultRandom().primaryKey(),
     name: varchar('name', { length: 100 }).notNull(),
-    order: integer('order').notNull().default(0),
+    order: integer('order').default(0).notNull(),
     // default stages: Applied(0) → Screening(1) → Interview(2) → Offer(3) → Hired(4) / Rejected(5)
   },
   (table) => ({
-    orderIdx: index('pipeline_stage_order_idx').on(table.order),
+    orderIdx: index('idx_pipeline_stages_order').on(table.order),
   }),
-)
+);
 
-// --- Application (pipeline record) ---
 export const applications = pgTable(
-  'application',
+  'applications',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
-    candidateId: uuid('candidate_id')
-      .notNull()
-      .references(() => candidates.id),
-    jobPostingId: uuid('job_posting_id')
-      .notNull()
-      .references(() => jobPostings.id),
-    currentStageId: uuid('current_stage_id')
-      .notNull()
-      .references(() => pipelineStages.id),
-    matchScore: float('match_score').default(0),
-    appliedAt: timestamp('applied_at').notNull().defaultNow(),
+    id: uuid('id').defaultRandom().primaryKey(),
+    candidateId: uuid('candidate_id').notNull().references(() => candidates.id),
+    jobPostingId: uuid('job_posting_id').notNull().references(() => jobPostings.id),
+    currentStageId: uuid('current_stage_id').references(() => pipelineStages.id),
+    matchScore: doublePrecision('match_score').default(0),
+    appliedAt: timestamp('applied_at').defaultNow().notNull(),
   },
   (table) => ({
-    jobStageIdx: index('application_job_stage_idx').on(table.jobPostingId, table.currentStageId),
+    jobStageIdx: index('idx_applications_job_stage').on(
+      table.jobPostingId, table.currentStageId,
+    ),
   }),
-)
+);
 
-// --- Resume ---
 export const resumes = pgTable(
-  'resume',
+  'resumes',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
-    candidateId: uuid('candidate_id')
-      .notNull()
-      .references(() => candidates.id),
-    fileUrl: varchar('file_url', { length: 512 }).notNull(),
+    id: uuid('id').defaultRandom().primaryKey(),
+    candidateId: uuid('candidate_id').notNull().references(() => candidates.id),
+    fileUrl: varchar('file_url', { length: 512 }),
     parsedText: text('parsed_text'),
-    uploadedAt: timestamp('uploaded_at').notNull().defaultNow(),
+    uploadedAt: timestamp('uploaded_at').defaultNow().notNull(),
   },
   (table) => ({
-    candidateIdx: index('resume_candidate_idx').on(table.candidateId),
+    candidateIdx: index('idx_resumes_candidate').on(table.candidateId),
   }),
-)
+);
 
-// --- Resume Skill (extracted from resume) ---
 export const resumeSkills = pgTable(
-  'resume_skill',
+  'resume_skills',
   {
-    resumeId: uuid('resume_id')
-      .notNull()
-      .references(() => resumes.id),
-    skillId: uuid('skill_id')
-      .notNull(),
-    // skillId references public.skill — resolved via search_path + schema fallback
+    resumeId: uuid('resume_id').notNull().references(() => resumes.id),
+    skillId: uuid('skill_id').notNull(), // references public.skills.id
   },
   (table) => ({
-    pk: uniqueIndex('resume_skill_pk').on(table.resumeId, table.skillId),
+    uniqueIdx: uniqueIndex('idx_resume_skills_unique').on(table.resumeId, table.skillId),
   }),
-)
+);
 
-// --- Job Required Skill ---
 export const jobRequiredSkills = pgTable(
-  'job_required_skill',
+  'job_required_skills',
   {
-    jobPostingId: uuid('job_posting_id')
-      .notNull()
-      .references(() => jobPostings.id),
-    skillId: uuid('skill_id')
-      .notNull(),
-    // skillId references public.skill — resolved via search_path + schema fallback
+    jobPostingId: uuid('job_posting_id').notNull().references(() => jobPostings.id),
+    skillId: uuid('skill_id').notNull(), // references public.skills.id
   },
   (table) => ({
-    pk: uniqueIndex('job_required_skill_pk').on(table.jobPostingId, table.skillId),
+    uniqueIdx: uniqueIndex('idx_job_required_skills_unique').on(
+      table.jobPostingId, table.skillId,
+    ),
   }),
-)
+);
 
-// --- Interview ---
 export const interviews = pgTable(
-  'interview',
+  'interviews',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
-    applicationId: uuid('application_id')
-      .notNull()
-      .references(() => applications.id),
-    interviewerId: uuid('interviewer_id')
-      .notNull()
-      .references(() => users.id),
+    id: uuid('id').defaultRandom().primaryKey(),
+    applicationId: uuid('application_id').notNull().references(() => applications.id),
+    interviewerId: uuid('interviewer_id').notNull().references(() => users.id),
     scheduledAt: timestamp('scheduled_at').notNull(),
-    status: varchar('status', { length: 50 }).notNull().default('scheduled'),
+    status: varchar('status', { length: 50 }).default('scheduled').notNull(),
     // status: scheduled | completed | cancelled
   },
   (table) => ({
-    interviewerIdx: index('interview_interviewer_idx').on(table.interviewerId),
-    applicationIdx: index('interview_application_idx').on(table.applicationId),
+    interviewerIdx: index('idx_interviews_interviewer').on(table.interviewerId),
+    applicationIdx: index('idx_interviews_application').on(table.applicationId),
   }),
-)
+);
 
-// --- Interview Feedback ---
-export const interviewFeedbacks = pgTable(
-  'interview_feedback',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    interviewId: uuid('interview_id')
-      .notNull()
-      .references(() => interviews.id)
-      .unique(), // 1:1 with interview
-    rating: integer('rating').notNull(), // 1–5
-    comments: text('comments'),
-    submittedAt: timestamp('submitted_at').notNull().defaultNow(),
-  },
-  (table) => ({
-    interviewIdx: uniqueIndex('feedback_interview_idx').on(table.interviewId),
-  }),
-)
+export const interviewFeedbacks = pgTable('interview_feedbacks', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  interviewId: uuid('interview_id').notNull().unique().references(() => interviews.id),
+  rating: integer('rating'), // 1–5
+  comments: text('comments'),
+  submittedAt: timestamp('submitted_at').defaultNow().notNull(),
+});
 
-// --- Note ---
 export const notes = pgTable(
-  'note',
+  'notes',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
-    applicationId: uuid('application_id')
-      .notNull()
-      .references(() => applications.id),
-    authorUserId: uuid('author_user_id')
-      .notNull()
-      .references(() => users.id),
+    id: uuid('id').defaultRandom().primaryKey(),
+    applicationId: uuid('application_id').notNull().references(() => applications.id),
+    authorUserId: uuid('author_user_id').notNull().references(() => users.id),
     content: text('content').notNull(),
-    createdAt: timestamp('created_at').notNull().defaultNow(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({
-    applicationIdx: index('note_application_idx').on(table.applicationId),
+    applicationIdx: index('idx_notes_application').on(table.applicationId),
   }),
-)
+);
+
+// ── Public Candidate Schema Tables ──
+
+export const candidateAccounts = pgTable('candidate_accounts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+  firstName: varchar('first_name', { length: 100 }).notNull(),
+  lastName: varchar('last_name', { length: 100 }).notNull(),
+  phone: varchar('phone', { length: 50 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const candidateBookmarks = pgTable(
+  'candidate_bookmarks',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    candidateAccountId: uuid('candidate_account_id').notNull().references(() => candidateAccounts.id),
+    tenantId: varchar('tenant_id', { length: 36 }).notNull(),
+    jobPostingId: uuid('job_posting_id').notNull(),
+    jobTitle: varchar('job_title', { length: 255 }).notNull(),
+    companyName: varchar('company_name', { length: 255 }).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    accountIdx: index('idx_candidate_bookmarks_account').on(table.candidateAccountId),
+    tenantJobIdx: index('idx_candidate_bookmarks_tenant_job').on(
+      table.tenantId, table.jobPostingId,
+    ),
+  }),
+);
+
+export const candidateApplicationsIndex = pgTable(
+  'candidate_applications_index',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    candidateAccountId: uuid('candidate_account_id').notNull().references(() => candidateAccounts.id),
+    tenantId: varchar('tenant_id', { length: 36 }).notNull(),
+    jobPostingId: uuid('job_posting_id').notNull(),
+    applicationId: uuid('application_id').notNull(),
+    jobTitle: varchar('job_title', { length: 255 }).notNull(),
+    companyName: varchar('company_name', { length: 255 }).notNull(),
+    status: varchar('status', { length: 50 }).notNull(),
+    appliedAt: timestamp('applied_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    accountIdx: index('idx_candidate_applications_account').on(table.candidateAccountId),
+    tenantJobIdx: index('idx_candidate_applications_tenant_job').on(
+      table.tenantId, table.jobPostingId,
+    ),
+  }),
+);
+
+export const jobListingsIndex = pgTable(
+  'job_listings_index',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    tenantId: varchar('tenant_id', { length: 36 }).notNull(),
+    jobPostingId: uuid('job_posting_id').notNull().unique(),
+    title: varchar('title', { length: 255 }).notNull(),
+    description: text('description'),
+    companyName: varchar('company_name', { length: 255 }).notNull(),
+    companySlug: varchar('company_slug', { length: 100 }).notNull(),
+    status: varchar('status', { length: 50 }).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    statusIdx: index('idx_job_listings_status').on(table.status),
+    companyIdx: index('idx_job_listings_company').on(table.companyName),
+    tenantIdx: index('idx_job_listings_tenant').on(table.tenantId),
+  }),
+);
 ```
 
 ---
 
-## Schema Provisioning Flow
+## Template Schema
 
-### On tenant signup
-
-```sql
--- 1. Create the tenant schema
-CREATE SCHEMA tenant_abc123;
-
--- 2. Clone table structure from template
-CREATE TABLE tenant_abc123.user      (LIKE "template".user      INCLUDING ALL);
-CREATE TABLE tenant_abc123.job_posting (LIKE "template".job_posting INCLUDING ALL);
-CREATE TABLE tenant_abc123.candidate (LIKE "template".candidate INCLUDING ALL);
-CREATE TABLE tenant_abc123.application (LIKE "template".application INCLUDING ALL);
-CREATE TABLE tenant_abc123.pipeline_stage (LIKE "template".pipeline_stage INCLUDING ALL);
-CREATE TABLE tenant_abc123.resume    (LIKE "template".resume    INCLUDING ALL);
-CREATE TABLE tenant_abc123.resume_skill (LIKE "template".resume_skill INCLUDING ALL);
-CREATE TABLE tenant_abc123.job_required_skill (LIKE "template".job_required_skill INCLUDING ALL);
-CREATE TABLE tenant_abc123.interview (LIKE "template".interview INCLUDING ALL);
-CREATE TABLE tenant_abc123.interview_feedback (LIKE "template".interview_feedback INCLUDING ALL);
-CREATE TABLE tenant_abc123.note      (LIKE "template".note      INCLUDING ALL);
-
--- 3. Insert default pipeline stages
-INSERT INTO tenant_abc123.pipeline_stage (name, "order") VALUES
-  ('Applied', 0),
-  ('Screening', 1),
-  ('Interview', 2),
-  ('Offer', 3),
-  ('Hired', 4),
-  ('Rejected', 5);
-```
-
-### On schema migration
-
-1. Update the table definition in `database/schema.ts`
-2. Run `pnpm drizzle-kit generate` and `pnpm drizzle-kit migrate` — this updates `public` and `template` schemas
-3. For each existing tenant, run the migration DDL against their schema (or use a migration script that iterates tenant schemas)
+The `template` schema (`backend/drizzle/template-schema.sql`) contains exactly the **11 tenant tables** (`users`, `job_postings`, `candidates`, `pipeline_stages`, `applications`, `resumes`, `resume_skills`, `job_required_skills`, `interviews`, `interview_feedbacks`, `notes`). It does **not** include the public candidate tables. On tenant signup, `TenantProvisioningService` clones these into a new `tenant_<id>` schema and inserts the default pipeline stages.
 
 ---
 
@@ -329,26 +321,33 @@ INSERT INTO tenant_abc123.pipeline_stage (name, "order") VALUES
 
 | Table | Schema | FK References | Notes |
 |-------|--------|---------------|-------|
-| `tenant` | `public` | — | One row per company |
-| `skill` | `public` | — | Shared taxonomy, not tenant-scoped |
-| `audit_log` | `public` | — | Cross-tenant action log |
-| `user` | tenant | — | Row-level role assignment |
-| `job_posting` | tenant | `createdByUserId → user.id` | |
-| `candidate` | tenant | — | |
-| `pipeline_stage` | tenant | — | Ordered, configurable per tenant |
-| `application` | tenant | `candidateId → candidate.id`, `jobPostingId → job_posting.id`, `currentStageId → pipeline_stage.id` | The pipeline record |
-| `resume` | tenant | `candidateId → candidate.id` | |
-| `resume_skill` | tenant | `resumeId → resume.id`, `skillId → public.skill.id` | Many-to-many |
-| `job_required_skill` | tenant | `jobPostingId → job_posting.id`, `skillId → public.skill.id` | Many-to-many |
-| `interview` | tenant | `applicationId → application.id`, `interviewerId → user.id` | |
-| `interview_feedback` | tenant | `interviewId → interview.id` (unique) | 1:1 with interview |
-| `note` | tenant | `applicationId → application.id`, `authorUserId → user.id` | |
+| `tenants` | `public` | — | One row per company |
+| `skills` | `public` | — | Shared taxonomy, not tenant-scoped |
+| `audit_logs` | `public` | — | Cross-tenant action log (carries `tenantId` as a data field) |
+| `user_emails` | `public` | — | Email → tenant/user lookup for login |
+| `refresh_tokens` | `public` | — | Hashed refresh tokens (JWT rotation) |
+| `super_admins` | `public` | — | Platform-level SuperAdmin accounts |
+| `users` | tenant | — | Row-level role assignment (internal roles) |
+| `job_postings` | tenant | `createdByUserId → users.id` | |
+| `candidates` | tenant | — | Company's record of a person who applied |
+| `pipeline_stages` | tenant | — | Ordered, configurable per tenant |
+| `applications` | tenant | `candidateId → candidates.id`, `jobPostingId → job_postings.id`, `currentStageId → pipeline_stages.id` | The pipeline record |
+| `resumes` | tenant | `candidateId → candidates.id` | |
+| `resume_skills` | tenant | `resumeId → resumes.id`, `skillId → public.skills.id` | Many-to-many |
+| `job_required_skills` | tenant | `jobPostingId → job_postings.id`, `skillId → public.skills.id` | Many-to-many |
+| `interviews` | tenant | `applicationId → applications.id`, `interviewerId → users.id` | |
+| `interview_feedbacks` | tenant | `interviewId → interviews.id` (unique) | 1:1 with interview |
+| `notes` | tenant | `applicationId → applications.id`, `authorUserId → users.id` | |
+| `candidate_accounts` | `public` | — | Global candidate identity (no tenant) |
+| `candidate_bookmarks` | `public` | `candidateAccountId → candidate_accounts.id` | Cross-tenant; denormalized `jobTitle`/`companyName` |
+| `candidate_applications_index` | `public` | `candidateAccountId → candidate_accounts.id` | Cross-tenant application history |
+| `job_listings_index` | `public` | — | Cross-tenant open-job catalog (denormalized from tenant `job_postings`) |
 
 ---
 
 ## Seed Data: Skill Taxonomy
 
-Optional — insert during setup. These are the base skills used for resume matching.
+Planned for M2 (`seedSkills` in `backend/scripts/seed.ts`). These are the base skills used for resume matching.
 
 ```typescript
 const seedSkills = [
@@ -414,14 +413,16 @@ const seedSkills = [
 
 ## Important Design Notes
 
-1. **No `tenantId` columns.** Isolation is purely by PostgreSQL schema. Every table in a tenant schema is implicitly owned by that tenant.
+1. **No `tenantId` columns on tenant-scoped tables.** Isolation is purely by PostgreSQL schema. Every table in a tenant schema is implicitly owned by that tenant. The `public` tables that do carry a `tenantId` (`audit_logs`, `candidate_bookmarks`, `candidate_applications_index`, `job_listings_index`) use it as a **data field**, not an isolation mechanism.
 
-2. **`skill` is shared.** The `skill` and `job_required_skill`/`resume_skill` join tables reference `public.skill` via `search_path` fallback. The FKs on `skillId` are not physically enforced by DDL (cross-schema FK requires `REFERENCES public.skill(id)`) — skill validation should happen at the application layer.
+2. **`skills` is shared.** The `resume_skills` and `job_required_skills` join tables reference `public.skills` via the `search_path` fallback (queries run with `SET search_path TO tenant_<id>, public`). Cross-schema FKs are not physically enforced by DDL — skill IDs are validated at the application layer.
 
-3. **`audit_log` is in `public` schema.** Even though it carries `tenantId`, it needs to be accessible cross-schema for SuperAdmin reporting. The `tenantId` there is a data field, not an isolation column.
+3. **`audit_logs` is in `public` schema.** Even though it carries `tenantId`, it needs to be accessible cross-schema for SuperAdmin reporting.
 
-4. **UUID primary keys.** All tables use UUID v4 with `defaultRandom()`. Sequential IDs are avoided to prevent ID enumeration attacks (v1 doesn't expose IDs to unauthenticated users, but this is good practice).
+4. **UUID primary keys.** All tables use UUID v4 via `defaultRandom()`. Sequential IDs are avoided to prevent ID enumeration attacks.
 
-5. **`matchScore` is denormalized.** Stored on `application`, computed once by the background job. Recompute if job posting required skills change.
+5. **`matchScore` is denormalized** on `applications` (`doublePrecision`, default 0). Computed once by the skill-matching background job; recompute if a posting's required skills change after applications exist.
 
-6. **`pipeline_stage` has `order` as a reserved word.** In PostgreSQL, `order` must be quoted. Drizzle handles this with the string key `'order'` — in raw SQL, use `"order"`.
+6. **`pipeline_stages.order` is a reserved word.** In PostgreSQL, `order` must be quoted — in raw SQL use `"order"`. Drizzle handles this with the string key `'order'`.
+
+7. **Refresh tokens are hashed at rest.** `refresh_tokens.tokenHash` stores an argon2 hash, not the raw token. SuperAdmin/Candidate rows use the nil UUID (`00000000-0000-0000-0000-000000000000`) as `tenantId` since the column is `notNull`.

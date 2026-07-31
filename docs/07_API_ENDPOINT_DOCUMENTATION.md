@@ -2,9 +2,13 @@
 
 **Purpose:** The complete HTTP API contract — every route, method, role restriction, and the standard error shape. Use this to implement route handlers and frontend API hooks. Authoritative endpoint list is mirrored in `00_PROJECT_INSTRUCTIONS.md` §5.
 
-Base URL (example): `https://api.talentpipe.dev`
+Base URL: `http://localhost:3000/api` (local) / `https://api.talentpipe.dev` (prod). All routes are under the global `api` prefix.
 Auth: Bearer JWT in `Authorization` header, except `/public/*` routes.
 All internal (non-public) endpoints are implicitly tenant-scoped via the authenticated user's JWT — tenant ID is never accepted as a request parameter.
+
+**Response envelope:** every handler returns a raw value and a global `ResponseInterceptor` wraps it as `{ "data": ..., "message": "OK" }` (explicit envelopes with `data`+`message` pass through unchanged). Errors use the shape at the bottom of this doc.
+
+> **Legend:** ✅ = implemented · ⬜ = planned/next milestone (see `09_IMPLEMENTATION_GUIDE.md`).
 
 > **Canonical source:** `00_PROJECT_INSTRUCTIONS.md` supersedes this doc. Where they differ, follow `00_PROJECT_INSTRUCTIONS.md`.
 
@@ -14,15 +18,15 @@ Legend for **Roles**: SA = SuperAdmin, OA = Org Admin, R = Recruiter, HM = Hirin
 
 ---
 
-## Auth
+## Auth ✅
 
 | Method | Path | Roles | Description |
-|---|---|---|---|---|
-| POST | `/auth/signin` | PUBLIC | Unified sign-in — accepts email+password, routes to org or candidate auth based on account type |
-| POST | `/auth/signup` | PUBLIC | Creates a new candidate account (email, password, name) |
-| POST | `/auth/org/signup` | PUBLIC | Creates a new Tenant + first Org Admin user |
-| POST | `/auth/refresh` | PUBLIC | Exchanges refresh token for new access token |
-| POST | `/auth/logout` | — | Revokes current refresh token |
+|---|---|---|---|
+| POST | `/auth/signin` | PUBLIC | Unified sign-in — accepts email+password, routes to org/candidate/SuperAdmin auth based on account type. Returns `{ data: { accessToken, refreshToken } }` |
+| POST | `/auth/signup` | PUBLIC | Creates a new candidate account (email, password, firstName, lastName, phone?) |
+| POST | `/auth/org/signup` | PUBLIC | Creates a new Tenant + first Org Admin user (companyName, slug, email, password) |
+| POST | `/auth/refresh` | PUBLIC | Exchanges refresh token for a new token pair |
+| POST | `/auth/logout` | — | Revokes the current refresh token |
 
 ## Tenants / Org Settings
 
@@ -38,6 +42,8 @@ Legend for **Roles**: SA = SuperAdmin, OA = Org Admin, R = Recruiter, HM = Hirin
 | POST | `/org/pipeline-stages` | OA | Create a new stage |
 | PATCH | `/org/pipeline-stages/:id` | OA | Rename/reorder a stage |
 | DELETE | `/org/pipeline-stages/:id` | OA | Remove a stage (only if no applications reference it) |
+
+> Most `/org/*` routes above are **planned** (M2/M9) — `GET /org/pipeline-stages` exists as a tenant-scoped repo but no controller yet.
 
 ## Job Postings
 
@@ -89,7 +95,7 @@ Note: the primary resume upload path is via `POST /public/:tenantSlug/jobs/:id/a
 | POST | `/interviews/:id/feedback` | IV (if assigned) | Submit rating + comments |
 | PATCH | `/interviews/:id` | OA, R, HM | Reschedule / cancel |
 
-## Candidate (authenticated)
+## Candidate (authenticated) ✅
 
 | Method | Path | Roles | Description |
 |---|---|---|---|
@@ -104,13 +110,13 @@ Note: the primary resume upload path is via `POST /public/:tenantSlug/jobs/:id/a
 | GET | `/candidate/profile` | CANDIDATE | View profile |
 | PATCH | `/candidate/profile` | CANDIDATE | Update profile |
 
-## Skills (shared taxonomy)
+## Skills (shared taxonomy) ⬜
 
 | Method | Path | Roles | Description |
 |---|---|---|---|
-| GET | `/skills?search=` | — | Search the skill taxonomy (for the RequiredSkillsPicker) |
+| GET | `/skills?search=` | — | Search the skill taxonomy (for the RequiredSkillsPicker) — planned with M2 |
 
-## Public Careers (unauthenticated)
+## Public Careers (unauthenticated) ⬜
 
 | Method | Path | Roles | Description |
 |---|---|---|---|
@@ -120,7 +126,7 @@ Note: the primary resume upload path is via `POST /public/:tenantSlug/jobs/:id/a
 
 **Rate limiting applies to this section specifically** — see `02_TECHNICAL_OVERVIEW.md` for the Redis-backed limiter design. Expect `429` responses with a `Retry-After` header once a caller exceeds the configured window.
 
-## Platform (SuperAdmin only, cross-tenant)
+## Platform (SuperAdmin only, cross-tenant) ⬜
 
 | Method | Path | Roles | Description |
 |---|---|---|---|
@@ -132,17 +138,28 @@ Note: the primary resume upload path is via `POST /public/:tenantSlug/jobs/:id/a
 
 ---
 
+## Success Response Shape
+
+```json
+{
+  "data": { ... },
+  "message": "OK"
+}
+```
+
+Auth endpoints return an explicit envelope, e.g. `{ "data": { "accessToken": "...", "refreshToken": "..." }, "message": "Signed in" }`.
+
 ## Standard Error Shape
 
 ```json
 {
   "error": {
-    "code": "TENANT_MISMATCH" ,
-    "message": "Resource does not belong to the authenticated tenant"
+    "code": "NOT_FOUND",
+    "message": "Resource not found"
   }
 }
 ```
 
-Suggested `code` values worth standardizing early: `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `RATE_LIMITED`, `INTERNAL_ERROR`.
+Standard `code` values: `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `RATE_LIMITED`, `INTERNAL_ERROR`.
 
 Note: a tenant mismatch is logged server-side with detail (for audit purposes, per `05_DATA_ISOLATION_STRATEGY.md` Layer 8) but is always returned to the client as `NOT_FOUND` — there is no client-facing `TENANT_MISMATCH` code, to avoid leaking that the resource exists elsewhere.

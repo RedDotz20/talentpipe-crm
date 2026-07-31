@@ -127,7 +127,7 @@ npm run start:dev
 **Check:** the log should print something like `Nest application successfully started` and `Mapped {/api/health, GET}`. Then from another terminal:
 ```sh
 curl http://localhost:3000/api/health
-# → {"status":"ok","timestamp":"..."}
+# → {"data":{"status":"ok","timestamp":"..."},"message":"OK"}
 ```
 
 If you see `relation "users" does not exist` or any DrizzleQueryError on login → you skipped step 3, 4, or 5.
@@ -155,14 +155,14 @@ The seed script creates exactly three accounts:
 | OrgAdmin (Acme Corp) | `admin@acme.com` | `Admin123!` |
 | Candidate (cross-tenant) | `candidate@test.com` | `Candidate123!` |
 
-Login at `http://localhost:5173/login`. SuperAdmin and OrgAdmin land in the dashboard; Candidate lands in the candidate portal.
+Login at `http://localhost:5173/auth/signin`. SuperAdmin and OrgAdmin land in their org dashboard; Candidate lands in the candidate portal.
 
 **Sanity test from curl:**
 ```sh
 curl -X POST http://localhost:3000/api/auth/signin \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@acme.com","password":"Admin123!"}'
-# → {"accessToken":"eyJ...","refreshToken":"eyJ..."}
+# → {"data":{"accessToken":"eyJ...","refreshToken":"eyJ..."},"message":"Signed in"}
 ```
 
 ---
@@ -212,7 +212,7 @@ Two ways:
 
 **A. Via API** (mirrors what frontend signup does):
 ```sh
-curl -X POST http://localhost:3000/api/auth/signup \
+curl -X POST http://localhost:3000/api/auth/org/signup \
   -H "Content-Type: application/json" \
   -d '{
     "companyName":"Globex",
@@ -221,6 +221,7 @@ curl -X POST http://localhost:3000/api/auth/signup \
     "password":"SomePass123!"
   }'
 ```
+Note: `POST /api/auth/signup` (without `org/`) is the **candidate** signup — body is `email`, `password`, `firstName`, `lastName`.
 
 **B. By editing `backend/scripts/seed.ts`** — add another `seedOrg(...)` block. Use this when you want a pre-baked tenant for manual testing.
 

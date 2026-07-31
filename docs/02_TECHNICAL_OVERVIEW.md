@@ -14,7 +14,7 @@ What each technology is used for, and why it was chosen. Meant to double as an i
 | Vite | Build tool / dev server | Fast HMR, minimal config, standard for modern React |
 | Mantine | Component library | Fully-styled components (forms, tables, notifications, modals) — saves time vs building from scratch, still themeable for distinct visual identity |
 | TanStack Query | Server state / caching | Handles loading/error/cache states for API calls; enables optimistic updates on the pipeline board (drag a card, UI updates instantly, rolls back on failure) |
-| TanStack Router (or React Router) | Routing | Type-safe routes, supports role-gated route trees (`/platform/*` vs `/org/*`) |
+| TanStack Router | Routing | Type-safe, file-based routes with role-gated layout trees (`/admin/*` for SuperAdmin, `/org/*` for internal roles, pathless `_candidate` layout → `/dashboard`, `/applications`, `/bookmarks`, `/settings` for Candidate); `beforeLoad` guards redirect to the correct platform by role |
 | dnd-kit | Drag-and-drop | Powers the Kanban pipeline board — accessible, well-maintained, lighter than react-beautiful-dnd |
 | Zod | Schema validation | Shared validation shape between frontend forms and backend request schemas — one source of truth for "what does a valid JobPosting look like" |
 
@@ -28,8 +28,8 @@ What each technology is used for, and why it was chosen. Meant to double as an i
 | Redis | Cache, rate limiting, queue backing | Three distinct roles: (1) rate-limit counters for public/auth endpoints, (2) short-TTL cache for expensive dashboard aggregate queries, (3) backing store for the BullMQ job queue |
 | BullMQ | Background job queue | Moves slow work (resume text extraction, skill matching, email sending) off the request/response cycle |
 | Zod | Request validation | Validates incoming request bodies at the route layer before they reach services |
-| jsonwebtoken (or `jose`) | Auth tokens | Issues/verifies JWT access + refresh tokens |
-| bcrypt / argon2 | Password hashing | Never store plaintext passwords; argon2 is the more modern recommendation if you want the stronger interview answer |
+| `@nestjs/jwt` + `passport-jwt` | Auth tokens | `JwtStrategy` verifies JWT access tokens; refresh tokens are issued/rotated by a `TokenService` (argon2-hashed at rest in `refresh_tokens`) |
+| argon2 | Password hashing | Never store plaintext passwords; argon2 is the modern, memory-hard recommendation |
 | `AsyncLocalStorage` (Node built-in) | Request-scoped tenant context | Binds `tenantId`/`userId`/`role` once per request so repositories read it internally instead of it being manually passed (and potentially forgotten) through every function call — see `05_DATA_ISOLATION_STRATEGY.md` |
 
 ## Storage & Infra
@@ -45,16 +45,17 @@ What each technology is used for, and why it was chosen. Meant to double as an i
 
 | Technology | Purpose |
 |---|---|
-| Vitest / Jest | Unit + integration tests (skill-matching logic, tenant-isolation checks, pipeline stage transition rules) |
-| Playwright | End-to-end test that also doubles as a demo script: sign up a tenant, post a job, submit a public application, drag it through pipeline stages |
-| k6 or autocannon | Load-test the public apply endpoint to visually confirm rate limiting kicks in at the configured threshold |
-| Faker.js | Generates synthetic seed data (candidates, applications, resumes-as-text) — no external dataset required |
+| Jest (backend) | Unit + e2e tests (`supertest` for HTTP assertions; `ts-jest` transform). Currently minimal — health spec + default e2e spec |
+| oxlint (frontend) | Frontend linting |
+| Playwright | (Planned) E2E test that also doubles as a demo script: sign up a tenant, post a job, submit an application, drag it through pipeline stages |
+| k6 or autocannon | (Planned) Load-test the public apply endpoint to visually confirm rate limiting kicks in at the configured threshold |
+| `tsx` seed script | Generates synthetic seed data (SuperAdmin/Org/Candidate accounts) — no external dataset required |
 
 ## How Redis Is Actually Used (the feature most worth being able to explain in depth)
 
-1. **Rate limiting** — `POST /public/:tenantSlug/jobs/:id/apply` and `POST /auth/login` are the two endpoints exposed to unauthenticated/adversarial traffic. Each request increments a counter keyed by IP (and account, for login) with a TTL matching the rate-limit window; once the counter exceeds the configured threshold, the request is rejected with `429`.
-2. **Caching** — dashboard aggregate queries (e.g. "applications per pipeline stage" counts for the Kanban board header) are cached with a short TTL and invalidated on write, avoiding repeated expensive `GROUP BY` queries on every page load. Cache keys are always prefixed `tenant:{tenantId}:...` so tenants never collide on the same key and one tenant's cache can be flushed independently — see `05_DATA_ISOLATION_STRATEGY.md`.
-3. **Job queue** — BullMQ uses Redis under the hood to store and dispatch background jobs (resume parsing, notification emails) to worker processes, decoupling slow work from the HTTP request cycle.
+1. **Rate limiting** — `POST /public/:tenantSlug/jobs/:id/apply` and `POST /auth/signin` are the two endpoints exposed to unauthenticated/adversarial traffic. Each request increments a counter keyed by IP (and account, for login) with a TTL matching the rate-limit window; once the counter exceeds the configured threshold, the request is rejected with `429`. ⬜ Planned (M5/M6) — Redis is not wired yet.
+2. **Caching** — dashboard aggregate queries (e.g. "applications per pipeline stage" counts for the Kanban board header) are cached with a short TTL and invalidated on write, avoiding repeated expensive `GROUP BY` queries on every page load. Cache keys are always prefixed `tenant:{tenantId}:...` so tenants never collide on the same key and one tenant's cache can be flushed independently — see `05_DATA_ISOLATION_STRATEGY.md`. ⬜ Planned (M6).
+3. **Job queue** — BullMQ uses Redis under the hood to store and dispatch background jobs (resume parsing, notification emails) to worker processes, decoupling slow work from the HTTP request cycle. ⬜ Planned (M7).
 
 ## Deliberate Scope Boundaries (know these for interviews)
 

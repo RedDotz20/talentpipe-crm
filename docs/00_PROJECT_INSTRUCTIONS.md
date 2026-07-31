@@ -74,30 +74,30 @@ Enforced via the 8-layer strategy in §7.
 | `InterviewsModule` | Scheduling, feedback capture |
 | `NotificationsModule` | Email queue (stage changes, reminders) via BullMQ |
 | `PublicApplyModule` | **Unauthenticated** careers API — listing + apply submission (rate-limited); secondary path vs authenticated apply |
-| `CandidateAccountModule` | Candidate auth (signup/login), global /candidate/* API for dashboard, job search, applications history, bookmarks |
+| `CandidateAccountModule` | Candidate auth (signup/login via unified `POST /auth/signup` + `/auth/signin`), global /candidate/* API for dashboard, job search, applications history, bookmarks, profile |
 | `PlatformModule` | **SuperAdmin only** — cross-tenant tenant list/suspend/stats; uses SEPARATE unscoped repositories (`platformTenantsRepository`), reachable only via `requireRole('SuperAdmin')` guard, in its own `/platform/*` route file |
 
 The `PublicApplyModule` is the only internet-exposed unauthenticated surface — Redis rate limiting matters most here (scripted spam) + honeypot + file-type/size validation.
 
 ### 3.3 API Surface (representative)
 ```
-Auth:            POST /auth/signup | /auth/login | /auth/refresh | /auth/logout
+Auth:            POST /auth/signin | POST /auth/signup (candidate) | POST /auth/org/signup
+                 | /auth/refresh | /auth/logout
 Internal:        GET /job-postings | POST /job-postings | PATCH /job-postings/:id
                  GET /applications?stage= | PATCH /applications/:id/stage | POST /applications/:id/notes
                  GET /candidates/:id | POST /interviews | POST /interviews/:id/feedback
 Public:          GET /public/:tenantSlug/jobs | POST /public/:tenantSlug/jobs/:id/apply
-Candidate:      POST /auth/candidate/signup | POST /auth/candidate/login
-                GET /candidate/jobs | POST /candidate/jobs/:tenantId/:jobId/apply
-                GET /candidate/applications | POST/DELETE /candidate/bookmarks
+Candidate:      GET /candidate/jobs | POST /candidate/jobs/:tenantId/:jobId/apply
+                 GET /candidate/applications | POST/DELETE /candidate/bookmarks
 Platform(SA):    GET /platform/tenants | PATCH /platform/tenants/:id/suspend | GET /platform/stats
 ```
-Full endpoint list with roles in §5.
+All routes are prefixed `api` (e.g. `POST /api/auth/signin`). Success responses are wrapped in `{ "data": ..., "message": "OK" }` (pass-through if already enveloped); errors use the shape in §5. Full endpoint list with roles in §5.
 
 ---
 
 ## 4. Data Model (ERD consolidated)
 
-Entities: **TENANT**, **USER**, **JOB_POSTING**, **CANDIDATE**, **APPLICATION**, **PIPELINE_STAGE**, **RESUME**, **SKILL**, **INTERVIEW**, **INTERVIEW_FEEDBACK**, **NOTE**, **CANDIDATE_ACCOUNT**, **JOB_LISTINGS_INDEX**, **CANDIDATE_APPLICATIONS_INDEX**, **CANDIDATE_BOOKMARK**.
+Entities: **TENANT**, **USER**, **JOB_POSTING**, **CANDIDATE**, **APPLICATION**, **PIPELINE_STAGE**, **RESUME**, **SKILL**, **INTERVIEW**, **INTERVIEW_FEEDBACK**, **NOTE**, **CANDIDATE_ACCOUNT**, **JOB_LISTINGS_INDEX**, **CANDIDATE_APPLICATIONS_INDEX**, **CANDIDATE_BOOKMARK**. Plus infra/identity tables in the `public` schema: **USER_EMAIL**, **REFRESH_TOKEN**, **SUPER_ADMIN**, **AUDIT_LOG**.
 
 Relationships:
 - TENANT ||--o{ USER / JOB_POSTING / CANDIDATE / PIPELINE_STAGE
@@ -124,8 +124,9 @@ Relationships:
 
 | Method | Path | Roles | Desc |
 |---|---|---|---|
-| POST | `/auth/signup` | PUBLIC | Create Tenant + first OrgAdmin |
-| POST | `/auth/login` | PUBLIC | Access+refresh tokens (rate-limited) |
+| POST | `/auth/org/signup` | PUBLIC | Create Tenant + first OrgAdmin (body: companyName, slug, email, password) |
+| POST | `/auth/signin` | PUBLIC | Unified login — access+refresh tokens (org users and candidates) |
+| POST | `/auth/signup` | PUBLIC | Create candidate account (body: email, password, firstName, lastName, phone?) |
 | POST | `/auth/refresh` | PUBLIC | Exchange refresh token |
 | POST | `/auth/logout` | — | Revoke refresh token |
 | GET | `/org` | — | Tenant settings |
@@ -150,8 +151,6 @@ Relationships:
 | GET | `/public/:tenantSlug/jobs` | PUBLIC | Careers listing |
 | GET | `/public/:tenantSlug/jobs/:id` | PUBLIC | Job detail |
 | POST | `/public/:tenantSlug/jobs/:id/apply` | PUBLIC (rate-limited) | Apply + resume |
-| POST | `/auth/candidate/signup` | PUBLIC | Create candidate account |
-| POST | `/auth/candidate/login` | PUBLIC | Candidate login |
 | GET | `/candidate/jobs` | CANDIDATE | List open jobs (from index) |
 | GET | `/candidate/jobs/:tenantId/:jobId` | CANDIDATE | Job detail |
 | POST | `/candidate/jobs/:tenantId/:jobId/apply` | CANDIDATE | Apply with account |
@@ -165,6 +164,7 @@ Relationships:
 | GET | `/platform/stats` | SA | Platform stats |
 
 **Cross-tenant convention:** resource exists-but-other-tenant → return **404 Not Found** (never 403). Log server-side (audit), never expose `TENANT_MISMATCH` to client.
+**Success shape:** `{ "data": ..., "message": "OK" }` (global `ResponseInterceptor`; explicit envelopes pass through).
 **Error shape:** `{ "error": { "code": "...", "message": "..." } }` — codes: `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `RATE_LIMITED`, `INTERNAL_ERROR`.
 
 ---
@@ -187,7 +187,7 @@ Relationships:
 | Bookmark/save jobs | — | — | — | — | — | ✅ |
 | Manage profile | — | — | — | — | — | ✅ |
 
-**Enforcement rule:** every non-SA, non-Candidate check has TWO layers — frontend `RoleGuard` (UX only) + backend authorization (real block). Write a backend test per role asserting forbidden action → 403. Interviewer `GET /interviews` is server-side filtered to `interviewerId = currentUser`, not just UI-hidden.
+**Enforcement rule:** every non-SA, non-Candidate check has TWO layers — frontend route guard (`beforeLoad` role checks in TanStack Router; UX only) + backend authorization (real block). Write a backend test per role asserting forbidden action → 403. Interviewer `GET /interviews` is server-side filtered to `interviewerId = currentUser`, not just UI-hidden.
 
 ---
 
@@ -227,55 +227,60 @@ Relationships:
 
 ## 9. Frontend Structure (React + TS)
 
+File-based TanStack Router (`frontend/src/routes/`), Mantine 9 + TanStack Query 5 + Zustand 5 auth store.
+
 ```
 /src
-  /app           App.tsx, router.tsx (role guards), providers.tsx
+  /main.tsx, /App.tsx        entry
+  /app
+    /providers.tsx           MantineProvider + Notifications + QueryClientProvider + RouterProvider
+    /router.tsx              createRouter + routeTree import
+  /routes                    FILE-BASED ROUTES (TanStack Router, generated routeTree.gen.ts)
+    /auth/signin.tsx (unified login → features/auth/SignInPage), /auth/signup.tsx (candidate → features/candidate-portal/signup/SignupPage), /auth/org/signup.tsx
+    /_candidate.tsx          pathless layout (CandidatePlatform) + beforeLoad guard: requireRole('Candidate')
+    /_candidate/dashboard.tsx, /applications.tsx, /bookmarks.tsx, /settings.tsx   → URLs /dashboard, /applications, /bookmarks, /settings
+    /org.tsx                 org layout (OrgPlatform) + beforeLoad guard (internal roles) → /org/dashboard.tsx
+    /admin.tsx + /admin/tenants.tsx   SuperAdmin platform (SuperAdminPlatform) → /admin/tenants
+    /index.tsx               role-based redirect to the correct platform
+  /api
+    /client.ts               axios instance (baseURL /api, access token, 401→refresh→retry)
+    /useAuth.ts              Zustand auth store (login/signup/logout/refresh, localStorage persist)
+    /authApi.ts              auth endpoints + types
+    /queryKeys.ts            TanStack Query cache key factory (P2)
+    /jobPostingsApi.ts, /candidatesApi.ts, /skillsApi.ts   (P2)
   /features
-    /auth        LoginForm, SignupForm, useAuth
-    /dashboard   DashboardOverview, StatsCards, RecentActivityFeed
-    /job-postings JobPostingList/Form/Detail, RequiredSkillsPicker
-    /candidates  CandidateList/Profile, CandidateSkillsBadgeList
-    /pipeline    PipelineBoard, PipelineColumn, ApplicationCard (dnd-kit),
-                 ApplicationDetailDrawer, NotesList/NoteForm, StageEditor
-    /resumes     ResumeUploadInput, MatchScoreBadge
-    /interviews  InterviewScheduler, InterviewCalendarView, InterviewFeedbackForm
-    /public-careers JobListingPage, JobDetailPage, ApplyForm (honeypot), ApplySuccessPage
-    /admin       OrgSettingsForm, UserManagementTable, PipelineStageEditor
-    /platform    TenantsList, TenantDetail, PlatformStats
-    /candidate
-      /login          CandidateLoginPage
-      /signup         CandidateSignupPage
-      /dashboard      CandidateDashboard
-      /applications   ApplicationsHistory
-      /bookmarks      BookmarksList
-      /settings       CandidateSettings
-  /shared
-    /components  AppShell, PlatformShell, CandidateShell, DataTable, EmptyState, ConfirmDialog,
-                 FileUploadZone, RoleGuard
-    /hooks      useAuth, useTenant, usePermission (can('applications:move-stage'))
-    /api        useJobPostings, useApplications, useCandidates, useInterviews, ...
-    /types      mirror Zod schemas
-    /utils
+    /auth        LoginPage, SignupPage, OrgSignupPage (call useApiMutation)
+    /org         OrgPlatform (layout), OrgDashboard, JobPostingList/Form (P2), CandidateList/Profile (P2),
+                 PipelineBoard/Column/ApplicationCard (P3, dnd-kit), Interviews (P8)
+    /admin       SuperAdminPlatform (layout), TenantsList, TenantDetail, PlatformStats (P9)
+    /candidate-portal CandidatePlatform (layout), JobsPage, ApplicationsPage, BookmarksPage, ProfilePage
+    /pipeline, /job-postings, /candidates, /resumes, /interviews, /public-careers   (scaffolded, P3+)
+  /hooks
+    /useApiMutation.ts       wrapper — auto success/error toasts via Notifications
+  /components                (shared)
+  /types                     mirror Zod schemas
+  /utils
 ```
-**Routing:** `/login`,`/signup` public; `/careers/:tenantSlug/*` public no-auth; `/candidate/login`,`/candidate/signup`,`/candidate/dashboard`,`/candidate/applications`,`/candidate/bookmarks`,`/candidate/settings` candidate authenticated; `/dashboard`,`/job-postings`,`/candidates`,`/pipeline`,`/interviews` authenticated; `/org/*` OA; `/platform/*` SA (separate `PlatformShell`). `<RoleGuard>` wraps role-gated routes.
+
+**Routing:** `/auth/*` public (`/auth/signin` unified login, `/auth/signup` candidate, `/auth/org/signup` org); `_candidate` layout gated to Candidate → `/dashboard`, `/applications`, `/bookmarks`, `/settings`; `org` layout gated to internal roles (OrgAdmin/Recruiter/HiringManager/Interviewer) via `beforeLoad` → `/org/*`; `admin` layout gated to SuperAdmin → `/admin/*`. Guards redirect to the correct platform by role.
 
 ---
 
 ## 10. Build Order & Testing
 
 **Milestones (always demoable):**
-1. Auth + Tenant + role guards (no Redis/upload yet)
-2. Job Postings + Candidates CRUD (manual entry)
-3. Applications/Pipeline — Kanban board end-to-end (demo centerpiece)
-4. Resume upload → text extraction → skill extraction → matchScore
-5. Public careers + apply endpoint (unauthenticated, rate-limited)
-6. Redis: rate-limit (public apply + login) + dashboard cache
-7. BullMQ: resume parsing + notification emails as background jobs
-8. Interviews + feedback
-9. Docker Compose full stack + GitHub Actions CI
-10. Deploy; swap MinIO → S3/MinIO prod config
+1. ✅ Auth + Tenant + role guards (no Redis/upload yet) — **implemented**
+2. ⬜ Job Postings + Candidates CRUD (manual entry) — **next**
+3. ⬜ Applications/Pipeline — Kanban board end-to-end (demo centerpiece)
+4. ⬜ Resume upload → text extraction → skill extraction → matchScore
+5. ⬜ Public careers + apply endpoint (unauthenticated, rate-limited)
+6. ⬜ Redis: rate-limit (public apply + login) + dashboard cache
+7. ⬜ BullMQ: resume parsing + notification emails as background jobs
+8. ⬜ Interviews + feedback
+9. ⬜ Docker Compose full stack + GitHub Actions CI
+10. ⬜ Deploy; swap MinIO → S3/MinIO prod config
 
-> **Note:** Candidate Accounts have been added to the milestone plan. Authenticated candidate features (signup, login, dashboard, applications history, bookmarks, profile management) are a Should priority and will be built alongside or after M5 (Public Careers). Implementation adds `CandidateAccountModule`, global-schema tables (`CANDIDATE_ACCOUNT`, `JOB_LISTINGS_INDEX`, `CANDIDATE_APPLICATIONS_INDEX`, `CANDIDATE_BOOKMARK`), and `/candidate/*` API routes. The unauthenticated `/public/*` apply path remains as a secondary flow.
+> **Note:** Candidate Accounts were built early (with M1 restructure). Authenticated candidate features (signup via unified `POST /auth/signup`, signin via `POST /auth/signin`, jobs, applications history, bookmarks, profile) are **implemented** (`CandidateAccountModule`, public-schema tables `CANDIDATE_ACCOUNT`, `JOB_LISTINGS_INDEX`, `CANDIDATE_APPLICATIONS_INDEX`, `CANDIDATE_BOOKMARK`, `/candidate/*` API, candidate-portal frontend). The unauthenticated `/public/*` apply path remains a future (M5) secondary flow.
 
 **Testing:**
 - Unit: skill-match score (0/all/partial edge cases), stage-transition rules.
@@ -299,7 +304,7 @@ Relationships:
 - [ ] SuperAdmin operates in public/platform schema with separate repos + role-only guard
 - [ ] Audit logging for role changes/exports/tenant-settings
 - [ ] Backend 403 test per role per protected action
-- [ ] Frontend `RoleGuard` + backend guard both present
+- [ ] Frontend route guards (`beforeLoad`) + backend guard both present
 
 ---
 
@@ -319,12 +324,12 @@ Relationships:
 | M | Name | What to prompt | Done when | Depends on |
 |---|------|----------------|-----------|------------|
 | **M0** | **Scaffold** | "Scaffold monorepo: `/backend` (NestJS+Drizzle+Zod+AsyncLocalStorage), `/frontend` (Vite+React+Mantine+TanStack). Docker Compose with postgres/redis/minio. No features yet." | `npm run start:dev` boots backend; frontend dev server runs; DB migrates empty schema | — |
-| **M1** | Auth + Tenancy + RBAC | "Build AuthModule + TenantsModule + tenant-context interceptor + isolation layers 1–3 (§7 L1-L3). On signup, create Tenant + OrgAdmin AND provision a new PostgreSQL schema. JWT access+refresh." | Signup creates tenant schema; login works; isolation tests across schemas pass | M0 |
-| **M2** | Job Postings + Candidates | "JobPostingsModule + CandidatesModule CRUD + repositories (§3,§5). All queries run in tenant schema via search_path." | CRUD works via API; schema isolation tests added | M1 |
+| **M1** | Auth + Tenancy + RBAC ✅ | "Build AuthModule + TenantsModule + tenant-context interceptor + isolation layers 1–3 (§7 L1-L3). On signup, create Tenant + OrgAdmin AND provision a new PostgreSQL schema. JWT access+refresh." | Signup creates tenant schema; login works; isolation tests across schemas pass | M0 |
+| **M2** | Job Postings + Candidates ⬜ | "JobPostingsModule + CandidatesModule CRUD + repositories (§3,§5). All queries run in tenant schema via search_path." | CRUD works via API; schema isolation tests added | M1 |
 | **M3** | Pipeline (Kanban) | "ApplicationsModule + PipelineStage + frontend PipelineBoard with dnd-kit optimistic updates (§9 /features/pipeline). Backend `PATCH /applications/:id/stage`." | Drag stage move works end-to-end | M2 |
 | **M4** | Resume + Skill Match | "ResumeModule + SkillMatchingModule: upload→extract text→match vs required skills→store matchScore. Skill taxonomy seed." | Apply shows match score; unit tests for score fn | M2 |
 | **M5** | Public Careers + Apply | "PublicApplyModule: unauthenticated listing + apply (honeypot + file validation). Frontend public-careers shell." | Candidate can browse+apply without login | M3,M4 |
-| **M6** | Redis (rate-limit + cache) | "Redis rate limiter on /public/apply + /auth/login (429+Retry-After). Dashboard aggregate cache namespaced `tenant:{id}:`." | Load test shows limiter triggers | M5 |
+| **M6** | Redis (rate-limit + cache) | "Redis rate limiter on /public/apply + /auth/signin (429+Retry-After). Dashboard aggregate cache namespaced `tenant:{id}:`." | Load test shows limiter triggers | M5 |
 | **M7** | BullMQ background jobs | "Move resume parsing + notification emails to BullMQ workers (§8, NFR-7 retries)." | Apply enqueues, worker parses async | M4,M6 |
 | **M8** | Interviews + Feedback | "InterviewsModule + INTERVIEW_FEEDBACK table + scheduling + assigned-only feedback (server-side filter)." | Schedule + submit feedback works | M3 |
 | **M9** | Admin + Platform + CI | "OrgAdmin settings/users UI + PlatformModule (SuperAdmin, unscoped repos). GitHub Actions CI (lint→test→build→push) with isolation suite as gate." | CI green; platform views work | M6,M8 |

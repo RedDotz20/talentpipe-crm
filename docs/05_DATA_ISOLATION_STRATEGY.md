@@ -23,35 +23,55 @@ The `tenantId` maps directly to a PostgreSQL schema name (e.g. `tenant_abc123`).
 Instead of manually threading `tenantId` through every function call (easy to forget one), use Node's built-in `AsyncLocalStorage` to bind it once per request:
 
 ```ts
-// context.ts
-import { AsyncLocalStorage } from 'node:async_hooks';
+// common/context/tenant-context.ts
+import { AsyncLocalStorage } from 'async_hooks';
 
-type TenantContext = { tenantId: string; userId: string; role: string };
-export const tenantContext = new AsyncLocalStorage<TenantContext>();
+export interface TenantContext {
+  tenantId: string;
+  userId: string;
+  role: string;
+}
+
+export const asyncStorage = new AsyncLocalStorage<TenantContext>();
 
 export function getTenantId(): string {
-  const ctx = tenantContext.getStore();
-  if (!ctx) throw new Error('No tenant context — route is missing TenantContextInterceptor');
+  const ctx = asyncStorage.getStore();
+  if (!ctx) throw new Error('No tenant context');
   return ctx.tenantId;
 }
 
 export function getSchema(): string {
-  return `tenant_${getTenantId()}`; // maps tenantId to PG schema name
+  const tenantId = getTenantId();
+  if (tenantId === 'public') return 'public'; // SuperAdmin/candidate identity
+  return `tenant_${tenantId}`; // maps tenantId to PG schema name
+}
+
+export function getCurrentUser(): TenantContext {
+  const ctx = asyncStorage.getStore();
+  if (!ctx) throw new Error('No tenant context');
+  return ctx;
 }
 ```
 
 ```ts
-// interceptors/tenant-context.interceptor.ts
+// common/interceptors/tenant-context.interceptor.ts
 @Injectable()
 export class TenantContextInterceptor implements NestInterceptor {
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    const request = context.switchToHttp().getRequest();
-    const user = request.user; // set by AuthGuard after JWT verification
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+    const request = context.switchToHttp().getRequest<{ user?: TenantContext }>();
+    const user = request.user; // set by AuthGuard('jwt') after JWT verification
+
+    const tenantId =
+      user?.role === 'SuperAdmin' || !user?.tenantId ? 'public' : user.tenantId;
+
+    const ctx: TenantContext = user
+      ? { tenantId, userId: user.userId, role: user.role }
+      : { tenantId: 'public', userId: '', role: 'anonymous' };
+
     return new Observable((subscriber) => {
-      tenantContext.run(
-        { tenantId: user.tenantId, userId: user.id, role: user.role },
-        () => next.handle().subscribe(subscriber),
-      );
+      asyncStorage.run(ctx, () => {
+        next.handle().subscribe(subscriber);
+      });
     });
   }
 }
@@ -64,14 +84,58 @@ Every repository method calls `getTenantId()` (or `getSchema()`) internally rath
 Instead of filtering by `tenantId` in every query, the Drizzle client itself is wrapped to run in the correct schema context. Before any query executes, `search_path` is set to the tenant's schema:
 
 ```ts
-// drizzle-schema.service.ts
+// database/drizzle-schema.service.ts
 @Injectable()
 export class DrizzleSchemaService {
-  constructor(@Inject('DRIZZLE') private db: DrizzleClient) {}
+  constructor(@Inject(DRIZZLE_PROVIDER) private pool: Pool) {}
 
-  async forTenant(schema: string): Promise<DrizzleClient> {
-    await this.db.execute(sql.raw(`SET search_path TO ${schema}, public`));
-    return this.db;
+  async forCurrentTenant(): Promise<{ db: DrizzleDB; release: () => void }> {
+    const schemaName = getSchema(); // throws if no context — Layer 2
+    const client = await this.pool.connect();
+    await client.query(`SET search_path TO "${schemaName}", public`);
+    const db = drizzle({ client });
+    return { db, release: () => client.release() };
+  }
+
+  async forSchema(schemaName: string): Promise<{ db: DrizzleDB; release: () => void }> {
+    const client = await this.pool.connect();
+    await client.query(`SET search_path TO "${schemaName}", public`);
+    const db = drizzle({ client });
+    return { db, release: () => client.release() };
+  }
+
+  async forPublic(): Promise<{ db: DrizzleDB; release: () => void }> {
+    const client = await this.pool.connect();
+    await client.query('SET search_path TO public');
+    const db = drizzle({ client });
+    return { db, release: () => client.release() };
+  }
+}
+```
+
+Every operation acquires a dedicated client from the shared pool, sets `search_path`, runs the query, then releases the client — no cross-request schema bleed.
+
+```ts
+// repositories/base.repository.ts
+@Injectable()
+export abstract class BaseRepository {
+  constructor(protected readonly drizzleSchema: DrizzleSchemaService) {}
+
+  protected async withDb<T>(
+    schema: 'current' | 'public' | string,
+    fn: (db: DrizzleDB) => Promise<T>,
+  ): Promise<T> {
+    const handle =
+      schema === 'public'
+        ? await this.drizzleSchema.forPublic()
+        : schema === 'current'
+          ? await this.drizzleSchema.forCurrentTenant()
+          : await this.drizzleSchema.forSchema(schema);
+    try {
+      return await fn(handle.db);
+    } finally {
+      handle.release();
+    }
   }
 }
 ```
@@ -79,25 +143,22 @@ export class DrizzleSchemaService {
 ```ts
 // repositories/job-postings.repository.ts
 @Injectable()
-export class JobPostingsRepository {
-  constructor(private drizzleSchema: DrizzleSchemaService) {}
-
+export class JobPostingsRepository extends BaseRepository {
   async findById(id: string) {
-    const db = await this.drizzleSchema.forTenant(getSchema()); // throws if no context — Layer 2
-    return db.select().from(jobPostings)
-      .where(eq(jobPostings.id, id))
-      .then(rows => rows[0] ?? null);
+    return this.withDb('current', (db) =>
+      db.select().from(jobPostings)
+        .where(eq(jobPostings.id, id))
+        .then((rows) => rows[0] ?? null),
+    );
     // No tenantId filter needed — search_path already scopes to the tenant's schema
   }
 
   async list() {
-    const db = await this.drizzleSchema.forTenant(getSchema());
-    return db.select().from(jobPostings);
+    return this.withDb('current', (db) => db.select().from(jobPostings));
   }
 
   async create(data: NewJobPosting) {
-    const db = await this.drizzleSchema.forTenant(getSchema());
-    return db.insert(jobPostings).values(data);
+    return this.withDb('current', (db) => db.insert(jobPostings).values(data));
     // No tenantId injected — the target schema IS the tenant boundary
   }
 }
@@ -109,7 +170,7 @@ Code review rule: **any query that uses an explicit schema-qualified table name 
 
 This is the strongest layer: each tenant has its own PostgreSQL schema. Schema A's tables are **completely invisible** to queries running in schema B. This is not an application filter — it's a database namespace guarantee.
 
-- On tenant signup, the system creates a new schema by cloning a template schema (or running DDL): `CREATE SCHEMA tenant_abc123; CREATE TABLE tenant_abc123.job_postings (LIKE template_schema.job_postings INCLUDING ALL);`
+- On tenant signup, the system provisions a new schema by cloning the `template` schema (`backend/drizzle/template-schema.sql`): `CREATE SCHEMA tenant_abc123; CREATE TABLE tenant_abc123.job_postings (LIKE template.job_postings INCLUDING ALL);` (see `TenantProvisioningService`)
 - The tenant's schema name is never exposed to the client. It's derived server-side from the JWT's `tenantId` claim.
 - Cross-schema access (e.g. SuperAdmin reporting) must be explicitly schema-qualified and is only possible from code paths that bypass tenant routing.
 
@@ -160,11 +221,11 @@ Log `{ tenantId, userId, action, resourceId, timestamp }` for actions like role 
 
 ## The SuperAdmin Exception — Handle It Explicitly, Not Implicitly
 
-SuperAdmin operates outside the schema-per-tenant model. Do **not** route SuperAdmin requests through the tenant-context interceptor. Instead:
+SuperAdmin operates outside the schema-per-tenant model. Do **not** route SuperAdmin requests through tenant-scoped repositories. Instead:
 
-- SuperAdmin routes (`/platform/*`) never go through `TenantContextInterceptor`.
-- SuperAdmin's Drizzle client operates in the `public` schema (or a dedicated `platform` schema) where cross-tenant data lives (the `Tenant` records, platform-wide `Skill` taxonomy, audit logs).
-- Platform repositories (`platformTenantsRepository`) are explicitly named and never call `getSchema()` — they're clearly distinct from tenant-scoped repositories.
+- SuperAdmin routes (`/platform/*`) use the global `RolesGuard` with `@Roles('SuperAdmin')`; the `TenantContextInterceptor` maps a SuperAdmin (or tenant-less) identity to `tenantId: 'public'`, and `getSchema()` returns `'public'` for it.
+- SuperAdmin's Drizzle client operates in the `public` schema (via `withDb('public', ...)`) where cross-tenant data lives (the `Tenant` records, platform-wide `Skill` taxonomy, `super_admins`, audit logs).
+- Repos that touch the `public` schema (e.g. `TenantRepository`, `SuperAdminRepository`) are the platform/global ones — tenant-scoped repos always use `withDb('current', ...)`.
 - Keep `/platform/*` in its own module, never nested in a tenant-scoped route group, so it's visually obvious in code review which code path you're in.
 
 ## Implementation Checklist

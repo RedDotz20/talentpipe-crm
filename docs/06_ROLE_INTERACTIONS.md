@@ -1,6 +1,6 @@
 # TalentPipe — Role Interactions (Frontend & Backend)
 
-**Purpose:** Defines the six roles, the permission matrix, and per-role frontend/backend behavior flowcharts. Use this to implement both the frontend `<RoleGuard>` and the backend authorization checks consistently. Authoritative role rules are mirrored in `00_PROJECT_INSTRUCTIONS.md` §6.
+**Purpose:** Defines the six roles, the permission matrix, and per-role frontend/backend behavior flowcharts. Use this to implement both the frontend `beforeLoad` route guards and the backend authorization checks consistently. Authoritative role rules are mirrored in `00_PROJECT_INSTRUCTIONS.md` §6.
 
 Six roles: **SuperAdmin, Org Admin, Recruiter, Hiring Manager, Interviewer, Candidate.** SuperAdmin is platform-level (no tenant); the other four internal roles belong to exactly one tenant; Candidate is an authenticated global account holder with a personal dashboard (application history, bookmarks, profile).
 
@@ -32,8 +32,8 @@ Six roles: **SuperAdmin, Org Admin, Recruiter, Hiring Manager, Interviewer, Cand
 
 ## 1. SuperAdmin
 
-**Frontend:** `/platform/*` route tree, separate `PlatformShell` layout (not the tenant dashboard). Sees `TenantsList`, `TenantDetail`, `PlatformStats`.
-**Backend:** Authorized by role check only — has no `tenantId`, so tenant-scoping middleware doesn't apply to `/platform/*` routes; a separate `requireRole('SuperAdmin')` guard protects them instead.
+**Frontend:** `/admin/*` route tree, separate `PlatformShell` layout (not the tenant dashboard). Sees `TenantsList`, `TenantDetail`, `PlatformStats`.
+**Backend:** Authorized by role check only — `@Roles('SuperAdmin')` on `/platform/*` handlers (global `RolesGuard`). The `TenantContextInterceptor` maps a SuperAdmin identity to `tenantId: 'public'`, so `getSchema()` returns `'public'` and platform repos use `withDb('public', ...)` — SuperAdmin never routes through a tenant schema.
 
 ```mermaid
 flowchart LR
@@ -47,7 +47,7 @@ flowchart LR
 
 ## 2. Org Admin
 
-**Frontend:** Full internal dashboard plus `/org/settings`, `/org/users`, pipeline stage editor.
+**Frontend:** Full internal dashboard under `/org/*` (`OrgPlatform` layout) plus org settings, user management, and pipeline stage editor (future).
 **Backend:** `tenantId` derived from JWT; authorized for all Org Admin-marked routes within that tenant only.
 
 ```mermaid
@@ -107,11 +107,13 @@ flowchart LR
 
 ## 6. Candidate (authenticated, global account)
 
-**Frontend:** `/candidate/*` route tree, separate `CandidateShell` layout (minimal chrome, no AppShell sidebar). Logged-in candidates have a dashboard showing all open jobs across tenants, application history with real-time statuses, and bookmarked/saved jobs.
+**Frontend:** pathless `_candidate` route tree (`CandidatePlatform` layout, minimal chrome, no AppShell sidebar) serving `/dashboard`, `/applications`, `/bookmarks`, `/settings`. Logged-in candidates have a dashboard showing all open jobs across tenants, application history with real-time statuses, and bookmarked/saved jobs.
 
-**Backend:** JWT with `role: 'Candidate'` and no `tenantId`. All `/candidate/*` routes use `CandidateAuthGuard`. Operates in the public schema — tenant data is accessed via cross-schema index tables (`job_listings_index`, `candidate_applications_index`).
+**Backend:** JWT with `role: 'Candidate'` and no `tenantId`. All `/candidate/*` routes are guarded with `@Roles('Candidate')` (global `RolesGuard`) + `AuthGuard('jwt')`. Operates in the public schema — tenant data is accessed via cross-schema index tables (`job_listings_index`, `candidate_applications_index`).
 
-**Dual apply path:** The original unauthenticated public apply (`POST /public/:tenantSlug/jobs/:id/apply`) still works for candidates without accounts. Authenticated candidates should use the `/candidate/jobs/:tenantId/:jobId/apply` endpoint instead.
+**Auth:** Candidates sign up via the unified `POST /api/auth/signup` and sign in via `POST /api/auth/signin` (no separate `/auth/candidate/*` routes).
+
+**Dual apply path:** A planned unauthenticated public apply (`POST /public/:tenantSlug/jobs/:id/apply`) is the M5 flow for candidates without accounts. Authenticated candidates use `/candidate/jobs/:tenantId/:jobId/apply` (implemented).
 
 ```mermaid
 flowchart LR
@@ -127,6 +129,6 @@ flowchart LR
 
 ## Key Enforcement Reminder
 
-Every non-SuperAdmin, non-Candidate role check above has **two layers**: the frontend `RoleGuard` (hides UI the user shouldn't see) and the backend authorization check (actually blocks the request). The frontend layer is for UX only — the backend layer is what makes it secure. Never rely on the frontend guard alone; write a backend test per role that asserts a forbidden action returns 403, not just that the button is hidden.
+Every non-SuperAdmin, non-Candidate role check above has **two layers**: the frontend `beforeLoad` route guard (hides UI the user shouldn't see) and the backend authorization check (actually blocks the request). The frontend layer is for UX only — the backend layer is what makes it secure. Never rely on the frontend guard alone; write a backend test per role that asserts a forbidden action returns 403, not just that the button is hidden.
 
-Candidate accounts are a special case — they live in the public schema and have no tenantId. Their role is 'Candidate' and they are authenticated but operate outside the tenant context. A separate `CandidateAuthGuard` protects `/candidate/*` routes.
+Candidate accounts are a special case — they live in the public schema and have no tenantId. Their role is 'Candidate' and they are authenticated but operate outside the tenant context. The global `RolesGuard` (`@Roles('Candidate')`) protects `/candidate/*` routes; the `TenantContextInterceptor` maps them to the `public` schema via `getSchema()`.

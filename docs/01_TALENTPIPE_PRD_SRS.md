@@ -36,7 +36,7 @@ Small and mid-sized companies without budget for enterprise ATS platforms (Green
 - **Recruiter** — creates job postings, manages candidates through the pipeline, schedules interviews, leaves notes.
 - **Hiring Manager** — reviews candidates for their open roles, leaves interview feedback, doesn't manage postings.
 - **Interviewer** — sees only interviews they're assigned to, submits feedback forms.
-- **Candidate** — an unauthenticated visitor to the public careers page who applies to a job posting.
+- **Candidate** — creates an account (or later, an unauthenticated visitor to the public careers page) who applies to job postings and tracks their applications.
 
 ## 5. Scope
 
@@ -50,13 +50,14 @@ Small and mid-sized companies without budget for enterprise ATS platforms (Green
 - Notes on applications
 - Redis-backed rate limiting on public/auth endpoints, caching on dashboard queries
 - Background job processing for resume parsing and notification emails
+- Candidate accounts (signup/login, job search, applications history, bookmarks, profile) — **implemented**
 
 **Out of scope (v1)**
 - Real payment/billing integration (plans are static config, not billed)
 - Native mobile apps
 - Calendar sync (Google Calendar/Outlook) for interview scheduling — v1 stores time slots only
 - AI/ML-based semantic resume matching (v1 uses keyword/taxonomy matching; noted as a future enhancement)
-- Candidate-facing account/login (candidates apply without creating an account in v1)
+- The unauthenticated public apply path (candidates apply via account in the current build; the anonymous flow is a later milestone)
 
 ## 6. Feature List (MoSCoW)
 
@@ -73,7 +74,9 @@ Small and mid-sized companies without budget for enterprise ATS platforms (Green
 | Should | Dashboard usage/analytics caching |
 | Could | Email notifications on stage change |
 | Could | Customizable pipeline stages per tenant |
-| Won't (v1) | Billing integration, calendar sync, candidate accounts |
+| Won't (v1) | Billing integration, calendar sync |
+
+> **Status:** Milestones 0–1 (auth, tenancy, RBAC) and candidate accounts are **implemented**. See `09_IMPLEMENTATION_GUIDE.md` for exact progress.
 
 ## 7. Representative User Stories
 
@@ -81,7 +84,7 @@ Small and mid-sized companies without budget for enterprise ATS platforms (Green
 - As a **Recruiter**, I want to post a job with required skills so the system can score incoming applicants against it.
 - As a **Recruiter**, I want to drag a candidate from "Screening" to "Interview" so the pipeline reflects reality without extra clicks.
 - As a **Hiring Manager**, I want to see interview feedback before making a decision so I'm not relying on verbal summaries.
-- As a **Candidate**, I want to view open roles and apply with my resume without creating an account, so applying is fast.
+- As a **Candidate**, I want to sign up for an account, browse open roles, and apply with my resume, so I can track my applications in one place. (Built. The anonymous apply flow is a later milestone.)
 - As the **system**, I need to reject excessive automated submissions to the public apply endpoint so legitimate applicants aren't crowded out by spam.
 
 ## 8. Assumptions & Constraints
@@ -93,14 +96,16 @@ Small and mid-sized companies without budget for enterprise ATS platforms (Green
 
 ## 9. Release Plan (Milestones)
 
-1. Auth, tenants, RBAC
-2. Job postings + candidates (manual entry)
-3. Application pipeline (Kanban)
-4. Resume upload + skill matching
-5. Public careers page + apply endpoint + rate limiting
-6. Background jobs (BullMQ) + notifications
-7. Interviews + feedback
-8. Containerization + CI/CD + deployment
+1. ✅ Auth, tenants, RBAC — **implemented** (M1)
+2. ⬜ Job postings + candidates (manual entry) — **next** (M2)
+3. ⬜ Application pipeline (Kanban) (M3)
+4. ⬜ Resume upload + skill matching (M4)
+5. ⬜ Public careers page + apply endpoint + rate limiting (M5–M6)
+6. ⬜ Background jobs (BullMQ) + notifications (M7)
+7. ⬜ Interviews + feedback (M8)
+8. ⬜ Containerization + CI/CD + deployment (M9–M10)
+
+> Candidate accounts (signup/login, dashboard, applications, bookmarks, profile) were **built early** alongside the M1 restructure. See `00_PROJECT_INSTRUCTIONS.md` §10 and `09_IMPLEMENTATION_GUIDE.md` for status.
 
 ---
 
@@ -146,15 +151,22 @@ See PRD §4 (Org Admin, Recruiter, Hiring Manager, Interviewer, Candidate). Acce
 
 ## 3. Functional Requirements
 
-### 3.1 Authentication & Tenancy
+### 3.1 Authentication & Tenancy ✅ (implemented)
 
 | ID | Requirement |
 |---|---|
-| FR-1 | The system shall allow a new user to sign up, which creates a new Tenant and an Org Admin user. |
-| FR-2 | The system shall issue JWT access + refresh tokens on login. |
-| FR-3 | The system shall derive `tenantId` for every authenticated request from the verified JWT, never from client-supplied parameters. |
-| FR-4 | The system shall reject any data access attempt where the resource's `tenantId` does not match the authenticated user's `tenantId`. |
-| FR-5 | The system shall support role assignment (Org Admin, Recruiter, Hiring Manager, Interviewer) per user within a tenant. |
+| FR-1 | The system shall allow a new user to sign up, which creates a new Tenant and an Org Admin user. (✅ `POST /api/auth/org/signup`) |
+| FR-2 | The system shall issue JWT access + refresh tokens on login. (✅ `POST /api/auth/signin`, unified for org users and candidates) |
+| FR-3 | The system shall derive `tenantId` for every authenticated request from the verified JWT, never from client-supplied parameters. (✅ `TenantContextInterceptor`) |
+| FR-4 | The system shall reject any data access attempt where the resource's `tenantId` does not match the authenticated user's `tenantId`. (✅ schema-per-tenant → cross-tenant reference returns 404) |
+| FR-5 | The system shall support role assignment (Org Admin, Recruiter, Hiring Manager, Interviewer) per user within a tenant. (✅ `RolesGuard`, `super_admins` + `users.role`) |
+
+### 3.1b Candidate Accounts ✅ (implemented early)
+
+| ID | Requirement |
+|---|---|
+| FR-1b | The system shall allow a candidate to create an account (`POST /api/auth/signup`) and sign in via the unified `POST /api/auth/signin`. |
+| FR-2b | The system shall let a candidate browse open jobs across tenants (`GET /api/candidate/jobs` from `job_listings_index`), apply (`POST /api/candidate/jobs/:tenantId/:jobId/apply`), view application history, bookmark jobs, and manage their profile via `/api/candidate/*`. |
 
 ### 3.2 Job Postings
 
@@ -168,7 +180,7 @@ See PRD §4 (Org Admin, Recruiter, Hiring Manager, Interviewer, Candidate). Acce
 
 | ID | Requirement |
 |---|---|
-| FR-9 | The system shall allow candidates to submit an application via the public careers page without authentication. |
+| FR-9 | The system shall allow candidates to submit an application via the public careers page without authentication. ⬜ Planned (M5) — current build applies via authenticated candidate account |
 | FR-10 | Each application shall be associated with exactly one candidate and one job posting, scoped to a tenant. |
 | FR-11 | The system shall support configurable, ordered pipeline stages per tenant (default: Applied → Screening → Interview → Offer → Hired/Rejected). |
 | FR-12 | Recruiters and Hiring Managers shall be able to move an application between pipeline stages. |
@@ -215,10 +227,10 @@ See PRD §4 (Org Admin, Recruiter, Hiring Manager, Interviewer, Candidate). Acce
 | Performance | NFR-2 | The public apply endpoint shall enqueue resume processing rather than block the HTTP response on parsing. |
 | Security | NFR-3 | Passwords shall be stored hashed (bcrypt/argon2), never in plaintext. |
 | Security | NFR-4 | API keys/tokens shall never be logged in plaintext. |
-| Security | NFR-5 | Cross-tenant data access shall be blocked by multiple independent layers: request-scoped tenant context (not client-supplied), repository-level query scoping, composite foreign keys enforced at the database schema level, and post-fetch assertions — and shall be provably blocked by an automated test suite (one isolation test per tenant-scoped table) run in CI as a release gate. See `05_DATA_ISOLATION_STRATEGY.md` for the full specification. |
+| Security | NFR-5 | Cross-tenant data access shall be blocked by multiple independent layers: request-scoped tenant context (not client-supplied), schema-per-tenant isolation (`search_path` routing per request, no `tenant_id` columns), and repository-level scoping — and shall be provably blocked by an automated test suite (one isolation test per tenant-scoped table) run in CI as a release gate. See `05_DATA_ISOLATION_STRATEGY.md` for the full specification. |
 | Scalability | NFR-6 | Rate limit counters shall be stored in Redis (not in-process memory) so limits remain correct across multiple API instances. |
 | Reliability | NFR-7 | A failed background job (e.g. resume parse failure) shall be retried a configurable number of times before being marked failed, without crashing the worker process. |
-| Maintainability | NFR-8 | Each domain module shall separate route/controller, service, and data-access layers, per the project's MVC-style convention. |
+| Maintainability | NFR-8 | Each domain module shall separate route/controller, service, and data-access layers (controller → service → repository). |
 | Usability | NFR-9 | The pipeline board shall reflect a stage change optimistically in the UI before backend confirmation, with rollback on failure. |
 | Portability | NFR-10 | The full stack (API, PostgreSQL, Redis, object storage) shall run locally via a single `docker compose up`. |
 
@@ -226,7 +238,8 @@ See PRD §4 (Org Admin, Recruiter, Hiring Manager, Interviewer, Candidate). Acce
 
 ### 5.1 User Interfaces
 - Internal dashboard (authenticated): job postings management, Kanban pipeline board, candidate profiles, interview scheduling, org/user settings
-- Public careers page (unauthenticated): job listing, job detail, application form with resume upload
+- Candidate portal (authenticated): job search, applications history, bookmarks, profile (✅ implemented)
+- Public careers page (unauthenticated, planned M5): job listing, job detail, application form with resume upload
 
 ### 5.2 API Interfaces
 - RESTful JSON API served by the NestJS backend; internal routes require a Bearer JWT, public routes under `/public/*` do not

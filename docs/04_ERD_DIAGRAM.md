@@ -32,6 +32,11 @@ erDiagram
   TENANT ||--o{ JOB_LISTINGS_INDEX : indexed_in
   JOB_POSTING ||--o| JOB_LISTINGS_INDEX : indexed_as
 
+  TENANT ||--o{ USER_EMAIL : resolves
+  USER ||--o| USER_EMAIL : has
+  USER ||--o{ REFRESH_TOKEN : issues
+  CANDIDATE_ACCOUNT ||--o{ REFRESH_TOKEN : issues
+
   TENANT {
     uuid id PK
     string name
@@ -42,11 +47,36 @@ erDiagram
 
   CANDIDATE_ACCOUNT {
     uuid id PK
-    string email
+    string email "unique"
     string passwordHash
     string firstName
     string lastName
     string phone
+    datetime createdAt
+  }
+
+  SUPER_ADMIN {
+    uuid id PK
+    string email "unique"
+    string passwordHash
+    string name
+    datetime createdAt
+  }
+
+  USER_EMAIL {
+    uuid id PK
+    string email "unique, login lookup"
+    uuid tenantId FK
+    uuid userId FK
+    datetime createdAt
+  }
+
+  REFRESH_TOKEN {
+    uuid id PK
+    uuid userId FK
+    uuid tenantId "nil uuid 00000000-... for SuperAdmin/Candidate"
+    string tokenHash "hashed at rest"
+    datetime expiresAt
     datetime createdAt
   }
 
@@ -162,7 +192,7 @@ erDiagram
 
 ## Notes on Key Design Decisions
 
-**`USER` has no `tenantId` column.** Role membership (OrgAdmin, Recruiter, etc.) is implicitly scoped by which schema the user's row exists in. SuperAdmin users live in the `public` schema and are authorized purely by role, not by tenant schema membership — this is the one deliberate exception, and it should be the only one. Guard SuperAdmin routes by role check alone.
+**`USER` has no `tenantId` column.** Role membership (OrgAdmin, Recruiter, etc.) is implicitly scoped by which schema the user's row exists in. `USER_EMAIL` (public schema, `email` unique) is the login lookup index: it maps an email → `tenantId` + `userId` so `POST /auth/signin` knows which tenant schema to check. SuperAdmin users live in `public.super_admins` and are authorized purely by role, not by tenant schema membership — this is the one deliberate exception, and it should be the only one. Guard SuperAdmin routes by role check alone.
 
 **`SKILL` lives in the `public` schema** (shared across all tenants). It's a shared taxonomy across the whole platform (e.g. "React", "SQL", "Project Management") so skill matching and search work consistently. Tenant-specific custom skills are a reasonable v2 addition but add complexity — start with a shared list.
 
@@ -172,7 +202,7 @@ erDiagram
 
 **No table carries `tenantId`** — isolation is provided by the PostgreSQL schema boundary, not by a column. Each tenant's tables live in their own schema (e.g. `tenant_abc123.job_postings`). The `SKILL` table lives in the `public` schema as a shared taxonomy. When implementing, write an automated test that asserts a query in Tenant A's schema cannot reach Tenant B's schema.
 
-**`CANDIDATE_ACCOUNT` lives in the `public` schema** while per-tenant tables like `candidates`, `applications`, and `job_postings` remain schema-scoped. Cross-schema index tables (`JOB_LISTINGS_INDEX`, `CANDIDATE_APPLICATIONS_INDEX`, `CANDIDATE_BOOKMARK`) act as a bridge, populated by triggers or application-level writes, enabling the candidate dashboard to query across tenants without breaking schema isolation. This avoids querying every tenant schema at runtime while keeping source-of-truth data protected inside tenant boundaries.
+**`CANDIDATE_ACCOUNT` lives in the `public` schema** while per-tenant tables like `candidates`, `applications`, and `job_postings` remain schema-scoped. Cross-schema index tables (`JOB_LISTINGS_INDEX`, `CANDIDATE_APPLICATIONS_INDEX`, `CANDIDATE_BOOKMARK`) act as a bridge, populated by application-level writes (repo methods on the respective repository), enabling the candidate dashboard to query across tenants without breaking schema isolation. This avoids querying every tenant schema at runtime while keeping source-of-truth data protected inside tenant boundaries.
 
 ## Isolation Is Enforced at the Schema Level, Not Just in App Code
 
@@ -181,7 +211,7 @@ Each tenant's data lives in its own PostgreSQL schema. This provides physical na
 When provisioning a new tenant, the system creates a schema and clones the table structure from a template:
 ```sql
 CREATE SCHEMA tenant_abc123;
-CREATE TABLE tenant_abc123.job_postings (LIKE template_schema.job_postings INCLUDING ALL);
+CREATE TABLE tenant_abc123.job_postings (LIKE template.job_postings INCLUDING ALL);
 -- repeat for all tenant-scoped tables
 ```
 

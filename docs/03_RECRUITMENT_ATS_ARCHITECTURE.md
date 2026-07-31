@@ -67,13 +67,25 @@ CandidateAccount (lives in `public` schema — global identity)
  └─ id, email, passwordHash, firstName, lastName, phone
 
 CandidateApplicationsIndex (lives in `public` schema — cross-tenant)
- └─ id, candidateAccountId, tenantId, jobPostingId, applicationId, status, appliedAt
+ └─ id, candidateAccountId, tenantId, jobPostingId, applicationId, jobTitle, companyName, status, appliedAt
 
 CandidateBookmark (lives in `public` schema)
- └─ id, candidateAccountId, tenantId, jobPostingId, createdAt
+ └─ id, candidateAccountId, tenantId, jobPostingId, jobTitle, companyName, createdAt
 
 JobListingsIndex (lives in `public` schema — cross-tenant)
  └─ id, tenantId, jobPostingId, title, description, companyName, companySlug, status, createdAt
+
+UserEmail (lives in `public` schema — email → tenant lookup for login)
+ └─ id, email (unique), tenantId, userId, createdAt
+
+RefreshToken (lives in `public` schema — hashed at rest)
+ └─ id, tokenHash, userId, tenantId?, expiresAt, createdAt, revokedAt?
+
+SuperAdmin (lives in `public` schema — platform accounts)
+ └─ id, email, passwordHash, name, createdAt
+
+AuditLog (lives in `public` schema)
+ └─ id, tenantId, userId, action, resourceId, metadata, timestamp
 ```
 
 **Candidates exist in two forms:** (1) global `candidate_accounts` in the public schema (auth identity + profile), and (2) per-tenant `candidates` records (snapshot at application time for the tenant's hiring context).
@@ -86,19 +98,21 @@ JobListingsIndex (lives in `public` schema — cross-tenant)
 
 | Module | Responsibility |
 |---|---|
-| `AuthModule` | JWT auth, refresh tokens, role Guards |
+| `AuthModule` ✅ | JWT auth, refresh tokens, role Guards |
 | `TenantsModule` | Org creation/settings, plan info |
 | `UsersModule` | Recruiters/admins within a tenant, invites |
 | `JobPostingsModule` | CRUD on job postings, required-skills config |
 | `CandidatesModule` | Candidate records (created via public apply or manual entry) |
-| `CandidateAccountModule` | Candidate auth (signup/login), global `/candidate/*` API: dashboard, job search, applications history, bookmarks, profile |
+| `CandidateAccountModule` ✅ | Candidate auth (signup/login via unified `/auth/*`), global `/candidate/*` API: dashboard, job search, applications history, bookmarks, profile |
 | `ApplicationsModule` | The pipeline — stage transitions, Kanban board data, notes |
 | `ResumeModule` | File upload, text extraction, skill extraction |
 | `SkillMatchingModule` | Score computation against a JobPosting's requirements |
 | `InterviewsModule` | Scheduling, feedback capture |
 | `NotificationsModule` | Email queue (stage changes, interview reminders) via BullMQ |
 | `PublicApplyModule` | **Unauthenticated** careers-page API — job listing + apply form submission |
-| `PlatformModule` | **SuperAdmin only** — cross-tenant tenant list/suspend/stats. Uses SEPARATE unscoped repositories (`platformTenantsRepository`), reachable only via `requireRole('SuperAdmin')`, in its own `/platform/*` route file. (Added to match `00_PROJECT_INSTRUCTIONS.md` §3.2 — the original module list omitted it though `/platform/*` routes and the SuperAdmin role are defined in `07_API_ENDPOINT_DOCUMENTATION.md` and `06_ROLE_INTERACTIONS.md`.) |
+| `PlatformModule` | **SuperAdmin only** — cross-tenant tenant list/suspend/stats. Uses SEPARATE unscoped repositories, reachable only via `requireRole('SuperAdmin')`, in its own `/platform/*` route file. (Added to match `00_PROJECT_INSTRUCTIONS.md` §3.2 — the original module list omitted it though `/platform/*` routes and the SuperAdmin role are defined in `07_API_ENDPOINT_DOCUMENTATION.md` and `06_ROLE_INTERACTIONS.md`.) |
+
+Backend also ships `RepositoriesModule` (all repos extend `BaseRepository` with `withDb('current'|'public'|schema)`), `DatabaseModule` (pg `Pool` + `DrizzleSchemaService`), and `HealthModule` (`GET /api/health`).
 
 The `PublicApplyModule` is the one surface exposed to the open internet without auth — this is where your Redis rate limiting genuinely matters (prevent scripted spam applications) and where you'd also add basic abuse protection (honeypot field, file-type/size validation on resume upload).
 
@@ -108,9 +122,11 @@ The `PublicApplyModule` is the one surface exposed to the open internet without 
 
 ```
 -- Auth --
-POST   /auth/signup                 (creates Tenant + first OrgAdmin)
-POST   /auth/login
+POST   /auth/org/signup               (creates Tenant + first OrgAdmin)
+POST   /auth/signin                   (unified login — org users AND candidates)
+POST   /auth/signup                   (creates candidate account)
 POST   /auth/refresh
+POST   /auth/logout
 
 -- Internal, authenticated, tenant-scoped --
 GET    /job-postings
@@ -123,21 +139,18 @@ GET    /candidates/:id
 POST   /interviews
 POST   /interviews/:id/feedback
 
--- Public, unauthenticated, rate-limited --
+-- Public, unauthenticated, rate-limited (planned M5) --
 GET    /public/:tenantSlug/jobs                  (careers page listing)
 POST   /public/:tenantSlug/jobs/:id/apply         (candidate submits application + resume)
 
--- Candidate (authenticated, cross-tenant) --
+-- Candidate (authenticated, cross-tenant) ✅ implemented --
 GET    /candidate/jobs                       (list open jobs from index)
 POST   /candidate/jobs/:tenantId/:jobId/apply (apply with account)
 GET    /candidate/applications                (history)
 POST   /candidate/bookmarks
 DELETE /candidate/bookmarks/:id
-
--- Candidate auth --
-POST   /auth/candidate/signup
-POST   /auth/candidate/login
 ```
+All routes are prefixed `api` (e.g. `POST /api/auth/org/signup`).
 
 ---
 
@@ -188,17 +201,19 @@ Feature-folder structure matches what you already prefer. The Kanban pipeline bo
 
 ## 8. Suggested Build Order (always demoable, never mid-scramble)
 
-1. Auth + Tenant creation + role Guards (no Redis, no file upload yet)
-2. Job Postings CRUD + basic Candidates CRUD (manual entry only)
-3. Applications/Pipeline module — get the Kanban board working end-to-end
-4. Resume upload (local disk first) → text extraction → skill extraction → matchScore
-5. Public careers page + public apply endpoint, unauthenticated
-5b. Candidate accounts + dashboard — `candidate_accounts` auth, job search, apply-as-candidate, bookmarks, history
-6. Redis: rate limiting on public apply + login, dashboard query caching
-7. BullMQ: move resume parsing and notification emails to background jobs
-8. Interviews module + feedback
-9. Docker Compose full stack, then GitHub Actions CI
-10. Deploy, swap local storage → S3/MinIO in prod config
+> Status: 1 ✅ done, 5b ✅ done (built early), 2 ⬜ next. See `09_IMPLEMENTATION_GUIDE.md`.
+
+1. ✅ Auth + Tenant creation + role Guards (no Redis, no file upload yet)
+2. ⬜ Job Postings CRUD + basic Candidates CRUD (manual entry only)
+3. ⬜ Applications/Pipeline module — get the Kanban board working end-to-end
+4. ⬜ Resume upload (local disk first) → text extraction → skill extraction → matchScore
+5. ⬜ Public careers page + public apply endpoint, unauthenticated
+5b. ✅ Candidate accounts + dashboard — `candidate_accounts` auth, job search, apply-as-candidate, bookmarks, history (built early)
+6. ⬜ Redis: rate limiting on public apply + login, dashboard query caching
+7. ⬜ BullMQ: move resume parsing and notification emails to background jobs
+8. ⬜ Interviews module + feedback
+9. ⬜ Docker Compose full stack, then GitHub Actions CI
+10. ⬜ Deploy, swap local storage → S3/MinIO in prod config
 
 ---
 
