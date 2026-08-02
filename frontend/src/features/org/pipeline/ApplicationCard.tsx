@@ -1,13 +1,7 @@
 import { useDraggable } from '@dnd-kit/core';
-import { Badge, Card, Group, Stack, Text } from '@mantine/core';
+import { Card, Group, Stack, Text } from '@mantine/core';
 import type { Application } from '@/api/applicationsApi';
-
-function matchColor(score: number | null): string {
-  if (score === null) return 'gray';
-  if (score >= 0.7) return 'green';
-  if (score >= 0.4) return 'yellow';
-  return 'red';
-}
+import { MatchScoreBadge } from '../candidates/MatchScoreBadge';
 
 export function ApplicationCard({
   application,
@@ -29,8 +23,6 @@ export function ApplicationCard({
       }
     : { cursor: 'grab' };
 
-  const score = application.matchScore;
-
   return (
     <Card
       ref={setNodeRef}
@@ -48,15 +40,7 @@ export function ApplicationCard({
           {application.jobTitle}
         </Text>
         <Group justify="space-between" mt={4}>
-          {score !== null && score !== undefined ? (
-            <Badge size="xs" color={matchColor(score)} variant="light">
-              {Math.round(score * 100)}%
-            </Badge>
-          ) : (
-            <Badge size="xs" color="gray" variant="light">
-              —
-            </Badge>
-          )}
+          <MatchScoreBadge score={application.matchScore ?? null} />
           <Text size="xs" c="dimmed">
             {new Date(application.appliedAt).toLocaleDateString()}
           </Text>

@@ -23,6 +23,7 @@ export const queryKeys = {
     application: (id: string) => ['org', 'applications', id],
     notes: (applicationId: string) => ['org', 'applications', applicationId, 'notes'],
     pipelineStages: () => ['org', 'pipeline-stages'],
+    resume: (candidateId: string) => ['org', 'candidates', candidateId, 'resume'],
   },
 } as const;
 
