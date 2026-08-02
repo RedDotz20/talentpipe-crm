@@ -15,6 +15,14 @@ export const queryKeys = {
     candidates: () => ['org', 'candidates'],
     candidate: (id: string) => ['org', 'candidates', id],
     skills: (search?: string) => ['org', 'skills', { search }],
+    applications: (filters?: { jobPostingId?: string; stageId?: string }) => [
+      'org',
+      'applications',
+      filters,
+    ],
+    application: (id: string) => ['org', 'applications', id],
+    notes: (applicationId: string) => ['org', 'applications', applicationId, 'notes'],
+    pipelineStages: () => ['org', 'pipeline-stages'],
   },
 } as const;
 
