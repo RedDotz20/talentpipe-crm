@@ -270,15 +270,15 @@ File-based TanStack Router (`frontend/src/routes/`), Mantine 9 + TanStack Query 
 
 **Milestones (always demoable):**
 1. ✅ Auth + Tenant + role guards (no Redis/upload yet) — **implemented**
-2. ⬜ Job Postings + Candidates CRUD (manual entry) — **next**
-3. ⬜ Applications/Pipeline — Kanban board end-to-end (demo centerpiece)
-4. ⬜ Resume upload → text extraction → skill extraction → matchScore
+2. ✅ Job Postings + Candidates CRUD (manual entry) — **implemented**
+3. ✅ Applications/Pipeline — Kanban board end-to-end (demo centerpiece) — **implemented**
+4. ⬜ Resume upload → MinIO/S3 storage → text extraction → skill extraction → matchScore — **next**
 5. ⬜ Public careers + apply endpoint (unauthenticated, rate-limited)
 6. ⬜ Redis: rate-limit (public apply + login) + dashboard cache
 7. ⬜ BullMQ: resume parsing + notification emails as background jobs
 8. ⬜ Interviews + feedback
 9. ⬜ Docker Compose full stack + GitHub Actions CI
-10. ⬜ Deploy; swap MinIO → S3/MinIO prod config
+10. ⬜ Deploy; S3-compatible client already in use (MinIO → real S3 = env swap)
 
 > **Note:** Candidate Accounts were built early (with M1 restructure). Authenticated candidate features (signup via unified `POST /auth/signup`, signin via `POST /auth/signin`, jobs, applications history, bookmarks, profile) are **implemented** (`CandidateAccountModule`, public-schema tables `CANDIDATE_ACCOUNT`, `JOB_LISTINGS_INDEX`, `CANDIDATE_APPLICATIONS_INDEX`, `CANDIDATE_BOOKMARK`, `/candidate/*` API, candidate-portal frontend). The unauthenticated `/public/*` apply path remains a future (M5) secondary flow.
 
@@ -327,7 +327,7 @@ File-based TanStack Router (`frontend/src/routes/`), Mantine 9 + TanStack Query 
 | **M1** | Auth + Tenancy + RBAC ✅ | "Build AuthModule + TenantsModule + tenant-context interceptor + isolation layers 1–3 (§7 L1-L3). On signup, create Tenant + OrgAdmin AND provision a new PostgreSQL schema. JWT access+refresh." | Signup creates tenant schema; login works; isolation tests across schemas pass | M0 |
 | **M2** | Job Postings + Candidates ⬜ | "JobPostingsModule + CandidatesModule CRUD + repositories (§3,§5). All queries run in tenant schema via search_path." | CRUD works via API; schema isolation tests added | M1 |
 | **M3** | Pipeline (Kanban) | "ApplicationsModule + PipelineStage + frontend PipelineBoard with dnd-kit optimistic updates (§9 /features/pipeline). Backend `PATCH /applications/:id/stage`." | Drag stage move works end-to-end | M2 |
-| **M4** | Resume + Skill Match | "ResumeModule + SkillMatchingModule: upload→extract text→match vs required skills→store matchScore. Skill taxonomy seed." | Apply shows match score; unit tests for score fn | M2 |
+| **M4** | Resume + Skill Match | "ResumeModule + SkillMatchingModule: upload→MinIO (S3-compatible, `@aws-sdk/client-s3`)→extract text→match vs required skills→store matchScore. Skill taxonomy seed." | Apply shows match score; unit tests for score fn | M2 |
 | **M5** | Public Careers + Apply | "PublicApplyModule: unauthenticated listing + apply (honeypot + file validation). Frontend public-careers shell." | Candidate can browse+apply without login | M3,M4 |
 | **M6** | Redis (rate-limit + cache) | "Redis rate limiter on /public/apply + /auth/signin (429+Retry-After). Dashboard aggregate cache namespaced `tenant:{id}:`." | Load test shows limiter triggers | M5 |
 | **M7** | BullMQ background jobs | "Move resume parsing + notification emails to BullMQ workers (§8, NFR-7 retries)." | Apply enqueues, worker parses async | M4,M6 |

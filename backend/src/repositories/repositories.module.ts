@@ -15,6 +15,7 @@ import { JobListingsIndexRepository } from './job-listings-index.repository';
 import { JobPostingRepository } from './job-posting.repository';
 import { SkillRepository } from './skill.repository';
 import { NoteRepository } from './note.repository';
+import { ResumeRepository } from './resume.repository';
 
 const REPOSITORIES = [
   UserRepository,
@@ -32,6 +33,7 @@ const REPOSITORIES = [
   JobPostingRepository,
   SkillRepository,
   NoteRepository,
+  ResumeRepository,
 ];
 
 @Module({

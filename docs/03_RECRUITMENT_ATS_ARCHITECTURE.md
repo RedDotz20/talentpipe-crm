@@ -204,16 +204,16 @@ Feature-folder structure matches what you already prefer. The Kanban pipeline bo
 > Status: 1 ✅ done, 5b ✅ done (built early), 2 ⬜ next. See `09_IMPLEMENTATION_GUIDE.md`.
 
 1. ✅ Auth + Tenant creation + role Guards (no Redis, no file upload yet)
-2. ⬜ Job Postings CRUD + basic Candidates CRUD (manual entry only)
-3. ⬜ Applications/Pipeline module — get the Kanban board working end-to-end
-4. ⬜ Resume upload (local disk first) → text extraction → skill extraction → matchScore
+2. ✅ Job Postings CRUD + Candidates CRUD (manual entry)
+3. ✅ Applications/Pipeline module — Kanban board working end-to-end
+4. ⬜ Resume upload → MinIO/S3 storage → text extraction → skill extraction → matchScore
 5. ⬜ Public careers page + public apply endpoint, unauthenticated
 5b. ✅ Candidate accounts + dashboard — `candidate_accounts` auth, job search, apply-as-candidate, bookmarks, history (built early)
 6. ⬜ Redis: rate limiting on public apply + login, dashboard query caching
 7. ⬜ BullMQ: move resume parsing and notification emails to background jobs
 8. ⬜ Interviews module + feedback
 9. ⬜ Docker Compose full stack, then GitHub Actions CI
-10. ⬜ Deploy, swap local storage → S3/MinIO in prod config
+10. ⬜ Deploy; S3-compatible client already used (MinIO→real S3 = env swap)
 
 ---
 

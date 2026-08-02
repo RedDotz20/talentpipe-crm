@@ -401,40 +401,54 @@ Create `StageEditor.tsx` — ordered list with drag handle, inline name edit, ad
 
 ---
 
-## Phase 4 — Resume Upload & Skill Matching
+## Phase 4 — Resume Upload & Skill Matching ⬜ (next milestone)
+
+> **Storage decision:** resume files are stored in **MinIO** (S3-compatible) from the start — not local disk. MinIO already runs in Docker Compose (`:9000`) with creds in `backend/.env`. The client is `@aws-sdk/client-s3` with `forcePathStyle: true`, so the **same client code works against real S3 in prod** (swap `MINIO_ENDPOINT`). Object keys are server-generated `tenants/{tenantId}/resumes/{candidateId}/{uuid}.{ext}` — never client-supplied (`05_DATA_ISOLATION_STRATEGY.md`).
 
 ### Step 4.1 — Install libs
 ```
-cd backend && npm install pdf-parse mammoth
+cd backend && npm install pdf-parse mammoth @aws-sdk/client-s3
+cd backend && npm install -D @types/pdf-parse @types/mammoth @types/multer
+cd frontend && npm install @mantine/dropzone
 ```
 
-### Step 4.2 — Resume repository
-Create `backend/src/repositories/resume.repository.ts` — findByCandidateId, create, updateParsedText.
+### Step 4.2 — Storage module (MinIO/S3)
+Create `backend/src/common/storage/storage.provider.ts` — `STORAGE_PROVIDER` factory (mirrors `drizzleProvider`): `new S3Client({ region: 'us-east-1', endpoint: MINIO_ENDPOINT, forcePathStyle: true, credentials: { accessKeyId, secretAccessKey } })`.
+Create `backend/src/common/storage/storage.service.ts` — `ensureBucket()` (on `onApplicationBootstrap`), `upload(key, buffer, contentType)`, `get(key)`, `delete(key)`.
+Create `backend/src/common/storage/storage.module.ts` — provides + exports `StorageService`.
+Bucket name configurable via `MINIO_BUCKET` (default `resumes`).
 
-### Step 4.3 — Resume service
-Create `backend/src/modules/resumes/resume.service.ts`:
-- `upload(candidateId, file)`: validate type (PDF/DOCX), save to disk/MinIO, create DB record, extractText, extractSkills, return record.
+### Step 4.3 — Resume repository
+Create `backend/src/repositories/resume.repository.ts` — findByCandidateId, create, updateParsedText, setResumeSkills (resume_skills join), findSkillsByResumeId. Register in `RepositoriesModule`.
+Extend `SkillRepository` with `findAll()`. Extend `ApplicationRepository` with `findByCandidateId(candidateId)` and `updateMatchScore(id, score)`.
+
+### Step 4.4 — Resume service
+Create `backend/src/modules/resumes/resumes.service.ts`:
+- `upload(candidateId, file)`: validate type (PDF/DOCX) + size (10MB multer limit), upload buffer to MinIO, create DB record (fileUrl = object key), extractText, extractSkills, persist resume_skills, recompute matchScore for all the candidate's applications (against each job's required skills), return record.
 - `extractText(buffer, mimeType)`: use pdf-parse for PDF, mammoth for DOCX.
 - `extractSkills(text)`: lowercase text, check each taxonomy skill for substring match, return matched skill IDs.
 
-### Step 4.4 — Skill matching service
-Create `backend/src/modules/skill-matching/skill-matching.service.ts` — computeScore(requiredSkillIds, extractedSkillIds): matched / required.length (0 if none required).
+### Step 4.5 — Skill matching service
+Create `backend/src/modules/skill-matching/skill-matching.service.ts` — computeScore(requiredSkillIds, extractedSkillIds): matched / required.length (0 if none required). Export `SkillMatchingModule`.
 
-### Step 4.5 — Unit test
-Create `backend/src/__tests__/skill-matching.test.ts` — test 0 score, full score, partial, no match.
+### Step 4.6 — Unit tests
+Create `backend/src/modules/skill-matching/skill-matching.service.spec.ts` — test 0 score, full score, partial, no match. (Note: named `*.spec.ts` to match the Jest `testRegex`, not the guide's original `__tests__/*.test.ts` path.)
+Create `backend/src/modules/resumes/resumes.service.spec.ts` — mocked storage + parsers + repos: rejects bad mimetype, extracts + persists skills, recomputes matchScore.
 
-### Step 4.6 — Resume controller
-Create `backend/src/modules/resumes/resume.controller.ts`:
+### Step 4.7 — Resume controller
+Create `backend/src/modules/resumes/resumes.controller.ts`:
 ```
-GET  /candidates/:candidateId/resume  — OA, R, HM
-POST /candidates/:candidateId/resume  — OA, R (FileInterceptor('file'))
+GET  /candidates/:candidateId/resume  — OA, R, HM (metadata + extracted skills)
+POST /candidates/:candidateId/resume  — OA, R (FileInterceptor('file'), 10MB limit)
 ```
 
-### Step 4.7 — Frontend resume upload
+### Step 4.8 — Frontend resume upload
+Create `frontend/src/api/resumesApi.ts` (FormData upload — clears the client's default JSON content-type) + `useResume`/`useUploadResume` hooks + `queryKeys.org.resume(candidateId)`.
 Create `ResumeUploadInput.tsx` — Mantine Dropzone, accept PDF/DOCX, max 10MB.
-Create `MatchScoreBadge.tsx` — percentage, green >=70%, yellow >=40%, red <40%.
+Create `MatchScoreBadge.tsx` — percentage, green >=70%, yellow >=40%, red <40% (reused in `ApplicationCard` + candidate profile).
+`CandidatesService.getOne` returns `{ ...candidate, resume, applications }` — the candidate profile shows upload + extracted-skill badges + per-application match scores.
 
-**Commit:** `git add -A && git commit -m "phase4: resume upload, text extraction, skill matching — backend + frontend"`
+**Commit:** `git add -A && git commit -m "feat(m4): resume upload to MinIO, text extraction, skill matching — backend + frontend"`
 
 ---
 

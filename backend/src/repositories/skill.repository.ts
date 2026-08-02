@@ -26,4 +26,10 @@ export class SkillRepository extends BaseRepository {
       return db.select().from(skills).where(inArray(skills.id, ids)).execute();
     });
   }
+
+  async findAll() {
+    return this.withDb('public', async (db) => {
+      return db.select().from(skills).orderBy(skills.name).execute();
+    });
+  }
 }

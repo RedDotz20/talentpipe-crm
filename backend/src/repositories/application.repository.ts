@@ -93,4 +93,33 @@ export class ApplicationRepository extends BaseRepository {
       return rows[0] ?? null;
     });
   }
+
+  async findByCandidateId(candidateId: string, schema = 'current') {
+    return this.withDb(schema, async (db) => {
+      return db
+        .select(selectAppRow)
+        .from(applications)
+        .innerJoin(candidates, eq(applications.candidateId, candidates.id))
+        .innerJoin(jobPostings, eq(applications.jobPostingId, jobPostings.id))
+        .leftJoin(
+          pipelineStages,
+          eq(applications.currentStageId, pipelineStages.id),
+        )
+        .where(eq(applications.candidateId, candidateId))
+        .orderBy(desc(applications.appliedAt))
+        .execute();
+    });
+  }
+
+  async updateMatchScore(id: string, matchScore: number, schema = 'current') {
+    return this.withDb(schema, async (db) => {
+      const rows = await db
+        .update(applications)
+        .set({ matchScore })
+        .where(eq(applications.id, id))
+        .returning()
+        .execute();
+      return rows[0] ?? null;
+    });
+  }
 }

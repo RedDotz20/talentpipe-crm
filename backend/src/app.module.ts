@@ -7,6 +7,7 @@ import { JobPostingsModule } from './modules/job-postings/job-postings.module';
 import { CandidatesModule } from './modules/candidates/candidates.module';
 import { SkillsModule } from './modules/skills/skills.module';
 import { ApplicationsModule } from './modules/applications/applications.module';
+import { ResumesModule } from './modules/resumes/resumes.module';
 import { PipelineStagesModule } from './modules/pipeline-stages/pipeline-stages.module';
 import { HealthModule } from './modules/health/health.module';
 import { TenantContextInterceptor } from './common/interceptors/tenant-context.interceptor';
@@ -24,6 +25,7 @@ import { LoggerMiddleware } from './common/middlewares/logger.middleware';
     CandidatesModule,
     SkillsModule,
     ApplicationsModule,
+    ResumesModule,
     PipelineStagesModule,
     HealthModule,
   ],

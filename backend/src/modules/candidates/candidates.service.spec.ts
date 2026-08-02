@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { CandidatesService } from './candidates.service';
 import { CandidateRepository } from '../../repositories/candidate.repository';
+import { ResumeRepository } from '../../repositories/resume.repository';
+import { ApplicationRepository } from '../../repositories/application.repository';
 
 describe('CandidatesService', () => {
   let service: CandidatesService;
@@ -10,6 +12,11 @@ describe('CandidatesService', () => {
     findById: jest.fn(),
     create: jest.fn(),
   };
+  const resumeRepo = {
+    findByCandidateId: jest.fn(),
+    findSkillsByResumeId: jest.fn(),
+  };
+  const applicationRepo = { findByCandidateId: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -17,6 +24,8 @@ describe('CandidatesService', () => {
       providers: [
         CandidatesService,
         { provide: CandidateRepository, useValue: candidateRepo },
+        { provide: ResumeRepository, useValue: resumeRepo },
+        { provide: ApplicationRepository, useValue: applicationRepo },
       ],
     }).compile();
     service = module.get<CandidatesService>(CandidatesService);
@@ -36,11 +45,33 @@ describe('CandidatesService', () => {
     await expect(service.getOne('nope')).rejects.toThrow(NotFoundException);
   });
 
-  it('getOne returns the candidate', async () => {
+  it('getOne returns the candidate enriched with resume and applications', async () => {
     candidateRepo.findById.mockResolvedValue({ id: 'c1', name: 'Jane' });
+    resumeRepo.findByCandidateId.mockResolvedValue({
+      id: 'r1',
+      fileUrl: 'k',
+    });
+    resumeRepo.findSkillsByResumeId.mockResolvedValue([{ id: 's1' }]);
+    applicationRepo.findByCandidateId.mockResolvedValue([{ id: 'a1' }]);
+
     await expect(service.getOne('c1')).resolves.toEqual({
       id: 'c1',
       name: 'Jane',
+      resume: { id: 'r1', fileUrl: 'k', skills: [{ id: 's1' }] },
+      applications: [{ id: 'a1' }],
+    });
+  });
+
+  it('getOne returns null resume when the candidate has none', async () => {
+    candidateRepo.findById.mockResolvedValue({ id: 'c1', name: 'Jane' });
+    resumeRepo.findByCandidateId.mockResolvedValue(null);
+    applicationRepo.findByCandidateId.mockResolvedValue([]);
+
+    await expect(service.getOne('c1')).resolves.toEqual({
+      id: 'c1',
+      name: 'Jane',
+      resume: null,
+      applications: [],
     });
   });
 
