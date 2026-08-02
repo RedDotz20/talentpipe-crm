@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "TalentPipe CRM API",
-    "description": "Multi-tenant ATS — schema-per-tenant applicant tracking system.\n\n**Auth:** Bearer JWT in `Authorization` header for all internal endpoints.\n**Base URL:** http://localhost:3000/api\n\n**Variables to set:**\n- `base_url`: http://localhost:3000/api\n- `access_token`: auto-set from login/signup/refresh responses\n- `refresh_token`: auto-set from login/signup/refresh responses\n- `tenant_slug`: your company's unique slug (set manually)\n\nCross-tenant convention: resource exists-but-other-tenant → `404 Not Found` (never 403).\nError shape: `{ \"error\": { \"code\": \"...\", \"message\": \"...\" } }`\n\nRoles: SA = SuperAdmin, OA = Org Admin, R = Recruiter, HM = Hiring Manager, IV = Interviewer",
+    "description": "Multi-tenant ATS — schema-per-tenant applicant tracking system.\n\n**Auth:** Bearer JWT in `Authorization` header for internal endpoints.\n**Base URL:** http://localhost:3000/api\n\n**Variables to set:**\n- `base_url`: http://localhost:3000/api\n- `access_token`: auto-set from signin/signup/refresh responses\n- `refresh_token`: auto-set from signin/signup/refresh responses\n- `candidate_access_token` / `candidate_refresh_token`: auto-set from candidate signin/signup\n- `tenantId`, `jobPostingId`, `candidateId`, `applicationId`, `bookmarkId`: auto-captured from list/create responses where possible\n\nCross-tenant convention: resource exists-but-other-tenant → `404 Not Found` (never 403).\nError shape: `{ \"error\": { \"code\": \"...\", \"message\": \"...\" } }`\n\nRoles: SA = SuperAdmin, OA = Org Admin, R = Recruiter, HM = Hiring Manager, C = Candidate\n\nEndpoints implemented (M1 + job board):\n- Auth: org signup, signin, candidate signup, refresh, logout\n- Candidate job board: list jobs, job detail, apply, applications, bookmarks, profile\n- Internal: candidates CRUD, job-postings CRUD + publish/close, skills search",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "talentpipe"
   },
@@ -22,12 +22,17 @@
       "type": "string"
     },
     {
-      "key": "tenant_slug",
+      "key": "candidate_access_token",
       "value": "",
       "type": "string"
     },
     {
-      "key": "userId",
+      "key": "candidate_refresh_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "tenantId",
       "value": "",
       "type": "string"
     },
@@ -47,23 +52,33 @@
       "type": "string"
     },
     {
-      "key": "interviewId",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "stageId",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "tenantId",
+      "key": "bookmarkId",
       "value": "",
       "type": "string"
     },
     {
       "key": "skillSearch",
-      "value": "javascript",
+      "value": "typescript",
+      "type": "string"
+    },
+    {
+      "key": "orgEmail",
+      "value": "admin@acme.com",
+      "type": "string"
+    },
+    {
+      "key": "orgPassword",
+      "value": "SecureP@ss1",
+      "type": "string"
+    },
+    {
+      "key": "candidateEmail",
+      "value": "candidate@example.com",
+      "type": "string"
+    },
+    {
+      "key": "candidatePassword",
+      "value": "SecureP@ss1",
       "type": "string"
     }
   ],
@@ -72,7 +87,7 @@
       "name": "Health",
       "item": [
         {
-          "name": "GET /api/health",
+          "name": "GET /health",
           "event": [
             {
               "listen": "test",
@@ -104,59 +119,17 @@
       "name": "Auth",
       "item": [
         {
-          "name": "POST Signup",
+          "name": "POST /auth/org/signup — Create company (OrgAdmin)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test('Signup successful', () => {",
+                  "pm.test('Org signup successful', () => {",
                   "  pm.response.to.have.status(201);",
                   "  const json = pm.response.json();",
-                  "  pm.collectionVariables.set('access_token', json.accessToken);",
-                  "  pm.collectionVariables.set('refresh_token', json.refreshToken);",
-                  "});",
-                  "",
-                  "if (pm.response.code === 409) {",
-                  "  console.log('Slug already taken — try a different slug.');",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"companyName\": \"Acme Corp\",\n  \"slug\": \"acme-corp\",\n  \"email\": \"admin@acme.com\",\n  \"password\": \"SecureP@ss1\"\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": {
-              "raw": "{{base_url}}/auth/signup",
-              "host": ["{{base_url}}"],
-              "path": ["auth", "signup"]
-            }
-          }
-        },
-        {
-          "name": "POST Login",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Login successful', () => {",
-                  "  pm.response.to.have.status(200);",
-                  "  const json = pm.response.json();",
-                  "  pm.collectionVariables.set('access_token', json.accessToken);",
-                  "  pm.collectionVariables.set('refresh_token', json.refreshToken);",
+                  "  pm.collectionVariables.set('access_token', json.data.accessToken);",
+                  "  pm.collectionVariables.set('refresh_token', json.data.refreshToken);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -173,18 +146,132 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@acme.com\",\n  \"password\": \"SecureP@ss1\"\n}",
+              "raw": "{\n  \"companyName\": \"Acme Corp\",\n  \"slug\": \"acme\",\n  \"email\": \"{{orgEmail}}\",\n  \"password\": \"{{orgPassword}}\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
-              "raw": "{{base_url}}/auth/login",
+              "raw": "{{base_url}}/auth/org/signup",
               "host": ["{{base_url}}"],
-              "path": ["auth", "login"]
+              "path": ["auth", "org", "signup"]
             }
           }
         },
         {
-          "name": "POST Refresh Token",
+          "name": "POST /auth/signin — Sign in (OrgAdmin/Recruiter/HM/Candidate/SA)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Signin successful', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const json = pm.response.json();",
+                  "  pm.collectionVariables.set('access_token', json.data.accessToken);",
+                  "  pm.collectionVariables.set('refresh_token', json.data.refreshToken);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{orgEmail}}\",\n  \"password\": \"{{orgPassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/signin",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "signin"]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/signup — Candidate signup",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Candidate signup successful', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  const json = pm.response.json();",
+                  "  pm.collectionVariables.set('candidate_access_token', json.data.accessToken);",
+                  "  pm.collectionVariables.set('candidate_refresh_token', json.data.refreshToken);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{candidateEmail}}\",\n  \"password\": \"{{candidatePassword}}\",\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\",\n  \"phone\": \"+1-555-0123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/signup",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "signup"]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/signin — Candidate signin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Candidate signin successful', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const json = pm.response.json();",
+                  "  pm.collectionVariables.set('candidate_access_token', json.data.accessToken);",
+                  "  pm.collectionVariables.set('candidate_refresh_token', json.data.refreshToken);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{candidateEmail}}\",\n  \"password\": \"{{candidatePassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/signin",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "signin"]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/refresh",
           "event": [
             {
               "listen": "test",
@@ -193,8 +280,8 @@
                   "pm.test('Refresh successful', () => {",
                   "  pm.response.to.have.status(200);",
                   "  const json = pm.response.json();",
-                  "  pm.collectionVariables.set('access_token', json.accessToken);",
-                  "  pm.collectionVariables.set('refresh_token', json.refreshToken);",
+                  "  pm.collectionVariables.set('access_token', json.data.accessToken);",
+                  "  pm.collectionVariables.set('refresh_token', json.data.refreshToken);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -222,7 +309,7 @@
           }
         },
         {
-          "name": "POST Logout",
+          "name": "POST /auth/logout",
           "request": {
             "method": "POST",
             "header": [
@@ -241,10 +328,30 @@
       ]
     },
     {
-      "name": "Org (Tenant Settings)",
+      "name": "Skills (Shared Taxonomy)",
       "item": [
         {
-          "name": "GET /org — Get tenant settings",
+          "name": "GET /skills?search= — Search skills (public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/skills?search={{skillSearch}}",
+              "host": ["{{base_url}}"],
+              "path": ["skills"],
+              "query": [
+                { "key": "search", "value": "{{skillSearch}}", "description": "Search term for skill taxonomy" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Candidates",
+      "item": [
+        {
+          "name": "GET /candidates — List candidates",
           "request": {
             "method": "GET",
             "header": [
@@ -254,57 +361,29 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/org",
+              "raw": "{{base_url}}/candidates",
               "host": ["{{base_url}}"],
-              "path": ["org"]
+              "path": ["candidates"]
             }
           }
         },
         {
-          "name": "PATCH /org — Update tenant settings",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
+          "name": "POST /candidates — Add candidate manually",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Created candidate', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  const json = pm.response.json();",
+                  "  if (json.id) pm.collectionVariables.set('candidateId', json.id);",
+                  "});"
+                ],
+                "type": "text/javascript"
               }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Acme Corp (Updated)\"\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": {
-              "raw": "{{base_url}}/org",
-              "host": ["{{base_url}}"],
-              "path": ["org"]
             }
-          }
-        },
-        {
-          "name": "GET /org/users — List users",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/org/users",
-              "host": ["{{base_url}}"],
-              "path": ["org", "users"]
-            }
-          }
-        },
-        {
-          "name": "POST /org/users/invite — Invite user",
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -319,46 +398,20 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"recruiter@acme.com\",\n  \"role\": \"Recruiter\"\n}",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"phone\": \"+1-555-0123\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
-              "raw": "{{base_url}}/org/users/invite",
+              "raw": "{{base_url}}/candidates",
               "host": ["{{base_url}}"],
-              "path": ["org", "users", "invite"]
+              "path": ["candidates"]
             }
           }
         },
         {
-          "name": "PATCH /org/users/:userId/role",
+          "name": "GET /candidates/:id — Candidate profile",
           "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"role\": \"HiringManager\"\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": {
-              "raw": "{{base_url}}/org/users/{{userId}}/role",
-              "host": ["{{base_url}}"],
-              "path": ["org", "users", "{{userId}}", "role"]
-            }
-          }
-        },
-        {
-          "name": "DELETE /org/users/:userId — Remove user",
-          "request": {
-            "method": "DELETE",
+            "method": "GET",
             "header": [
               {
                 "key": "Authorization",
@@ -366,102 +419,11 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/org/users/{{userId}}",
+              "raw": "{{base_url}}/candidates/{{candidateId}}",
               "host": ["{{base_url}}"],
-              "path": ["org", "users", "{{userId}}"]
+              "path": ["candidates", "{{candidateId}}"]
             }
           }
-        },
-        {
-          "name": "PIPELINE STAGES",
-          "item": [
-            {
-              "name": "GET /org/pipeline-stages — List stages",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{access_token}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/org/pipeline-stages",
-                  "host": ["{{base_url}}"],
-                  "path": ["org", "pipeline-stages"]
-                }
-              }
-            },
-            {
-              "name": "POST /org/pipeline-stages — Create stage",
-              "request": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{access_token}}"
-                  },
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"name\": \"Phone Screen\",\n  \"order\": 1\n}",
-                  "options": { "raw": { "language": "json" } }
-                },
-                "url": {
-                  "raw": "{{base_url}}/org/pipeline-stages",
-                  "host": ["{{base_url}}"],
-                  "path": ["org", "pipeline-stages"]
-                }
-              }
-            },
-            {
-              "name": "PATCH /org/pipeline-stages/:id — Update stage",
-              "request": {
-                "method": "PATCH",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{access_token}}"
-                  },
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"name\": \"Phone Screen (Updated)\",\n  \"order\": 2\n}",
-                  "options": { "raw": { "language": "json" } }
-                },
-                "url": {
-                  "raw": "{{base_url}}/org/pipeline-stages/{{stageId}}",
-                  "host": ["{{base_url}}"],
-                  "path": ["org", "pipeline-stages", "{{stageId}}"]
-                }
-              }
-            },
-            {
-              "name": "DELETE /org/pipeline-stages/:id — Remove stage",
-              "request": {
-                "method": "DELETE",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{access_token}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/org/pipeline-stages/{{stageId}}",
-                  "host": ["{{base_url}}"],
-                  "path": ["org", "pipeline-stages", "{{stageId}}"]
-                }
-              }
-            }
-          ]
         }
       ]
     },
@@ -519,7 +481,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Senior Software Engineer\",\n  \"department\": \"Engineering\",\n  \"location\": \"Remote\",\n  \"description\": \"We are looking for a senior engineer...\",\n  \"employmentType\": \"full-time\",\n  \"minSalary\": 120000,\n  \"maxSalary\": 180000,\n  \"requiredSkills\": [\"typescript\", \"nodejs\", \"postgresql\"]\n}",
+              "raw": "{\n  \"title\": \"Senior Software Engineer\",\n  \"description\": \"We are looking for a senior engineer...\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -562,7 +524,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Senior Software Engineer (Updated)\",\n  \"minSalary\": 130000,\n  \"requiredSkills\": [\"typescript\", \"nodejs\", \"postgresql\", \"react\"]\n}",
+              "raw": "{\n  \"title\": \"Senior Software Engineer (Updated)\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -607,7 +569,7 @@
           }
         },
         {
-          "name": "DELETE /job-postings/:id — Delete draft",
+          "name": "DELETE /job-postings/:id — Delete posting (OrgAdmin only)",
           "request": {
             "method": "DELETE",
             "header": [
@@ -626,36 +588,64 @@
       ]
     },
     {
-      "name": "Candidates",
+      "name": "Candidate Account (Job Board)",
       "item": [
         {
-          "name": "GET /candidates — List candidates",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/candidates",
-              "host": ["{{base_url}}"],
-              "path": ["candidates"]
-            }
-          }
-        },
-        {
-          "name": "POST /candidates — Add candidate manually",
+          "name": "GET /candidate/jobs — List open jobs (public)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test('Created candidate', () => {",
+                  "pm.test('Jobs listed', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const json = pm.response.json();",
+                  "  if (json.length > 0 && json[0].tenantId) {",
+                  "    pm.collectionVariables.set('tenantId', json[0].tenantId);",
+                  "    pm.collectionVariables.set('jobPostingId', json[0].jobPostingId);",
+                  "  }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/candidate/jobs?search=",
+              "host": ["{{base_url}}"],
+              "path": ["candidate", "jobs"],
+              "query": [
+                { "key": "search", "value": "", "description": "Search by title or company name" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /candidate/jobs/:tenantId/:jobId — Job detail (public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/candidate/jobs/{{tenantId}}/{{jobPostingId}}",
+              "host": ["{{base_url}}"],
+              "path": ["candidate", "jobs", "{{tenantId}}", "{{jobPostingId}}"]
+            }
+          }
+        },
+        {
+          "name": "POST /candidate/jobs/:tenantId/:jobId/apply — Apply to job",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Applied to job', () => {",
                   "  pm.response.to.have.status(201);",
                   "  const json = pm.response.json();",
-                  "  if (json.id) pm.collectionVariables.set('candidateId', json.id);",
+                  "  if (json.applicationId) pm.collectionVariables.set('applicationId', json.applicationId);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -667,7 +657,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{access_token}}"
+                "value": "Bearer {{candidate_access_token}}"
               },
               {
                 "key": "Content-Type",
@@ -676,236 +666,44 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"phone\": \"+1-555-0123\",\n  \"source\": \"linkedin\"\n}",
+              "raw": "{\n  \"phone\": \"+1-555-9999\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
-              "raw": "{{base_url}}/candidates",
+              "raw": "{{base_url}}/candidate/jobs/{{tenantId}}/{{jobPostingId}}/apply",
               "host": ["{{base_url}}"],
-              "path": ["candidates"]
+              "path": ["candidate", "jobs", "{{tenantId}}", "{{jobPostingId}}", "apply"]
             }
           }
         },
         {
-          "name": "GET /candidates/:id — Candidate profile",
+          "name": "GET /candidate/applications — My applications",
           "request": {
             "method": "GET",
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{access_token}}"
+                "value": "Bearer {{candidate_access_token}}"
               }
             ],
             "url": {
-              "raw": "{{base_url}}/candidates/{{candidateId}}",
+              "raw": "{{base_url}}/candidate/applications",
               "host": ["{{base_url}}"],
-              "path": ["candidates", "{{candidateId}}"]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Applications / Pipeline",
-      "item": [
-        {
-          "name": "GET /applications — List applications",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/applications?jobPostingId={{jobPostingId}}&stageId={{stageId}}",
-              "host": ["{{base_url}}"],
-              "path": ["applications"],
-              "query": [
-                { "key": "jobPostingId", "value": "{{jobPostingId}}", "description": "Filter by job posting" },
-                { "key": "stageId", "value": "{{stageId}}", "description": "Filter by pipeline stage" }
-              ]
+              "path": ["candidate", "applications"]
             }
           }
         },
         {
-          "name": "GET /applications/:id — Application detail",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/applications/{{applicationId}}",
-              "host": ["{{base_url}}"],
-              "path": ["applications", "{{applicationId}}"]
-            }
-          }
-        },
-        {
-          "name": "PATCH /applications/:id/stage — Move stage",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"stageId\": \"{{stageId}}\"\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": {
-              "raw": "{{base_url}}/applications/{{applicationId}}/stage",
-              "host": ["{{base_url}}"],
-              "path": ["applications", "{{applicationId}}", "stage"]
-            }
-          }
-        },
-        {
-          "name": "NOTES",
-          "item": [
-            {
-              "name": "POST /applications/:id/notes — Add note",
-              "request": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{access_token}}"
-                  },
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"content\": \"Strong candidate, moving to next stage.\"\n}",
-                  "options": { "raw": { "language": "json" } }
-                },
-                "url": {
-                  "raw": "{{base_url}}/applications/{{applicationId}}/notes",
-                  "host": ["{{base_url}}"],
-                  "path": ["applications", "{{applicationId}}", "notes"]
-                }
-              }
-            },
-            {
-              "name": "GET /applications/:id/notes — List notes",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{access_token}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/applications/{{applicationId}}/notes",
-                  "host": ["{{base_url}}"],
-                  "path": ["applications", "{{applicationId}}", "notes"]
-                }
-              }
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "Resumes",
-      "item": [
-        {
-          "name": "GET /candidates/:id/resume — Get resume",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/candidates/{{candidateId}}/resume",
-              "host": ["{{base_url}}"],
-              "path": ["candidates", "{{candidateId}}", "resume"]
-            }
-          }
-        },
-        {
-          "name": "POST /candidates/:id/resume — Upload resume",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "file",
-                  "type": "file",
-                  "src": "",
-                  "description": "Resume file (PDF, DOCX)"
-                }
-              ]
-            },
-            "url": {
-              "raw": "{{base_url}}/candidates/{{candidateId}}/resume",
-              "host": ["{{base_url}}"],
-              "path": ["candidates", "{{candidateId}}", "resume"]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Interviews",
-      "item": [
-        {
-          "name": "GET /interviews — List interviews",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/interviews",
-              "host": ["{{base_url}}"],
-              "path": ["interviews"],
-              "query": [
-                { "key": "assignedToMe", "value": "true", "description": "Filter to only my assigned interviews (for Interviewer role)" }
-              ]
-            }
-          }
-        },
-        {
-          "name": "POST /interviews — Schedule interview",
+          "name": "POST /candidate/bookmarks — Add bookmark",
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test('Created interview', () => {",
+                  "pm.test('Bookmarked job', () => {",
                   "  pm.response.to.have.status(201);",
                   "  const json = pm.response.json();",
-                  "  if (json.id) pm.collectionVariables.set('interviewId', json.id);",
+                  "  if (json.id) pm.collectionVariables.set('bookmarkId', json.id);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -917,7 +715,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{access_token}}"
+                "value": "Bearer {{candidate_access_token}}"
               },
               {
                 "key": "Content-Type",
@@ -926,269 +724,64 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"applicationId\": \"{{applicationId}}\",\n  \"interviewerIds\": [\"{{userId}}\"],\n  \"scheduledAt\": \"2026-08-01T14:00:00Z\",\n  \"type\": \"technical\",\n  \"location\": \"https://meet.example.com/tech-interview\"\n}",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"jobPostingId\": \"{{jobPostingId}}\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
-              "raw": "{{base_url}}/interviews",
+              "raw": "{{base_url}}/candidate/bookmarks",
               "host": ["{{base_url}}"],
-              "path": ["interviews"]
+              "path": ["candidate", "bookmarks"]
             }
           }
         },
         {
-          "name": "GET /interviews/:id — Interview detail",
+          "name": "GET /candidate/bookmarks — List bookmarks",
           "request": {
             "method": "GET",
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{access_token}}"
+                "value": "Bearer {{candidate_access_token}}"
               }
             ],
             "url": {
-              "raw": "{{base_url}}/interviews/{{interviewId}}",
+              "raw": "{{base_url}}/candidate/bookmarks",
               "host": ["{{base_url}}"],
-              "path": ["interviews", "{{interviewId}}"]
+              "path": ["candidate", "bookmarks"]
             }
           }
         },
         {
-          "name": "PATCH /interviews/:id — Reschedule / cancel",
+          "name": "DELETE /candidate/bookmarks/:id — Remove bookmark",
           "request": {
-            "method": "PATCH",
+            "method": "DELETE",
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
+                "value": "Bearer {{candidate_access_token}}"
               }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"scheduledAt\": \"2026-08-02T10:00:00Z\",\n  \"status\": \"rescheduled\"\n}",
-              "options": { "raw": { "language": "json" } }
-            },
             "url": {
-              "raw": "{{base_url}}/interviews/{{interviewId}}",
+              "raw": "{{base_url}}/candidate/bookmarks/{{bookmarkId}}",
               "host": ["{{base_url}}"],
-              "path": ["interviews", "{{interviewId}}"]
+              "path": ["candidate", "bookmarks", "{{bookmarkId}}"]
             }
           }
         },
         {
-          "name": "POST /interviews/:id/feedback — Submit feedback",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"rating\": 4,\n  \"comments\": \"Strong technical skills, good communication.\",\n  \"strengths\": [\"Problem-solving\", \"System design\"],\n  \"weaknesses\": [\"Could improve on testing patterns\"]\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": {
-              "raw": "{{base_url}}/interviews/{{interviewId}}/feedback",
-              "host": ["{{base_url}}"],
-              "path": ["interviews", "{{interviewId}}", "feedback"]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Skills (Shared Taxonomy)",
-      "item": [
-        {
-          "name": "GET /skills?search= — Search skills",
+          "name": "GET /candidate/profile — My profile",
           "request": {
             "method": "GET",
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{access_token}}"
+                "value": "Bearer {{candidate_access_token}}"
               }
             ],
             "url": {
-              "raw": "{{base_url}}/skills?search={{skillSearch}}",
+              "raw": "{{base_url}}/candidate/profile",
               "host": ["{{base_url}}"],
-              "path": ["skills"],
-              "query": [
-                { "key": "search", "value": "{{skillSearch}}", "description": "Search term for skill taxonomy" }
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Public Careers (Unauthenticated)",
-      "item": [
-        {
-          "name": "GET /public/:slug/jobs — List open jobs",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/public/{{tenant_slug}}/jobs",
-              "host": ["{{base_url}}"],
-              "path": ["public", "{{tenant_slug}}", "jobs"]
-            }
-          }
-        },
-        {
-          "name": "GET /public/:slug/jobs/:id — Job detail",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/public/{{tenant_slug}}/jobs/{{jobPostingId}}",
-              "host": ["{{base_url}}"],
-              "path": ["public", "{{tenant_slug}}", "jobs", "{{jobPostingId}}"]
-            }
-          }
-        },
-        {
-          "name": "POST /public/:slug/jobs/:id/apply — Submit application",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "firstName",
-                  "value": "Jane",
-                  "type": "text"
-                },
-                {
-                  "key": "lastName",
-                  "value": "Applicant",
-                  "type": "text"
-                },
-                {
-                  "key": "email",
-                  "value": "jane.applicant@example.com",
-                  "type": "text"
-                },
-                {
-                  "key": "phone",
-                  "value": "+1-555-9999",
-                  "type": "text"
-                },
-                {
-                  "key": "resume",
-                  "type": "file",
-                  "src": "",
-                  "description": "Resume file (PDF, DOCX)"
-                }
-              ]
-            },
-            "url": {
-              "raw": "{{base_url}}/public/{{tenant_slug}}/jobs/{{jobPostingId}}/apply",
-              "host": ["{{base_url}}"],
-              "path": ["public", "{{tenant_slug}}", "jobs", "{{jobPostingId}}", "apply"]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Platform (SuperAdmin)",
-      "item": [
-        {
-          "name": "GET /platform/tenants — List all tenants",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/platform/tenants",
-              "host": ["{{base_url}}"],
-              "path": ["platform", "tenants"]
-            }
-          }
-        },
-        {
-          "name": "GET /platform/tenants/:id — Tenant detail",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/platform/tenants/{{tenantId}}",
-              "host": ["{{base_url}}"],
-              "path": ["platform", "tenants", "{{tenantId}}"]
-            }
-          }
-        },
-        {
-          "name": "PATCH /platform/tenants/:id/suspend",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/platform/tenants/{{tenantId}}/suspend",
-              "host": ["{{base_url}}"],
-              "path": ["platform", "tenants", "{{tenantId}}", "suspend"]
-            }
-          }
-        },
-        {
-          "name": "PATCH /platform/tenants/:id/reactivate",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/platform/tenants/{{tenantId}}/reactivate",
-              "host": ["{{base_url}}"],
-              "path": ["platform", "tenants", "{{tenantId}}", "reactivate"]
-            }
-          }
-        },
-        {
-          "name": "GET /platform/stats — Platform stats",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/platform/stats",
-              "host": ["{{base_url}}"],
-              "path": ["platform", "stats"]
+              "path": ["candidate", "profile"]
             }
           }
         }

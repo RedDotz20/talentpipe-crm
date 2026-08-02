@@ -1,194 +1,471 @@
-# Task 2: Create Seed Script
+## Task 2: Job postings module (backend)
 
 **Files:**
-- Create: `backend/scripts/seed.ts`
+- Create: `backend/src/modules/job-postings/dto/create-job-posting.dto.ts`
+- Create: `backend/src/modules/job-postings/dto/update-job-posting.dto.ts`
+- Create: `backend/src/modules/job-postings/job-postings.module.ts`
+- Create: `backend/src/modules/job-postings/job-postings.service.ts`
+- Create: `backend/src/modules/job-postings/job-postings.controller.ts`
+- Create: `backend/src/modules/job-postings/job-postings.service.spec.ts`
+- Modify: `backend/src/app.module.ts` (import `JobPostingsModule`)
 
-**Context:** This is the main task — create a standalone seed script that populates the database with three default accounts. Task 1 already added the `super_admins` table.
+**Interfaces:**
+- Consumes: `JobPostingRepository`, `SkillRepository`, `TenantRepository`, `JobListingsIndexRepository` (from Task 1 + existing); `AuthCoreModule`, `RepositoriesModule`; `Roles`/`CurrentUser` decorators; `ZodValidationPipe`.
+- Produces:
+  - `JobPostingsService` — `list(status?: string)`; `getOne(id)` → `{ ...row, requiredSkillIds }` or `NotFoundException`; `create(user, dto)`; `update(id, dto)`; `publish(id)`; `close(id)`; `remove(id)`.
+  - Endpoints (global prefix `api`):
+    - `GET /job-postings?status=` — roles OA/R/HM
+    - `POST /job-postings` — roles OA/R
+    - `GET /job-postings/:id` — roles OA/R/HM
+    - `PATCH /job-postings/:id` — roles OA/R
+    - `POST /job-postings/:id/publish` — roles OA/R
+    - `POST /job-postings/:id/close` — roles OA/R
+    - `DELETE /job-postings/:id` — roles OA
 
-## Requirements
+- [ ] **Step 1: DTOs**
 
-The script must:
-1. Load `.env` via `import 'dotenv/config'`
-2. Connect to PostgreSQL using `pg` Pool with `process.env.DATABASE_URL`
-3. Check for existing records before inserting (idempotent — skip if already exists)
-4. Hash passwords using argon2
-5. Create accounts in this order:
+`create-job-posting.dto.ts`:
+```ts
+import { z } from 'zod';
 
-### a. SuperAdmin
-- Table: `public.super_admins`
-- Values: `email = 'superadmin@talentpipe.com'`, `password = 'SuperAdmin123!'`, `name = 'Super Admin'`
+export const CreateJobPostingSchema = z.object({
+  title: z.string().min(1).max(255),
+  description: z.string().max(10000).optional(),
+  requiredSkillIds: z.array(z.string().uuid()).max(50).optional(),
+});
 
-### b. Org Tenant + OrgAdmin
-Replicates the org signup flow:
-1. Generate tenant UUID
-2. Insert into `public.tenants` (`name: 'Acme Corp'`, `slug: 'acme-corp'`)
-3. `CREATE SCHEMA "tenant_<id>"`
-4. Clone template tables from `template` schema (list: `users, job_postings, candidates, pipeline_stages, applications, resumes, resume_skills, job_required_skills, interviews, interview_feedbacks, notes`)
-5. Insert OrgAdmin user into tenant's `users` table (`email: 'admin@acme.com'`, `password: 'Admin123!'`, `role: 'OrgAdmin'`)
-6. Insert 6 pipeline stages (Applied/Screening/Interview/Offer/Hired/Rejected, order 0-5)
-7. Insert into `public.user_emails` for login lookup
-8. Create a refresh token entry so the admin can log in immediately
+export type CreateJobPostingDto = z.infer<typeof CreateJobPostingSchema>;
+```
 
-### c. Candidate
-- Table: `public.candidate_accounts`
-- Values: `email = 'candidate@test.com'`, `password = 'Candidate123!'`, `first_name = 'Jane'`, `last_name = 'Doe'`
+`update-job-posting.dto.ts`:
+```ts
+import { z } from 'zod';
 
-## Full Code
+export const UpdateJobPostingSchema = z.object({
+  title: z.string().min(1).max(255).optional(),
+  description: z.string().max(10000).nullable().optional(),
+  requiredSkillIds: z.array(z.string().uuid()).max(50).optional(),
+});
 
-```typescript
-import 'dotenv/config';
-import { Pool } from 'pg';
-import * as argon2 from 'argon2';
-import { randomUUID } from 'node:crypto';
+export type UpdateJobPostingDto = z.infer<typeof UpdateJobPostingSchema>;
+```
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+- [ ] **Step 2: Service** — `job-postings.service.ts`:
 
-const TENANT_TABLES = [
-  'users', 'job_postings', 'candidates', 'pipeline_stages',
-  'applications', 'resumes', 'resume_skills', 'job_required_skills',
-  'interviews', 'interview_feedbacks', 'notes',
-];
+```ts
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { getTenantId, TenantContext } from '../../common/context/tenant-context';
+import { JobPostingRepository } from '../../repositories/job-posting.repository';
+import { SkillRepository } from '../../repositories/skill.repository';
+import { TenantRepository } from '../../repositories/tenant.repository';
+import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
+import { CreateJobPostingDto } from './dto/create-job-posting.dto';
+import { UpdateJobPostingDto } from './dto/update-job-posting.dto';
 
-const PIPELINE_STAGES = [
-  { name: 'Applied', order: 0 },
-  { name: 'Screening', order: 1 },
-  { name: 'Interview', order: 2 },
-  { name: 'Offer', order: 3 },
-  { name: 'Hired', order: 4 },
-  { name: 'Rejected', order: 5 },
-];
+@Injectable()
+export class JobPostingsService {
+  constructor(
+    private readonly jobPostingRepo: JobPostingRepository,
+    private readonly skillRepo: SkillRepository,
+    private readonly tenantRepo: TenantRepository,
+    private readonly jobListingsIndexRepo: JobListingsIndexRepository,
+  ) {}
 
-const REFRESH_TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
-
-async function hash(val: string): Promise<string> {
-  return argon2.hash(val);
-}
-
-async function seedSuperAdmin(client: any): Promise<void> {
-  const existing = await client.query(
-    `SELECT id FROM public.super_admins WHERE email = $1`,
-    ['superadmin@talentpipe.com'],
-  );
-  if (existing.rows.length > 0) {
-    console.log('[SKIP] SuperAdmin already exists');
-    return;
-  }
-  const passwordHash = await hash('SuperAdmin123!');
-  await client.query(
-    `INSERT INTO public.super_admins (id, email, password_hash, name)
-     VALUES ($1, $2, $3, $4)`,
-    [randomUUID(), 'superadmin@talentpipe.com', passwordHash, 'Super Admin'],
-  );
-  console.log('[OK] SuperAdmin created: superadmin@talentpipe.com');
-}
-
-async function seedOrg(client: any): Promise<void> {
-  const existing = await client.query(
-    `SELECT id FROM public.tenants WHERE slug = $1`,
-    ['acme-corp'],
-  );
-  if (existing.rows.length > 0) {
-    console.log('[SKIP] Org tenant acme-corp already exists');
-    return;
+  list(status?: string) {
+    return this.jobPostingRepo.findAll(status);
   }
 
-  const tenantId = randomUUID();
-  const userId = randomUUID();
-  const passwordHash = await hash('Admin123!');
+  async getOne(id: string) {
+    const posting = await this.jobPostingRepo.findById(id);
+    if (!posting) throw new NotFoundException('Job posting not found');
+    const requiredSkillIds = await this.jobPostingRepo.getRequiredSkillIds(id);
+    return { ...posting, requiredSkillIds };
+  }
 
-  await client.query(
-    `INSERT INTO public.tenants (id, name, slug)
-     VALUES ($1, $2, $3)`,
-    [tenantId, 'Acme Corp', 'acme-corp'],
+  async create(user: TenantContext, dto: CreateJobPostingDto) {
+    if (dto.requiredSkillIds?.length) {
+      await this.assertSkillsExist(dto.requiredSkillIds);
+    }
+    const posting = await this.jobPostingRepo.create({
+      title: dto.title,
+      description: dto.description,
+      createdByUserId: user.userId,
+    });
+    if (dto.requiredSkillIds?.length) {
+      await this.jobPostingRepo.setRequiredSkills(posting.id, dto.requiredSkillIds);
+    }
+    return this.getOne(posting.id);
+  }
+
+  async update(id: string, dto: UpdateJobPostingDto) {
+    const posting = await this.jobPostingRepo.findById(id);
+    if (!posting) throw new NotFoundException('Job posting not found');
+    if (dto.requiredSkillIds) {
+      await this.assertSkillsExist(dto.requiredSkillIds);
+    }
+    const patch: Partial<{ title: string; description: string | null; status: string }> = {};
+    if (dto.title !== undefined) patch.title = dto.title;
+    if (dto.description !== undefined) patch.description = dto.description;
+    if (Object.keys(patch).length > 0) {
+      await this.jobPostingRepo.update(id, patch);
+    }
+    if (dto.requiredSkillIds) {
+      await this.jobPostingRepo.setRequiredSkills(id, dto.requiredSkillIds);
+    }
+    return this.getOne(id);
+  }
+
+  async publish(id: string) {
+    const posting = await this.jobPostingRepo.findById(id);
+    if (!posting) throw new NotFoundException('Job posting not found');
+    if (posting.status !== 'draft') {
+      throw new ConflictException('Only draft postings can be published');
+    }
+    const updated = await this.jobPostingRepo.update(id, { status: 'open' });
+    if (updated) await this.syncListing(updated);
+    return this.getOne(id);
+  }
+
+  async close(id: string) {
+    const posting = await this.jobPostingRepo.findById(id);
+    if (!posting) throw new NotFoundException('Job posting not found');
+    if (posting.status === 'closed') return this.getOne(id);
+    const updated = await this.jobPostingRepo.update(id, { status: 'closed' });
+    if (updated) await this.syncListing(updated);
+    return this.getOne(id);
+  }
+
+  async remove(id: string) {
+    const posting = await this.jobPostingRepo.findById(id);
+    if (!posting) throw new NotFoundException('Job posting not found');
+    if (posting.status === 'open') {
+      throw new ConflictException('Open postings must be closed before deletion');
+    }
+    const tenantId = getTenantId();
+    await this.jobPostingRepo.delete(id);
+    await this.jobListingsIndexRepo.delete(tenantId, id);
+  }
+
+  private async assertSkillsExist(skillIds: string[]) {
+    const found = await this.skillRepo.findByIds(skillIds);
+    if (found.length !== skillIds.length) {
+      throw new NotFoundException('One or more skills do not exist');
+    }
+  }
+
+  private async syncListing(posting: {
+    id: string;
+    title: string;
+    description: string | null;
+    status: string;
+  }) {
+    const tenantId = getTenantId();
+    const tenant = await this.tenantRepo.findById(tenantId);
+    await this.jobListingsIndexRepo.upsert({
+      tenantId,
+      jobPostingId: posting.id,
+      title: posting.title,
+      description: posting.description ?? '',
+      companyName: tenant?.name ?? '',
+      companySlug: tenant?.slug ?? '',
+      status: posting.status,
+    });
+  }
+}
+```
+
+- [ ] **Step 3: Controller** — `job-postings.controller.ts`:
+
+```ts
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { TenantContext } from '../../common/context/tenant-context';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { JobPostingsService } from './job-postings.service';
+import {
+  CreateJobPostingSchema,
+  CreateJobPostingDto,
+} from './dto/create-job-posting.dto';
+import {
+  UpdateJobPostingSchema,
+  UpdateJobPostingDto,
+} from './dto/update-job-posting.dto';
+
+const VIEW_ROLES = ['OrgAdmin', 'Recruiter', 'HiringManager'];
+const EDIT_ROLES = ['OrgAdmin', 'Recruiter'];
+
+@Controller('job-postings')
+export class JobPostingsController {
+  constructor(private readonly jobPostingsService: JobPostingsService) {}
+
+  @Get()
+  @UseGuards(AuthGuard('jwt'))
+  @Roles(...VIEW_ROLES)
+  list(@Query('status') status?: string) {
+    return this.jobPostingsService.list(status);
+  }
+
+  @Post()
+  @UseGuards(AuthGuard('jwt'))
+  @Roles(...EDIT_ROLES)
+  create(
+    @Body(new ZodValidationPipe(CreateJobPostingSchema)) dto: CreateJobPostingDto,
+    @CurrentUser() user: TenantContext,
+  ) {
+    return this.jobPostingsService.create(user, dto);
+  }
+
+  @Get(':id')
+  @UseGuards(AuthGuard('jwt'))
+  @Roles(...VIEW_ROLES)
+  getOne(@Param('id') id: string) {
+    return this.jobPostingsService.getOne(id);
+  }
+
+  @Patch(':id')
+  @UseGuards(AuthGuard('jwt'))
+  @Roles(...EDIT_ROLES)
+  update(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(UpdateJobPostingSchema)) dto: UpdateJobPostingDto,
+  ) {
+    return this.jobPostingsService.update(id, dto);
+  }
+
+  @Post(':id/publish')
+  @UseGuards(AuthGuard('jwt'))
+  @Roles(...EDIT_ROLES)
+  publish(@Param('id') id: string) {
+    return this.jobPostingsService.publish(id);
+  }
+
+  @Post(':id/close')
+  @UseGuards(AuthGuard('jwt'))
+  @Roles(...EDIT_ROLES)
+  close(@Param('id') id: string) {
+    return this.jobPostingsService.close(id);
+  }
+
+  @Delete(':id')
+  @UseGuards(AuthGuard('jwt'))
+  @Roles('OrgAdmin')
+  remove(@Param('id') id: string) {
+    return this.jobPostingsService.remove(id);
+  }
+}
+```
+
+- [ ] **Step 4: Module** — `job-postings.module.ts`:
+
+```ts
+import { Module } from '@nestjs/common';
+import { AuthCoreModule } from '../../common/auth/auth-core.module';
+import { RepositoriesModule } from '../../repositories/repositories.module';
+import { JobPostingsController } from './job-postings.controller';
+import { JobPostingsService } from './job-postings.service';
+
+@Module({
+  imports: [AuthCoreModule, RepositoriesModule],
+  controllers: [JobPostingsController],
+  providers: [JobPostingsService],
+})
+export class JobPostingsModule {}
+```
+
+- [ ] **Step 5: Unit tests** — `job-postings.service.spec.ts` (mock all four repos; wrap `publish`/`close`/`remove` calls in `asyncStorage.run({ tenantId: 't1', userId: 'u1', role: 'OrgAdmin' }, ...)` so `getTenantId()` resolves):
+
+```ts
+import { Test, TestingModule } from '@nestjs/testing';
+import { ConflictException, NotFoundException } from '@nestjs/common';
+import { asyncStorage } from '../../common/context/tenant-context';
+import { JobPostingsService } from './job-postings.service';
+import { JobPostingRepository } from '../../repositories/job-posting.repository';
+import { SkillRepository } from '../../repositories/skill.repository';
+import { TenantRepository } from '../../repositories/tenant.repository';
+import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
+
+const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
+  asyncStorage.run(
+    { tenantId: 't1', userId: 'u1', role: 'OrgAdmin' },
+    fn,
   );
 
-  await client.query(`CREATE SCHEMA IF NOT EXISTS "tenant_${tenantId}"`);
+describe('JobPostingsService', () => {
+  let service: JobPostingsService;
+  const jobPostingRepo = {
+    findAll: jest.fn(),
+    findById: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    setRequiredSkills: jest.fn(),
+    getRequiredSkillIds: jest.fn(),
+  };
+  const skillRepo = { findByIds: jest.fn() };
+  const tenantRepo = { findById: jest.fn() };
+  const jobListingsIndexRepo = { upsert: jest.fn(), delete: jest.fn() };
 
-  for (const table of TENANT_TABLES) {
-    await client.query(
-      `CREATE TABLE IF NOT EXISTS "tenant_${tenantId}"."${table}" (LIKE template."${table}" INCLUDING ALL)`,
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        JobPostingsService,
+        { provide: JobPostingRepository, useValue: jobPostingRepo },
+        { provide: SkillRepository, useValue: skillRepo },
+        { provide: TenantRepository, useValue: tenantRepo },
+        { provide: JobListingsIndexRepository, useValue: jobListingsIndexRepo },
+      ],
+    }).compile();
+    service = module.get<JobPostingsService>(JobPostingsService);
+  });
+
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+
+  it('lists postings via the repository', async () => {
+    jobPostingRepo.findAll.mockResolvedValue([{ id: 'p1' }]);
+    await expect(service.list('draft')).resolves.toEqual([{ id: 'p1' }]);
+    expect(jobPostingRepo.findAll).toHaveBeenCalledWith('draft');
+  });
+
+  it('getOne throws NotFoundException when missing', async () => {
+    jobPostingRepo.findById.mockResolvedValue(null);
+    await expect(service.getOne('nope')).rejects.toThrow(NotFoundException);
+  });
+
+  it('getOne returns the posting with required skill ids', async () => {
+    jobPostingRepo.findById.mockResolvedValue({ id: 'p1', title: 'Eng' });
+    jobPostingRepo.getRequiredSkillIds.mockResolvedValue(['s1', 's2']);
+    await expect(service.getOne('p1')).resolves.toEqual({
+      id: 'p1',
+      title: 'Eng',
+      requiredSkillIds: ['s1', 's2'],
+    });
+  });
+
+  it('create validates skills and writes required skills', async () => {
+    skillRepo.findByIds.mockResolvedValue([{ id: 's1' }]);
+    jobPostingRepo.create.mockResolvedValue({ id: 'p1', title: 'Eng' });
+    jobPostingRepo.getRequiredSkillIds.mockResolvedValue(['s1']);
+
+    const result = await service.create(
+      { tenantId: 't1', userId: 'u1', role: 'OrgAdmin' },
+      { title: 'Eng', requiredSkillIds: ['s1'] },
     );
-  }
 
-  await client.query(
-    `INSERT INTO "tenant_${tenantId}"."users" (id, email, password_hash, role)
-     VALUES ($1, $2, $3, 'OrgAdmin')`,
-    [userId, 'admin@acme.com', passwordHash],
-  );
+    expect(skillRepo.findByIds).toHaveBeenCalledWith(['s1']);
+    expect(jobPostingRepo.create).toHaveBeenCalledWith({
+      title: 'Eng',
+      description: undefined,
+      createdByUserId: 'u1',
+    });
+    expect(jobPostingRepo.setRequiredSkills).toHaveBeenCalledWith('p1', ['s1']);
+    expect(result).toEqual({ id: 'p1', title: 'Eng', requiredSkillIds: ['s1'] });
+  });
 
-  for (const stage of PIPELINE_STAGES) {
-    await client.query(
-      `INSERT INTO "tenant_${tenantId}"."pipeline_stages" (id, name, "order")
-       VALUES ($1, $2, $3)`,
-      [randomUUID(), stage.name, stage.order],
+  it('create rejects unknown skill ids', async () => {
+    skillRepo.findByIds.mockResolvedValue([{ id: 's1' }]);
+    await expect(
+      service.create(
+        { tenantId: 't1', userId: 'u1', role: 'OrgAdmin' },
+        { title: 'Eng', requiredSkillIds: ['s1', 'missing'] },
+      ),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('publish only works on drafts and syncs the listing index', async () => {
+    jobPostingRepo.findById.mockResolvedValue({ id: 'p1', status: 'draft' });
+    jobPostingRepo.update.mockResolvedValue({
+      id: 'p1',
+      title: 'Eng',
+      description: null,
+      status: 'open',
+    });
+    jobPostingRepo.getRequiredSkillIds.mockResolvedValue([]);
+    tenantRepo.findById.mockResolvedValue({ id: 't1', name: 'Acme', slug: 'acme' });
+
+    await expect(
+      runInContext(() => service.publish('p1')),
+    ).resolves.toEqual({ id: 'p1', requiredSkillIds: [] });
+
+    expect(jobListingsIndexRepo.upsert).toHaveBeenCalledWith({
+      tenantId: 't1',
+      jobPostingId: 'p1',
+      title: 'Eng',
+      description: '',
+      companyName: 'Acme',
+      companySlug: 'acme',
+      status: 'open',
+    });
+  });
+
+  it('publish rejects non-draft postings', async () => {
+    jobPostingRepo.findById.mockResolvedValue({ id: 'p1', status: 'open' });
+    await expect(
+      runInContext(() => service.publish('p1')),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('close syncs the listing index with status closed', async () => {
+    jobPostingRepo.findById.mockResolvedValue({ id: 'p1', status: 'open' });
+    jobPostingRepo.update.mockResolvedValue({
+      id: 'p1',
+      title: 'Eng',
+      description: null,
+      status: 'closed',
+    });
+    jobPostingRepo.getRequiredSkillIds.mockResolvedValue([]);
+    tenantRepo.findById.mockResolvedValue({ id: 't1', name: 'Acme', slug: 'acme' });
+
+    await runInContext(() => service.close('p1'));
+
+    expect(jobListingsIndexRepo.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'closed' }),
     );
-  }
+  });
 
-  await client.query(
-    `INSERT INTO public.user_emails (id, email, tenant_id, user_id)
-     VALUES ($1, $2, $3, $4)`,
-    [randomUUID(), 'admin@acme.com', tenantId, userId],
-  );
+  it('remove blocks open postings and otherwise deletes listing + posting', async () => {
+    jobPostingRepo.findById.mockResolvedValue({ id: 'p1', status: 'open' });
+    await expect(
+      runInContext(() => service.remove('p1')),
+    ).rejects.toThrow(ConflictException);
 
-  const refreshTokenId = randomUUID();
-  const rawToken = randomUUID();
-  const tokenHash = await hash(rawToken);
-  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_MS).toISOString();
-  await client.query(
-    `INSERT INTO public.refresh_tokens (id, user_id, tenant_id, token_hash, expires_at)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [refreshTokenId, userId, tenantId, tokenHash, expiresAt],
-  );
-
-  console.log(`[OK] Org created: Acme Corp (admin@acme.com, tenant: ${tenantId})`);
-}
-
-async function seedCandidate(client: any): Promise<void> {
-  const existing = await client.query(
-    `SELECT id FROM public.candidate_accounts WHERE email = $1`,
-    ['candidate@test.com'],
-  );
-  if (existing.rows.length > 0) {
-    console.log('[SKIP] Candidate already exists');
-    return;
-  }
-  const passwordHash = await hash('Candidate123!');
-  await client.query(
-    `INSERT INTO public.candidate_accounts (id, email, password_hash, first_name, last_name)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [randomUUID(), 'candidate@test.com', passwordHash, 'Jane', 'Doe'],
-  );
-  console.log('[OK] Candidate created: candidate@test.com');
-}
-
-async function main(): Promise<void> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    await seedSuperAdmin(client);
-    await seedOrg(client);
-    await seedCandidate(client);
-    await client.query('COMMIT');
-    console.log('\nSeed complete.');
-  } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('Seed failed:', err);
-    process.exit(1);
-  } finally {
-    client.release();
-    await pool.end();
-  }
-}
-
-main();
+    jobPostingRepo.findById.mockResolvedValue({ id: 'p1', status: 'draft' });
+    await runInContext(() => service.remove('p1'));
+    expect(jobPostingRepo.delete).toHaveBeenCalledWith('p1');
+    expect(jobListingsIndexRepo.delete).toHaveBeenCalledWith('t1', 'p1');
+  });
+});
 ```
 
-## Steps
+- [ ] **Step 6: Register module in `app.module.ts`** — add `JobPostingsModule` to `imports` alongside `CandidateAccountModule`.
 
-1. Create `backend/scripts/seed.ts` with the above code
-2. Run `cd backend && npm run typecheck` to verify no errors
-3. Commit:
+- [ ] **Step 7: Typecheck + tests** — `cd backend && npm run typecheck && npm test`. Expected: typecheck PASS; `job-postings.service.spec.ts` green, no other failures.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add backend/src/modules/job-postings backend/src/app.module.ts
+git commit -m "feat(m2): job postings CRUD + publish/close with listings-index sync"
 ```
-git add backend/scripts/seed.ts
-git commit -m "feat(db): create seed script for superadmin, org, and candidate accounts"
-```
+
+---
+
+
