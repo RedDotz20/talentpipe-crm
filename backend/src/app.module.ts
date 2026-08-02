@@ -6,6 +6,7 @@ import { CandidateAccountModule } from './modules/candidate-account/candidate-ac
 import { JobPostingsModule } from './modules/job-postings/job-postings.module';
 import { CandidatesModule } from './modules/candidates/candidates.module';
 import { SkillsModule } from './modules/skills/skills.module';
+import { ApplicationsModule } from './modules/applications/applications.module';
 import { HealthModule } from './modules/health/health.module';
 import { TenantContextInterceptor } from './common/interceptors/tenant-context.interceptor';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
@@ -21,6 +22,7 @@ import { LoggerMiddleware } from './common/middlewares/logger.middleware';
     JobPostingsModule,
     CandidatesModule,
     SkillsModule,
+    ApplicationsModule,
     HealthModule,
   ],
   providers: [
