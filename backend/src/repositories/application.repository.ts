@@ -1,6 +1,25 @@
 import { Injectable } from '@nestjs/common';
-import { applications } from '../database/schema';
+import { eq, desc, and } from 'drizzle-orm';
+import {
+  applications,
+  candidates,
+  jobPostings,
+  pipelineStages,
+} from '../database/schema';
 import { BaseRepository } from './base.repository';
+
+const selectAppRow = {
+  id: applications.id,
+  candidateId: applications.candidateId,
+  jobPostingId: applications.jobPostingId,
+  currentStageId: applications.currentStageId,
+  matchScore: applications.matchScore,
+  appliedAt: applications.appliedAt,
+  candidateName: candidates.name,
+  candidateEmail: candidates.email,
+  jobTitle: jobPostings.title,
+  stageName: pipelineStages.name,
+};
 
 @Injectable()
 export class ApplicationRepository extends BaseRepository {
@@ -15,6 +34,63 @@ export class ApplicationRepository extends BaseRepository {
         .returning()
         .execute();
       return rows[0];
+    });
+  }
+
+  async findAll(
+    filters?: { jobPostingId?: string; stageId?: string },
+    schema = 'current',
+  ) {
+    return this.withDb(schema, async (db) => {
+      const conditions = [];
+      if (filters?.jobPostingId) {
+        conditions.push(eq(applications.jobPostingId, filters.jobPostingId));
+      }
+      if (filters?.stageId) {
+        conditions.push(eq(applications.currentStageId, filters.stageId));
+      }
+      return db
+        .select(selectAppRow)
+        .from(applications)
+        .innerJoin(candidates, eq(applications.candidateId, candidates.id))
+        .innerJoin(jobPostings, eq(applications.jobPostingId, jobPostings.id))
+        .leftJoin(
+          pipelineStages,
+          eq(applications.currentStageId, pipelineStages.id),
+        )
+        .where(and(...conditions))
+        .orderBy(desc(applications.appliedAt))
+        .execute();
+    });
+  }
+
+  async findById(id: string, schema = 'current') {
+    return this.withDb(schema, async (db) => {
+      const rows = await db
+        .select(selectAppRow)
+        .from(applications)
+        .innerJoin(candidates, eq(applications.candidateId, candidates.id))
+        .innerJoin(jobPostings, eq(applications.jobPostingId, jobPostings.id))
+        .leftJoin(
+          pipelineStages,
+          eq(applications.currentStageId, pipelineStages.id),
+        )
+        .where(eq(applications.id, id))
+        .limit(1)
+        .execute();
+      return rows[0] ?? null;
+    });
+  }
+
+  async updateStage(id: string, stageId: string, schema = 'current') {
+    return this.withDb(schema, async (db) => {
+      const rows = await db
+        .update(applications)
+        .set({ currentStageId: stageId })
+        .where(eq(applications.id, id))
+        .returning()
+        .execute();
+      return rows[0] ?? null;
     });
   }
 }
