@@ -1,6 +1,7 @@
 import { apiClient } from './client';
 import type { ApiEnvelope } from '@/hooks/useApiMutation';
 import type { Resume } from './resumesApi';
+import type { Skill } from './skillsApi';
 import type { Application } from './applicationsApi';
 
 export interface Candidate {
@@ -9,6 +10,7 @@ export interface Candidate {
   email: string | null;
   phone: string | null;
   createdAt: string;
+  skills: Skill[];
   resume?: Resume | null;
   applications?: Application[];
 }

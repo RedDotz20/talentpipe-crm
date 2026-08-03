@@ -1,4 +1,4 @@
-import { Badge, Group, Loader, Modal, Stack, Table, Text, Title } from '@mantine/core';
+import { Anchor, Badge, Group, Loader, Modal, Stack, Table, Text, Title } from '@mantine/core';
 import { useCandidate } from './hooks/useCandidates';
 import { useResume } from './hooks/useResume';
 import { MatchScoreBadge } from './MatchScoreBadge';
@@ -24,32 +24,36 @@ export function CandidateProfile({ candidateId, onClose }: Props) {
           <Text>Phone: {candidate.phone ?? '—'}</Text>
           <Text>Added: {new Date(candidate.createdAt).toLocaleDateString()}</Text>
 
+          {candidate.skills && candidate.skills.length > 0 && (
+            <Group gap="xs">
+              <Text size="sm" fw={500}>Skills:</Text>
+              {candidate.skills.map((skill) => (
+                <Badge key={skill.id} size="sm" variant="light">
+                  {skill.name}
+                </Badge>
+              ))}
+            </Group>
+          )}
+
           <Title order={4} mt="sm">
             Resume
           </Title>
           {resume ? (
             <Stack gap="xs">
-              <Group gap="xs">
-                <Text size="sm" fw={500}>
-                  Matched skills:
+              {resume.fileUrl ? (
+                <Text size="sm">
+                  <Anchor href={resume.fileUrl} target="_blank">
+                    View Resume
+                  </Anchor>
                 </Text>
-                {resume.skills.length > 0 ? (
-                  resume.skills.map((skill) => (
-                    <Badge key={skill.id} size="sm" variant="light">
-                      {skill.name}
-                    </Badge>
-                  ))
-                ) : (
-                  <Text size="sm" c="dimmed">
-                    No skills detected
-                  </Text>
-                )}
-              </Group>
-              {resume.parsedText && (
-                <Text size="xs" c="dimmed" lineClamp={4}>
-                  {resume.parsedText}
+              ) : (
+                <Text size="sm" c="dimmed">
+                  No file available
                 </Text>
               )}
+              <Text size="xs" c="dimmed">
+                Uploaded: {new Date(resume.uploadedAt).toLocaleDateString()}
+              </Text>
             </Stack>
           ) : (
             <ResumeUploadInput candidateId={candidate.id} />

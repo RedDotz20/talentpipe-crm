@@ -1,14 +1,11 @@
 import { apiClient } from './client';
 import type { ApiEnvelope } from '@/hooks/useApiMutation';
-import type { Skill } from './skillsApi';
 
 export interface Resume {
   id: string;
   candidateId: string;
   fileUrl: string | null;
-  parsedText: string | null;
   uploadedAt: string;
-  skills: Skill[];
 }
 
 const unwrap = <T>(body: ApiEnvelope<T>): T => body.data;
