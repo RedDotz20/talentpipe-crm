@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Delete,
   Body,
   Param,
@@ -16,6 +17,10 @@ import { TenantContext } from '../../common/context/tenant-context';
 import { CandidateAccountService } from './candidate-account.service';
 import { BookmarkJobSchema, BookmarkJobDto } from './dto/bookmark.dto';
 import { ApplyJobSchema, ApplyJobDto } from './dto/apply.dto';
+import {
+  SetCandidateSkillsSchema,
+  SetCandidateSkillsDto,
+} from './dto/skills.dto';
 
 @Controller('candidate')
 export class CandidateAccountController {
@@ -49,6 +54,7 @@ export class CandidateAccountController {
       tenantId,
       jobId,
       body.phone,
+      body.skillIds,
     );
   }
 
@@ -56,6 +62,22 @@ export class CandidateAccountController {
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
   async getApplications(@CurrentUser() user: TenantContext) {
     return this.candidateAccountService.getApplications(user.userId);
+  }
+
+  @Get('skills')
+  @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
+  async getSkills(@CurrentUser() user: TenantContext) {
+    return this.candidateAccountService.getSkills(user.userId);
+  }
+
+  @Put('skills')
+  @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
+  async setSkills(
+    @Body(new ZodValidationPipe(SetCandidateSkillsSchema))
+    body: SetCandidateSkillsDto,
+    @CurrentUser() user: TenantContext,
+  ) {
+    return this.candidateAccountService.setSkills(user.userId, body.skillIds);
   }
 
   @Post('bookmarks')

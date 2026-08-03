@@ -32,15 +32,22 @@ export class CandidatesService {
     let skills: { id: string; name: string; category: string | null }[] = [];
 
     if (candidate.email) {
-      const account = await this.candidateAccountRepo.findByEmail(candidate.email);
+      const account = await this.candidateAccountRepo.findByEmail(
+        candidate.email,
+      );
       if (account) {
-        const skillIds = await this.candidateSkillRepo.findByCandidateAccountId(account.id);
+        const skillIds = await this.candidateSkillRepo.findByCandidateAccountId(
+          account.id,
+        );
         if (skillIds.length > 0) {
           const allSkills = await this.skillRepo.findAll();
           const skillMap = new Map(allSkills.map((s) => [s.id, s]));
           skills = skillIds
             .map((sid) => skillMap.get(sid))
-            .filter((s): s is { id: string; name: string; category: string | null } => s !== undefined)
+            .filter(
+              (s): s is { id: string; name: string; category: string | null } =>
+                s !== undefined,
+            )
             .map((s) => ({ id: s.id, name: s.name, category: s.category }));
         }
       }

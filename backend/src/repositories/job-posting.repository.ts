@@ -84,8 +84,8 @@ export class JobPostingRepository extends BaseRepository {
     });
   }
 
-  async getRequiredSkillIds(jobPostingId: string) {
-    return this.withDb('current', async (db) => {
+  async getRequiredSkillIds(jobPostingId: string, schema = 'current') {
+    return this.withDb(schema, async (db) => {
       const rows = await db
         .select({ skillId: jobRequiredSkills.skillId })
         .from(jobRequiredSkills)

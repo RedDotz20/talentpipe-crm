@@ -6,11 +6,7 @@ import { ResumesController } from './resumes.controller';
 import { ResumesService } from './resumes.service';
 
 @Module({
-  imports: [
-    AuthCoreModule,
-    StorageModule,
-    RepositoriesModule,
-  ],
+  imports: [AuthCoreModule, StorageModule, RepositoriesModule],
   controllers: [ResumesController],
   providers: [ResumesService],
 })

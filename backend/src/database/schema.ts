@@ -242,38 +242,38 @@ export const notes = pgTable(
 // ── Public Candidate Schema Tables ──
 
 export const candidateAccounts = pgTable('candidate_accounts', {
-   id: uuid('id').defaultRandom().primaryKey(),
-   email: varchar('email', { length: 255 }).notNull().unique(),
-   passwordHash: varchar('password_hash', { length: 255 }).notNull(),
-   firstName: varchar('first_name', { length: 100 }).notNull(),
-   lastName: varchar('last_name', { length: 100 }).notNull(),
-   phone: varchar('phone', { length: 50 }),
-   createdAt: timestamp('created_at').defaultNow().notNull(),
- });
+  id: uuid('id').defaultRandom().primaryKey(),
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+  firstName: varchar('first_name', { length: 100 }).notNull(),
+  lastName: varchar('last_name', { length: 100 }).notNull(),
+  phone: varchar('phone', { length: 50 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
 
- export const candidateSkills = pgTable(
-   'candidate_skills',
-   {
-     id: uuid('id').defaultRandom().primaryKey(),
-     candidateAccountId: uuid('candidate_account_id')
-       .notNull()
-       .references(() => candidateAccounts.id, { onDelete: 'cascade' }),
-     skillId: uuid('skill_id')
-       .notNull()
-       .references(() => skills.id, { onDelete: 'cascade' }),
-     createdAt: timestamp('created_at', { withTimezone: true })
-       .defaultNow()
-       .notNull(),
-   },
-   (table) => ({
-     uniqueCandidateSkill: uniqueIndex('unique_candidate_skill').on(
-       table.candidateAccountId,
-       table.skillId,
-     ),
-   }),
- );
+export const candidateSkills = pgTable(
+  'candidate_skills',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    candidateAccountId: uuid('candidate_account_id')
+      .notNull()
+      .references(() => candidateAccounts.id, { onDelete: 'cascade' }),
+    skillId: uuid('skill_id')
+      .notNull()
+      .references(() => skills.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    uniqueCandidateSkill: uniqueIndex('unique_candidate_skill').on(
+      table.candidateAccountId,
+      table.skillId,
+    ),
+  }),
+);
 
- export const candidateBookmarks = pgTable(
+export const candidateBookmarks = pgTable(
   'candidate_bookmarks',
   {
     id: uuid('id').defaultRandom().primaryKey(),

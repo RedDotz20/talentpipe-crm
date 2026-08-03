@@ -26,7 +26,10 @@ export class CandidateSkillRepository extends BaseRepository {
         await db
           .insert(candidateSkills)
           .values(
-            skillIds.map((skillId) => ({ candidateAccountId: accountId, skillId })),
+            skillIds.map((skillId) => ({
+              candidateAccountId: accountId,
+              skillId,
+            })),
           )
           .execute();
       }

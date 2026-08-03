@@ -24,7 +24,12 @@ export class ResumesService {
   async get(candidateId: string) {
     const resume = await this.resumeRepo.findByCandidateId(candidateId);
     if (!resume) throw new NotFoundException('No resume found for candidate');
-    return { id: resume.id, candidateId: resume.candidateId, fileUrl: resume.fileUrl, uploadedAt: resume.uploadedAt };
+    return {
+      id: resume.id,
+      candidateId: resume.candidateId,
+      fileUrl: resume.fileUrl,
+      uploadedAt: resume.uploadedAt,
+    };
   }
 
   async upload(candidateId: string, file: Express.Multer.File) {
@@ -36,7 +41,7 @@ export class ResumesService {
     const key = `tenants/${getTenantId()}/resumes/${candidateId}/${randomUUID()}.${ext}`;
     await this.storage.upload(key, file.buffer, file.mimetype);
 
-    const resume = await this.resumeRepo.create({ candidateId, fileUrl: key });
+    await this.resumeRepo.create({ candidateId, fileUrl: key });
     return this.get(candidateId);
   }
 

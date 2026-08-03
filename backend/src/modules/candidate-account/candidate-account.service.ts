@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
 import { CandidateBookmarkRepository } from '../../repositories/candidate-bookmark.repository';
 import { CandidateApplicationsIndexRepository } from '../../repositories/candidate-applications-index.repository';
@@ -6,6 +10,10 @@ import { JobListingsIndexRepository } from '../../repositories/job-listings-inde
 import { CandidateRepository } from '../../repositories/candidate.repository';
 import { ApplicationRepository } from '../../repositories/application.repository';
 import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
+import { CandidateSkillRepository } from '../../repositories/candidate-skill.repository';
+import { SkillRepository } from '../../repositories/skill.repository';
+import { JobPostingRepository } from '../../repositories/job-posting.repository';
+import { SkillMatchingService } from '../skill-matching/skill-matching.service';
 
 @Injectable()
 export class CandidateAccountService {
@@ -17,6 +25,10 @@ export class CandidateAccountService {
     private readonly candidateRepo: CandidateRepository,
     private readonly applicationRepo: ApplicationRepository,
     private readonly pipelineStageRepo: PipelineStageRepository,
+    private readonly candidateSkillRepo: CandidateSkillRepository,
+    private readonly skillRepo: SkillRepository,
+    private readonly jobPostingRepo: JobPostingRepository,
+    private readonly skillMatching: SkillMatchingService,
   ) {}
 
   async getJobs(search?: string) {
@@ -37,6 +49,7 @@ export class CandidateAccountService {
     tenantId: string,
     jobPostingId: string,
     phone?: string,
+    skillIds?: string[],
   ) {
     const job = await this.jobListingsIndexRepo.findById(
       tenantId,
@@ -78,6 +91,27 @@ export class CandidateAccountService {
       schemaName,
     );
 
+    let candidateSkillIds = skillIds ?? [];
+    if (!skillIds) {
+      candidateSkillIds =
+        await this.candidateSkillRepo.findByCandidateAccountId(
+          candidateAccountId,
+        );
+    }
+    const required = await this.jobPostingRepo.getRequiredSkillIds(
+      jobPostingId,
+      schemaName,
+    );
+    const matchScore = this.skillMatching.computeScore(
+      required,
+      candidateSkillIds,
+    );
+    await this.applicationRepo.updateMatchScore(
+      application.id,
+      matchScore,
+      schemaName,
+    );
+
     await this.candidateApplicationsIndexRepo.create({
       candidateAccountId,
       tenantId,
@@ -95,6 +129,29 @@ export class CandidateAccountService {
     return this.candidateApplicationsIndexRepo.findByCandidate(
       candidateAccountId,
     );
+  }
+
+  async getSkills(candidateAccountId: string) {
+    const skillIds =
+      await this.candidateSkillRepo.findByCandidateAccountId(
+        candidateAccountId,
+      );
+    if (skillIds.length === 0) return [];
+    const skills = await this.skillRepo.findByIds(skillIds);
+    return skills.map((skill) => ({
+      id: skill.id,
+      name: skill.name,
+      category: skill.category,
+    }));
+  }
+
+  async setSkills(candidateAccountId: string, skillIds: string[]) {
+    const found = await this.skillRepo.findByIds(skillIds);
+    if (found.length !== skillIds.length) {
+      throw new BadRequestException('One or more skill IDs are invalid');
+    }
+    await this.candidateSkillRepo.replaceAll(candidateAccountId, skillIds);
+    return { skills: skillIds.length };
   }
 
   async getBookmarks(candidateAccountId: string) {

@@ -50,17 +50,18 @@ describe('ResumesService', () => {
   });
 
   it('get returns resume', async () => {
+    const uploadedAt = new Date();
     resumeRepo.findByCandidateId.mockResolvedValue({
       id: 'r1',
       candidateId: 'c1',
       fileUrl: 'k',
-      uploadedAt: new Date(),
+      uploadedAt,
     });
     await expect(service.get('c1')).resolves.toEqual({
       id: 'r1',
       candidateId: 'c1',
       fileUrl: 'k',
-      uploadedAt: expect.any(Date),
+      uploadedAt,
     });
   });
 
