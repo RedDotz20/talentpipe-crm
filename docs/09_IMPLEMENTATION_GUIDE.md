@@ -401,54 +401,131 @@ Create `StageEditor.tsx` — ordered list with drag handle, inline name edit, ad
 
 ---
 
-## Phase 4 — Resume Upload & Skill Matching ⬜ (next milestone)
+## Phase 4 — Resume Upload & Manual Skill Matching ⬜ (next milestone)
 
-> **Storage decision:** resume files are stored in **MinIO** (S3-compatible) from the start — not local disk. MinIO already runs in Docker Compose (`:9000`) with creds in `backend/.env`. The client is `@aws-sdk/client-s3` with `forcePathStyle: true`, so the **same client code works against real S3 in prod** (swap `MINIO_ENDPOINT`). Object keys are server-generated `tenants/{tenantId}/resumes/{candidateId}/{uuid}.{ext}` — never client-supplied (`05_DATA_ISOLATION_STRATEGY.md`).
+> **Design change:** Automated PDF/DOCX text extraction and substring skill matching removed. Resume is now **pure storage** (MinIO) for recruiter review. Candidates **manually declare skills** in their cross-tenant profile (`public.candidate_skills`). Match score = candidate's self-declared skills (or per-application override) vs job's required skills. See `docs/superpowers/specs/2026-08-03-phase4-redesign-manual-skills.md`.
 
 ### Step 4.1 — Install libs
 ```
-cd backend && npm install pdf-parse mammoth @aws-sdk/client-s3
-cd backend && npm install -D @types/pdf-parse @types/mammoth @types/multer
+cd backend && npm install @aws-sdk/client-s3
+cd backend && npm install -D @types/multer
 cd frontend && npm install @mantine/dropzone
 ```
+> **Removed:** `pdf-parse`, `mammoth`, `@types/pdf-parse`, `@types/mammoth` (no longer needed)
 
-### Step 4.2 — Storage module (MinIO/S3)
+### Step 4.2 — Storage module (MinIO/S3) — UNCHANGED
 Create `backend/src/common/storage/storage.provider.ts` — `STORAGE_PROVIDER` factory (mirrors `drizzleProvider`): `new S3Client({ region: 'us-east-1', endpoint: MINIO_ENDPOINT, forcePathStyle: true, credentials: { accessKeyId, secretAccessKey } })`.
 Create `backend/src/common/storage/storage.service.ts` — `ensureBucket()` (on `onApplicationBootstrap`), `upload(key, buffer, contentType)`, `get(key)`, `delete(key)`.
 Create `backend/src/common/storage/storage.module.ts` — provides + exports `StorageService`.
 Bucket name configurable via `MINIO_BUCKET` (default `resumes`).
 
-### Step 4.3 — Resume repository
-Create `backend/src/repositories/resume.repository.ts` — findByCandidateId, create, updateParsedText, setResumeSkills (resume_skills join), findSkillsByResumeId. Register in `RepositoriesModule`.
-Extend `SkillRepository` with `findAll()`. Extend `ApplicationRepository` with `findByCandidateId(candidateId)` and `updateMatchScore(id, score)`.
-
-### Step 4.4 — Resume service
-Create `backend/src/modules/resumes/resumes.service.ts`:
-- `upload(candidateId, file)`: validate type (PDF/DOCX) + size (10MB multer limit), upload buffer to MinIO, create DB record (fileUrl = object key), extractText, extractSkills, persist resume_skills, recompute matchScore for all the candidate's applications (against each job's required skills), return record.
-- `extractText(buffer, mimeType)`: use pdf-parse for PDF, mammoth for DOCX.
-- `extractSkills(text)`: lowercase text, check each taxonomy skill for substring match, return matched skill IDs.
-
-### Step 4.5 — Skill matching service
-Create `backend/src/modules/skill-matching/skill-matching.service.ts` — computeScore(requiredSkillIds, extractedSkillIds): matched / required.length (0 if none required). Export `SkillMatchingModule`.
-
-### Step 4.6 — Unit tests
-Create `backend/src/modules/skill-matching/skill-matching.service.spec.ts` — test 0 score, full score, partial, no match. (Note: named `*.spec.ts` to match the Jest `testRegex`, not the guide's original `__tests__/*.test.ts` path.)
-Create `backend/src/modules/resumes/resumes.service.spec.ts` — mocked storage + parsers + repos: rejects bad mimetype, extracts + persists skills, recomputes matchScore.
-
-### Step 4.7 — Resume controller
-Create `backend/src/modules/resumes/resumes.controller.ts`:
-```
-GET  /candidates/:candidateId/resume  — OA, R, HM (metadata + extracted skills)
-POST /candidates/:candidateId/resume  — OA, R (FileInterceptor('file'), 10MB limit)
+### Step 4.3 — Database schema changes
+**Add to `backend/src/database/schema.ts` (public schema):**
+```ts
+candidateSkills = pgTable('candidate_skills', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  candidateAccountId: uuid('candidate_account_id')
+    .notNull()
+    .references(() => candidateAccounts.id, { onDelete: 'cascade' }),
+  skillId: uuid('skill_id')
+    .notNull()
+    .references(() => skills.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uniqueCandidateSkill: uniqueIndex('unique_candidate_skill').on(t.candidateAccountId, t.skillId),
+}));
 ```
 
-### Step 4.8 — Frontend resume upload
-Create `frontend/src/api/resumesApi.ts` (FormData upload — clears the client's default JSON content-type) + `useResume`/`useUploadResume` hooks + `queryKeys.org.resume(candidateId)`.
-Create `ResumeUploadInput.tsx` — Mantine Dropzone, accept PDF/DOCX, max 10MB.
-Create `MatchScoreBadge.tsx` — percentage, green >=70%, yellow >=40%, red <40% (reused in `ApplicationCard` + candidate profile).
-`CandidatesService.getOne` returns `{ ...candidate, resume, applications }` — the candidate profile shows upload + extracted-skill badges + per-application match scores.
+**Update `backend/drizzle/template-schema.sql`:**
+- Remove `parsedText` column from `resumes` table
+- Keep `resume_skills` table (for future use) but do not auto-populate
 
-**Commit:** `git add -A && git commit -m "feat(m4): resume upload to MinIO, text extraction, skill matching — backend + frontend"`
+Run migration:
+```
+cd backend && npx drizzle-kit generate
+# Apply generated migration via psql (see 00b_LOCAL_DEV_BOOTSTRAP.md)
+# Update template-schema.sql and re-apply to template schema
+```
+
+### Step 4.4 — Candidate Skill Repository (public schema)
+Create `backend/src/repositories/candidate-skill.repository.ts`:
+- `findByCandidateAccountId(accountId: string): Promise<CandidateSkill[]>`
+- `replaceAll(accountId: string, skillIds: string[]): Promise<void>` — delete existing + bulk insert
+- `delete(accountId: string, skillId: string): Promise<void>`
+Register in `RepositoriesModule` (public schema).
+
+### Step 4.5 — Skill matching service — UNCHANGED (reused)
+`backend/src/modules/skill-matching/skill-matching.service.ts` already exists with `computeScore(requiredSkillIds, candidateSkillIds)`. No changes needed.
+
+### Step 4.6 — Candidate Account Module — Add Skills Endpoints
+Update `backend/src/modules/candidate-account/`:
+- **Service:** Add `getSkills(accountId)` and `setSkills(accountId, skillIds[])`
+- **Controller:** Add endpoints:
+  ```
+  GET  /candidate/skills          — Candidate (returns [{ id, name, category }])
+  PUT  /candidate/skills          — Candidate (body: { skillIds: string[] })
+  ```
+- **DTOs:** Zod schema for `skillIds: string[]`
+
+### Step 4.7 — Apply Endpoints — Accept Optional Skill Override
+**Public Apply Module** (`POST /public/:tenantSlug/jobs/:id/apply`):
+- Accept optional `skillIds?: string[]` in body
+- If provided → use for match score
+- If omitted AND candidate authenticated → fetch from `candidate_skills`
+- If omitted AND no candidate auth → matchScore = 0
+
+**Candidate Apply Module** (`POST /candidate/jobs/:tenantId/:jobId/apply`):
+- Same logic: optional `skillIds` override, default to profile skills
+- Persist used `skillIds` to `candidate_applications_index.skill_ids` (JSONB) for history
+
+### Step 4.8 — Resumes Module — Simplify to Storage Only
+Update `backend/src/modules/resumes/`:
+- **Service:** Remove `extractText()`, `extractSkills()`, `recomputeScores()`
+  - `upload(candidateId, file)`: validate type/size → upload to MinIO → create `resumes` row with `fileUrl` only
+  - `get(candidateId)`: return `{ id, candidateId, fileUrl, uploadedAt }` (no parsedText, no skills)
+- **Controller:** Same endpoints, simplified response
+- **Repository:** Remove `updateParsedText`, `setResumeSkills`, `findSkillsByResumeId` (keep `findByCandidateId`, `create`)
+
+### Step 4.9 — Candidates Service (Org) — Include Candidate Skills
+Update `backend/src/modules/candidates/candidates.service.ts`:
+- `getOne(id)`: join candidate → candidate_account (via email) → candidate_skills
+- Return `{ ..., skills: [{ id, name, category }] }` for org view
+
+### Step 4.10 — Unit Tests
+- `skill-matching.service.spec.ts` — unchanged (keep existing tests)
+- `resumes.service.spec.ts` — simplify: test upload stores file, returns metadata only
+- `candidate-account.service.spec.ts` — add tests for `getSkills`/`setSkills`
+- `public-apply/candidate-apply` tests — verify match score with profile skills vs override
+
+### Step 4.11 — Frontend: Candidate Skills Page
+Create `frontend/src/features/candidate-portal/skills/`:
+- `SkillsPage.tsx` — Mantine MultiSelect searching `GET /skills?search=` (debounced), save via `PUT /candidate/skills`
+- `useCandidateSkills` hook — TanStack Query + `useApiMutation`
+
+Create route: `frontend/src/routes/_candidate/skills.tsx`
+
+Update `CandidatePlatform` sidebar: add "Skills" link.
+
+### Step 4.12 — Frontend: ApplyForm Updates
+Update `ApplyForm.tsx` (both public careers and candidate portal):
+- If candidate authenticated: prefill skills from `GET /candidate/skills`
+- Allow add/remove before submit
+- Submit body includes `skillIds`
+
+### Step 4.13 — Frontend: Org Candidate Profile
+Update `frontend/src/features/org/candidates/CandidateProfile.tsx`:
+- Show read-only skill badges from `candidate.skills`
+- Resume card: only file link + upload date (no parsedText, no extracted skills)
+
+### Step 4.14 — Frontend: Pipeline Match Score (UNCHANGED)
+`MatchScoreBadge` and `ApplicationCard` continue reading `application.matchScore` — no changes needed.
+
+### Step 4.15 — Cleanup Dependencies
+```
+cd backend && npm uninstall pdf-parse mammoth @types/pdf-parse @types/mammoth
+```
+
+**Commit:** `git add -A && git commit -m "feat(m4): resume storage + manual candidate skills, match score from profile — backend + frontend"`
 
 ---
 

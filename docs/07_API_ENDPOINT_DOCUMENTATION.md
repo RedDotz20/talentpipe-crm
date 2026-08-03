@@ -62,7 +62,7 @@ Legend for **Roles**: SA = SuperAdmin, OA = Org Admin, R = Recruiter, HM = Hirin
 | Method | Path | Roles | Description |
 |---|---|---|---|
 | GET | `/candidates` | OA, R, HM | List candidates in the tenant |
-| GET | `/candidates/:id` | OA, R, HM | Candidate profile: resume, skills, application history |
+| GET | `/candidates/:id` | OA, R, HM | Candidate profile: resume, **skills (from candidate's public profile)**, application history |
 | POST | `/candidates` | OA, R | Manually add a candidate (not via public apply) |
 
 ## Applications / Pipeline
@@ -79,10 +79,10 @@ Legend for **Roles**: SA = SuperAdmin, OA = Org Admin, R = Recruiter, HM = Hirin
 
 | Method | Path | Roles | Description |
 |---|---|---|---|
-| GET | `/candidates/:id/resume` | OA, R, HM | Get resume metadata + extracted skills |
-| POST | `/candidates/:id/resume` | OA, R | Manually (re)upload a resume for an existing candidate |
+| GET | `/candidates/:id/resume` | OA, R, HM | Get resume metadata only — returns `{ id, candidateId, fileUrl, uploadedAt }` (no parsed text, no extracted skills) |
+| POST | `/candidates/:id/resume` | OA, R | Upload a resume file (PDF/DOCX, max 10MB) for an existing candidate — stores in MinIO, returns metadata |
 
-Note: the primary resume upload path is via `POST /public/:tenantSlug/jobs/:id/apply` (below) — this internal endpoint exists for manual/edge-case uploads only.
+Note: the primary resume upload path is via `POST /public/:tenantSlug/jobs/:id/apply` or `POST /candidate/jobs/:tenantId/:jobId/apply` — this internal endpoint exists for manual/edge-case uploads only.
 
 ## Interviews
 
@@ -101,7 +101,7 @@ Note: the primary resume upload path is via `POST /public/:tenantSlug/jobs/:id/a
 |---|---|---|---|
 | GET | `/candidate/jobs` | CANDIDATE | List all open jobs across tenants (from job_listings_index), searchable |
 | GET | `/candidate/jobs/:tenantId/:jobId` | CANDIDATE | Job posting detail |
-| POST | `/candidate/jobs/:tenantId/:jobId/apply` | CANDIDATE | Submit application (writes to tenant schema + public index) |
+| POST | `/candidate/jobs/:tenantId/:jobId/apply` | CANDIDATE | Submit application. Body: `{ skillIds?: string[] }` — if omitted, uses candidate's profile skills from `/candidate/skills` |
 | GET | `/candidate/applications` | CANDIDATE | Application history with statuses |
 | GET | `/candidate/applications/:id` | CANDIDATE | Application detail |
 | POST | `/candidate/bookmarks` | CANDIDATE | Bookmark a job |
@@ -109,8 +109,10 @@ Note: the primary resume upload path is via `POST /public/:tenantSlug/jobs/:id/a
 | GET | `/candidate/bookmarks` | CANDIDATE | List bookmarks |
 | GET | `/candidate/profile` | CANDIDATE | View profile |
 | PATCH | `/candidate/profile` | CANDIDATE | Update profile |
+| GET | `/candidate/skills` | CANDIDATE | List candidate's declared skills (returns `[{ id, name, category }]`) |
+| PUT | `/candidate/skills` | CANDIDATE | Replace all skills. Body: `{ skillIds: string[] }` |
 
-## Skills (shared taxonomy) ⬜
+## Candidate Skills (public taxonomy) ⬜
 
 | Method | Path | Roles | Description |
 |---|---|---|---|
@@ -122,7 +124,7 @@ Note: the primary resume upload path is via `POST /public/:tenantSlug/jobs/:id/a
 |---|---|---|---|
 | GET | `/public/:tenantSlug/jobs` | PUBLIC | List open job postings for a tenant |
 | GET | `/public/:tenantSlug/jobs/:id` | PUBLIC | Job posting detail |
-| POST | `/public/:tenantSlug/jobs/:id/apply` | PUBLIC (rate-limited) | Submit application: name, email, resume file |
+| POST | `/public/:tenantSlug/jobs/:id/apply` | PUBLIC (rate-limited) | Submit application. Body: `{ name, email, phone?, skillIds?: string[] }` — if `skillIds` provided, used for match score; if omitted and no candidate account, `matchScore = 0` |
 
 **Rate limiting applies to this section specifically** — see `02_TECHNICAL_OVERVIEW.md` for the Redis-backed limiter design. Expect `429` responses with a `Retry-After` header once a caller exceeds the configured window.
 

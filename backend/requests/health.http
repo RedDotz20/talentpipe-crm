@@ -1,0 +1,2 @@
+### Health check (public, no auth)
+GET {{baseUrl}}/health

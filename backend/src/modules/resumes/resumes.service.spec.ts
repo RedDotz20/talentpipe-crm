@@ -25,7 +25,6 @@ describe('ResumesService', () => {
   const resumeRepo = {
     findByCandidateId: jest.fn(),
     create: jest.fn(),
-    updateParsedText: jest.fn(),
     setResumeSkills: jest.fn(),
     findSkillsByResumeId: jest.fn(),
   };
@@ -125,10 +124,6 @@ describe('ResumesService', () => {
       expect.stringMatching(/^tenants\/t1\/resumes\/c1\//),
       Buffer.from('%PDF-1.4 fake'),
       'application/pdf',
-    );
-    expect(resumeRepo.updateParsedText).toHaveBeenCalledWith(
-      'r1',
-      'Strong TypeScript experience',
     );
     expect(resumeRepo.setResumeSkills).toHaveBeenCalledWith('r1', ['s1']);
     expect(applicationRepo.updateMatchScore).toHaveBeenCalledWith('a1', 0.5);

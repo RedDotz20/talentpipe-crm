@@ -50,9 +50,6 @@ export class ResumesService {
     const resume = await this.resumeRepo.create({ candidateId, fileUrl: key });
 
     const parsedText = await this.extractText(file.buffer, file.mimetype);
-    if (parsedText) {
-      await this.resumeRepo.updateParsedText(resume.id, parsedText);
-    }
 
     const matchedSkillIds = await this.extractSkills(parsedText ?? '');
     await this.resumeRepo.setResumeSkills(resume.id, matchedSkillIds);
@@ -65,7 +62,9 @@ export class ResumesService {
   async extractText(buffer: Buffer, mimeType: string): Promise<string> {
     try {
       if (mimeType === PDF_MIME) {
-        const parsed = await pdfParse(buffer);
+        const parsed = await pdfParse(
+          new Uint8Array(buffer) as unknown as Buffer,
+        );
         return parsed.text ?? '';
       }
       const result = await mammoth.extractRawText({ buffer });

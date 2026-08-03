@@ -1,10 +1,12 @@
-CREATE SCHEMA IF NOT EXISTS template;
+DROP SCHEMA IF EXISTS template CASCADE;
+CREATE SCHEMA template;
 CREATE TABLE template."users" (LIKE public."users" INCLUDING ALL);
 CREATE TABLE template."job_postings" (LIKE public."job_postings" INCLUDING ALL);
 CREATE TABLE template."candidates" (LIKE public."candidates" INCLUDING ALL);
 CREATE TABLE template."pipeline_stages" (LIKE public."pipeline_stages" INCLUDING ALL);
 CREATE TABLE template."applications" (LIKE public."applications" INCLUDING ALL);
 CREATE TABLE template."resumes" (LIKE public."resumes" INCLUDING ALL);
+ALTER TABLE template."resumes" DROP COLUMN IF EXISTS "parsed_text";
 CREATE TABLE template."resume_skills" (LIKE public."resume_skills" INCLUDING ALL);
 CREATE TABLE template."job_required_skills" (LIKE public."job_required_skills" INCLUDING ALL);
 CREATE TABLE template."interviews" (LIKE public."interviews" INCLUDING ALL);

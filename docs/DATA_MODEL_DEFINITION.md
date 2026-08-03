@@ -165,7 +165,6 @@ export const resumes = pgTable(
     id: uuid('id').defaultRandom().primaryKey(),
     candidateId: uuid('candidate_id').notNull().references(() => candidates.id),
     fileUrl: varchar('file_url', { length: 512 }),
-    parsedText: text('parsed_text'),
     uploadedAt: timestamp('uploaded_at').defaultNow().notNull(),
   },
   (table) => ({
@@ -247,6 +246,19 @@ export const candidateAccounts = pgTable('candidate_accounts', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+export const candidateSkills = pgTable(
+  'candidate_skills',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    candidateAccountId: uuid('candidate_account_id').notNull().references(() => candidateAccounts.id, { onDelete: 'cascade' }),
+    skillId: uuid('skill_id').notNull().references(() => skills.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    uniqueCandidateSkill: uniqueIndex('unique_candidate_skill').on(table.candidateAccountId, table.skillId),
+  }),
+);
+
 export const candidateBookmarks = pgTable(
   'candidate_bookmarks',
   {
@@ -313,7 +325,9 @@ export const jobListingsIndex = pgTable(
 
 ## Template Schema
 
-The `template` schema (`backend/drizzle/template-schema.sql`) contains exactly the **11 tenant tables** (`users`, `job_postings`, `candidates`, `pipeline_stages`, `applications`, `resumes`, `resume_skills`, `job_required_skills`, `interviews`, `interview_feedbacks`, `notes`). It does **not** include the public candidate tables. On tenant signup, `TenantProvisioningService` clones these into a new `tenant_<id>` schema and inserts the default pipeline stages.
+The `template` schema (`backend/drizzle/template-schema.sql`) contains exactly the **11 tenant tables** (`users`, `job_postings`, `candidates`, `pipeline_stages`, `applications`, `resumes`, `resume_skills`, `job_required_skills`, `interviews`, `interview_feedbacks`, `notes`). It does **not** include the public candidate tables (`candidate_accounts`, `candidate_skills`, `candidate_bookmarks`, `candidate_applications_index`) or the public platform tables (`super_admins`, `user_emails`, `refresh_tokens`, `skills`, `audit_logs`, `job_listings_index`). On tenant signup, `TenantProvisioningService` clones these into a new `tenant_<id>` schema and inserts the default pipeline stages.
+
+> **Note:** The `resumes` table in the template no longer has a `parsedText` column. The `resume_skills` table is kept (for potential future use) but is not auto-populated — skill matching now uses `public.candidate_skills`.
 
 ---
 

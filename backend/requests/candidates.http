@@ -1,0 +1,25 @@
+### 1. List candidates (OrgAdmin/Recruiter/HiringManager)
+GET {{baseUrl}}/candidates
+Authorization: Bearer {{accessToken}}
+
+### 2. Create candidate (OrgAdmin/Recruiter)
+# @name createCandidate
+POST {{baseUrl}}/candidates
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "John Doe",
+  "email": "john.doe@example.com",
+  "phone": "+1-555-0123"
+}
+
+> {%
+    if (response.body.id) {
+        client.global.set("candidateId", response.body.id);
+    }
+%}
+
+### 3. Get candidate detail
+GET {{baseUrl}}/candidates/{{candidateId}}
+Authorization: Bearer {{accessToken}}

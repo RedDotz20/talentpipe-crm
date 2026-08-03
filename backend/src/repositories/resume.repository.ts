@@ -25,18 +25,6 @@ export class ResumeRepository extends BaseRepository {
     });
   }
 
-  async updateParsedText(id: string, parsedText: string) {
-    return this.withDb('current', async (db) => {
-      const rows = await db
-        .update(resumes)
-        .set({ parsedText })
-        .where(eq(resumes.id, id))
-        .returning()
-        .execute();
-      return rows[0] ?? null;
-    });
-  }
-
   async setResumeSkills(resumeId: string, skillIds: string[]) {
     return this.withDb('current', async (db) => {
       await db

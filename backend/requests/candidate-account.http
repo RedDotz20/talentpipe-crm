@@ -1,0 +1,62 @@
+### 1. List open jobs (public) — captures first tenantId + jobPostingId for downstream requests
+# @name listJobs
+GET {{baseUrl}}/candidate/jobs?search=
+
+> {%
+    if (response.body && response.body.length > 0) {
+        client.global.set("tenantId", response.body[0].tenantId);
+        client.global.set("jobPostingId", response.body[0].jobPostingId);
+    }
+%}
+
+### 2. Job detail (public)
+GET {{baseUrl}}/candidate/jobs/{{tenantId}}/{{jobPostingId}}
+
+### 3. Apply to a job (Candidate auth)
+# @name apply
+POST {{baseUrl}}/candidate/jobs/{{tenantId}}/{{jobPostingId}}/apply
+Authorization: Bearer {{candidateAccessToken}}
+Content-Type: application/json
+
+{
+  "phone": "+1-555-9999"
+}
+
+> {%
+    if (response.body.applicationId) {
+        client.global.set("applicationId", response.body.applicationId);
+    }
+%}
+
+### 4. My applications (Candidate auth)
+GET {{baseUrl}}/candidate/applications
+Authorization: Bearer {{candidateAccessToken}}
+
+### 5. Add bookmark (Candidate auth)
+# @name addBookmark
+POST {{baseUrl}}/candidate/bookmarks
+Authorization: Bearer {{candidateAccessToken}}
+Content-Type: application/json
+
+{
+  "tenantId": "{{tenantId}}",
+  "jobPostingId": "{{jobPostingId}}"
+}
+
+> {%
+    if (response.body.id) {
+        client.global.set("bookmarkId", response.body.id);
+    }
+%}
+
+### 6. List bookmarks (Candidate auth)
+GET {{baseUrl}}/candidate/bookmarks
+Authorization: Bearer {{candidateAccessToken}}
+
+### 7. Remove bookmark (Candidate auth)
+DELETE {{baseUrl}}/candidate/bookmarks/{{bookmarkId}}
+Authorization: Bearer {{candidateAccessToken}}
+
+### 8. My profile (Candidate auth)
+GET {{baseUrl}}/candidate/profile
+Authorization: Bearer {{candidateAccessToken}}

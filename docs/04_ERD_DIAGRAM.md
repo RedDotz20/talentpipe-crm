@@ -20,7 +20,8 @@ erDiagram
   APPLICATION ||--o{ INTERVIEW : schedules
 
   CANDIDATE ||--o| RESUME : uploads
-  RESUME }o--o{ SKILL : extracted_skills
+  CANDIDATE_ACCOUNT ||--o{ CANDIDATE_SKILL : declares
+  CANDIDATE_SKILL }o--|| SKILL : from_taxonomy
   JOB_POSTING }o--o{ SKILL : required_skills
 
   USER ||--o{ INTERVIEW : conducts
@@ -124,8 +125,14 @@ erDiagram
     uuid id PK
     uuid candidateId FK
     string fileUrl
-    text parsedText
     datetime uploadedAt
+  }
+
+  CANDIDATE_SKILL {
+    uuid id PK
+    uuid candidateAccountId FK
+    uuid skillId FK
+    datetime createdAt
   }
 
   SKILL {
@@ -196,9 +203,9 @@ erDiagram
 
 **`SKILL` lives in the `public` schema** (shared across all tenants). It's a shared taxonomy across the whole platform (e.g. "React", "SQL", "Project Management") so skill matching and search work consistently. Tenant-specific custom skills are a reasonable v2 addition but add complexity — start with a shared list.
 
-**Join tables** (not drawn above for brevity, but required in the actual schema): `resume_skills` (resumeId, skillId) and `job_required_skills` (jobPostingId, skillId) implement the many-to-many relationships shown as `}o--o{` above.
+**Join tables** (not drawn above for brevity, but required in the actual schema): `resume_skills` (resumeId, skillId), `job_required_skills` (jobPostingId, skillId), and `candidate_skills` (candidateAccountId, skillId) implement the many-to-many relationships shown as `}o--o{` above.
 
-**`APPLICATION.matchScore`** is denormalized (computed once at application time and stored, not calculated on every read) — recompute it via a background job if the job posting's required skills change after applications already exist.
+**`APPLICATION.matchScore`** is denormalized (computed once at application time using candidate's self-declared skills from `public.candidate_skills` or per-application override, vs job's required skills from `job_required_skills`) and stored, not calculated on every read — recompute it via a background job if the job posting's required skills change after applications already exist.
 
 **No table carries `tenantId`** — isolation is provided by the PostgreSQL schema boundary, not by a column. Each tenant's tables live in their own schema (e.g. `tenant_abc123.job_postings`). The `SKILL` table lives in the `public` schema as a shared taxonomy. When implementing, write an automated test that asserts a query in Tenant A's schema cannot reach Tenant B's schema.
 

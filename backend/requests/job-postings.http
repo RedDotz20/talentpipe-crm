@@ -1,0 +1,46 @@
+### 1. List job postings (OrgAdmin/Recruiter/HiringManager)
+GET {{baseUrl}}/job-postings?status=draft
+Authorization: Bearer {{accessToken}}
+
+### 2. Create job posting (OrgAdmin/Recruiter)
+# @name createJobPosting
+POST {{baseUrl}}/job-postings
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "title": "Senior Software Engineer",
+  "description": "We are looking for a senior engineer with TypeScript experience.",
+  "requiredSkillIds": []
+}
+
+> {%
+    if (response.body.id) {
+        client.global.set("jobPostingId", response.body.id);
+    }
+%}
+
+### 3. Get job posting detail
+GET {{baseUrl}}/job-postings/{{jobPostingId}}
+Authorization: Bearer {{accessToken}}
+
+### 4. Update job posting (OrgAdmin/Recruiter)
+PATCH {{baseUrl}}/job-postings/{{jobPostingId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "title": "Senior Software Engineer (Updated)"
+}
+
+### 5. Publish posting (draft -> open)
+POST {{baseUrl}}/job-postings/{{jobPostingId}}/publish
+Authorization: Bearer {{accessToken}}
+
+### 6. Close posting (open -> closed)
+POST {{baseUrl}}/job-postings/{{jobPostingId}}/close
+Authorization: Bearer {{accessToken}}
+
+### 7. Delete posting (OrgAdmin only)
+DELETE {{baseUrl}}/job-postings/{{jobPostingId}}
+Authorization: Bearer {{accessToken}}

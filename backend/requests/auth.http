@@ -1,0 +1,82 @@
+### 1. Org signup — creates company + tenant, returns tokens (OrgAdmin)
+# @name orgSignup
+POST {{baseUrl}}/auth/org/signup
+Content-Type: application/json
+
+{
+  "companyName": "{{companyName}}",
+  "slug": "{{slug}}",
+  "email": "{{orgEmail}}",
+  "password": "{{orgPassword}}"
+}
+
+> {%
+    client.global.set("accessToken", response.body.data.accessToken);
+    client.global.set("refreshToken", response.body.data.refreshToken);
+%}
+
+### 2. Sign in (OrgAdmin / Recruiter / HiringManager / Candidate / SuperAdmin)
+# @name orgSignin
+POST {{baseUrl}}/auth/signin
+Content-Type: application/json
+
+{
+  "email": "{{orgEmail}}",
+  "password": "{{orgPassword}}"
+}
+
+> {%
+    client.global.set("accessToken", response.body.data.accessToken);
+    client.global.set("refreshToken", response.body.data.refreshToken);
+%}
+
+### 3. Candidate signup — returns candidate tokens
+# @name candidateSignup
+POST {{baseUrl}}/auth/signup
+Content-Type: application/json
+
+{
+  "email": "{{candidateEmail}}",
+  "password": "{{candidatePassword}}",
+  "firstName": "{{firstName}}",
+  "lastName": "{{lastName}}",
+  "phone": "+1-555-0123"
+}
+
+> {%
+    client.global.set("candidateAccessToken", response.body.data.accessToken);
+    client.global.set("candidateRefreshToken", response.body.data.refreshToken);
+%}
+
+### 4. Candidate sign in
+# @name candidateSignin
+POST {{baseUrl}}/auth/signin
+Content-Type: application/json
+
+{
+  "email": "{{candidateEmail}}",
+  "password": "{{candidatePassword}}"
+}
+
+> {%
+    client.global.set("candidateAccessToken", response.body.data.accessToken);
+    client.global.set("candidateRefreshToken", response.body.data.refreshToken);
+%}
+
+### 5. Refresh access token
+# @name refresh
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+> {%
+    client.global.set("accessToken", response.body.data.accessToken);
+    client.global.set("refreshToken", response.body.data.refreshToken);
+%}
+
+### 6. Logout (requires Bearer access token)
+POST {{baseUrl}}/auth/logout
+Authorization: Bearer {{accessToken}}
