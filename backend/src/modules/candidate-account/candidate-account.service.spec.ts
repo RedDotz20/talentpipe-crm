@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { asyncStorage } from '../../common/context/tenant-context';
+import { BadRequestException } from '@nestjs/common';
 import { CandidateAccountService } from './candidate-account.service';
 import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
 import { CandidateBookmarkRepository } from '../../repositories/candidate-bookmark.repository';
@@ -13,9 +12,6 @@ import { CandidateSkillRepository } from '../../repositories/candidate-skill.rep
 import { SkillRepository } from '../../repositories/skill.repository';
 import { JobPostingRepository } from '../../repositories/job-posting.repository';
 import { SkillMatchingService } from '../skill-matching/skill-matching.service';
-
-const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
-  asyncStorage.run({ tenantId: 't1', userId: 'u1', role: 'OrgAdmin' }, fn);
 
 describe('CandidateAccountService', () => {
   let service: CandidateAccountService;
@@ -68,8 +64,14 @@ describe('CandidateAccountService', () => {
       providers: [
         CandidateAccountService,
         { provide: CandidateAccountRepository, useValue: candidateAccountRepo },
-        { provide: CandidateBookmarkRepository, useValue: candidateBookmarkRepo },
-        { provide: CandidateApplicationsIndexRepository, useValue: candidateApplicationsIndexRepo },
+        {
+          provide: CandidateBookmarkRepository,
+          useValue: candidateBookmarkRepo,
+        },
+        {
+          provide: CandidateApplicationsIndexRepository,
+          useValue: candidateApplicationsIndexRepo,
+        },
         { provide: JobListingsIndexRepository, useValue: jobListingsIndexRepo },
         { provide: CandidateRepository, useValue: candidateRepo },
         { provide: ApplicationRepository, useValue: applicationRepo },
@@ -89,7 +91,10 @@ describe('CandidateAccountService', () => {
 
   describe('getSkills', () => {
     it('returns skills for a candidate account', async () => {
-      candidateSkillRepo.findByCandidateAccountId.mockResolvedValue(['s1', 's2']);
+      candidateSkillRepo.findByCandidateAccountId.mockResolvedValue([
+        's1',
+        's2',
+      ]);
       skillRepo.findByIds.mockResolvedValue([
         { id: 's1', name: 'TypeScript', category: 'Programming' },
         { id: 's2', name: 'React', category: 'Frontend' },
@@ -97,7 +102,9 @@ describe('CandidateAccountService', () => {
 
       const result = await service.getSkills('ca1');
 
-      expect(candidateSkillRepo.findByCandidateAccountId).toHaveBeenCalledWith('ca1');
+      expect(candidateSkillRepo.findByCandidateAccountId).toHaveBeenCalledWith(
+        'ca1',
+      );
       expect(skillRepo.findByIds).toHaveBeenCalledWith(['s1', 's2']);
       expect(result).toEqual([
         { id: 's1', name: 'TypeScript', category: 'Programming' },
@@ -110,7 +117,9 @@ describe('CandidateAccountService', () => {
 
       const result = await service.getSkills('ca1');
 
-      expect(candidateSkillRepo.findByCandidateAccountId).toHaveBeenCalledWith('ca1');
+      expect(candidateSkillRepo.findByCandidateAccountId).toHaveBeenCalledWith(
+        'ca1',
+      );
       expect(skillRepo.findByIds).not.toHaveBeenCalled();
       expect(result).toEqual([]);
     });
@@ -120,7 +129,9 @@ describe('CandidateAccountService', () => {
 
       const result = await service.getSkills('nonexistent');
 
-      expect(candidateSkillRepo.findByCandidateAccountId).toHaveBeenCalledWith('nonexistent');
+      expect(candidateSkillRepo.findByCandidateAccountId).toHaveBeenCalledWith(
+        'nonexistent',
+      );
       expect(result).toEqual([]);
     });
   });
@@ -136,7 +147,10 @@ describe('CandidateAccountService', () => {
       const result = await service.setSkills('ca1', ['s1', 's2']);
 
       expect(skillRepo.findByIds).toHaveBeenCalledWith(['s1', 's2']);
-      expect(candidateSkillRepo.replaceAll).toHaveBeenCalledWith('ca1', ['s1', 's2']);
+      expect(candidateSkillRepo.replaceAll).toHaveBeenCalledWith('ca1', [
+        's1',
+        's2',
+      ]);
       expect(result).toEqual({ skills: 2 });
     });
 
