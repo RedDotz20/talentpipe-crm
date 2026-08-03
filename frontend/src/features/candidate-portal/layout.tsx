@@ -13,6 +13,7 @@ export function CandidatePlatform() {
         <Anchor onClick={() => navigate({ to: '/dashboard' })}>Jobs</Anchor>
         <Anchor onClick={() => navigate({ to: '/applications' })}>Applications</Anchor>
         <Anchor onClick={() => navigate({ to: '/bookmarks' })}>Bookmarks</Anchor>
+        <Anchor onClick={() => navigate({ to: '/skills' })}>Skills</Anchor>
         <Anchor onClick={() => navigate({ to: '/settings' })}>Settings</Anchor>
         <Button variant="subtle" onClick={async () => { await logout(); navigate({ to: '/auth/signin' }); }}>Logout</Button>
       </Group>

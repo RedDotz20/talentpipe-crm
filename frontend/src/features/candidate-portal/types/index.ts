@@ -43,4 +43,15 @@ export interface ApplyData {
   phone?: string;
   coverLetter?: string;
   resumeUrl?: string;
+  skillIds?: string[];
+}
+
+export interface Skill {
+  id: string;
+  name: string;
+  category: string | null;
+}
+
+export interface CandidateSkills {
+  skills: Skill[];
 }

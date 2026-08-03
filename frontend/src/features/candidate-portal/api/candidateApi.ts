@@ -1,6 +1,6 @@
 import { apiClient } from '@/api/client';
 import type { ApiEnvelope } from '@/hooks/useApiMutation';
-import type { Job, Application, Bookmark, Profile, ApplyData } from '@/features/candidate-portal/types';
+import type { Job, Application, Bookmark, Profile, ApplyData, CandidateSkills } from '@/features/candidate-portal/types';
 
 const unwrap = <T>(body: ApiEnvelope<T>): T => body.data;
 
@@ -42,5 +42,15 @@ export const candidateApi = {
   getProfile: async (): Promise<Profile> => {
     const { data } = await apiClient.get('/candidate/profile');
     return unwrap(data as ApiEnvelope<Profile>);
+  },
+
+  getSkills: async (): Promise<CandidateSkills> => {
+    const { data } = await apiClient.get('/candidate/skills');
+    return unwrap(data as ApiEnvelope<CandidateSkills>);
+  },
+
+  setSkills: async (skillIds: string[]): Promise<CandidateSkills> => {
+    const { data } = await apiClient.put('/candidate/skills', { skillIds });
+    return unwrap(data as ApiEnvelope<CandidateSkills>);
   },
 };

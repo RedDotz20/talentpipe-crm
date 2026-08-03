@@ -6,5 +6,6 @@ export { useBookmarks } from './useBookmarks';
 export { useAddBookmark } from './useAddBookmark';
 export { useRemoveBookmark } from './useRemoveBookmark';
 export { useProfile } from './useProfile';
+export { useCandidateSkills, useSetCandidateSkills, useAllSkills } from './useSkills';
 
-export type { Job, Application, Bookmark, Profile, ApplyData } from '../types';
+export type { Job, Application, Bookmark, Profile, ApplyData, Skill, CandidateSkills } from '../types';

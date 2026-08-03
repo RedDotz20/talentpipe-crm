@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { Card, Text, Title, Badge, Button, Group, Stack, Loader, Modal, TextInput, Textarea, Alert } from '@mantine/core';
-import { useJobs, useApply } from '../hooks';
-import type { Job } from '../types';
+import { Card, Text, Title, Badge, Button, Group, Stack, Loader, Modal, TextInput, Textarea, Alert, MultiSelect } from '@mantine/core';
+import { useJobs, useApply, useCandidateSkills, useAllSkills } from '../hooks';
+import type { Job, Skill } from '../types';
 
 export function JobSearchPage() {
   const { data: jobs = [], isLoading: jobsLoading, error: jobsError } = useJobs();
   const { mutate: apply, isPending: isApplying, reset: resetApply } = useApply();
+  const { data: candidateSkills = [] } = useCandidateSkills();
+  const { data: allSkills = [] } = useAllSkills();
 
   // Apply modal state
   const [applyModalOpen, setApplyModalOpen] = useState(false);
@@ -16,6 +18,7 @@ export function JobSearchPage() {
   const [applyPhone, setApplyPhone] = useState('');
   const [applyCoverLetter, setApplyCoverLetter] = useState('');
   const [applyResumeUrl, setApplyResumeUrl] = useState('');
+  const [applySkillIds, setApplySkillIds] = useState<string[]>([]);
   const [applySuccess, setApplySuccess] = useState(false);
   const [applyError, setApplyError] = useState('');
 
@@ -43,6 +46,7 @@ export function JobSearchPage() {
     setApplyPhone('');
     setApplyCoverLetter('');
     setApplyResumeUrl('');
+    setApplySkillIds(candidateSkills.map((s: Skill) => s.id));
     setApplySuccess(false);
     setApplyError('');
     setApplyModalOpen(true);
@@ -51,7 +55,7 @@ export function JobSearchPage() {
   const handleApply = () => {
     if (!selectedJobId) return;
     apply(
-      { jobId: selectedJobId, data: { firstName: applyFirstName, lastName: applyLastName, email: applyEmail, phone: applyPhone || undefined, coverLetter: applyCoverLetter || undefined, resumeUrl: applyResumeUrl || undefined } },
+      { jobId: selectedJobId, data: { firstName: applyFirstName, lastName: applyLastName, email: applyEmail, phone: applyPhone || undefined, coverLetter: applyCoverLetter || undefined, resumeUrl: applyResumeUrl || undefined, skillIds: applySkillIds.length > 0 ? applySkillIds : undefined } },
       {
         onSuccess: () => {
           setApplySuccess(true);
@@ -66,6 +70,7 @@ export function JobSearchPage() {
   const closeModal = () => {
     setApplyModalOpen(false);
     setSelectedJobId(null);
+    setApplySkillIds([]);
     resetApply();
   };
 
@@ -135,6 +140,15 @@ export function JobSearchPage() {
               placeholder="https://..."
               value={applyResumeUrl}
               onChange={(e) => setApplyResumeUrl(e.currentTarget.value)}
+            />
+            <MultiSelect
+              label="Skills"
+              placeholder="Select or search skills"
+              data={allSkills.map((s: Skill) => ({ label: s.name, value: s.id }))}
+              value={applySkillIds}
+              onChange={setApplySkillIds}
+              searchable
+              clearable
             />
             <Button onClick={handleApply} loading={isApplying} fullWidth mt="md">
               Submit Application

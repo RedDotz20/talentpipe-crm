@@ -5,6 +5,7 @@ export const queryKeys = {
     applications: () => ['candidate', 'applications'],
     bookmarks: () => ['candidate', 'bookmarks'],
     profile: () => ['candidate', 'profile'],
+    skills: () => ['candidate', 'skills'],
   },
   auth: {
     me: () => ['auth', 'me'],
