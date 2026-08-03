@@ -14,7 +14,6 @@ describe('CandidatesService', () => {
   };
   const resumeRepo = {
     findByCandidateId: jest.fn(),
-    findSkillsByResumeId: jest.fn(),
   };
   const applicationRepo = { findByCandidateId: jest.fn() };
 
@@ -51,13 +50,12 @@ describe('CandidatesService', () => {
       id: 'r1',
       fileUrl: 'k',
     });
-    resumeRepo.findSkillsByResumeId.mockResolvedValue([{ id: 's1' }]);
     applicationRepo.findByCandidateId.mockResolvedValue([{ id: 'a1' }]);
 
     await expect(service.getOne('c1')).resolves.toEqual({
       id: 'c1',
       name: 'Jane',
-      resume: { id: 'r1', fileUrl: 'k', skills: [{ id: 's1' }] },
+      resume: { id: 'r1', fileUrl: 'k' },
       applications: [{ id: 'a1' }],
     });
   });

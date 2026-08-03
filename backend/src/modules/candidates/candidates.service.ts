@@ -28,9 +28,6 @@ export class CandidatesService {
       resume: resume
         ? {
             ...resume,
-            skills: resume
-              ? await this.resumeRepo.findSkillsByResumeId(resume.id)
-              : [],
           }
         : null,
       applications,
