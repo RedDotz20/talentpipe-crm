@@ -12,10 +12,19 @@ export interface Job {
 
 export interface Application {
   id: string;
+  applicationId: string;
   jobTitle: string;
   companyName: string;
   status: string;
   appliedAt: string;
+}
+
+export interface CandidateApplicationDetail extends Application {
+  tenantId: string;
+  applicationId: string;
+  matchScore: number | null;
+  appliedSkillIds: string[] | null;
+  coverLetter: string | null;
 }
 
 export interface Bookmark {
@@ -32,13 +41,16 @@ export interface Profile {
   firstName: string;
   lastName: string;
   email: string;
-  phone?: string;
+  phone?: string | null;
   skills: Skill[];
-  resume: {
-    fileUrl: string | null;
-    uploadedAt: string | null;
-  } | null;
+  resumeFileUrl: string | null;
+  resumeUploadedAt: string | null;
   createdAt: string;
+}
+
+export interface ResumeUpload {
+  fileUrl: string;
+  uploadedAt: string;
 }
 
 export interface ApplyData {

@@ -94,9 +94,9 @@ export function SettingsPage() {
       />
       <Stack gap="xs">
         <Text fw={500}>Resume</Text>
-        {profile.resume?.fileUrl ? (
+        {profile.resumeFileUrl ? (
           <Text size="sm">
-            Current resume uploaded {profile.resume.uploadedAt ? new Date(profile.resume.uploadedAt).toLocaleDateString() : ''}
+            Current resume uploaded {profile.resumeUploadedAt ? new Date(profile.resumeUploadedAt).toLocaleDateString() : ''}
           </Text>
         ) : (
           <Text size="sm" c="dimmed">No resume uploaded</Text>
@@ -111,7 +111,7 @@ export function SettingsPage() {
             clearable
           />
           <Button onClick={handleResumeUpload} loading={uploadResume.isPending} disabled={!resumeFile}>Upload</Button>
-          {profile.resume?.fileUrl && (
+          {profile.resumeFileUrl && (
             <Button variant="subtle" color="red" onClick={() => removeResume.mutate()} loading={removeResume.isPending}>
               Remove
             </Button>

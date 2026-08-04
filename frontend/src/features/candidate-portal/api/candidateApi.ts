@@ -1,6 +1,15 @@
 import { apiClient } from '@/api/client';
 import type { ApiEnvelope } from '@/hooks/useApiMutation';
-import type { Job, Application, Bookmark, Profile, ApplyData, CandidateSkills } from '@/features/candidate-portal/types';
+import type {
+  Job,
+  Application,
+  CandidateApplicationDetail,
+  Bookmark,
+  Profile,
+  ApplyData,
+  CandidateSkills,
+  ResumeUpload,
+} from '@/features/candidate-portal/types';
 
 const unwrap = <T>(body: ApiEnvelope<T>): T => body.data;
 
@@ -23,6 +32,11 @@ export const candidateApi = {
   getApplications: async (): Promise<Application[]> => {
     const { data } = await apiClient.get('/candidate/applications');
     return unwrap(data as ApiEnvelope<Application[]>);
+  },
+
+  getApplication: async (applicationId: string): Promise<CandidateApplicationDetail> => {
+    const { data } = await apiClient.get(`/candidate/applications/${applicationId}`);
+    return unwrap(data as ApiEnvelope<CandidateApplicationDetail>);
   },
 
   applyToJob: async (tenantId: string, jobId: string, applicationData: ApplyData): Promise<{ applicationId: string }> => {
@@ -59,18 +73,20 @@ export const candidateApi = {
     return unwrap(data as ApiEnvelope<CandidateSkills>);
   },
 
-  updateProfile: async (profile: Omit<Profile, 'id' | 'skills' | 'resume' | 'createdAt'>): Promise<ApiEnvelope<Profile>> => {
+  updateProfile: async (
+    profile: Omit<Profile, 'id' | 'skills' | 'resumeFileUrl' | 'resumeUploadedAt' | 'createdAt'>,
+  ): Promise<ApiEnvelope<Profile>> => {
     const { data } = await apiClient.put('/candidate/profile', profile);
     return data as ApiEnvelope<Profile>;
   },
 
-  uploadResume: async (file: File): Promise<ApiEnvelope<NonNullable<Profile['resume']>>> => {
+  uploadResume: async (file: File): Promise<ApiEnvelope<ResumeUpload>> => {
     const formData = new FormData();
     formData.append('file', file);
     const { data } = await apiClient.post('/candidate/resume', formData, {
       headers: { 'Content-Type': undefined },
     });
-    return data as ApiEnvelope<NonNullable<Profile['resume']>>;
+    return data as ApiEnvelope<ResumeUpload>;
   },
 
   removeResume: async (): Promise<void> => {

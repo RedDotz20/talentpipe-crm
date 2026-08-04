@@ -1,13 +1,17 @@
-import { Title, Table, Badge, Loader, Group, Text, Alert } from '@mantine/core';
-import { useApplications } from '../hooks';
-
-interface Application {
-  id: string;
-  jobTitle: string;
-  companyName: string;
-  status: string;
-  appliedAt: string;
-}
+import { useState } from 'react';
+import {
+  Alert,
+  Badge,
+  Drawer,
+  Group,
+  Loader,
+  Stack,
+  Table,
+  Text,
+  Title,
+} from '@mantine/core';
+import { useApplicationDetail, useApplications } from '../hooks';
+import type { Application } from '../types';
 
 const statusColors: Record<string, string> = {
   pending: 'yellow',
@@ -20,6 +24,8 @@ const statusColors: Record<string, string> = {
 
 export function ApplicationsPage() {
   const { data: applications = [], isLoading, error } = useApplications();
+  const [selectedApplicationId, setSelectedApplicationId] = useState<string | null>(null);
+  const applicationDetail = useApplicationDetail(selectedApplicationId);
 
   if (isLoading) {
     return (
@@ -38,7 +44,18 @@ export function ApplicationsPage() {
   }
 
   const rows = applications.map((app: Application) => (
-    <Table.Tr key={app.id}>
+    <Table.Tr
+      key={app.applicationId}
+      style={{ cursor: 'pointer' }}
+      onClick={() => setSelectedApplicationId(app.applicationId)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          setSelectedApplicationId(app.applicationId);
+        }
+      }}
+      tabIndex={0}
+    >
       <Table.Td>{app.jobTitle}</Table.Td>
       <Table.Td>{app.companyName}</Table.Td>
       <Table.Td>
@@ -64,6 +81,58 @@ export function ApplicationsPage() {
         </Table.Thead>
         <Table.Tbody>{rows}</Table.Tbody>
       </Table>
+      <Drawer
+        opened={!!selectedApplicationId}
+        onClose={() => setSelectedApplicationId(null)}
+        title={applicationDetail.data?.jobTitle ?? 'Application details'}
+        position="right"
+        size="md"
+      >
+        {applicationDetail.isLoading && (
+          <Group justify="center" py="xl">
+            <Loader />
+          </Group>
+        )}
+        {applicationDetail.error && (
+          <Alert color="red">
+            Failed to load application: {applicationDetail.error.message}
+          </Alert>
+        )}
+        {applicationDetail.data && (
+          <Stack gap="md">
+            <Text>
+              <Text span fw={600}>Status: </Text>
+              <Badge color={statusColors[applicationDetail.data.status] ?? 'gray'}>
+                {applicationDetail.data.status}
+              </Badge>
+            </Text>
+            <Text>
+              <Text span fw={600}>Company: </Text>
+              {applicationDetail.data.companyName}
+            </Text>
+            <Text>
+              <Text span fw={600}>Job title: </Text>
+              {applicationDetail.data.jobTitle}
+            </Text>
+            <Text>
+              <Text span fw={600}>Applied: </Text>
+              {new Date(applicationDetail.data.appliedAt).toLocaleDateString()}
+            </Text>
+            <Text>
+              <Text span fw={600}>Match score: </Text>
+              {applicationDetail.data.matchScore === null
+                ? '—'
+                : `${Math.round(applicationDetail.data.matchScore * 100)}%`}
+            </Text>
+            <Stack gap="xs">
+              <Text fw={600}>Cover letter</Text>
+              <Text style={{ whiteSpace: 'pre-wrap' }}>
+                {applicationDetail.data.coverLetter ?? 'No cover letter provided.'}
+              </Text>
+            </Stack>
+          </Stack>
+        )}
+      </Drawer>
     </>
   );
 }

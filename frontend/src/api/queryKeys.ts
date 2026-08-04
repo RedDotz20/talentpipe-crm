@@ -3,6 +3,7 @@ export const queryKeys = {
     jobs: (search?: string) => ['candidate', 'jobs', { search }],
     jobDetail: (tenantId: string, jobId: string) => ['candidate', 'jobs', tenantId, jobId],
     applications: () => ['candidate', 'applications'],
+    application: (applicationId: string) => ['candidate', 'applications', applicationId],
     bookmarks: () => ['candidate', 'bookmarks'],
     profile: () => ['candidate', 'profile'],
     skills: () => ['candidate', 'skills'],
@@ -20,6 +21,7 @@ export const queryKeys = {
     me: () => ['auth', 'me'],
   },
   org: {
+    dashboardSummary: () => ['org', 'dashboard', 'summary'],
     jobPostings: (status?: string) => ['org', 'job-postings', { status }],
     jobPosting: (id: string) => ['org', 'job-postings', id],
     candidates: () => ['org', 'candidates'],

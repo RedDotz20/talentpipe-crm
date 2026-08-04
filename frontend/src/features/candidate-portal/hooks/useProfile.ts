@@ -12,7 +12,7 @@ export function useProfile() {
   });
 }
 
-type ProfileUpdate = Omit<Profile, 'id' | 'skills' | 'resume' | 'createdAt'>;
+type ProfileUpdate = Omit<Profile, 'id' | 'skills' | 'resumeFileUrl' | 'resumeUploadedAt' | 'createdAt'>;
 
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
