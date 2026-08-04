@@ -17,8 +17,8 @@ export class JobPostingRepository extends BaseRepository {
     });
   }
 
-  async findById(id: string) {
-    return this.withDb('current', async (db) => {
+  async findById(id: string, schema = 'current') {
+    return this.withDb(schema, async (db) => {
       const rows = await db
         .select()
         .from(jobPostings)

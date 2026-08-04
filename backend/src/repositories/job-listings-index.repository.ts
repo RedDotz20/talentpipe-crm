@@ -27,6 +27,40 @@ export class JobListingsIndexRepository extends BaseRepository {
     });
   }
 
+  async findOpenByTenant(tenantId: string) {
+    return this.withDb('public', (db) =>
+      db
+        .select()
+        .from(jobListingsIndex)
+        .where(
+          and(
+            eq(jobListingsIndex.tenantId, tenantId),
+            eq(jobListingsIndex.status, 'open'),
+          ),
+        )
+        .orderBy(desc(jobListingsIndex.createdAt))
+        .execute(),
+    );
+  }
+
+  async findOpenByTenantAndJob(tenantId: string, jobPostingId: string) {
+    return this.withDb('public', async (db) => {
+      const rows = await db
+        .select()
+        .from(jobListingsIndex)
+        .where(
+          and(
+            eq(jobListingsIndex.tenantId, tenantId),
+            eq(jobListingsIndex.jobPostingId, jobPostingId),
+            eq(jobListingsIndex.status, 'open'),
+          ),
+        )
+        .limit(1)
+        .execute();
+      return rows[0] ?? null;
+    });
+  }
+
   async findById(tenantId: string, jobPostingId: string) {
     return this.withDb('public', async (db) => {
       const rows = await db
