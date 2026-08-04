@@ -20,14 +20,25 @@ import { ResumesService } from '../resumes/resumes.service';
 const isDuplicateCandidateApplicationError = (error: unknown): boolean => {
   if (typeof error !== 'object' || error === null) return false;
 
-  const databaseError = error as {
+  const errorWithCause = error as {
     code?: unknown;
     constraint?: unknown;
+    cause?: unknown;
   };
-  return (
-    databaseError.code === '23505' &&
-    databaseError.constraint === 'unique_candidate_application'
-  );
+  const candidates = [errorWithCause, errorWithCause.cause];
+
+  return candidates.some((candidate) => {
+    if (typeof candidate !== 'object' || candidate === null) return false;
+
+    const databaseError = candidate as {
+      code?: unknown;
+      constraint?: unknown;
+    };
+    return (
+      databaseError.code === '23505' &&
+      databaseError.constraint === 'unique_candidate_application'
+    );
+  });
 };
 
 @Injectable()

@@ -399,6 +399,52 @@ describe('CandidateAccountService', () => {
       );
     });
 
+    it('converts wrapped duplicate application violations into a conflict after compensation', async () => {
+      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue({
+        tenantId: 't1',
+        jobPostingId: 'j1',
+        status: 'open',
+        title: 'Engineer',
+        companyName: 'Acme',
+      });
+      candidateAccountRepo.findById.mockResolvedValue({
+        id: 'candidate-a',
+        email: 'candidate@example.com',
+        firstName: 'Jane',
+        lastName: 'Doe',
+      });
+      candidateApplicationsIndexRepo.findByJob.mockResolvedValue(null);
+      candidateRepo.findByAccountId.mockResolvedValue({ id: 'candidate-tenant' });
+      pipelineStageRepo.findFirst.mockResolvedValue({
+        id: 'stage-1',
+        name: 'Applied',
+      });
+      candidateSkillRepo.findByCandidateAccountId.mockResolvedValue([]);
+      skillRepo.findByIds.mockResolvedValue([]);
+      jobPostingRepo.getRequiredSkillIds.mockResolvedValue([]);
+      skillMatching.computeScore.mockReturnValue(0);
+      applicationRepo.create.mockResolvedValue({ id: 'app-a' });
+      candidateApplicationsIndexRepo.create.mockRejectedValue({
+        cause: {
+          code: '23505',
+          constraint: 'unique_candidate_application',
+        },
+      });
+
+      const applicationPromise = service.apply('candidate-a', 't1', 'j1', {});
+
+      await expect(applicationPromise).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      await expect(applicationPromise).rejects.toThrow(
+        'You already applied to this application.',
+      );
+      expect(applicationRepo.delete).toHaveBeenCalledWith(
+        'app-a',
+        'tenant_t1',
+      );
+    });
+
     it('returns candidate-owned application detail from the tenant schema', async () => {
       const indexed = {
         id: 'index-a',
