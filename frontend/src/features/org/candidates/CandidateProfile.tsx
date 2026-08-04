@@ -1,8 +1,6 @@
 import { Anchor, Badge, Group, Loader, Modal, Stack, Table, Text, Title } from '@mantine/core';
 import { useCandidate } from './hooks/useCandidates';
-import { useResume } from './hooks/useResume';
 import { MatchScoreBadge } from './MatchScoreBadge';
-import { ResumeUploadInput } from './ResumeUploadInput';
 
 interface Props {
   candidateId: string | null;
@@ -11,7 +9,6 @@ interface Props {
 
 export function CandidateProfile({ candidateId, onClose }: Props) {
   const { data: candidate, isLoading } = useCandidate(candidateId ?? '');
-  const { data: resume } = useResume(candidateId ?? '');
 
   return (
     <Modal opened={!!candidateId} onClose={onClose} title="Candidate Profile">
@@ -38,11 +35,11 @@ export function CandidateProfile({ candidateId, onClose }: Props) {
           <Title order={4} mt="sm">
             Resume
           </Title>
-          {resume ? (
+          {candidate.resume ? (
             <Stack gap="xs">
-              {resume.fileUrl ? (
+              {candidate.resume.fileUrl ? (
                 <Text size="sm">
-                  <Anchor href={resume.fileUrl} target="_blank">
+                    <Anchor href={candidate.resume.fileUrl} target="_blank">
                     View Resume
                   </Anchor>
                 </Text>
@@ -52,12 +49,10 @@ export function CandidateProfile({ candidateId, onClose }: Props) {
                 </Text>
               )}
               <Text size="xs" c="dimmed">
-                Uploaded: {new Date(resume.uploadedAt).toLocaleDateString()}
+                 Uploaded: {candidate.resume.uploadedAt ? new Date(candidate.resume.uploadedAt).toLocaleDateString() : '—'}
               </Text>
             </Stack>
-          ) : (
-            <ResumeUploadInput candidateId={candidate.id} />
-          )}
+          ) : <Text size="sm" c="dimmed">No resume available.</Text>}
 
           <Title order={4} mt="sm">
             Applications

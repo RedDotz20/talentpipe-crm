@@ -1,5 +1,6 @@
 export interface Job {
   id: string;
+  tenantId: string;
   title: string;
   companyName: string;
   location: string;
@@ -32,17 +33,17 @@ export interface Profile {
   lastName: string;
   email: string;
   phone?: string;
-  resumeUrl?: string;
+  skills: Skill[];
+  resume: {
+    fileUrl: string | null;
+    uploadedAt: string | null;
+  } | null;
   createdAt: string;
 }
 
 export interface ApplyData {
-  firstName: string;
-  lastName: string;
-  email: string;
   phone?: string;
   coverLetter?: string;
-  resumeUrl?: string;
   skillIds?: string[];
 }
 

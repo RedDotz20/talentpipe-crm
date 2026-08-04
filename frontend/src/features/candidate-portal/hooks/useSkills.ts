@@ -18,6 +18,7 @@ export function useSetCandidateSkills() {
     mutationFn: (skillIds: string[]) => candidateApi.setSkills(skillIds),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.candidate.skills() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.candidate.profile() });
     },
   });
 }

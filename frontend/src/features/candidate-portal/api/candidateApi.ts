@@ -4,15 +4,20 @@ import type { Job, Application, Bookmark, Profile, ApplyData, CandidateSkills } 
 
 const unwrap = <T>(body: ApiEnvelope<T>): T => body.data;
 
+const normalizeJob = (job: Job & { jobPostingId?: string }): Job => ({
+  ...job,
+  id: job.id ?? job.jobPostingId ?? '',
+});
+
 export const candidateApi = {
   getJobs: async (search?: string): Promise<Job[]> => {
     const { data } = await apiClient.get('/candidate/jobs', { params: { search } });
-    return unwrap(data as ApiEnvelope<Job[]>);
+    return unwrap(data as ApiEnvelope<(Job & { jobPostingId?: string })[]>).map(normalizeJob);
   },
 
   getJobDetail: async (tenantId: string, jobId: string): Promise<Job> => {
     const { data } = await apiClient.get(`/candidate/jobs/${tenantId}/${jobId}`);
-    return unwrap(data as ApiEnvelope<Job>);
+    return normalizeJob(unwrap(data as ApiEnvelope<Job & { jobPostingId?: string }>));
   },
 
   getApplications: async (): Promise<Application[]> => {
@@ -20,9 +25,9 @@ export const candidateApi = {
     return unwrap(data as ApiEnvelope<Application[]>);
   },
 
-  applyToJob: async (jobId: string, applicationData: ApplyData): Promise<Application> => {
-    const { data } = await apiClient.post(`/candidate/jobs/${jobId}/apply`, applicationData);
-    return unwrap(data as ApiEnvelope<Application>);
+  applyToJob: async (tenantId: string, jobId: string, applicationData: ApplyData): Promise<{ applicationId: string }> => {
+    const { data } = await apiClient.post(`/candidate/jobs/${tenantId}/${jobId}/apply`, applicationData);
+    return unwrap(data as ApiEnvelope<{ applicationId: string }>);
   },
 
   getBookmarks: async (): Promise<Bookmark[]> => {
@@ -52,5 +57,23 @@ export const candidateApi = {
   setSkills: async (skillIds: string[]): Promise<CandidateSkills> => {
     const { data } = await apiClient.put('/candidate/skills', { skillIds });
     return unwrap(data as ApiEnvelope<CandidateSkills>);
+  },
+
+  updateProfile: async (profile: Omit<Profile, 'id' | 'skills' | 'resume' | 'createdAt'>): Promise<ApiEnvelope<Profile>> => {
+    const { data } = await apiClient.put('/candidate/profile', profile);
+    return data as ApiEnvelope<Profile>;
+  },
+
+  uploadResume: async (file: File): Promise<ApiEnvelope<NonNullable<Profile['resume']>>> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data } = await apiClient.post('/candidate/resume', formData, {
+      headers: { 'Content-Type': undefined },
+    });
+    return data as ApiEnvelope<NonNullable<Profile['resume']>>;
+  },
+
+  removeResume: async (): Promise<void> => {
+    await apiClient.delete('/candidate/resume');
   },
 };

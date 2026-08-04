@@ -7,8 +7,8 @@ export function useApply() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ jobId, data }: { jobId: string; data: ApplyData }) =>
-      candidateApi.applyToJob(jobId, data),
+    mutationFn: ({ tenantId, jobId, data }: { tenantId: string; jobId: string; data: ApplyData }) =>
+      candidateApi.applyToJob(tenantId, jobId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.candidate.applications() });
     },

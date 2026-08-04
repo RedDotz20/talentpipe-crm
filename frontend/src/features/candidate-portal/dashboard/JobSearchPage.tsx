@@ -1,23 +1,19 @@
 import { useState } from 'react';
 import { Card, Text, Title, Badge, Button, Group, Stack, Loader, Modal, TextInput, Textarea, Alert, MultiSelect } from '@mantine/core';
-import { useJobs, useApply, useCandidateSkills, useAllSkills } from '../hooks';
+import { useJobs, useApply, useAllSkills, useProfile } from '../hooks';
 import type { Job, Skill } from '../types';
 
 export function JobSearchPage() {
   const { data: jobs = [], isLoading: jobsLoading, error: jobsError } = useJobs();
   const { mutate: apply, isPending: isApplying, reset: resetApply } = useApply();
-  const { data: candidateSkills = [] } = useCandidateSkills();
+  const { data: profile } = useProfile();
   const { data: allSkills = [] } = useAllSkills();
 
   // Apply modal state
   const [applyModalOpen, setApplyModalOpen] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
-  const [applyFirstName, setApplyFirstName] = useState('');
-  const [applyLastName, setApplyLastName] = useState('');
-  const [applyEmail, setApplyEmail] = useState('');
   const [applyPhone, setApplyPhone] = useState('');
   const [applyCoverLetter, setApplyCoverLetter] = useState('');
-  const [applyResumeUrl, setApplyResumeUrl] = useState('');
   const [applySkillIds, setApplySkillIds] = useState<string[]>([]);
   const [applySuccess, setApplySuccess] = useState(false);
   const [applyError, setApplyError] = useState('');
@@ -40,13 +36,9 @@ export function JobSearchPage() {
 
   const openApplyModal = (jobId: string) => {
     setSelectedJobId(jobId);
-    setApplyFirstName('');
-    setApplyLastName('');
-    setApplyEmail('');
-    setApplyPhone('');
+    setApplyPhone(profile?.phone ?? '');
     setApplyCoverLetter('');
-    setApplyResumeUrl('');
-    setApplySkillIds(candidateSkills.map((s: Skill) => s.id));
+    setApplySkillIds(profile?.skills.map((s: Skill) => s.id) ?? []);
     setApplySuccess(false);
     setApplyError('');
     setApplyModalOpen(true);
@@ -55,7 +47,15 @@ export function JobSearchPage() {
   const handleApply = () => {
     if (!selectedJobId) return;
     apply(
-      { jobId: selectedJobId, data: { firstName: applyFirstName, lastName: applyLastName, email: applyEmail, phone: applyPhone || undefined, coverLetter: applyCoverLetter || undefined, resumeUrl: applyResumeUrl || undefined, skillIds: applySkillIds.length > 0 ? applySkillIds : undefined } },
+      {
+        tenantId: jobs.find((job) => job.id === selectedJobId)?.tenantId ?? '',
+        jobId: selectedJobId,
+        data: {
+          phone: applyPhone || undefined,
+          coverLetter: applyCoverLetter || undefined,
+          skillIds: applySkillIds.length > 0 ? applySkillIds : undefined,
+        },
+      },
       {
         onSuccess: () => {
           setApplySuccess(true);
@@ -105,25 +105,7 @@ export function JobSearchPage() {
         ) : (
           <Stack>
             {applyError && <Alert color="red">{applyError}</Alert>}
-            <TextInput
-              label="First Name"
-              required
-              value={applyFirstName}
-              onChange={(e) => setApplyFirstName(e.currentTarget.value)}
-            />
-            <TextInput
-              label="Last Name"
-              required
-              value={applyLastName}
-              onChange={(e) => setApplyLastName(e.currentTarget.value)}
-            />
-            <TextInput
-              label="Email"
-              required
-              type="email"
-              value={applyEmail}
-              onChange={(e) => setApplyEmail(e.currentTarget.value)}
-            />
+            <Text size="sm">Applying as {profile?.firstName} {profile?.lastName} ({profile?.email})</Text>
             <TextInput
               label="Phone"
               value={applyPhone}
@@ -134,12 +116,6 @@ export function JobSearchPage() {
               minRows={4}
               value={applyCoverLetter}
               onChange={(e) => setApplyCoverLetter(e.currentTarget.value)}
-            />
-            <TextInput
-              label="Resume URL"
-              placeholder="https://..."
-              value={applyResumeUrl}
-              onChange={(e) => setApplyResumeUrl(e.currentTarget.value)}
             />
             <MultiSelect
               label="Skills"
