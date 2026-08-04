@@ -1,7 +1,7 @@
 # Phase 5 Public Careers Design
 
-**Date:** 2026-08-05  
-**Branch:** `feat/phase5-public-careers`  
+**Date:** 2026-08-05
+**Branch:** `feat/phase5-public-careers`
 **Status:** Approved for implementation planning
 
 ## Goal
