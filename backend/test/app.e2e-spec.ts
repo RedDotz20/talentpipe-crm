@@ -138,21 +138,24 @@ describe('App e2e', () => {
 
   afterAll(async () => {
     try {
-      if (cleanupPool && createdCandidateIds.length > 0) {
-        await cleanupPool.query(
-          'DELETE FROM public.refresh_tokens WHERE user_id = ANY($1::uuid[])',
-          [createdCandidateIds],
-        );
-        await cleanupPool.query(
-          'DELETE FROM public.candidate_accounts WHERE id = ANY($1::uuid[])',
-          [createdCandidateIds],
-        );
+      try {
+        if (cleanupPool && createdCandidateIds.length > 0) {
+          await cleanupPool.query(
+            'DELETE FROM public.refresh_tokens WHERE user_id = ANY($1::uuid[])',
+            [createdCandidateIds],
+          );
+          await cleanupPool.query(
+            'DELETE FROM public.candidate_accounts WHERE id = ANY($1::uuid[])',
+            [createdCandidateIds],
+          );
+        }
+      } finally {
+        for (const digest of createdSigninEmailDigests) {
+          await cleanupRedisKeys(`ratelimit:login:${digest}:*`);
+        }
       }
     } finally {
       if (app) await app.close();
-      for (const digest of createdSigninEmailDigests) {
-        await cleanupRedisKeys(`ratelimit:login:${digest}:*`);
-      }
       if (cleanupRedis) await cleanupRedis.quit();
       if (cleanupPool) await cleanupPool.end();
     }
@@ -162,6 +165,7 @@ describe('App e2e', () => {
     it('POST /auth/signin — valid credentials return { data, message } envelope', async () => {
       const email = `task8-valid-${Date.now()}-${randomUUID().slice(0, 8)}@example.test`;
       const password = `Task8!${randomUUID().slice(0, 20)}`;
+      trackSigninEmail(email);
       const signup = await request(app!.getHttpServer() as unknown as string)
         .post('/api/auth/signup')
         .send({ email, password, firstName: 'Valid', lastName: 'Tester' });
@@ -172,7 +176,6 @@ describe('App e2e', () => {
       const createdId = decodeClaims(signupBody.data.accessToken).sub;
       createdCandidateIds.push(createdId);
 
-      trackSigninEmail(email);
       const res = await request(app!.getHttpServer() as unknown as string)
         .post('/api/auth/signin')
         .send({ email, password });

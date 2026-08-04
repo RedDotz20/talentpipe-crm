@@ -355,12 +355,19 @@ describe('Phase 5b/6 release gates', () => {
 
   afterAll(async () => {
     try {
-      await cleanupDatabase();
-      for (const digest of createdLimiterEmailDigests) {
-        await cleanupRedisKeys(`ratelimit:login:${digest}:*`);
-      }
-      for (const tenantId of createdTenantIds) {
-        if (cleanupRedis) await cleanupRedis.del(dashboardSummaryKey(tenantId));
+      try {
+        await cleanupDatabase();
+      } finally {
+        try {
+          for (const digest of createdLimiterEmailDigests) {
+            await cleanupRedisKeys(`ratelimit:login:${digest}:*`);
+          }
+        } finally {
+          for (const tenantId of createdTenantIds) {
+            if (cleanupRedis)
+              await cleanupRedis.del(dashboardSummaryKey(tenantId));
+          }
+        }
       }
     } finally {
       if (app) await app.close();
@@ -488,6 +495,9 @@ describe('Phase 5b/6 release gates', () => {
       email,
       ` ${email} `,
     ];
+    createdLimiterEmailDigests.push(
+      createHash('sha256').update(email).digest('hex'),
+    );
     const responses: HttpResponse[] = [];
     for (const emailVariant of emailVariants) {
       responses.push(
@@ -497,9 +507,6 @@ describe('Phase 5b/6 release gates', () => {
           .send({ email: emailVariant, password }),
       );
     }
-    createdLimiterEmailDigests.push(
-      createHash('sha256').update(email).digest('hex'),
-    );
 
     expect(
       responses.slice(0, 5).every((response) => response.status !== 429),
@@ -558,10 +565,19 @@ describe('Phase 5b/6 release gates', () => {
     if (!pool) throw new Error('Cleanup PostgreSQL pool was not initialized');
     const tenantASchema = quoteIdentifier(`tenant_${tenantA.tenantId}`);
     try {
-      await pool.query(
+      const closeResult = await pool.query(
         `UPDATE ${tenantASchema}."job_postings" SET "status" = 'closed' WHERE "id" = $1`,
         [jobA.id],
       );
+      expect(closeResult.rowCount).toBe(1);
+
+      const closedJobResult = await pool.query(
+        `SELECT "status" FROM ${tenantASchema}."job_postings" WHERE "id" = $1`,
+        [jobA.id],
+      );
+      expect(closedJobResult.rowCount).toBe(1);
+      expect(closedJobResult.rows[0]?.status).toBe('closed');
+
       const cachedAfterDirectDatabaseChangeResponse = await request(
         httpServer(),
       )
@@ -575,10 +591,11 @@ describe('Phase 5b/6 release gates', () => {
         summaryA.openJobPostings,
       );
     } finally {
-      await pool.query(
+      const restoreResult = await pool.query(
         `UPDATE ${tenantASchema}."job_postings" SET "status" = 'open' WHERE "id" = $1`,
         [jobA.id],
       );
+      expect(restoreResult.rowCount).toBe(1);
     }
 
     const secondApplication = await request(httpServer())
