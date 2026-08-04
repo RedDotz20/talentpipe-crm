@@ -36,11 +36,13 @@ export class CandidateAccountController {
   ) {}
 
   @Get('jobs')
+  @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
   async listJobs(@Query('search') search?: string) {
     return this.candidateAccountService.getJobs(search);
   }
 
   @Get('jobs/:tenantId/:jobId')
+  @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
   async getJobDetail(
     @Param('tenantId') tenantId: string,
     @Param('jobId') jobId: string,

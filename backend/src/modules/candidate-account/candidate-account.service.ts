@@ -39,7 +39,7 @@ export class CandidateAccountService {
   }
 
   async getJobDetail(tenantId: string, jobPostingId: string) {
-    const job = await this.jobListingsIndexRepo.findById(
+    const job = await this.jobListingsIndexRepo.findOpenByTenantAndJob(
       tenantId,
       jobPostingId,
     );
@@ -53,7 +53,7 @@ export class CandidateAccountService {
     jobPostingId: string,
     dto: { phone?: string; skillIds?: string[]; coverLetter?: string },
   ) {
-    const job = await this.jobListingsIndexRepo.findById(
+    const job = await this.jobListingsIndexRepo.findOpenByTenantAndJob(
       tenantId,
       jobPostingId,
     );
@@ -194,7 +194,7 @@ export class CandidateAccountService {
     );
     if (existing) return existing;
 
-    const job = await this.jobListingsIndexRepo.findById(
+    const job = await this.jobListingsIndexRepo.findOpenByTenantAndJob(
       tenantId,
       jobPostingId,
     );

@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { CandidateAccountService } from './candidate-account.service';
 import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
 import { CandidateBookmarkRepository } from '../../repositories/candidate-bookmark.repository';
@@ -32,6 +32,7 @@ describe('CandidateAccountService', () => {
   const jobListingsIndexRepo = {
     findAll: jest.fn(),
     findById: jest.fn(),
+    findOpenByTenantAndJob: jest.fn(),
   };
   const candidateRepo = {
     findByEmail: jest.fn(),
@@ -92,6 +93,65 @@ describe('CandidateAccountService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('job visibility', () => {
+    it('hides closed jobs from candidate detail', async () => {
+      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue(null);
+
+      await expect(service.getJobDetail('t1', 'j1')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(
+        jobListingsIndexRepo.findOpenByTenantAndJob,
+      ).toHaveBeenCalledWith('t1', 'j1');
+      expect(jobListingsIndexRepo.findById).not.toHaveBeenCalled();
+    });
+
+    it('hides draft jobs from candidate detail', async () => {
+      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue(null);
+
+      await expect(service.getJobDetail('t1', 'j1')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('returns an open job from candidate detail', async () => {
+      const job = {
+        tenantId: 't1',
+        jobPostingId: 'j1',
+        status: 'open',
+        title: 'Backend Engineer',
+      };
+      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue(job);
+
+      await expect(service.getJobDetail('t1', 'j1')).resolves.toEqual(job);
+    });
+
+    it('hides closed jobs from candidate applications', async () => {
+      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue(null);
+
+      await expect(
+        service.apply('candidate-1', 't1', 'j1', {}),
+      ).rejects.toThrow(NotFoundException);
+      expect(
+        jobListingsIndexRepo.findOpenByTenantAndJob,
+      ).toHaveBeenCalledWith('t1', 'j1');
+      expect(jobListingsIndexRepo.findById).not.toHaveBeenCalled();
+    });
+
+    it('hides closed jobs from candidate bookmarks', async () => {
+      candidateBookmarkRepo.findByJob.mockResolvedValue(null);
+      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue(null);
+
+      await expect(
+        service.addBookmark('candidate-1', 't1', 'j1'),
+      ).rejects.toThrow(NotFoundException);
+      expect(
+        jobListingsIndexRepo.findOpenByTenantAndJob,
+      ).toHaveBeenCalledWith('t1', 'j1');
+      expect(jobListingsIndexRepo.findById).not.toHaveBeenCalled();
+    });
   });
 
   describe('getSkills', () => {
