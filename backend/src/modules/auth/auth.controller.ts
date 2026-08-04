@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
+import { LoginRateLimiterGuard } from '../../common/middlewares/login-rate-limiter.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { TenantContext } from '../../common/context/tenant-context';
@@ -32,6 +33,7 @@ export class AuthController {
 
   @Post('signin')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(LoginRateLimiterGuard)
   async signin(@Body(new ZodValidationPipe(SigninSchema)) dto: SigninDto) {
     return this.authService.signin(dto);
   }

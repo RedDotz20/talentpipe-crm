@@ -1,0 +1,53 @@
+import {
+  CanActivate,
+  ExecutionContext,
+  HttpException,
+  HttpStatus,
+  Injectable,
+} from '@nestjs/common';
+import { createHash } from 'node:crypto';
+import { RedisService } from '../redis/redis.service';
+
+type SigninRequest = {
+  body?: { email?: string };
+  ip?: string;
+};
+
+type ResponseWithHeaders = {
+  setHeader: (name: string, value: number) => void;
+};
+
+export class TooManyRequestsException extends HttpException {
+  constructor(message: string) {
+    super(message, HttpStatus.TOO_MANY_REQUESTS);
+  }
+}
+
+@Injectable()
+export class LoginRateLimiterGuard implements CanActivate {
+  constructor(private readonly redis: RedisService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const http = context.switchToHttp();
+    const request = http.getRequest<SigninRequest>();
+    const response = http.getResponse<ResponseWithHeaders>();
+    const normalizedEmail = request.body?.email?.trim().toLowerCase() ?? '';
+    const emailHash = createHash('sha256')
+      .update(normalizedEmail)
+      .digest('hex');
+    const ip = request.ip ?? 'unknown';
+    const key = `ratelimit:login:${emailHash}:${ip}`;
+    const count = await this.redis.incrementWithWindow(key, 900);
+
+    if (count === null) {
+      return true;
+    }
+
+    if (count > 5) {
+      response.setHeader('Retry-After', 900);
+      throw new TooManyRequestsException('Too many sign-in attempts');
+    }
+
+    return true;
+  }
+}
