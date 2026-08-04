@@ -26,7 +26,7 @@ What each technology is used for, and why it was chosen. Meant to double as an i
 | Drizzle ORM | Database access | SQL-first, fully typed, lightweight — avoids the magic of heavier ORMs like Prisma while staying type-safe. First-class PostgreSQL support with `drizzle-orm/pg-core` |
 | PostgreSQL | Primary database | Chosen specifically for **schema-per-tenant isolation**. PG natively supports multiple schemas within one database — MySQL's "schema" = "database", making schema-per-tenant far more complex there. Uses `search_path` for per-request schema routing with a single connection pool. Additional features: `pgcrypto`, `citext`, `ROW LEVEL SECURITY` as optional defense layers |
 | Redis | Cache, rate limiting, queue backing | Three distinct roles: (1) rate-limit counters for public/auth endpoints, (2) short-TTL cache for expensive dashboard aggregate queries, (3) backing store for the BullMQ job queue |
-| BullMQ | Background job queue | Moves slow work (resume text extraction, skill matching, email sending) off the request/response cycle |
+| BullMQ | Background job queue | Moves future slow work (notifications and other asynchronous processing) off the request/response cycle; current resume handling is storage-only |
 | Zod | Request validation | Validates incoming request bodies at the route layer before they reach services |
 | `@nestjs/jwt` + `passport-jwt` | Auth tokens | `JwtStrategy` verifies JWT access tokens; refresh tokens are issued/rotated by a `TokenService` (argon2-hashed at rest in `refresh_tokens`) |
 | argon2 | Password hashing | Never store plaintext passwords; argon2 is the modern, memory-hard recommendation |
@@ -48,17 +48,17 @@ What each technology is used for, and why it was chosen. Meant to double as an i
 | Jest (backend) | Unit + e2e tests (`supertest` for HTTP assertions; `ts-jest` transform). Currently minimal — health spec + default e2e spec |
 | oxlint (frontend) | Frontend linting |
 | Playwright | (Planned) E2E test that also doubles as a demo script: sign up a tenant, post a job, submit an application, drag it through pipeline stages |
-| k6 or autocannon | (Planned) Load-test the public apply endpoint to visually confirm rate limiting kicks in at the configured threshold |
+| k6 or autocannon | (Planned, Phase 6+) | Load-test future authentication/public-write rate limits; Phase 5 public careers endpoints are read-only |
 | `tsx` seed script | Generates synthetic seed data (SuperAdmin/Org/Candidate accounts) — no external dataset required |
 
 ## How Redis Is Actually Used (the feature most worth being able to explain in depth)
 
-1. **Rate limiting** — `POST /public/:tenantSlug/jobs/:id/apply` and `POST /auth/signin` are the two endpoints exposed to unauthenticated/adversarial traffic. Each request increments a counter keyed by IP (and account, for login) with a TTL matching the rate-limit window; once the counter exceeds the configured threshold, the request is rejected with `429`. ⬜ Planned (M5/M6) — Redis is not wired yet.
+1. **Rate limiting** — Phase 5 has no anonymous write endpoint. Phase 6 will protect `POST /auth/signin` and any future public write endpoint with counters keyed by IP/account and a TTL matching the rate-limit window; once the counter exceeds the configured threshold, the request will be rejected with `429`. ⬜ Planned (M6) — Redis is not wired yet.
 2. **Caching** — dashboard aggregate queries (e.g. "applications per pipeline stage" counts for the Kanban board header) are cached with a short TTL and invalidated on write, avoiding repeated expensive `GROUP BY` queries on every page load. Cache keys are always prefixed `tenant:{tenantId}:...` so tenants never collide on the same key and one tenant's cache can be flushed independently — see `05_DATA_ISOLATION_STRATEGY.md`. ⬜ Planned (M6).
-3. **Job queue** — BullMQ uses Redis under the hood to store and dispatch background jobs (resume parsing, notification emails) to worker processes, decoupling slow work from the HTTP request cycle. ⬜ Planned (M7).
+3. **Job queue** — BullMQ uses Redis under the hood to store and dispatch future background jobs (notification emails and other slow processing) to worker processes, decoupling slow work from the HTTP request cycle. ⬜ Planned (M7).
 
 ## Deliberate Scope Boundaries (know these for interviews)
 
 - **No real billing integration** — plan tiers are static config, not connected to a payment processor. Explainable as "out of scope for a portfolio demo, but the tenant/plan model is designed to support it."
-- **No ML-based resume matching in v1** — keyword/taxonomy matching only, chosen so the logic is fully self-testable without external models or labeled data. A clean "here's my v2 plan" answer.
+- **No automated resume parsing or ML-based matching in the current v1 slice** — candidate-declared taxonomy skills produce an explainable score; automated extraction or embeddings are future enhancements.
 - **Single-region deployment** — no multi-region/DR requirements; reasonable to state plainly rather than over-engineer for a solo portfolio project.

@@ -80,9 +80,8 @@ Legend for **Roles**: SA = SuperAdmin, OA = Org Admin, R = Recruiter, HM = Hirin
 | Method | Path | Roles | Description |
 |---|---|---|---|
 | GET | `/candidates/:id/resume` | OA, R, HM | Get resume metadata only — returns `{ id, candidateId, fileUrl, uploadedAt }` (no parsed text, no extracted skills) |
-| POST | `/candidates/:id/resume` | OA, R | Upload a resume file (PDF/DOCX, max 10MB) for an existing candidate — stores in MinIO, returns metadata |
 
-Note: the primary resume upload path is via `POST /public/:tenantSlug/jobs/:id/apply` or `POST /candidate/jobs/:tenantId/:jobId/apply` — this internal endpoint exists for manual/edge-case uploads only.
+Note: resume upload is an authenticated candidate profile operation (`POST /candidate/resume`) or an internal recruiter upload for an existing candidate. Public careers browsing never accepts multipart files.
 
 ## Interviews
 
@@ -101,14 +100,16 @@ Note: the primary resume upload path is via `POST /public/:tenantSlug/jobs/:id/a
 |---|---|---|---|
 | GET | `/candidate/jobs` | CANDIDATE | List all open jobs across tenants (from job_listings_index), searchable |
 | GET | `/candidate/jobs/:tenantId/:jobId` | CANDIDATE | Job posting detail |
-| POST | `/candidate/jobs/:tenantId/:jobId/apply` | CANDIDATE | Submit application. Body: `{ skillIds?: string[] }` — if omitted, uses candidate's profile skills from `/candidate/skills` |
+| POST | `/candidate/jobs/:tenantId/:jobId/apply` | CANDIDATE | Submit application. Body: `{ phone?, coverLetter?, skillIds?: string[] }` — if omitted, uses candidate's profile skills from `/candidate/skills` |
 | GET | `/candidate/applications` | CANDIDATE | Application history with statuses |
 | GET | `/candidate/applications/:id` | CANDIDATE | Application detail |
 | POST | `/candidate/bookmarks` | CANDIDATE | Bookmark a job |
 | DELETE | `/candidate/bookmarks/:id` | CANDIDATE | Remove a bookmark |
 | GET | `/candidate/bookmarks` | CANDIDATE | List bookmarks |
 | GET | `/candidate/profile` | CANDIDATE | View profile |
-| PATCH | `/candidate/profile` | CANDIDATE | Update profile |
+| PUT | `/candidate/profile` | CANDIDATE | Update profile |
+| POST | `/candidate/resume` | CANDIDATE | Upload or replace the candidate profile resume (PDF/DOCX, max 10MB) |
+| DELETE | `/candidate/resume` | CANDIDATE | Remove the candidate profile resume |
 | GET | `/candidate/skills` | CANDIDATE | List candidate's declared skills (returns `[{ id, name, category }]`) |
 | PUT | `/candidate/skills` | CANDIDATE | Replace all skills. Body: `{ skillIds: string[] }` |
 
@@ -118,15 +119,14 @@ Note: the primary resume upload path is via `POST /public/:tenantSlug/jobs/:id/a
 |---|---|---|---|
 | GET | `/skills?search=` | — | Search the skill taxonomy (for the RequiredSkillsPicker) — planned with M2 |
 
-## Public Careers (unauthenticated) ⬜
+## Public Careers (unauthenticated read-only) ✅
 
 | Method | Path | Roles | Description |
 |---|---|---|---|
-| GET | `/public/:tenantSlug/jobs` | PUBLIC | List open job postings for a tenant |
-| GET | `/public/:tenantSlug/jobs/:id` | PUBLIC | Job posting detail |
-| POST | `/public/:tenantSlug/jobs/:id/apply` | PUBLIC (rate-limited) | Submit application. Body: `{ name, email, phone?, skillIds?: string[] }` — if `skillIds` provided, used for match score; if omitted and no candidate account, `matchScore = 0` |
+| GET | `/public/:tenantSlug/jobs` | PUBLIC | List this tenant's open jobs from `job_listings_index` |
+| GET | `/public/:tenantSlug/jobs/:id` | PUBLIC | Open job detail with required skill metadata; draft/closed/missing jobs return `404` |
 
-**Rate limiting applies to this section specifically** — see `02_TECHNICAL_OVERVIEW.md` for the Redis-backed limiter design. Expect `429` responses with a `Retry-After` header once a caller exceeds the configured window.
+The public careers section is read-only in Phase 5. Apply buttons redirect anonymous visitors to unified sign-in/signup; authenticated Candidates submit through `/candidate/jobs/:tenantId/:jobId/apply`. Redis rate limiting is deferred to Phase 6 because there is no anonymous public write endpoint.
 
 ## Platform (SuperAdmin only, cross-tenant) ⬜
 

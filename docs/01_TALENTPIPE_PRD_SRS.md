@@ -25,9 +25,9 @@ Small and mid-sized companies without budget for enterprise ATS platforms (Green
 | Goal | Metric (as a demo/portfolio project, these are illustrative targets, not live production metrics) |
 |---|---|
 | A recruiter can move a candidate through the pipeline without leaving the app | Stage change completes in a single interaction (drag-and-drop) |
-| Public job postings are discoverable and applyable without friction | Candidate can go from job listing to submitted application in under 2 minutes |
+| Public job postings are discoverable and applyable without friction | Candidate can go from public job listing through sign-in/signup to submitted application in under 2 minutes |
 | Tenant data is provably isolated | Zero cross-tenant data leakage under test |
-| System resists abuse on public-facing endpoints | Rate limiting demonstrably blocks scripted spam on the public apply endpoint |
+| System protects future public/auth write endpoints | Phase 6 rate limiting can block scripted abuse without affecting public job browsing |
 | Resume screening is faster than manual review | Skill match score is computed and visible within seconds of upload |
 
 ## 4. Target Users / Personas
@@ -36,20 +36,20 @@ Small and mid-sized companies without budget for enterprise ATS platforms (Green
 - **Recruiter** — creates job postings, manages candidates through the pipeline, schedules interviews, leaves notes.
 - **Hiring Manager** — reviews candidates for their open roles, leaves interview feedback, doesn't manage postings.
 - **Interviewer** — sees only interviews they're assigned to, submits feedback forms.
-- **Candidate** — creates an account (or later, an unauthenticated visitor to the public careers page) who applies to job postings and tracks their applications.
+- **Candidate** — creates an account, browses public or authenticated job listings, applies with a profile, and tracks applications.
 
 ## 5. Scope
 
 **In scope (v1)**
 - Multi-tenant company accounts with role-based access (Org Admin, Recruiter, Hiring Manager, Interviewer)
 - Job posting CRUD with required-skills configuration
-- Public, unauthenticated careers page and application submission per tenant
+- Public, unauthenticated tenant careers browsing with Candidate-authenticated application submission
 - Candidate/application records with a configurable pipeline (Kanban-style stage board)
-- Resume upload, text extraction, and skill-match scoring against a job posting's required skills
+- Candidate profile resume storage, manual skills, and skill-match scoring against a job posting's required skills
 - Interview scheduling and feedback capture
 - Notes on applications
 - Redis-backed rate limiting on public/auth endpoints, caching on dashboard queries
-- Background job processing for resume parsing and notification emails
+- Background job processing for future notifications and other slow work; resume handling is storage-only in the current build
 - Candidate accounts (signup/login, job search, applications history, bookmarks, profile) — **implemented**
 
 **Out of scope (v1)**
@@ -57,7 +57,7 @@ Small and mid-sized companies without budget for enterprise ATS platforms (Green
 - Native mobile apps
 - Calendar sync (Google Calendar/Outlook) for interview scheduling — v1 stores time slots only
 - AI/ML-based semantic resume matching (v1 uses keyword/taxonomy matching; noted as a future enhancement)
-- The unauthenticated public apply path (candidates apply via account in the current build; the anonymous flow is a later milestone)
+- Anonymous applications, anonymous resume upload, and resume text parsing are not supported in the current design
 
 ## 6. Feature List (MoSCoW)
 
@@ -76,7 +76,7 @@ Small and mid-sized companies without budget for enterprise ATS platforms (Green
 | Could | Customizable pipeline stages per tenant |
 | Won't (v1) | Billing integration, calendar sync |
 
-> **Status:** Milestones 0–1 (auth, tenancy, RBAC) and candidate accounts are **implemented**. See `09_IMPLEMENTATION_GUIDE.md` for exact progress.
+> **Status:** Milestones 0–5 are implemented through the current Phase 5 branch: auth/tenancy/RBAC, CRUD, pipeline, candidate profile skills/resume storage, and tenant-specific public careers browsing with Candidate-only apply. See `09_IMPLEMENTATION_GUIDE.md` for exact progress.
 
 ## 7. Representative User Stories
 
@@ -84,23 +84,23 @@ Small and mid-sized companies without budget for enterprise ATS platforms (Green
 - As a **Recruiter**, I want to post a job with required skills so the system can score incoming applicants against it.
 - As a **Recruiter**, I want to drag a candidate from "Screening" to "Interview" so the pipeline reflects reality without extra clicks.
 - As a **Hiring Manager**, I want to see interview feedback before making a decision so I'm not relying on verbal summaries.
-- As a **Candidate**, I want to sign up for an account, browse open roles, and apply with my resume, so I can track my applications in one place. (Built. The anonymous apply flow is a later milestone.)
-- As the **system**, I need to reject excessive automated submissions to the public apply endpoint so legitimate applicants aren't crowded out by spam.
+- As a **Candidate**, I want to sign up for an account, browse open roles, maintain my skills and resume, and apply, so I can track my applications in one place. (Built.)
+- As an **anonymous visitor**, I want to browse open jobs and be redirected to sign-in when I choose Apply, so every application is associated with a candidate profile.
 
 ## 8. Assumptions & Constraints
 
 - Built and tested solo, with no external/real-world datasets — all demo data is self-generated (seed scripts, Faker.js).
 - No real payment processor integration; plan tiers are illustrative.
-- Resume parsing covers PDF/DOCX text extraction; scanned/image-only resumes are out of scope.
+- Candidate resume storage accepts PDF/DOCX files; parsing and scanned/image-only extraction are out of scope for the current implementation.
 - Deployed to a single region; no multi-region/DR requirements for v1.
 
 ## 9. Release Plan (Milestones)
 
 1. ✅ Auth, tenants, RBAC — **implemented** (M1)
-2. ⬜ Job postings + candidates (manual entry) — **next** (M2)
-3. ⬜ Application pipeline (Kanban) (M3)
-4. ⬜ Resume upload + skill matching (M4)
-5. ⬜ Public careers page + apply endpoint + rate limiting (M5–M6)
+2. ✅ Job postings + candidates (manual entry) — **implemented** (M2)
+3. ✅ Application pipeline (Kanban) — **implemented** (M3)
+4. ✅ Candidate resume storage + manual skill matching — **implemented** (M4)
+5. ✅ Public careers listing/detail + Candidate-only apply (M5); ⬜ Redis rate limiting/cache (M6)
 6. ⬜ Background jobs (BullMQ) + notifications (M7)
 7. ⬜ Interviews + feedback (M8)
 8. ⬜ Containerization + CI/CD + deployment (M9–M10)
@@ -180,7 +180,7 @@ See PRD §4 (Org Admin, Recruiter, Hiring Manager, Interviewer, Candidate). Acce
 
 | ID | Requirement |
 |---|---|
-| FR-9 | The system shall allow candidates to submit an application via the public careers page without authentication. ⬜ Planned (M5) — current build applies via authenticated candidate account |
+| FR-9 | The public careers page shall allow unauthenticated browsing, but Apply shall require a Candidate account and redirect anonymous visitors to unified sign-in/signup. ✅ M5 |
 | FR-10 | Each application shall be associated with exactly one candidate and one job posting, scoped to a tenant. |
 | FR-11 | The system shall support configurable, ordered pipeline stages per tenant (default: Applied → Screening → Interview → Offer → Hired/Rejected). |
 | FR-12 | Recruiters and Hiring Managers shall be able to move an application between pipeline stages. |
@@ -190,11 +190,11 @@ See PRD §4 (Org Admin, Recruiter, Hiring Manager, Interviewer, Candidate). Acce
 
 | ID | Requirement |
 |---|---|
-| FR-14 | The system shall accept resume file uploads (PDF/DOCX) as part of a public application submission. |
-| FR-15 | The system shall extract text content from uploaded resumes. |
-| FR-16 | The system shall extract candidate skills from resume text by matching against a known skill taxonomy. |
-| FR-17 | The system shall compute a match score for an application as the proportion of a job posting's required skills found in the candidate's extracted skills. |
-| FR-18 | The system shall reject resume uploads exceeding a configured maximum file size or an unsupported file type. |
+| FR-14 | The system shall allow an authenticated Candidate to upload a PDF/DOCX resume to their profile with size/type validation. ✅ M4 |
+| FR-15 | The system shall allow an authenticated Candidate to manually declare skills from the shared taxonomy. ✅ M4 |
+| FR-16 | The system shall compute a match score from the job's required skills and the Candidate's declared skills or per-application override. ✅ M4 |
+| FR-17 | The system shall persist the skills used for an application so the score is explainable in the tenant pipeline. ✅ M4 |
+| FR-18 | The system shall not create candidate, application, or resume records for anonymous visitors. ✅ M5 |
 
 ### 3.5 Interviews
 
@@ -208,7 +208,7 @@ See PRD §4 (Org Admin, Recruiter, Hiring Manager, Interviewer, Candidate). Acce
 
 | ID | Requirement |
 |---|---|
-| FR-22 | The system shall rate-limit the public application-submission endpoint per IP address within a configurable time window. |
+| FR-22 | Future public/authenticated write endpoints shall be rate-limited per IP/account within a configurable time window. ⬜ Planned M6 |
 | FR-23 | The system shall rate-limit and temporarily lock out login attempts after a configurable number of consecutive failures per account/IP. |
 | FR-24 | The system shall return HTTP 429 with a `Retry-After` header when a rate limit is exceeded. |
 
@@ -216,7 +216,7 @@ See PRD §4 (Org Admin, Recruiter, Hiring Manager, Interviewer, Candidate). Acce
 
 | ID | Requirement |
 |---|---|
-| FR-25 | Resume text extraction and skill matching shall be processed asynchronously via a background job queue, not inline with the upload request. |
+| FR-25 | Future slow processing shall be handled asynchronously via a background job queue; current resume handling is storage-only and match scoring is synchronous from declared skills. |
 | FR-26 | The system shall send a notification (email, queued) when an application's pipeline stage changes. |
 
 ## 4. Non-Functional Requirements
@@ -224,7 +224,7 @@ See PRD §4 (Org Admin, Recruiter, Hiring Manager, Interviewer, Candidate). Acce
 | Category | ID | Requirement |
 |---|---|---|
 | Performance | NFR-1 | Authenticated dashboard list endpoints (job postings, applications) shall respond within 300ms under normal load, excluding cold-start. |
-| Performance | NFR-2 | The public apply endpoint shall enqueue resume processing rather than block the HTTP response on parsing. |
+| Performance | NFR-2 | Public careers GET requests shall not perform resume processing; future background processing is reserved for explicitly introduced asynchronous work. |
 | Security | NFR-3 | Passwords shall be stored hashed (bcrypt/argon2), never in plaintext. |
 | Security | NFR-4 | API keys/tokens shall never be logged in plaintext. |
 | Security | NFR-5 | Cross-tenant data access shall be blocked by multiple independent layers: request-scoped tenant context (not client-supplied), schema-per-tenant isolation (`search_path` routing per request, no `tenant_id` columns), and repository-level scoping — and shall be provably blocked by an automated test suite (one isolation test per tenant-scoped table) run in CI as a release gate. See `05_DATA_ISOLATION_STRATEGY.md` for the full specification. |
@@ -239,7 +239,7 @@ See PRD §4 (Org Admin, Recruiter, Hiring Manager, Interviewer, Candidate). Acce
 ### 5.1 User Interfaces
 - Internal dashboard (authenticated): job postings management, Kanban pipeline board, candidate profiles, interview scheduling, org/user settings
 - Candidate portal (authenticated): job search, applications history, bookmarks, profile (✅ implemented)
-- Public careers page (unauthenticated, planned M5): job listing, job detail, application form with resume upload
+- Public careers page (implemented M5): tenant-specific job listing and detail; Apply redirects anonymous visitors to Candidate sign-in/signup
 
 ### 5.2 API Interfaces
 - RESTful JSON API served by the NestJS backend; internal routes require a Bearer JWT, public routes under `/public/*` do not
@@ -248,11 +248,11 @@ See PRD §4 (Org Admin, Recruiter, Hiring Manager, Interviewer, Candidate). Acce
 ### 5.3 Data Storage Interfaces
 - PostgreSQL for all relational/tenant-scoped entities
 - Redis for rate-limit counters, cache, and job queue
-- S3-compatible storage for resume files, referenced by URL from the `Resume` entity
+- S3-compatible storage for candidate resume files, referenced by metadata on `candidate_accounts`
 
 ## 6. Data Requirements
 
-See the accompanying architecture document (`03_RECRUITMENT_ATS_ARCHITECTURE.md`) for the full entity model (Tenant, User, JobPosting, Candidate, Application, PipelineStage, Resume, Skill, Interview, Note) and multi-tenancy enforcement pattern.
+See the accompanying architecture document (`03_RECRUITMENT_ATS_ARCHITECTURE.md`) for the full entity model (Tenant, User, JobPosting, Candidate, Application, PipelineStage, CandidateAccount, CandidateSkill, Skill, Interview, Note) and multi-tenancy enforcement pattern.
 
 ## 7. Traceability Note
 

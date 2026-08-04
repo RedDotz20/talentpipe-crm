@@ -4,6 +4,8 @@
 
 **Status:** v1 — portfolio + functional demo. Solo-built, self-tested, no external/real-user data.
 
+**Implementation status:** Phases 0–4 are implemented. Phase 5 public tenant-specific careers browsing is implemented: public GET listing/detail routes are available, while applications require an authenticated Candidate account. Phase 6 Redis rate limiting/cache work remains planned.
+
 ---
 
 ## 0. Canonical Decisions (read first)
@@ -35,13 +37,13 @@
 
 **Personas:** Org Admin, Recruiter, Hiring Manager, Interviewer (tenant-scoped); Candidate (authenticated, global accounts — signup, login, dashboard); SuperAdmin (platform-level, no tenant).
 
-**In scope v1:** tenant signup/auth/RBAC; job posting CRUD + required skills; public careers page + apply flow; candidate/application pipeline (Kanban); resume upload + skill-match scoring; rate limiting on public endpoints; interviews + feedback; notes; Redis cache + BullMQ background jobs; Docker + CI/CD.
+**In scope v1:** tenant signup/auth/RBAC; job posting CRUD + required skills; public careers browsing with Candidate-only apply; candidate/application pipeline (Kanban); candidate profile resume storage + manual skill-match scoring; rate limiting on future public/auth write endpoints; interviews + feedback; notes; Redis cache + BullMQ background jobs; Docker + CI/CD.
 
 **Out of scope v1:** real billing, native mobile, calendar sync, ML semantic matching.
 
-**Success metrics:** single-interaction stage move; <2 min apply flow; zero cross-tenant leakage under test; rate limiter blocks scripted spam; skill score visible within seconds of upload.
+**Success metrics:** single-interaction stage move; <2 min browse-to-authenticated-apply flow; zero cross-tenant leakage under test; future rate limiter blocks scripted spam; skill score visible at application time.
 
-**Feature priority (MoSCoW):** Must — tenancy/auth/RBAC, job CRUD, public apply, pipeline, resume+match, rate limiting. Should — interviews+feedback, notes, dashboard cache, candidate accounts. Could — email notifications, customizable stages. Won't — billing, calendar.
+**Feature priority (MoSCoW):** Must — tenancy/auth/RBAC, job CRUD, public careers, Candidate-only apply, pipeline, resume storage+manual skills. Should — rate limiting, interviews+feedback, notes, dashboard cache, candidate accounts. Could — email notifications, customizable stages. Won't — anonymous applications, billing, calendar.
 
 ---
 
@@ -69,15 +71,15 @@ Enforced via the 8-layer strategy in §7.
 | `JobPostingsModule` | CRUD, required-skills config, publish/close |
 | `CandidatesModule` | Tenant-scoped candidate records (company's view of who applied) |
 | `ApplicationsModule` | Pipeline — stage transitions, Kanban data, notes |
-| `ResumeModule` | File upload, text extraction, skill extraction |
+| `ResumeModule` | Authenticated candidate resume storage and recruiter-facing metadata |
 | `SkillMatchingModule` | Score computation vs job posting requirements |
 | `InterviewsModule` | Scheduling, feedback capture |
 | `NotificationsModule` | Email queue (stage changes, reminders) via BullMQ |
-| `PublicApplyModule` | **Unauthenticated** careers API — listing + apply submission (rate-limited); secondary path vs authenticated apply |
+| `PublicCareersModule` | **Unauthenticated read-only** tenant careers API — open job listing and detail |
 | `CandidateAccountModule` | Candidate auth (signup/login via unified `POST /auth/signup` + `/auth/signin`), global /candidate/* API for dashboard, job search, applications history, bookmarks, profile |
 | `PlatformModule` | **SuperAdmin only** — cross-tenant tenant list/suspend/stats; uses SEPARATE unscoped repositories (`platformTenantsRepository`), reachable only via `requireRole('SuperAdmin')` guard, in its own `/platform/*` route file |
 
-The `PublicApplyModule` is the only internet-exposed unauthenticated surface — Redis rate limiting matters most here (scripted spam) + honeypot + file-type/size validation.
+`PublicCareersModule` is the unauthenticated read surface. It never creates candidates, applications, or resumes. Apply actions redirect visitors to unified sign-in; only the authenticated Candidate API creates applications. Redis rate limiting is deferred to Phase 6 for authentication and any future public write surfaces.
 
 ### 3.3 API Surface (representative)
 ```
@@ -86,7 +88,7 @@ Auth:            POST /auth/signin | POST /auth/signup (candidate) | POST /auth/
 Internal:        GET /job-postings | POST /job-postings | PATCH /job-postings/:id
                  GET /applications?stage= | PATCH /applications/:id/stage | POST /applications/:id/notes
                  GET /candidates/:id | POST /interviews | POST /interviews/:id/feedback
-Public:          GET /public/:tenantSlug/jobs | POST /public/:tenantSlug/jobs/:id/apply
+Public:          GET /public/:tenantSlug/jobs | GET /public/:tenantSlug/jobs/:id
 Candidate:      GET /candidate/jobs | POST /candidate/jobs/:tenantId/:jobId/apply
                  GET /candidate/applications | POST/DELETE /candidate/bookmarks
 Platform(SA):    GET /platform/tenants | PATCH /platform/tenants/:id/suspend | GET /platform/stats
@@ -97,24 +99,24 @@ All routes are prefixed `api` (e.g. `POST /api/auth/signin`). Success responses 
 
 ## 4. Data Model (ERD consolidated)
 
-Entities: **TENANT**, **USER**, **JOB_POSTING**, **CANDIDATE**, **APPLICATION**, **PIPELINE_STAGE**, **RESUME**, **SKILL**, **INTERVIEW**, **INTERVIEW_FEEDBACK**, **NOTE**, **CANDIDATE_ACCOUNT**, **JOB_LISTINGS_INDEX**, **CANDIDATE_APPLICATIONS_INDEX**, **CANDIDATE_BOOKMARK**. Plus infra/identity tables in the `public` schema: **USER_EMAIL**, **REFRESH_TOKEN**, **SUPER_ADMIN**, **AUDIT_LOG**.
+Entities: **TENANT**, **USER**, **JOB_POSTING**, **CANDIDATE**, **APPLICATION**, **PIPELINE_STAGE**, **SKILL**, **CANDIDATE_SKILL**, **INTERVIEW**, **INTERVIEW_FEEDBACK**, **NOTE**, **CANDIDATE_ACCOUNT**, **JOB_LISTINGS_INDEX**, **CANDIDATE_APPLICATIONS_INDEX**, **CANDIDATE_BOOKMARK**. Resume metadata is stored on `CANDIDATE_ACCOUNT`; there is no current tenant `RESUME` table. Plus infra/identity tables in the `public` schema: **USER_EMAIL**, **REFRESH_TOKEN**, **SUPER_ADMIN**, **AUDIT_LOG**.
 
 Relationships:
 - TENANT ||--o{ USER / JOB_POSTING / CANDIDATE / PIPELINE_STAGE
 - JOB_POSTING ||--o{ APPLICATION ; CANDIDATE ||--o{ APPLICATION
 - APPLICATION }o--|| PIPELINE_STAGE ; APPLICATION ||--o{ NOTE / INTERVIEW
-- CANDIDATE ||--o| RESUME ; RESUME }o--o{ SKILL ; JOB_POSTING }o--o{ SKILL
+- CANDIDATE_ACCOUNT ||--o{ CANDIDATE_SKILL ; CANDIDATE_SKILL }o--|| SKILL ; JOB_POSTING }o--o{ SKILL
 - USER ||--o{ INTERVIEW ; INTERVIEW ||--o| INTERVIEW_FEEDBACK ; USER ||--o{ NOTE
 - CANDIDATE_ACCOUNT }o--o{ JOB_LISTINGS_INDEX ; CANDIDATE_ACCOUNT ||--o{ CANDIDATE_APPLICATIONS_INDEX
 - CANDIDATE_ACCOUNT ||--o{ CANDIDATE_BOOKMARK ; CANDIDATE_BOOKMARK }o--|| JOB_LISTINGS_INDEX
 
-**Cross-schema flow:** CANDIDATE_ACCOUNT lives in the `public` schema (global). CANDIDATE_APPLICATIONS_INDEX and CANDIDATE_BOOKMARK also live in `public` (cross-tenant). JOB_LISTINGS_INDEX is a materialized/public view of OPEN job postings across all tenant schemas. The unauthenticated `/public/*` API and authenticated `/candidate/*` API both query these public-schema tables, never touching tenant schemas directly.
+**Cross-schema flow:** CANDIDATE_ACCOUNT and CANDIDATE_SKILL live in the `public` schema (global). CANDIDATE_APPLICATIONS_INDEX and CANDIDATE_BOOKMARK also live in `public` (cross-tenant). JOB_LISTINGS_INDEX is a materialized/public view of OPEN job postings across all tenant schemas. Public careers listing reads the tenant-filtered public index; public job detail additionally reads required skills from the explicit tenant schema and shared public taxonomy. The authenticated `/candidate/*` API queries public indexes and performs validated writes into the selected tenant schema.
 
 **Key fields:**
 - `USER.tenantId` — **nullable** (null = SuperAdmin).
 - `SKILL` — **NOT tenant-scoped** (shared taxonomy).
 - `APPLICATION.matchScore` — denormalized float (0.0–1.0), recompute via background job if required skills change.
-- Join tables: `resume_skills` (resumeId, skillId), `job_required_skills` (jobPostingId, skillId).
+- Join tables: `candidate_skills` (candidateAccountId, skillId), `job_required_skills` (jobPostingId, skillId).
 
 **Schema-level isolation:** tables do NOT carry `tenantId` columns. Isolation is provided by the PostgreSQL schema boundary — each tenant's data lives in its own schema. Cross-tenant reference is structurally impossible without explicit cross-schema qualification.
 
@@ -150,7 +152,8 @@ Relationships:
 | GET | `/skills?search=` | — | Taxonomy search |
 | GET | `/public/:tenantSlug/jobs` | PUBLIC | Careers listing |
 | GET | `/public/:tenantSlug/jobs/:id` | PUBLIC | Job detail |
-| POST | `/public/:tenantSlug/jobs/:id/apply` | PUBLIC (rate-limited) | Apply + resume |
+| GET | `/public/:tenantSlug/jobs` | PUBLIC | List this tenant's open careers |
+| GET | `/public/:tenantSlug/jobs/:id` | PUBLIC | Open job detail + required skills |
 | GET | `/candidate/jobs` | CANDIDATE | List open jobs (from index) |
 | GET | `/candidate/jobs/:tenantId/:jobId` | CANDIDATE | Job detail |
 | POST | `/candidate/jobs/:tenantId/:jobId/apply` | CANDIDATE | Apply with account |
@@ -158,7 +161,8 @@ Relationships:
 | POST | `/candidate/bookmarks` | CANDIDATE | Save job |
 | DELETE | `/candidate/bookmarks/:id` | CANDIDATE | Remove bookmark |
 | GET | `/candidate/bookmarks` | CANDIDATE | List bookmarks |
-| GET/PATCH | `/candidate/profile` | CANDIDATE | View/update profile |
+| GET/PUT | `/candidate/profile` | CANDIDATE | View/update profile |
+| POST/DELETE | `/candidate/resume` | CANDIDATE | Upload/remove profile resume |
 | GET/POST | `/platform/tenants[/:id]` | SA | Tenant mgmt |
 | PATCH | `/platform/tenants/:id/suspend` | SA | Suspend |
 | GET | `/platform/stats` | SA | Platform stats |
@@ -180,7 +184,8 @@ Relationships:
 | Move applications / add notes | — | ✅ | ✅ | ✅ | — | — |
 | Schedule interviews | — | ✅ | ✅ | ✅ | — | — |
 | View own interviews / submit feedback | — | — | — | — | ✅ | — |
-| Browse & apply (public, no auth) | — | — | — | — | — | ✅ |
+| Browse public careers (no auth) | — | — | — | — | — | ✅ |
+| Apply after Candidate authentication | — | — | — | — | — | ✅ |
 | Login/signup to account | — | — | — | — | — | ✅ |
 | Apply via account | — | — | — | — | — | ✅ |
 | View application history | — | — | — | — | — | ✅ |
@@ -200,7 +205,7 @@ Relationships:
 3. **Schema-routed Drizzle client:** Each request gets a Drizzle client instance with `search_path` set to the tenant's schema (e.g. `SET search_path TO tenant_abc123, public`). All queries run in that schema context without `WHERE tenant_id = X` — the schema **is** the filter. Red flag: any query using explicit cross-schema table references.
 4. **PostgreSQL schema isolation:** Each tenant's data lives in its own schema namespace. Schema A's tables are completely invisible to queries running in schema B — this is enforced by PostgreSQL itself, not by application code. Tenant schemas are created at signup by cloning a template schema.
 5. **Post-fetch assertion (paranoia):** Not needed for tenant isolation (schema boundary guarantees it), but `assertFound` is still used for standard not-found semantics.
-6. **Namespacing outside RDBMS:** Redis keys `tenant:{tenantId}:...`; S3 keys `tenants/{tenantId}/resumes/{resumeId}.pdf`. Never accept client-supplied storage path.
+6. **Namespacing outside RDBMS:** Redis keys `tenant:{tenantId}:...`; S3 keys are generated server-side for candidate profile or tenant application context, such as `candidate-resumes/{candidateAccountId}/...` or `tenants/{tenantId}/...`. Never accept a client-supplied storage path.
 7. **Automated isolation test suite (CI release gate):** one test per resource — create schemas for Tenant A and B, seed identical tables in both, auth as A, assert that queries in A's scope cannot access or even reference B's schema. Failure = broken build.
 8. **Audit logging:** `{tenantId, userId, action, resourceId, timestamp}` for role changes, exports, tenant-settings.
 
@@ -214,7 +219,7 @@ Relationships:
 - **Drizzle:** SQL-first, typed, lightweight — pairs well with PostgreSQL's advanced features (row-level security policies, partial unique indexes).
 - **PostgreSQL:** chosen specifically for **schema-per-tenant isolation**. PostgreSQL natively supports multiple schemas within one database — MySQL's "schema" concept is synonymous with "database," making schema-per-tenant far more complex there. PG's `search_path` enables per-request schema routing without connection pooling overhead. Also supports `pgcrypto` for column-level encryption, `citext` for case-insensitive email matching, and `ROW LEVEL SECURITY` as an optional defense layer.
 - **Redis (3 roles):** (1) rate-limit counters, (2) short-TTL dashboard aggregate cache (keys `tenant:{id}:...`), (3) BullMQ job queue backing.
-- **BullMQ:** offloads resume parsing + email from request cycle.
+- **BullMQ:** offloads future notification and other slow background work from the request cycle; Phase 4 resume handling is storage-only.
 - **argon2:** password hashing (preferred over bcrypt for interview answer).
 - **Zod:** shared validation both ends.
 - **AsyncLocalStorage:** request-scoped tenant context (see §7 L2).
@@ -254,7 +259,7 @@ File-based TanStack Router (`frontend/src/routes/`), Mantine 9 + TanStack Query 
                  PipelineBoard/Column/ApplicationCard (P3, dnd-kit), Interviews (P8)
     /admin       SuperAdminPlatform (layout), TenantsList, TenantDetail, PlatformStats (P9)
     /candidate-portal CandidatePlatform (layout), JobsPage, ApplicationsPage, BookmarksPage, ProfilePage
-    /pipeline, /job-postings, /candidates, /resumes, /interviews, /public-careers   (scaffolded, P3+)
+    /pipeline, /job-postings, /candidates, /resumes, /interviews, /public-careers   (implemented as M3–M5 features)
   /hooks
     /useApiMutation.ts       wrapper — auto success/error toasts via Notifications
   /components                (shared)
@@ -272,21 +277,21 @@ File-based TanStack Router (`frontend/src/routes/`), Mantine 9 + TanStack Query 
 1. ✅ Auth + Tenant + role guards (no Redis/upload yet) — **implemented**
 2. ✅ Job Postings + Candidates CRUD (manual entry) — **implemented**
 3. ✅ Applications/Pipeline — Kanban board end-to-end (demo centerpiece) — **implemented**
-4. ⬜ Resume upload → MinIO/S3 storage → text extraction → skill extraction → matchScore — **next**
-5. ⬜ Public careers + apply endpoint (unauthenticated, rate-limited)
+4. ✅ Candidate resume storage + manual skills → matchScore — **implemented**
+5. ✅ Public tenant-specific careers listing/detail + Candidate-only apply — **implemented**
 6. ⬜ Redis: rate-limit (public apply + login) + dashboard cache
 7. ⬜ BullMQ: resume parsing + notification emails as background jobs
 8. ⬜ Interviews + feedback
 9. ⬜ Docker Compose full stack + GitHub Actions CI
 10. ⬜ Deploy; S3-compatible client already in use (MinIO → real S3 = env swap)
 
-> **Note:** Candidate Accounts were built early (with M1 restructure). Authenticated candidate features (signup via unified `POST /auth/signup`, signin via `POST /auth/signin`, jobs, applications history, bookmarks, profile) are **implemented** (`CandidateAccountModule`, public-schema tables `CANDIDATE_ACCOUNT`, `JOB_LISTINGS_INDEX`, `CANDIDATE_APPLICATIONS_INDEX`, `CANDIDATE_BOOKMARK`, `/candidate/*` API, candidate-portal frontend). The unauthenticated `/public/*` apply path remains a future (M5) secondary flow.
+> **Note:** Candidate Accounts were built early (with the M1 restructure). Authenticated candidate features (signup via unified `POST /auth/signup`, signin via `POST /auth/signin`, jobs, applications history, bookmarks, profile, skills, and resume storage) are **implemented** (`CandidateAccountModule`, public-schema candidate tables, `/candidate/*` API, and candidate-portal frontend). Public careers browsing is implemented through read-only `/public/:tenantSlug/jobs` GET routes. There is intentionally no anonymous `/public/*` apply path; Apply redirects anonymous visitors to sign-in/signup.
 
 **Testing:**
 - Unit: skill-match score (0/all/partial edge cases), stage-transition rules.
 - Integration: pipeline transitions, **tenant isolation** (Tenant A never fetches B's data).
-- Load: `k6`/`autocannon` on `/public/:tenant/jobs/:id/apply` to confirm rate limiter threshold.
-- E2E (Playwright, doubles as demo): signup → post job → public apply → drag through stages.
+- Load: future `k6`/`autocannon` coverage for the Phase 6 authentication/public-write rate-limit scope.
+- E2E (Playwright, doubles as demo): signup → post job → public careers browse → Candidate sign-in/signup → apply → drag through stages.
 
 **CI release gate:** isolation test suite (§7 L7) must pass — treat failure as broken build.
 
@@ -327,8 +332,8 @@ File-based TanStack Router (`frontend/src/routes/`), Mantine 9 + TanStack Query 
 | **M1** | Auth + Tenancy + RBAC ✅ | "Build AuthModule + TenantsModule + tenant-context interceptor + isolation layers 1–3 (§7 L1-L3). On signup, create Tenant + OrgAdmin AND provision a new PostgreSQL schema. JWT access+refresh." | Signup creates tenant schema; login works; isolation tests across schemas pass | M0 |
 | **M2** | Job Postings + Candidates ⬜ | "JobPostingsModule + CandidatesModule CRUD + repositories (§3,§5). All queries run in tenant schema via search_path." | CRUD works via API; schema isolation tests added | M1 |
 | **M3** | Pipeline (Kanban) | "ApplicationsModule + PipelineStage + frontend PipelineBoard with dnd-kit optimistic updates (§9 /features/pipeline). Backend `PATCH /applications/:id/stage`." | Drag stage move works end-to-end | M2 |
-| **M4** | Resume + Skill Match | "ResumeModule + SkillMatchingModule: upload→MinIO (S3-compatible, `@aws-sdk/client-s3`)→extract text→match vs required skills→store matchScore. Skill taxonomy seed." | Apply shows match score; unit tests for score fn | M2 |
-| **M5** | Public Careers + Apply | "PublicApplyModule: unauthenticated listing + apply (honeypot + file validation). Frontend public-careers shell." | Candidate can browse+apply without login | M3,M4 |
+| **M4** | Resume + Skill Match ✅ | "Candidate profile resume storage in MinIO plus manual candidate skills and explainable match score from profile/override." | Candidate profile stores resume and apply shows match score | M2 |
+| **M5** | Public Careers + Candidate Apply ✅ | "PublicCareersModule: tenant-specific open listing/detail GET routes. Apply redirects anonymous visitors to unified auth; Candidate API performs the write." | Candidate can browse publicly and apply after authentication | M3,M4 |
 | **M6** | Redis (rate-limit + cache) | "Redis rate limiter on /public/apply + /auth/signin (429+Retry-After). Dashboard aggregate cache namespaced `tenant:{id}:`." | Load test shows limiter triggers | M5 |
 | **M7** | BullMQ background jobs | "Move resume parsing + notification emails to BullMQ workers (§8, NFR-7 retries)." | Apply enqueues, worker parses async | M4,M6 |
 | **M8** | Interviews + Feedback | "InterviewsModule + INTERVIEW_FEEDBACK table + scheduling + assigned-only feedback (server-side filter)." | Schedule + submit feedback works | M3 |

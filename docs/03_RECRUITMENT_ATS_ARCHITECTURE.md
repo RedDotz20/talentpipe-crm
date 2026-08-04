@@ -2,7 +2,7 @@
 
 **Purpose:** High-level architectural scaffold — entity model, module boundaries, API surface shape, Redis usage, infra, and build order. This is a *narrative overview*; the authoritative, conflict-resolved build reference is `00_PROJECT_INSTRUCTIONS.md`.
 
-**One-line pitch:** A multi-tenant Applicant Tracking System where each company manages job postings, candidate pipelines, interviews, and recruiter collaboration — with resume parsing, skill-matching, and abuse-resistant public application intake.
+**One-line pitch:** A multi-tenant Applicant Tracking System where each company manages job postings, candidate pipelines, interviews, and recruiter collaboration — with candidate profile storage, explainable skill matching, and tenant-specific public careers browsing.
 
 > **Canonical source:** `00_PROJECT_INSTRUCTIONS.md` supersedes this doc. Where they differ, follow `00_PROJECT_INSTRUCTIONS.md`.
 
@@ -51,8 +51,8 @@ Application (tenant's schema — the pipeline record)
 PipelineStage (tenant's schema, customizable per Tenant, ordered)
  └─ id, name, order   e.g. Applied → Screening → Interview → Offer → Hired/Rejected
 
-Resume (tenant's schema)
- └─ id, candidateId, fileUrl, parsedText, extractedSkills[]
+CandidateAccount resume metadata (public schema)
+ └─ resumeFileUrl, resumeUploadedAt; file bytes live in MinIO/S3
 
 Skill (master taxonomy, lives in `public` schema — shared across tenants)
  └─ id, name, category
@@ -90,7 +90,7 @@ AuditLog (lives in `public` schema)
 
 **Candidates exist in two forms:** (1) global `candidate_accounts` in the public schema (auth identity + profile), and (2) per-tenant `candidates` records (snapshot at application time for the tenant's hiring context).
 
-**Skill matching** doesn't need ML to be legitimate for this project: extract skill keywords from parsed resume text against your `Skill` taxonomy (simple normalized string/token matching — e.g. "React.js", "ReactJS", "React" all map to one Skill row), then compute `matchScore` as `(matched required skills / total required skills)`. That's honest, testable, and explainable. If you want a v2 flex later, swapping in embeddings-based semantic matching (via a free local model or OpenAI embeddings) becomes a clean "here's how I'd improve it" answer in interviews — don't build that first.
+**Skill matching** is manual and explainable in the current build: Candidates select skills from the shared taxonomy, and the application score is `(matched required skills / total required skills)`. An optional per-application skill override is persisted with the application. Resume files are stored for recruiter review but are not parsed in v1. If you want a v2 flex later, automated extraction or embeddings-based semantic matching can be added without changing the public careers read boundary.
 
 ---
 
@@ -102,19 +102,19 @@ AuditLog (lives in `public` schema)
 | `TenantsModule` | Org creation/settings, plan info |
 | `UsersModule` | Recruiters/admins within a tenant, invites |
 | `JobPostingsModule` | CRUD on job postings, required-skills config |
-| `CandidatesModule` | Candidate records (created via public apply or manual entry) |
+| `CandidatesModule` | Tenant candidate records (created by authenticated candidate apply or manual entry) |
 | `CandidateAccountModule` ✅ | Candidate auth (signup/login via unified `/auth/*`), global `/candidate/*` API: dashboard, job search, applications history, bookmarks, profile |
 | `ApplicationsModule` | The pipeline — stage transitions, Kanban board data, notes |
-| `ResumeModule` | File upload, text extraction, skill extraction |
+| `ResumeModule` | Candidate profile file upload and storage-only metadata |
 | `SkillMatchingModule` | Score computation against a JobPosting's requirements |
 | `InterviewsModule` | Scheduling, feedback capture |
 | `NotificationsModule` | Email queue (stage changes, interview reminders) via BullMQ |
-| `PublicApplyModule` | **Unauthenticated** careers-page API — job listing + apply form submission |
+| `PublicCareersModule` | **Unauthenticated read-only** careers API — tenant job listing + detail |
 | `PlatformModule` | **SuperAdmin only** — cross-tenant tenant list/suspend/stats. Uses SEPARATE unscoped repositories, reachable only via `requireRole('SuperAdmin')`, in its own `/platform/*` route file. (Added to match `00_PROJECT_INSTRUCTIONS.md` §3.2 — the original module list omitted it though `/platform/*` routes and the SuperAdmin role are defined in `07_API_ENDPOINT_DOCUMENTATION.md` and `06_ROLE_INTERACTIONS.md`.) |
 
 Backend also ships `RepositoriesModule` (all repos extend `BaseRepository` with `withDb('current'|'public'|schema)`), `DatabaseModule` (pg `Pool` + `DrizzleSchemaService`), and `HealthModule` (`GET /api/health`).
 
-The `PublicApplyModule` is the one surface exposed to the open internet without auth — this is where your Redis rate limiting genuinely matters (prevent scripted spam applications) and where you'd also add basic abuse protection (honeypot field, file-type/size validation on resume upload).
+`PublicCareersModule` is the unauthenticated read surface. It never creates candidates, applications, or resumes. Anonymous Apply actions redirect to unified sign-in/signup; the authenticated Candidate module owns application writes. Redis rate limiting is deferred to Phase 6 for login and any future public write endpoints.
 
 ---
 
@@ -139,9 +139,9 @@ GET    /candidates/:id
 POST   /interviews
 POST   /interviews/:id/feedback
 
--- Public, unauthenticated, rate-limited (planned M5) --
+-- Public, unauthenticated, read-only (implemented M5) --
 GET    /public/:tenantSlug/jobs                  (careers page listing)
-POST   /public/:tenantSlug/jobs/:id/apply         (candidate submits application + resume)
+GET    /public/:tenantSlug/jobs/:id              (job detail + required skills)
 
 -- Candidate (authenticated, cross-tenant) ✅ implemented --
 GET    /candidate/jobs                       (list open jobs from index)
@@ -158,10 +158,10 @@ All routes are prefixed `api` (e.g. `POST /api/auth/org/signup`).
 
 | Use case | Mechanism |
 |---|---|
-| Public apply-endpoint abuse protection | Fixed-window or token-bucket limiter, keyed by IP (+ optionally email domain) |
+| Future public/auth write protection | Fixed-window or token-bucket limiter, keyed by IP/account |
 | Login brute-force protection | Counter per email/IP, lockout after N failed attempts |
 | Dashboard query caching | Cache expensive aggregate queries (e.g. "applications per stage" counts) with short TTL, invalidate on write |
-| Background jobs | BullMQ queues for resume parsing (can be slow) and email sending — keeps the request/response cycle fast |
+| Background jobs | BullMQ queues for future slow processing and email sending — keeps the request/response cycle fast |
 | Session/token blacklist | Store revoked refresh tokens for logout-everywhere functionality |
 
 This gives you **three distinct, explainable Redis use cases** instead of one — a stronger interview answer than "I used Redis for rate limiting" alone.
@@ -179,7 +179,7 @@ This gives you **three distinct, explainable Redis use cases** instead of one �
     /candidate
     /candidates
     /interviews
-    /public-careers    (separate unauthenticated route group — job listing + apply form)
+    /public-careers    (separate unauthenticated route group — tenant job listing + detail; Apply requires Candidate auth)
   /shared
     /components
     /hooks
@@ -207,7 +207,7 @@ Feature-folder structure matches what you already prefer. The Kanban pipeline bo
 2. ✅ Job Postings CRUD + Candidates CRUD (manual entry)
 3. ✅ Applications/Pipeline module — Kanban board working end-to-end
 4. ⬜ Resume upload → MinIO/S3 storage → text extraction → skill extraction → matchScore
-5. ⬜ Public careers page + public apply endpoint, unauthenticated
+5. ✅ Public careers page + Candidate-only apply; public API is read-only
 5b. ✅ Candidate accounts + dashboard — `candidate_accounts` auth, job search, apply-as-candidate, bookmarks, history (built early)
 6. ⬜ Redis: rate limiting on public apply + login, dashboard query caching
 7. ⬜ BullMQ: move resume parsing and notification emails to background jobs
@@ -221,5 +221,5 @@ Feature-folder structure matches what you already prefer. The Kanban pipeline bo
 
 - **Unit tests:** skill-matching score calculation (pure function, easy to test exhaustively with edge cases — 0 skills, all skills matched, partial overlap)
 - **Integration tests:** pipeline stage transitions (valid transitions only, tenant isolation — assert Tenant A can never fetch Tenant B's applications)
-- **Load test:** `k6`/`autocannon` script hammering `/public/:tenant/jobs/:id/apply` to visually confirm the rate limiter kicks in at the right threshold
-- **E2E (optional, high value for demo):** Playwright script that signs up a tenant, posts a job, submits a public application, and drags it through pipeline stages — this doubles as your demo script
+- **Load test:** future `k6`/`autocannon` coverage for the Phase 6 authentication/public-write rate-limit scope
+- **E2E (optional, high value for demo):** Playwright script that signs up a tenant, posts a job, browses public careers, signs in/signs up as Candidate, applies, and drags the application through pipeline stages

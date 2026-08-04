@@ -185,10 +185,16 @@ function assertFound<T>(row: T | null): T {
 }
 ```
 
+### Public careers reads and authenticated candidate writes
+
+Public careers requests have no JWT and therefore run in the public context, but they are not cross-tenant queries. `GET /public/:tenantSlug/jobs` resolves the slug through `public.tenants` and filters `public.job_listings_index` by that tenant ID and `status = 'open'`. `GET /public/:tenantSlug/jobs/:id` performs the same index check, then reads required skills from the explicitly resolved `tenant_<id>` schema and the shared public skill taxonomy. Unknown, draft, and closed jobs return `404`.
+
+There is no anonymous application endpoint. The frontend redirects an anonymous Apply action to unified sign-in/signup with a validated same-origin careers return path. Only a JWT-authenticated Candidate can call `/candidate/jobs/:tenantId/:jobId/apply`; that service validates the public index entry before writing tenant application data and the public application index.
+
 ### Layer 6 — Namespacing outside the relational database
 
-- **Redis keys:** always prefixed `tenant:{tenantId}:...` (e.g. `tenant:abc123:ratelimit:public-apply:1.2.3.4`) — prevents key collisions and makes it trivial to audit or flush one tenant's cache.
-- **S3/MinIO object keys:** always prefixed `tenants/{tenantId}/resumes/{resumeId}.pdf`. A resume URL is only ever generated server-side from the authenticated context — never accept a client-supplied storage path.
+- **Redis keys:** always prefixed `tenant:{tenantId}:...` for tenant-scoped cache/write features — prevents key collisions and makes it trivial to audit or flush one tenant's cache. Rate limiting is a Phase 6 concern.
+- **S3/MinIO object keys:** generated server-side for candidate profile resumes or tenant application contexts; never accept a client-supplied storage path. Current candidate profile uploads use a generated `candidate-resumes/{candidateAccountId}/...` key, while tenant-scoped keys use `tenants/{tenantId}/...`.
 
 ### Layer 7 — Automated isolation test suite (release gate, not optional)
 

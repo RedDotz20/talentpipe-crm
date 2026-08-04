@@ -6,7 +6,7 @@
 **Package manager:** npm
 **Prerequisites:** Node 20+, Docker Desktop, Git
 
-> **Status legend:** ✅ = already implemented in the repo. ⬜ = planned / not yet built. Phase 0 and Phase 1 are complete and the steps below have been corrected to match the *actual* implementation (which includes post-M1 refinements: backend SOLID restructure, unified auth routes, global response envelope, three frontend platforms, seed script, and early candidate accounts).
+> **Status legend:** ✅ = already implemented in the repo. ⬜ = planned / not yet built. Phases 0–5 are complete on the Phase 5 branch. The steps below match the actual implementation, including the backend SOLID restructure, unified auth routes, global response envelope, three frontend platforms, candidate accounts, manual skills, storage-only resumes, and read-only public careers API.
 
 ---
 
@@ -124,7 +124,8 @@ Create `backend/src/database/schema.ts` with ALL tables below.
 - `userEmails`: id (uuid pk), email (varchar 255, unique), tenantId, userId — **login lookup bridge** between a public-schema email and the owning tenant's schema.
 - `refreshTokens`: id (uuid pk), userId, tenantId, tokenHash (argon2 hash of refresh token), expiresAt, createdAt. Index on userId.
 - `superAdmins`: id (uuid pk), email (varchar 255, unique), passwordHash, name, createdAt — platform-level accounts (SuperAdmin role, no tenant).
-- `candidateAccounts`: id (uuid pk), email (varchar 255, unique), passwordHash, firstName, lastName, phone, createdAt.
+- `candidateAccounts`: id (uuid pk), email (varchar 255, unique), passwordHash, firstName, lastName, phone, resumeFileUrl, resumeUploadedAt, createdAt.
+- `candidateSkills`: id, candidateAccountId (FK), skillId (FK), createdAt. Unique on (candidateAccountId, skillId).
 - `candidateBookmarks`: id, candidateAccountId (FK), tenantId, jobPostingId, jobTitle, companyName, createdAt. Indexes on account + (tenantId, jobPostingId).
 - `candidateApplicationsIndex`: id, candidateAccountId (FK), tenantId, jobPostingId, applicationId, jobTitle, companyName, status, appliedAt. Indexes on account + (tenantId, jobPostingId).
 - `jobListingsIndex`: id, tenantId, jobPostingId (unique), title, description, companyName, companySlug, status, createdAt, updatedAt. Indexes on status / companyName / tenantId.
@@ -134,11 +135,9 @@ Create `backend/src/database/schema.ts` with ALL tables below.
 **Tenant-schema tables (no tenantId columns — the schema boundary is the isolation):**
 - `users`: id, email (unique), passwordHash, role (default 'OrgAdmin'), createdAt.
 - `jobPostings`: id, title (varchar 255), description (text), status (default 'draft'), createdByUserId (FK), createdAt.
-- `candidates`: id, name, email, phone, createdAt. Index on email.
+- `candidates`: id, name, email, phone, candidateAccountId (FK, nullable), createdAt. Indexes on email and candidateAccountId.
 - `pipelineStages`: id, name (varchar 100), order (integer, default 0). Index on order.
-- `applications`: id, candidateId (FK), jobPostingId (FK), currentStageId (FK), matchScore (float, default 0), appliedAt. Index on (jobPostingId, currentStageId).
-- `resumes`: id, candidateId (FK), fileUrl (varchar 512), parsedText (text), uploadedAt. Index on candidateId.
-- `resumeSkills`: resumeId (FK), skillId. Unique on (resumeId, skillId).
+- `applications`: id, candidateId (FK), jobPostingId (FK), currentStageId (FK), candidate snapshot fields, appliedSkillIds (JSONB), matchScore (float, default 0), appliedAt. Index on (jobPostingId, currentStageId).
 - `jobRequiredSkills`: jobPostingId (FK), skillId. Unique on (jobPostingId, skillId).
 - `interviews`: id, applicationId (FK), interviewerId (FK), scheduledAt, status (default 'scheduled'). Indexes on interviewerId, applicationId.
 - `interviewFeedbacks`: id, interviewId (FK, unique), rating (integer), comments, submittedAt.
@@ -149,13 +148,14 @@ Create `backend/src/database/schema.ts` with ALL tables below.
 cd backend
 npx drizzle-kit generate
 ```
-This writes SQL files under `backend/drizzle/<timestamp>_<name>/migration.sql` — Drizzle never auto-applies. Apply manually via psql (see `00b_LOCAL_DEV_BOOTSTRAP.md` steps 3–4).
+This writes SQL files under `backend/drizzle/<timestamp>_<name>/migration.sql` — Drizzle never auto-applies. Apply manually via psql (see `00b_LOCAL_DEV_BOOTSTRAP.md` steps 3–6).
 
 **Applied migrations (current repo):**
 ```
 backend/drizzle/20260722095156_bright_iron_fist/migration.sql    # 16 public tables
 backend/drizzle/20260723191416_fresh_blindfold/migration.sql      # +candidate tables
 backend/drizzle/20260727163000_smooth_spitfire/migration.sql      # +super_admins
+backend/drizzle/20260804101500_candidate_profile_redesign/migration.sql # profile/resume redesign
 ```
 
 **Template schema** (`backend/drizzle/template-schema.sql`) — the hand-written file cloned per tenant at signup. Apply it once to create the `template` schema:
@@ -163,10 +163,10 @@ backend/drizzle/20260727163000_smooth_spitfire/migration.sql      # +super_admin
 Get-Content backend/drizzle/template-schema.sql |
   docker exec -i talentpipe-crm-postgres-1 psql -U devuser -d talentpipe
 ```
-It defines the 11 tenant tables: `users, job_postings, candidates, pipeline_stages, applications, resumes, resume_skills, job_required_skills, interviews, interview_feedbacks, notes`.
+It defines the 9 tenant tables: `users, job_postings, candidates, pipeline_stages, applications, job_required_skills, interviews, interview_feedbacks, notes`.
 
-> **Note:** The candidate-related public tables (`candidate_accounts`, `candidate_bookmarks`, `candidate_applications_index`, `job_listings_index`) are NOT in the template — they exist only in `public`. `super_admins`, `user_emails`, `refresh_tokens` are also public-only.
-> **Runtime check:** any `relation "..." does not exist` on login means a migration or the template schema was skipped — re-run `00b_LOCAL_DEV_BOOTSTRAP.md` steps 3–5.
+> **Note:** The candidate-related public tables (`candidate_accounts`, `candidate_skills`, `candidate_bookmarks`, `candidate_applications_index`, `job_listings_index`) are NOT in the template — they exist only in `public`. `super_admins`, `user_emails`, `refresh_tokens` are also public-only. Tenant `resumes` and `resume_skills` were removed in Phase 4.
+> **Runtime check:** any `relation "..." does not exist` on login means a migration or the template schema was skipped — re-run `00b_LOCAL_DEV_BOOTSTRAP.md` steps 3–6.
 
 ### Step 1.3 — Drizzle provider
 Create `backend/src/database/drizzle.provider.ts` — export `DRIZZLE_PROVIDER` symbol + a factory that creates a `pg.Pool` from `DATABASE_URL` (injected via `ConfigService` — no direct `process.env`). Owned by `DatabaseModule`, which also provides/exports `DrizzleSchemaService`.
@@ -212,7 +212,7 @@ Create `backend/src/modules/auth/services/token.service.ts` — one `issueTokens
 Create `backend/src/modules/auth/services/tenant-provisioning.service.ts` — `createTenant(dto)`:
 1. `TenantRepository.findBySlug` → 409 if taken
 2. `TenantRepository.create({ id, name, slug })`
-3. `TenantRepository.provisionSchema(tenantId)` — `CREATE SCHEMA "tenant_<id>"` + `CREATE TABLE ... (LIKE template."<table>" INCLUDING ALL)` for all 11 tenant tables
+3. `TenantRepository.provisionSchema(tenantId)` — `CREATE SCHEMA "tenant_<id>"` + `CREATE TABLE ... (LIKE template."<table>" INCLUDING ALL)` for all 9 current tenant tables
 4. `UserRepository.create({ ... role: 'OrgAdmin' }, "tenant_<id>")`
 5. `PipelineStageRepository.createMany(DEFAULT_STAGES, "tenant_<id>")` — Applied/Screening/Interview/Offer/Hired/Rejected
 6. `UserEmailRepository.create({ email, tenantId, userId })`
@@ -283,7 +283,7 @@ Create `frontend/src/app/router.tsx` — `createRouter({ routeTree })` from `rou
 
 ---
 
-## Phase 2 — Job Postings & Candidates CRUD ⬜ (next milestone)
+## Phase 2 — Job Postings & Candidates CRUD ✅ (complete)
 
 > **Conventions to follow (from the Phase 1 restructure):**
 > - Modules live in `backend/src/modules/<name>/` with `module.ts`, `controller.ts`, `service.ts`, `dto/` (Zod schemas + inferred types).
@@ -401,7 +401,7 @@ Create `StageEditor.tsx` — ordered list with drag handle, inline name edit, ad
 
 ---
 
-## Phase 4 — Resume Upload & Manual Skill Matching ⬜ (next milestone)
+## Phase 4 — Resume Upload & Manual Skill Matching ✅ (complete)
 
 > **Design change:** Automated PDF/DOCX text extraction and substring skill matching removed. Resume is now **pure storage** (MinIO) for recruiter review. Candidates **manually declare skills** in their cross-tenant profile (`public.candidate_skills`). Match score = candidate's self-declared skills (or per-application override) vs job's required skills. See `docs/superpowers/specs/2026-08-03-phase4-redesign-manual-skills.md`.
 
@@ -437,8 +437,8 @@ candidateSkills = pgTable('candidate_skills', {
 ```
 
 **Update `backend/drizzle/template-schema.sql`:**
-- Remove `parsedText` column from `resumes` table
-- Keep `resume_skills` table (for future use) but do not auto-populate
+- Remove the tenant `resumes` and `resume_skills` tables entirely
+- Keep the current 9-table tenant template in sync with `backend/src/database/schema.ts`
 
 Run migration:
 ```
@@ -467,24 +467,18 @@ Update `backend/src/modules/candidate-account/`:
   ```
 - **DTOs:** Zod schema for `skillIds: string[]`
 
-### Step 4.7 — Apply Endpoints — Accept Optional Skill Override
-**Public Apply Module** (`POST /public/:tenantSlug/jobs/:id/apply`):
-- Accept optional `skillIds?: string[]` in body
-- If provided → use for match score
-- If omitted AND candidate authenticated → fetch from `candidate_skills`
-- If omitted AND no candidate auth → matchScore = 0
-
+### Step 4.7 — Candidate Apply — Accept Optional Skill Override
 **Candidate Apply Module** (`POST /candidate/jobs/:tenantId/:jobId/apply`):
 - Same logic: optional `skillIds` override, default to profile skills
-- Persist used `skillIds` to `candidate_applications_index.skill_ids` (JSONB) for history
+- Persist used `skillIds` to the tenant application's `applied_skill_ids` JSONB field for history
 
 ### Step 4.8 — Resumes Module — Simplify to Storage Only
 Update `backend/src/modules/resumes/`:
 - **Service:** Remove `extractText()`, `extractSkills()`, `recomputeScores()`
-  - `upload(candidateId, file)`: validate type/size → upload to MinIO → create `resumes` row with `fileUrl` only
-  - `get(candidateId)`: return `{ id, candidateId, fileUrl, uploadedAt }` (no parsedText, no skills)
+  - `upload(candidateAccountId, file)`: validate type/size → upload to MinIO → update `candidate_accounts.resume_file_url` and `resume_uploaded_at`
+  - `get(candidateAccountId)`: return resume metadata from the candidate account (no parsedText, no skills)
 - **Controller:** Same endpoints, simplified response
-- **Repository:** Remove `updateParsedText`, `setResumeSkills`, `findSkillsByResumeId` (keep `findByCandidateId`, `create`)
+- **Repository:** Use `CandidateAccountRepository` resume metadata methods; no tenant resume repository exists
 
 ### Step 4.9 — Candidates Service (Org) — Include Candidate Skills
 Update `backend/src/modules/candidates/candidates.service.ts`:
@@ -493,9 +487,9 @@ Update `backend/src/modules/candidates/candidates.service.ts`:
 
 ### Step 4.10 — Unit Tests
 - `skill-matching.service.spec.ts` — unchanged (keep existing tests)
-- `resumes.service.spec.ts` — simplify: test upload stores file, returns metadata only
+- `resumes.service.spec.ts` — test upload stores the file and candidate-account metadata only
 - `candidate-account.service.spec.ts` — add tests for `getSkills`/`setSkills`
-- `public-apply/candidate-apply` tests — verify match score with profile skills vs override
+- `candidate-apply` tests — verify match score with profile skills vs override
 
 ### Step 4.11 — Frontend: Candidate Skills Page
 Create `frontend/src/features/candidate-portal/skills/`:
@@ -506,11 +500,11 @@ Create route: `frontend/src/routes/_candidate/skills.tsx`
 
 Update `CandidatePlatform` sidebar: add "Skills" link.
 
-### Step 4.12 — Frontend: ApplyForm Updates
-Update `ApplyForm.tsx` (both public careers and candidate portal):
-- If candidate authenticated: prefill skills from `GET /candidate/skills`
-- Allow add/remove before submit
-- Submit body includes `skillIds`
+### Step 4.12 — Frontend: Candidate Apply Form
+The authenticated candidate apply modal:
+- Prefills skills from `GET /candidate/skills`
+- Allows add/remove before submit
+- Submits `skillIds` to the Candidate-only apply endpoint
 
 ### Step 4.13 — Frontend: Org Candidate Profile
 Update `frontend/src/features/org/candidates/CandidateProfile.tsx`:
@@ -529,55 +523,56 @@ cd backend && npm uninstall pdf-parse mammoth @types/pdf-parse @types/mammoth
 
 ---
 
-## Phase 5 — Public Careers & Apply
+## Phase 5 — Public Careers & Candidate Apply ✅ (complete)
 
-> **Note:** Phase 5 (public careers) is the unauthenticated flow. Phase 5b (below) adds the authenticated candidate experience. Both coexist.
+> **Design decision:** Phase 5 public careers is unauthenticated read-only browsing. Every application requires an authenticated Candidate account. Redis and rate limiting remain in Phase 6.
 
-### Step 5.1 — Install Redis client
+### Step 5.1 — Public careers backend ✅
+Implemented `backend/src/modules/public-careers/` with:
 ```
-cd backend && npm install ioredis
+GET /public/:tenantSlug/jobs       — tenant-specific open jobs from job_listings_index
+GET /public/:tenantSlug/jobs/:id   — open job detail + required skills
+```
+The service resolves the tenant by slug, filters the public index by tenant and `open` status, and reads required skills from the explicit tenant schema. Missing, draft, and closed jobs return `404`.
+
+### Step 5.2 — Candidate-only application boundary ✅
+There is intentionally no `POST /public/:tenantSlug/jobs/:id/apply` endpoint. The existing endpoint remains the only application write path:
+```
+POST /candidate/jobs/:tenantId/:jobId/apply — Candidate JWT + Candidate role required
+```
+Anonymous Apply actions redirect to `/auth/signin?returnTo=/careers/...`; the unified sign-in and candidate signup pages preserve the safe return path.
+
+### Step 5.3 — Public careers frontend ✅
+Implemented:
+- `frontend/src/features/public-careers/JobListingPage.tsx`
+- `frontend/src/features/public-careers/JobDetailPage.tsx`
+- `frontend/src/features/public-careers/api/publicCareersApi.ts`
+- `frontend/src/features/public-careers/hooks/usePublicCareers.ts`
+- `/careers/$tenantSlug/jobs`
+- `/careers/$tenantSlug/jobs/$jobId`
+- Shared authenticated `CandidateApplyModal` used by public detail and candidate job search.
+
+### Step 5.4 — Verify ✅
+```
+curl http://localhost:3000/api/public/acme/jobs
+curl http://localhost:3000/api/public/acme/jobs/<open-job-id>
+curl http://localhost:3000/api/public/acme/jobs/<draft-or-closed-job-id>  # 404
+curl -X POST http://localhost:3000/api/candidate/jobs/<tenant-id>/<open-job-id>/apply -d '{}'  # 401 without JWT
 ```
 
-### Step 5.2 — Redis provider
-Create `backend/src/database/redis.provider.ts` — REDIS_PROVIDER symbol, factory returning `new Redis(process.env.REDIS_URL)`.
-
-### Step 5.3 — Rate limiter guard
-Create `backend/src/common/middlewares/rate-limiter.guard.ts` — key `ratelimit:public-apply:{ip}`, threshold 20 per 15 min, returns 429 with Retry-After.
-
-### Step 5.4 — Public apply module
-Create `backend/src/modules/public-apply/` with controller.
-Endpoints:
-```
-GET  /public/:tenantSlug/jobs           — list open jobs (tenant lookup by slug, set search_path)
-GET  /public/:tenantSlug/jobs/:id       — job detail
-POST /public/:tenantSlug/jobs/:id/apply — rate-limited, honeypot, create candidate+application+resume
-```
-
-### Step 5.5 — Frontend careers pages
-Create `JobListingPage.tsx` — no auth, fetch GET /public/:slug/jobs, list titles+descriptions.
-Create `JobDetailPage.tsx` — full description, required skills, "Apply Now".
-Create `ApplyForm.tsx` — name/email/phone + resume upload + hidden honeypot. On 429 show retry message.
-Create `ApplySuccessPage.tsx` — "Application submitted!" + link back.
-
-### Step 5.6 — Verify
-```
-curl http://localhost:3000/api/public/testcorp/jobs
-curl -X POST http://localhost:3000/api/public/testcorp/jobs/<id>/apply -d '{"name":"Jane","email":"j@e.com"}'
-for i in $(seq 1 25); do curl ...; done  # first 20 -> 200, rest -> 429
-```
-
-**Commit:** `git add -A && git commit -m "phase5: public careers page and rate-limited apply — backend + frontend"`
+**Commit:** `git add -A && git commit -m "feat(m5): public careers and Candidate-only apply"`
 
 ---
 
-## Phase 5b — Candidate Accounts & Dashboard
+## Phase 5b — Candidate Accounts & Dashboard ✅ (implemented early)
 
-> **Status: ✅ implemented** (built early with the backend SOLID restructure). The `/candidate/*` API + `CandidatePlatform` frontend exist. Steps below are kept for reference.
+> **Status: ✅ implemented** (built early with the backend SOLID restructure and completed through Phase 4). The `/candidate/*` API + `CandidatePlatform` frontend exist, including profile skills, storage-only resume upload, authenticated apply, bookmarks, and application history. Steps below are kept for reference.
 
 ### Step 5b.1 — Add public schema tables
 **Done.**
 Add to `backend/src/database/schema.ts`:
-- `candidateAccounts`: id, email (unique), passwordHash, firstName, lastName, phone, createdAt
+- `candidateAccounts`: id, email (unique), passwordHash, firstName, lastName, phone, resumeFileUrl, resumeUploadedAt, createdAt
+- `candidateSkills`: id, candidateAccountId (FK), skillId (FK), createdAt
 - `candidateBookmarks`: id, candidateAccountId (FK → candidateAccounts.id), tenantId, jobPostingId, jobTitle, companyName, createdAt
 - `candidateApplicationsIndex`: id, candidateAccountId (FK → candidateAccounts.id), tenantId, jobPostingId, applicationId, status, appliedAt, jobTitle, companyName
 - `jobListingsIndex`: id, tenantId, jobPostingId (unique), title, description, companyName, companySlug, status, createdAt, updatedAt
@@ -620,10 +615,10 @@ PATCH  /candidate/profile                           — CANDIDATE (update)
 ```
 
 ### Step 5b.5 — Update ApplicationsModule
-In the stage transition handler (`PATCH /applications/:id/stage`): after updating the tenant's application record, also update `candidateApplicationsIndex` status field for that application. **Not yet done** — pending Phase 3.
+In the stage transition handler (`PATCH /applications/:id/stage`): after updating the tenant's application record, also update `candidateApplicationsIndex` status field for that application. **Done.**
 
 ### Step 5b.6 — Update JobPostingsModule
-In the publish/close handlers: sync the `jobListingsIndex` table — upsert on publish, update status on close. **Not yet done** — pending Phase 2.
+In the publish/close/delete handlers: sync the `jobListingsIndex` table — upsert on publish, update status on close, and delete the index row on deletion. **Done.**
 
 ### Step 5b.7 — Frontend: Candidate shell & auth
 **Done.** `frontend/src/features/candidate-portal/layout.tsx` (`CandidatePlatform` — minimal layout: header with logo + nav to jobs/applications/bookmarks/profile), plus login/signup pages in the same feature folder calling the unified `POST /auth/signin` / `POST /auth/signup`.
@@ -652,13 +647,19 @@ curl -X POST http://localhost:3000/api/public/testcorp/jobs/<id>/apply -d '{"nam
 
 ## Phase 6 — Redis: Full Integration
 
-### Step 6.1 — Login rate limiter
+### Step 6.1 — Install Redis client and provider
+```
+cd backend && npm install ioredis
+```
+Create `backend/src/database/redis.provider.ts` — `REDIS_PROVIDER` factory using the configured Redis URL.
+
+### Step 6.2 — Login rate limiter
 Create `backend/src/common/middlewares/login-rate-limiter.guard.ts` — key `ratelimit:login:{email}:{ip}`, threshold 5 per 15 min. Apply to POST /auth/signin.
 
-### Step 6.2 — Cache service
+### Step 6.3 — Cache service
 Create `backend/src/common/cache.service.ts` — get<T>(key), set(key, value, ttlSeconds), invalidate(pattern).
 
-### Step 6.3 — Dashboard cache
+### Step 6.4 — Dashboard cache
 In dashboard service: check cache before expensive queries. Set with 60s TTL. Invalidate on writes.
 
 **Commit:** `git add -A && git commit -m "phase6: Redis rate limiting, login lockout, dashboard cache"`
@@ -673,15 +674,12 @@ cd backend && npm install bullmq
 ```
 
 ### Step 7.2 — Queue definitions
-Create `backend/src/queues/queues.ts` — resumeQueue ('resume-processing') and notificationQueue ('notifications'), both with Redis connection (Redis provider from Phase 5, `backend/src/database/redis.provider.ts`).
+Create `backend/src/queues/queues.ts` — notificationQueue ('notifications') and any explicitly approved future queues, both with Redis connection from the Phase 6 provider.
 
-### Step 7.3 — Resume worker
-Create `backend/src/workers/resume.worker.ts` — Worker('resume-processing', job -> set search_path, fetch resume, extract text, extract skills, update matchScore). 3 retries with exponential backoff.
+### Step 7.3 — Notification worker
+Create `backend/src/workers/notification.worker.ts` — process queued stage-change or interview notifications with 3 retries and exponential backoff. Resume parsing is not part of the current product design.
 
-### Step 7.4 — Enqueue on apply
-In resume/apply service: `resumeQueue.add('process-resume', { resumeId, candidateId, tenantId })` instead of processing inline.
-
-### Step 7.5 — Wire up worker
+### Step 7.4 — Wire up worker
 Create `backend/src/workers/bootstrap.ts` — import workers. Call in main.ts after app boot.
 
 **Commit:** `git add -A && git commit -m "phase7: BullMQ background jobs — resume parsing + notifications"`

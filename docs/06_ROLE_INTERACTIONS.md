@@ -23,8 +23,8 @@ Six roles: **SuperAdmin, Org Admin, Recruiter, Hiring Manager, Interviewer, Cand
 | Schedule interviews | — | ✅ | ✅ | ✅ | — | — |
 | View own assigned interviews | — | — | — | — | ✅ | — |
 | Submit interview feedback | — | — | — | — | ✅ (if assigned) | — |
-| Browse public job listings (also works unauthenticated via `/public/*`) | — | — | — | — | — | ✅ |
-| Submit an application (also works unauthenticated via `/public/*`) | — | — | — | — | — | ✅ |
+| Browse public job listings (works unauthenticated via `/public/*`) | — | — | — | — | — | ✅ |
+| Submit an application after Candidate authentication | — | — | — | — | — | ✅ |
 | View own application history | — | — | — | — | — | ✅ |
 | Bookmark/save jobs | — | — | — | — | — | ✅ |
 | Manage profile | — | — | — | — | — | ✅ |
@@ -70,7 +70,7 @@ flowchart LR
   A[Recruiter logs in] --> B[Create job posting]
   B --> C[Set required skills]
   C --> D[Publish]
-  D --> E[Candidates apply via public page]
+  D --> E[Candidates sign in or create account, then apply]
   E --> F[Review pipeline board]
   F --> G[Move candidate through stages]
   G --> H[Schedule interview]
@@ -113,7 +113,7 @@ flowchart LR
 
 **Auth:** Candidates sign up via the unified `POST /api/auth/signup` and sign in via `POST /api/auth/signin` (no separate `/auth/candidate/*` routes).
 
-**Dual apply path:** A planned unauthenticated public apply (`POST /public/:tenantSlug/jobs/:id/apply`) is the M5 flow for candidates without accounts. Authenticated candidates use `/candidate/jobs/:tenantId/:jobId/apply` (implemented).
+**Public careers/apply flow:** Public GET routes expose tenant-specific open jobs and details. An anonymous Apply action redirects to unified sign-in/signup with a safe return path. Authenticated Candidates use `/candidate/jobs/:tenantId/:jobId/apply` (implemented); no anonymous application or resume record is created.
 
 ```mermaid
 flowchart LR

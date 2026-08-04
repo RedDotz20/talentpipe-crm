@@ -87,8 +87,10 @@ Access control is enforced in each route's `beforeLoad` (TanStack Router), redir
 - `bookmarks/BookmarksPage.tsx` — saved jobs
 - `settings/SettingsPage.tsx` — edit profile
 
-### `/features/public-careers` (scaffolded; M5)
-- `JobListingPage.tsx`, `JobDetailPage.tsx`, `ApplyForm.tsx` (honeypot), `ApplySuccessPage.tsx`
+### `/features/public-careers` ✅ (M5)
+- `JobListingPage.tsx`, `JobDetailPage.tsx`, public careers API/hooks
+- Tenant-specific routes: `/careers/$tenantSlug/jobs` and `/careers/$tenantSlug/jobs/$jobId`
+- Apply redirects anonymous visitors to unified sign-in/signup with a safe return path; authenticated Candidates use the shared `CandidateApplyModal` and existing candidate apply API
 
 ### `/features/resumes` (scaffolded; M4)
 - `ResumeUploadInput.tsx`, `MatchScoreBadge.tsx`
@@ -104,10 +106,10 @@ Access control is enforced in each route's `beforeLoad` (TanStack Router), redir
 ## 5. Build Order (matches backend milestones)
 
 1. ✅ Auth + `OrgPlatform`/`SuperAdminPlatform`/`CandidatePlatform` shells + file-based routing + role-gated `beforeLoad` guards
-2. ⬜ Job postings + candidates (basic CRUD, tables) — **next**
-3. ⬜ Pipeline board (Kanban, drag-and-drop) — demo centerpiece
-4. ⬜ Resume upload + match score display
-5. ⬜ Public careers pages (separate shell, no auth)
+2. ✅ Job postings + candidates (basic CRUD, tables)
+3. ✅ Pipeline board (Kanban, drag-and-drop) — demo centerpiece
+4. ✅ Candidate profile resume storage + manual skills and match score display
+5. ✅ Public careers pages (separate shell, no auth for browsing; Candidate auth required to apply)
 6. ⬜ Interviews + feedback
 7. ⬜ Admin (`/org/settings`, `/org/users`) and Platform (`/admin/*`) views
 8. ✅ Candidate portal — signup, job search, applications, bookmarks, profile (built early)

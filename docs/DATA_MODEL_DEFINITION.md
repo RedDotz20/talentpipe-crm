@@ -13,8 +13,8 @@ Two groups of tables:
 
 | Schema | Contents | Access |
 |---|---|---|
-| `public` | `tenants`, `skills`, `audit_logs`, `user_emails`, `refresh_tokens`, `super_admins`, `candidate_accounts`, `candidate_bookmarks`, `candidate_applications_index`, `job_listings_index` | Global/platform data + cross-tenant indexes |
-| `tenant_<id>` | `users`, `job_postings`, `candidates`, `pipeline_stages`, `applications`, `resumes`, `resume_skills`, `job_required_skills`, `interviews`, `interview_feedbacks`, `notes` | Tenant-scoped queries via `search_path` |
+| `public` | `tenants`, `skills`, `audit_logs`, `user_emails`, `refresh_tokens`, `super_admins`, `candidate_accounts`, `candidate_skills`, `candidate_bookmarks`, `candidate_applications_index`, `job_listings_index` | Global/platform data + cross-tenant indexes |
+| `tenant_<id>` | `users`, `job_postings`, `candidates`, `pipeline_stages`, `applications`, `job_required_skills`, `interviews`, `interview_feedbacks`, `notes` | Tenant-scoped queries via `search_path` |
 
 Tenant schemas are created at signup by cloning the `template` schema (`backend/drizzle/template-schema.sql`). Drizzle migrations apply to `public`; the `template` schema and existing tenant schemas are updated manually (see `00b_LOCAL_DEV_BOOTSTRAP.md` "Editing the schema").
 
@@ -27,7 +27,7 @@ Path: `backend/src/database/schema.ts`
 ```typescript
 import {
   pgTable, uuid, varchar, text, integer, doublePrecision, timestamp,
-  uniqueIndex, index,
+  uniqueIndex, index, jsonb,
 } from 'drizzle-orm/pg-core';
 
 // ── Public Schema Tables ──
@@ -122,6 +122,7 @@ export const candidates = pgTable(
     name: varchar('name', { length: 255 }).notNull(),
     email: varchar('email', { length: 255 }),
     phone: varchar('phone', { length: 50 }),
+    candidateAccountId: uuid('candidate_account_id'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({
@@ -149,6 +150,10 @@ export const applications = pgTable(
     candidateId: uuid('candidate_id').notNull().references(() => candidates.id),
     jobPostingId: uuid('job_posting_id').notNull().references(() => jobPostings.id),
     currentStageId: uuid('current_stage_id').references(() => pipelineStages.id),
+    candidateName: varchar('candidate_name', { length: 255 }),
+    candidateEmail: varchar('candidate_email', { length: 255 }),
+    candidatePhone: varchar('candidate_phone', { length: 50 }),
+    appliedSkillIds: jsonb('applied_skill_ids'),
     matchScore: doublePrecision('match_score').default(0),
     appliedAt: timestamp('applied_at').defaultNow().notNull(),
   },
@@ -156,30 +161,6 @@ export const applications = pgTable(
     jobStageIdx: index('idx_applications_job_stage').on(
       table.jobPostingId, table.currentStageId,
     ),
-  }),
-);
-
-export const resumes = pgTable(
-  'resumes',
-  {
-    id: uuid('id').defaultRandom().primaryKey(),
-    candidateId: uuid('candidate_id').notNull().references(() => candidates.id),
-    fileUrl: varchar('file_url', { length: 512 }),
-    uploadedAt: timestamp('uploaded_at').defaultNow().notNull(),
-  },
-  (table) => ({
-    candidateIdx: index('idx_resumes_candidate').on(table.candidateId),
-  }),
-);
-
-export const resumeSkills = pgTable(
-  'resume_skills',
-  {
-    resumeId: uuid('resume_id').notNull().references(() => resumes.id),
-    skillId: uuid('skill_id').notNull(), // references public.skills.id
-  },
-  (table) => ({
-    uniqueIdx: uniqueIndex('idx_resume_skills_unique').on(table.resumeId, table.skillId),
   }),
 );
 
@@ -243,6 +224,8 @@ export const candidateAccounts = pgTable('candidate_accounts', {
   firstName: varchar('first_name', { length: 100 }).notNull(),
   lastName: varchar('last_name', { length: 100 }).notNull(),
   phone: varchar('phone', { length: 50 }),
+  resumeFileUrl: varchar('resume_file_url', { length: 512 }),
+  resumeUploadedAt: timestamp('resume_uploaded_at', { withTimezone: true }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -325,9 +308,9 @@ export const jobListingsIndex = pgTable(
 
 ## Template Schema
 
-The `template` schema (`backend/drizzle/template-schema.sql`) contains exactly the **11 tenant tables** (`users`, `job_postings`, `candidates`, `pipeline_stages`, `applications`, `resumes`, `resume_skills`, `job_required_skills`, `interviews`, `interview_feedbacks`, `notes`). It does **not** include the public candidate tables (`candidate_accounts`, `candidate_skills`, `candidate_bookmarks`, `candidate_applications_index`) or the public platform tables (`super_admins`, `user_emails`, `refresh_tokens`, `skills`, `audit_logs`, `job_listings_index`). On tenant signup, `TenantProvisioningService` clones these into a new `tenant_<id>` schema and inserts the default pipeline stages.
+The `template` schema (`backend/drizzle/template-schema.sql`) contains exactly the **9 tenant tables** (`users`, `job_postings`, `candidates`, `pipeline_stages`, `applications`, `job_required_skills`, `interviews`, `interview_feedbacks`, `notes`). It does **not** include the public candidate tables (`candidate_accounts`, `candidate_skills`, `candidate_bookmarks`, `candidate_applications_index`) or the public platform tables (`super_admins`, `user_emails`, `refresh_tokens`, `skills`, `audit_logs`, `job_listings_index`). On tenant signup, `TenantProvisioningService` clones these into a new `tenant_<id>` schema and inserts the default pipeline stages.
 
-> **Note:** The `resumes` table in the template no longer has a `parsedText` column. The `resume_skills` table is kept (for potential future use) but is not auto-populated — skill matching now uses `public.candidate_skills`.
+> **Note:** Tenant `resumes` and `resume_skills` tables were removed by the Phase 4 redesign. Resume metadata is stored on `public.candidate_accounts`; skill matching uses `public.candidate_skills` and application snapshots.
 
 ---
 
@@ -346,13 +329,13 @@ The `template` schema (`backend/drizzle/template-schema.sql`) contains exactly t
 | `candidates` | tenant | — | Company's record of a person who applied |
 | `pipeline_stages` | tenant | — | Ordered, configurable per tenant |
 | `applications` | tenant | `candidateId → candidates.id`, `jobPostingId → job_postings.id`, `currentStageId → pipeline_stages.id` | The pipeline record |
-| `resumes` | tenant | `candidateId → candidates.id` | |
-| `resume_skills` | tenant | `resumeId → resumes.id`, `skillId → public.skills.id` | Many-to-many |
+| `candidate_skills` | public | `candidateAccountId → candidate_accounts.id`, `skillId → public.skills.id` | Many-to-many; unique per candidate/skill |
 | `job_required_skills` | tenant | `jobPostingId → job_postings.id`, `skillId → public.skills.id` | Many-to-many |
 | `interviews` | tenant | `applicationId → applications.id`, `interviewerId → users.id` | |
 | `interview_feedbacks` | tenant | `interviewId → interviews.id` (unique) | 1:1 with interview |
 | `notes` | tenant | `applicationId → applications.id`, `authorUserId → users.id` | |
-| `candidate_accounts` | `public` | — | Global candidate identity (no tenant) |
+| `candidate_accounts` | `public` | — | Global candidate identity and resume metadata (no tenant) |
+| `candidate_skills` | `public` | `candidateAccountId → candidate_accounts.id`, `skillId → skills.id` | Candidate-declared skills; unique per account/skill |
 | `candidate_bookmarks` | `public` | `candidateAccountId → candidate_accounts.id` | Cross-tenant; denormalized `jobTitle`/`companyName` |
 | `candidate_applications_index` | `public` | `candidateAccountId → candidate_accounts.id` | Cross-tenant application history |
 | `job_listings_index` | `public` | — | Cross-tenant open-job catalog (denormalized from tenant `job_postings`) |
@@ -361,7 +344,7 @@ The `template` schema (`backend/drizzle/template-schema.sql`) contains exactly t
 
 ## Seed Data: Skill Taxonomy
 
-Planned for M2 (`seedSkills` in `backend/scripts/seed.ts`). These are the base skills used for resume matching.
+Seeded by `backend/scripts/seed.ts`. These are the base skills used for manual candidate declarations and job requirements.
 
 ```typescript
 const seedSkills = [
@@ -429,13 +412,13 @@ const seedSkills = [
 
 1. **No `tenantId` columns on tenant-scoped tables.** Isolation is purely by PostgreSQL schema. Every table in a tenant schema is implicitly owned by that tenant. The `public` tables that do carry a `tenantId` (`audit_logs`, `candidate_bookmarks`, `candidate_applications_index`, `job_listings_index`) use it as a **data field**, not an isolation mechanism.
 
-2. **`skills` is shared.** The `resume_skills` and `job_required_skills` join tables reference `public.skills` via the `search_path` fallback (queries run with `SET search_path TO tenant_<id>, public`). Cross-schema FKs are not physically enforced by DDL — skill IDs are validated at the application layer.
+2. **`skills` is shared.** The `candidate_skills` public join table and tenant `job_required_skills` table reference `public.skills` through application-level validation. Cross-schema FKs are not physically enforced by DDL; skill IDs are validated before writes.
 
 3. **`audit_logs` is in `public` schema.** Even though it carries `tenantId`, it needs to be accessible cross-schema for SuperAdmin reporting.
 
 4. **UUID primary keys.** All tables use UUID v4 via `defaultRandom()`. Sequential IDs are avoided to prevent ID enumeration attacks.
 
-5. **`matchScore` is denormalized** on `applications` (`doublePrecision`, default 0). Computed once by the skill-matching background job; recompute if a posting's required skills change after applications exist.
+5. **`matchScore` is denormalized** on `applications` (`doublePrecision`, default 0). Computed synchronously at application time from declared or overridden skills; recompute if a posting's required skills change after applications exist.
 
 6. **`pipeline_stages.order` is a reserved word.** In PostgreSQL, `order` must be quoted — in raw SQL use `"order"`. Drizzle handles this with the string key `'order'`.
 

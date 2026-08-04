@@ -73,7 +73,18 @@ Now expect **21 tables** including `candidate_accounts`, `super_admins`, `job_li
 
 ---
 
-### 5. Apply the `template` schema (used by tenant signup)
+### 5. Apply the Phase 4 candidate-profile migration
+
+The current Phase 4 redesign stores resume metadata on `public.candidate_accounts`, links tenant candidates to accounts, stores application snapshots, and removes tenant `resumes`/`resume_skills` tables. Apply it after the public migrations and before recreating the template:
+
+```sh
+Get-Content backend/drizzle/20260804101500_candidate_profile_redesign/migration.sql `
+  | docker exec -i talentpipe-crm-postgres-1 psql -U devuser -d talentpipe
+```
+
+**Check:** existing tenant schemas and `template` no longer contain `resumes` or `resume_skills`; `public.candidate_accounts` contains `resume_file_url` and `resume_uploaded_at`.
+
+### 6. Apply the `template` schema (used by tenant signup)
 
 The template schema is what every new tenant's `tenant_<uuid>` schema gets cloned from at signup time. It's a hand-written SQL file.
 
@@ -90,11 +101,11 @@ Expect: `public`, `template`. Then:
 ```sh
 docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "\dt template.*"
 ```
-Expect **11 tables** (users, job_postings, candidates, pipeline_stages, applications, resumes, resume_skills, job_required_skills, interviews, interview_feedbacks, notes).
+Expect **9 tables** (`users`, `job_postings`, `candidates`, `pipeline_stages`, `applications`, `job_required_skills`, `interviews`, `interview_feedbacks`, `notes`).
 
 ---
 
-### 6. Seed the 3 sample accounts
+### 7. Seed the 3 sample accounts
 
 ```sh
 cd backend
@@ -117,7 +128,7 @@ docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe \
 
 ---
 
-### 7. Start the backend
+### 8. Start the backend
 
 ```sh
 cd backend
@@ -134,7 +145,7 @@ If you see `relation "users" does not exist` or any DrizzleQueryError on login �
 
 ---
 
-### 8. Start the frontend
+### 9. Start the frontend
 
 ```sh
 cd frontend
@@ -145,7 +156,7 @@ npm run dev
 
 ---
 
-### 9. Log in with a sample account
+### 10. Log in with a sample account
 
 The seed script creates exactly three accounts:
 
@@ -340,7 +351,7 @@ Use this whenever you touch `schema.ts`:
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `relation "user_emails" does not exist` on login | Migrations not applied | Re-run steps 3 → 5 |
-| `relation "template.users" does not exist` on signup | Template schema not applied | Re-run step 5 |
+| `relation "template.users" does not exist` on signup | Template schema not applied | Re-run step 6 |
 | Backend boots but every query 500s | DB container down | `docker ps` + `docker compose up -d` |
 | `ECONNREFUSED 5432` on backend start | Postgres not up yet | Wait a few seconds after `docker compose up -d`, then retry |
 | `EADDRINUSE :3000` | Old backend still running | `Get-Process node` → kill it |
