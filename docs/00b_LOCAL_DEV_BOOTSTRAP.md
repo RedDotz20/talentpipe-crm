@@ -124,12 +124,6 @@ docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "\d templ
 ```
 Expect the nullable `cover_letter` column inherited from `public.applications`.
 
-Verify the same column exists on at least one existing tenant schema:
-```sh
-docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "SELECT c.table_schema, c.table_name, c.column_name, c.is_nullable FROM information_schema.columns c WHERE c.table_schema = (SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE 'tenant_%' ORDER BY schema_name LIMIT 1) AND c.table_name = 'applications' AND c.column_name = 'cover_letter';"
-```
-**Check:** returns one row for the discovered `tenant_<uuid>.applications` table with `column_name = cover_letter`.
-
 ---
 
 ### 8. Seed the 3 sample accounts
@@ -152,6 +146,12 @@ Seed complete.
 docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe \
   -c "SELECT email FROM public.super_admins; SELECT email FROM public.user_emails; SELECT email FROM public.candidate_accounts;"
 ```
+
+Verify the same column exists on at least one existing tenant schema:
+```sh
+docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "SELECT c.table_schema, c.table_name, c.column_name, c.is_nullable FROM information_schema.columns c WHERE c.table_schema = (SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE 'tenant_%' ORDER BY schema_name LIMIT 1) AND c.table_name = 'applications' AND c.column_name = 'cover_letter';"
+```
+**Check:** returns one row for the discovered `tenant_<uuid>.applications` table with `column_name = cover_letter`.
 
 ---
 
