@@ -9,8 +9,6 @@ const TENANT_TABLES = [
   'candidates',
   'pipeline_stages',
   'applications',
-  'resumes',
-  'resume_skills',
   'job_required_skills',
   'interviews',
   'interview_feedbacks',
