@@ -1,5 +1,7 @@
 export interface Job {
   id: string;
+  /** Canonical tenant job-posting identifier; public index rows also expose an id. */
+  jobPostingId?: string;
   tenantId: string;
   title: string;
   companyName: string;

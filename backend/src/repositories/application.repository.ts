@@ -19,6 +19,7 @@ const selectAppRow = {
   candidateEmail: candidates.email,
   jobTitle: jobPostings.title,
   stageName: pipelineStages.name,
+  candidateAccountId: candidates.candidateAccountId,
   // Snapshot fields
   applicationCandidateName: applications.candidateName,
   applicationCandidateEmail: applications.candidateEmail,
@@ -116,7 +117,7 @@ export class ApplicationRepository extends BaseRepository {
     });
   }
 
-  async updateStage(id: string, stageId: string, schema = 'current') {
+  async updateStage(id: string, stageId: string | null, schema = 'current') {
     return this.withDb(schema, async (db) => {
       const rows = await db
         .update(applications)

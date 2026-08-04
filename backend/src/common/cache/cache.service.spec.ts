@@ -10,7 +10,8 @@ describe('CacheService', () => {
   let redis: {
     get: jest.Mock;
     set: jest.Mock;
-    del: jest.Mock;
+    advanceDashboardGeneration: jest.Mock;
+    setIfGenerationMatches: jest.Mock;
     invalidate: jest.Mock;
   };
   let cache: CacheService;
@@ -20,7 +21,8 @@ describe('CacheService', () => {
     redis = {
       get: jest.fn(),
       set: jest.fn(),
-      del: jest.fn(),
+      advanceDashboardGeneration: jest.fn(),
+      setIfGenerationMatches: jest.fn(),
       invalidate: jest.fn(),
     };
     cache = new CacheService(redis as unknown as RedisService);
@@ -85,23 +87,50 @@ describe('CacheService', () => {
   });
 
   it('invalidates a tenant dashboard summary key', async () => {
-    redis.del.mockResolvedValue(undefined);
+    redis.advanceDashboardGeneration.mockResolvedValue(1);
 
     await expect(
       cache.invalidateTenantDashboard('tenant-1'),
     ).resolves.toBeUndefined();
 
-    expect(redis.del).toHaveBeenCalledWith(dashboardSummaryKey('tenant-1'));
+    expect(redis.advanceDashboardGeneration).toHaveBeenCalledWith(
+      expect.stringContaining('tenant:tenant-1:dashboard:generation:v1'),
+      dashboardSummaryKey('tenant-1'),
+    );
   });
 
   it('does not throw and logs when tenant dashboard invalidation fails', async () => {
-    redis.del.mockRejectedValue(new Error('redis down'));
+    redis.advanceDashboardGeneration.mockRejectedValue(new Error('redis down'));
 
     await expect(
       cache.invalidateTenantDashboard('tenant-1'),
     ).resolves.toBeUndefined();
 
     expect(loggerError).toHaveBeenCalled();
+  });
+
+  it('returns the current generation and defaults a missing generation to zero', async () => {
+    redis.get.mockResolvedValue(null);
+
+    await expect(cache.getTenantDashboardGeneration('tenant-1')).resolves.toBe(
+      0,
+    );
+  });
+
+  it('uses the atomic generation compare-and-set dashboard write', async () => {
+    redis.setIfGenerationMatches.mockResolvedValue(true);
+
+    await expect(
+      cache.setTenantDashboardIfGeneration('tenant-1', 2, { count: 1 }, 60),
+    ).resolves.toBe(true);
+
+    expect(redis.setIfGenerationMatches).toHaveBeenCalledWith(
+      expect.stringContaining('tenant:tenant-1:dashboard:generation:v1'),
+      dashboardSummaryKey('tenant-1'),
+      2,
+      '{"count":1}',
+      60,
+    );
   });
 });
 

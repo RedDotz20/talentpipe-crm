@@ -15,7 +15,10 @@ import type { Job, Skill } from '../types';
 interface CandidateApplyModalProps {
   opened: boolean;
   onClose: () => void;
-  job: Pick<Job, 'id' | 'tenantId' | 'title' | 'companyName'>;
+  job: Pick<
+    Job,
+    'id' | 'jobPostingId' | 'tenantId' | 'title' | 'companyName'
+  >;
 }
 
 export function CandidateApplyModal({
@@ -49,10 +52,11 @@ export function CandidateApplyModal({
   };
 
   const handleApply = () => {
+    const jobPostingId = job.jobPostingId ?? job.id;
     apply(
       {
         tenantId: job.tenantId,
-        jobId: job.id,
+        jobId: jobPostingId,
         data: {
           phone: phone || undefined,
           coverLetter: coverLetter || undefined,

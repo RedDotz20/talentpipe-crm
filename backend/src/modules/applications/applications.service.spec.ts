@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { ApplicationsService } from './applications.service';
 import { ApplicationRepository } from '../../repositories/application.repository';
 import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
@@ -66,6 +66,8 @@ describe('ApplicationsService', () => {
     applicationRepo.findById.mockResolvedValue({
       id: 'a1',
       candidateName: 'Jane',
+      candidateAccountId: null,
+      currentStageId: 's1',
     });
     noteRepo.findByApplicationId.mockResolvedValue([
       { id: 'n1', content: 'x' },
@@ -73,6 +75,8 @@ describe('ApplicationsService', () => {
     await expect(service.getOne('a1')).resolves.toEqual({
       id: 'a1',
       candidateName: 'Jane',
+      candidateAccountId: null,
+      currentStageId: 's1',
       notes: [{ id: 'n1', content: 'x' }],
     });
   });
@@ -96,6 +100,8 @@ describe('ApplicationsService', () => {
     applicationRepo.findById.mockResolvedValue({
       id: 'a1',
       candidateName: 'Jane',
+      candidateAccountId: null,
+      currentStageId: 's1',
     });
     pipelineStageRepo.findById.mockResolvedValue({
       id: 's2',
@@ -114,6 +120,52 @@ describe('ApplicationsService', () => {
       'tenant-a',
       'Interview',
     );
+    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
+  });
+
+  it('rolls back a linked candidate application when index synchronization returns null', async () => {
+    applicationRepo.findById.mockResolvedValue({
+      id: 'a1',
+      candidateAccountId: 'candidate-a',
+      currentStageId: 's1',
+    });
+    pipelineStageRepo.findById.mockResolvedValue({
+      id: 's2',
+      name: 'Interview',
+    });
+    applicationRepo.updateStage.mockResolvedValue({ id: 'a1' });
+    candidateApplicationsIndexRepo.updateStatus.mockResolvedValue(null);
+
+    await expect(
+      runInContext(() =>
+        service.updateStage('a1', { stageId: 's2' }, 'tenant-a'),
+      ),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+
+    expect(applicationRepo.updateStage).toHaveBeenNthCalledWith(1, 'a1', 's2');
+    expect(applicationRepo.updateStage).toHaveBeenNthCalledWith(2, 'a1', 's1');
+    expect(cacheService.invalidateTenantDashboard).not.toHaveBeenCalled();
+  });
+
+  it('keeps manual tenant-only candidates updated without an index row', async () => {
+    applicationRepo.findById.mockResolvedValue({
+      id: 'a1',
+      candidateAccountId: null,
+      currentStageId: 's1',
+    });
+    pipelineStageRepo.findById.mockResolvedValue({
+      id: 's2',
+      name: 'Interview',
+    });
+    applicationRepo.updateStage.mockResolvedValue({ id: 'a1' });
+    candidateApplicationsIndexRepo.updateStatus.mockResolvedValue(null);
+    noteRepo.findByApplicationId.mockResolvedValue([]);
+
+    await expect(
+      runInContext(() =>
+        service.updateStage('a1', { stageId: 's2' }, 'tenant-a'),
+      ),
+    ).resolves.toEqual(expect.objectContaining({ id: 'a1' }));
     expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
   });
 

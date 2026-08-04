@@ -22,7 +22,8 @@ describe('DashboardService', () => {
   let service: DashboardService;
   const cache = {
     get: jest.fn(),
-    set: jest.fn(),
+    getTenantDashboardGeneration: jest.fn(),
+    setTenantDashboardIfGeneration: jest.fn(),
   };
   const repository = {
     findSummary: jest.fn(),
@@ -50,13 +51,15 @@ describe('DashboardService', () => {
 
   it('queries and caches on a miss', async () => {
     cache.get.mockResolvedValue(null);
+    cache.getTenantDashboardGeneration.mockResolvedValue(0);
     repository.findSummary.mockResolvedValue(summary);
 
     await expect(runInTenant(() => service.getSummary())).resolves.toEqual(
       summary,
     );
-    expect(cache.set).toHaveBeenCalledWith(
-      'tenant:t1:dashboard:summary:v1',
+    expect(cache.setTenantDashboardIfGeneration).toHaveBeenCalledWith(
+      't1',
+      0,
       summary,
       60,
     );
@@ -64,6 +67,7 @@ describe('DashboardService', () => {
 
   it('returns a cache hit without querying the repository', async () => {
     cache.get.mockResolvedValue(summary);
+    cache.getTenantDashboardGeneration.mockResolvedValue(0);
 
     await expect(runInTenant(() => service.getSummary())).resolves.toEqual(
       summary,
@@ -73,6 +77,7 @@ describe('DashboardService', () => {
 
   it('falls back to the repository when the cache returns no value', async () => {
     cache.get.mockResolvedValue(null);
+    cache.getTenantDashboardGeneration.mockResolvedValue(0);
     repository.findSummary.mockResolvedValue(summary);
 
     await expect(runInTenant(() => service.getSummary())).resolves.toEqual(
@@ -91,11 +96,55 @@ describe('DashboardService', () => {
 
   it('returns the repository summary when caching the result fails', async () => {
     cache.get.mockResolvedValue(null);
-    cache.set.mockRejectedValue(new Error('Redis unavailable'));
+    cache.getTenantDashboardGeneration.mockResolvedValue(0);
+    cache.setTenantDashboardIfGeneration.mockRejectedValue(
+      new Error('Redis unavailable'),
+    );
     repository.findSummary.mockResolvedValue(summary);
 
     await expect(runInTenant(() => service.getSummary())).resolves.toEqual(
       summary,
     );
+  });
+
+  it('does not cache a database result when the generation changed', async () => {
+    cache.getTenantDashboardGeneration.mockResolvedValue(2);
+    cache.get.mockResolvedValue(null);
+    repository.findSummary.mockResolvedValue(summary);
+    cache.setTenantDashboardIfGeneration.mockResolvedValue(false);
+
+    await expect(runInTenant(() => service.getSummary())).resolves.toEqual(
+      summary,
+    );
+    expect(cache.setTenantDashboardIfGeneration).toHaveBeenCalledWith(
+      't1',
+      2,
+      summary,
+      60,
+    );
+  });
+
+  it('skips cache writes when generation state is unavailable', async () => {
+    cache.getTenantDashboardGeneration.mockResolvedValue(null);
+    cache.get.mockResolvedValue(null);
+    repository.findSummary.mockResolvedValue(summary);
+
+    await expect(runInTenant(() => service.getSummary())).resolves.toEqual(
+      summary,
+    );
+    expect(cache.setTenantDashboardIfGeneration).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the repository when generation reads fail', async () => {
+    cache.getTenantDashboardGeneration.mockRejectedValue(
+      new Error('Redis unavailable'),
+    );
+    cache.get.mockResolvedValue(null);
+    repository.findSummary.mockResolvedValue(summary);
+
+    await expect(runInTenant(() => service.getSummary())).resolves.toEqual(
+      summary,
+    );
+    expect(cache.setTenantDashboardIfGeneration).not.toHaveBeenCalled();
   });
 });

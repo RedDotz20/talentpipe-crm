@@ -10,6 +10,7 @@ import {
   index,
   jsonb,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 // ── Public Schema Tables ──
 
@@ -111,6 +112,9 @@ export const candidates = pgTable(
   (table) => ({
     emailIdx: index('idx_candidates_email').on(table.email),
     accountIdx: index('idx_candidates_account').on(table.candidateAccountId),
+    uniqueCandidateAccount: uniqueIndex('unique_candidate_account')
+      .on(table.candidateAccountId)
+      .where(sql`${table.candidateAccountId} is not null`),
   }),
 );
 

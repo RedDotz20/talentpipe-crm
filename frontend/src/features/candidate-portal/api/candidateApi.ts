@@ -13,20 +13,30 @@ import type {
 
 const unwrap = <T>(body: ApiEnvelope<T>): T => body.data;
 
-const normalizeJob = (job: Job & { jobPostingId?: string }): Job => ({
-  ...job,
-  id: job.id ?? job.jobPostingId ?? '',
-});
+type CandidateJobRow = Job & { jobPostingId?: string };
+export type NormalizedCandidateJob = Job & { jobPostingId: string };
+
+const normalizeJob = (job: CandidateJobRow): NormalizedCandidateJob => {
+  const jobPostingId = job.jobPostingId ?? job.id;
+  return {
+    ...job,
+    id: jobPostingId,
+    jobPostingId,
+  };
+};
 
 export const candidateApi = {
-  getJobs: async (search?: string): Promise<Job[]> => {
+  getJobs: async (search?: string): Promise<NormalizedCandidateJob[]> => {
     const { data } = await apiClient.get('/candidate/jobs', { params: { search } });
-    return unwrap(data as ApiEnvelope<(Job & { jobPostingId?: string })[]>).map(normalizeJob);
+    return unwrap(data as ApiEnvelope<CandidateJobRow[]>).map(normalizeJob);
   },
 
-  getJobDetail: async (tenantId: string, jobId: string): Promise<Job> => {
+  getJobDetail: async (
+    tenantId: string,
+    jobId: string,
+  ): Promise<NormalizedCandidateJob> => {
     const { data } = await apiClient.get(`/candidate/jobs/${tenantId}/${jobId}`);
-    return normalizeJob(unwrap(data as ApiEnvelope<Job & { jobPostingId?: string }>));
+    return normalizeJob(unwrap(data as ApiEnvelope<CandidateJobRow>));
   },
 
   getApplications: async (): Promise<Application[]> => {

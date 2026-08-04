@@ -576,7 +576,9 @@ describe('Phase 5b/6 release gates', () => {
         [jobA.id],
       );
       expect(closedJobResult.rowCount).toBe(1);
-      expect(closedJobResult.rows[0]?.status).toBe('closed');
+      const closedJobRow = closedJobResult.rows[0] as
+        { status?: unknown } | undefined;
+      expect(closedJobRow?.status).toBe('closed');
 
       const cachedAfterDirectDatabaseChangeResponse = await request(
         httpServer(),

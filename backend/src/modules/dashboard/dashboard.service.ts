@@ -18,6 +18,12 @@ export class DashboardService {
 
   async getSummary(): Promise<DashboardSummary> {
     const tenantId = getTenantId();
+    let generation: number | null = null;
+    try {
+      generation = await this.cache.getTenantDashboardGeneration(tenantId);
+    } catch {
+      // A cache outage must not prevent the tenant dashboard from loading.
+    }
     const key = dashboardSummaryKey(tenantId);
 
     let cached: DashboardSummary | null = null;
@@ -29,10 +35,17 @@ export class DashboardService {
     if (cached) return cached;
 
     const summary = await this.dashboardRepo.findSummary();
-    try {
-      await this.cache.set(key, summary, SUMMARY_TTL_SECONDS);
-    } catch {
-      // Cache writes are best-effort; the aggregate remains the response.
+    if (generation !== null) {
+      try {
+        await this.cache.setTenantDashboardIfGeneration(
+          tenantId,
+          generation,
+          summary,
+          SUMMARY_TTL_SECONDS,
+        );
+      } catch {
+        // Cache writes are best-effort; the aggregate remains the response.
+      }
     }
     return summary;
   }

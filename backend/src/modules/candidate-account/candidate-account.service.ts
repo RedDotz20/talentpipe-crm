@@ -42,6 +42,29 @@ const isDuplicateCandidateApplicationError = (error: unknown): boolean => {
   });
 };
 
+const isDuplicateCandidateAccountError = (error: unknown): boolean => {
+  if (typeof error !== 'object' || error === null) return false;
+
+  const errorWithCause = error as {
+    code?: unknown;
+    constraint?: unknown;
+    cause?: unknown;
+  };
+  return [errorWithCause, errorWithCause.cause].some((candidate) => {
+    if (typeof candidate !== 'object' || candidate === null) return false;
+    const databaseError = candidate as {
+      code?: unknown;
+      constraint?: unknown;
+    };
+    return (
+      databaseError.code === '23505' &&
+      (databaseError.constraint === 'unique_candidate_account' ||
+        (typeof databaseError.constraint === 'string' &&
+          databaseError.constraint.includes('candidate_account_id')))
+    );
+  });
+};
+
 @Injectable()
 export class CandidateAccountService {
   constructor(
@@ -70,6 +93,7 @@ export class CandidateAccountService {
       jobPostingId,
     );
     if (!job) throw new NotFoundException('Job posting not found');
+    await this.requireOpenTenantJob(tenantId, jobPostingId);
     return job;
   }
 
@@ -85,11 +109,12 @@ export class CandidateAccountService {
     );
     if (!job) throw new NotFoundException('Job posting not found');
 
+    const schemaName = `tenant_${tenantId}`;
+    await this.requireOpenTenantJob(tenantId, jobPostingId);
+
     const account =
       await this.candidateAccountRepo.findById(candidateAccountId);
     if (!account) throw new NotFoundException('Candidate account not found');
-
-    const schemaName = `tenant_${tenantId}`;
 
     // Check for existing application
     const existing = await this.candidateApplicationsIndexRepo.findByJob(
@@ -129,17 +154,29 @@ export class CandidateAccountService {
       candidateAccountId,
       schemaName,
     );
+    let createdCandidate = false;
     if (!candidate) {
-      candidate = await this.candidateRepo.createFromAccount(
-        candidateAccountId,
-        {
-          name: `${account.firstName} ${account.lastName}`,
-          email: account.email,
-          phone: dto.phone ?? account.phone,
-        },
-        schemaName,
-      );
-    } else {
+      try {
+        candidate = await this.candidateRepo.createFromAccount(
+          candidateAccountId,
+          {
+            name: `${account.firstName} ${account.lastName}`,
+            email: account.email,
+            phone: dto.phone ?? account.phone,
+          },
+          schemaName,
+        );
+        createdCandidate = true;
+      } catch (error: unknown) {
+        if (!isDuplicateCandidateAccountError(error)) throw error;
+        candidate = await this.candidateRepo.findByAccountId(
+          candidateAccountId,
+          schemaName,
+        );
+        if (!candidate) throw error;
+      }
+    }
+    if (candidate && !createdCandidate) {
       // Update tenant candidate snapshot
       await this.candidateRepo.update(
         candidate.id,
@@ -150,6 +187,9 @@ export class CandidateAccountService {
         },
         schemaName,
       );
+    }
+    if (!candidate) {
+      throw new NotFoundException('Candidate could not be created');
     }
 
     const firstStage = await this.pipelineStageRepo.findFirst(schemaName);
@@ -265,6 +305,7 @@ export class CandidateAccountService {
       jobPostingId,
     );
     if (!job) throw new NotFoundException('Job posting not found');
+    await this.requireOpenTenantJob(tenantId, jobPostingId);
 
     const existing = await this.candidateBookmarkRepo.findByJob(
       candidateAccountId,
@@ -280,6 +321,19 @@ export class CandidateAccountService {
       jobTitle: job.title,
       companyName: job.companyName,
     });
+  }
+
+  private async requireOpenTenantJob(
+    tenantId: string,
+    jobPostingId: string,
+  ): Promise<void> {
+    const posting = await this.jobPostingRepo.findById(
+      jobPostingId,
+      `tenant_${tenantId}`,
+    );
+    if (!posting || posting.status !== 'open') {
+      throw new NotFoundException('Job posting not found');
+    }
   }
 
   async removeBookmark(candidateAccountId: string, bookmarkId: string) {

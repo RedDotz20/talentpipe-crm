@@ -73,7 +73,25 @@ Now expect **21 tables** including `candidate_accounts`, `super_admins`, `job_li
 
 ---
 
-### 5. Apply the Phase 4 candidate-profile migration
+### 5. Apply the candidate-skills migration
+
+Apply this migration before the Phase 4 redesign migration so a fresh database
+replays the schema changes chronologically.
+
+```sh
+Get-Content backend/drizzle/20260803085856_redundant_tyrannus/migration.sql `
+  | docker exec -i talentpipe-crm-postgres-1 psql -U devuser -d talentpipe
+```
+
+**Check:**
+```sh
+docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "\d public.candidate_skills"
+# Expect the unique_candidate_skill index and candidate-account/skill foreign keys.
+```
+
+The public schema now has **22 tables**, including `candidate_skills`.
+
+### 6. Apply the Phase 4 candidate-profile migration
 
 The current Phase 4 redesign stores resume metadata on `public.candidate_accounts`, links tenant candidates to accounts, stores application snapshots, and removes tenant `resumes`/`resume_skills` tables. Apply it after the public migrations and before recreating the template:
 
@@ -84,9 +102,9 @@ Get-Content backend/drizzle/20260804101500_candidate_profile_redesign/migration.
 
 **Check:** existing tenant schemas and `template` no longer contain `resumes` or `resume_skills`; `public.candidate_accounts` contains `resume_file_url` and `resume_uploaded_at`.
 
-### 6. Apply the candidate application integrity migration
+### 7. Apply the candidate application integrity migration
 
-This migration adds the nullable `cover_letter` column to the public, template, and existing tenant application tables. It also removes only duplicate candidate/job index rows (retaining the earliest application) before creating the database-enforced unique index.
+This migration adds the nullable `cover_letter` column to the public, template, and existing tenant application tables. It reconciles duplicate tenant candidate links and duplicate candidate/job index rows (retaining the earliest application) before creating the database-enforced unique indexes.
 
 ```sh
 Get-Content backend/drizzle/20260805090000_candidate_application_integrity/migration.sql `
@@ -101,7 +119,7 @@ docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "\d publi
 # Expect the unique_candidate_application unique index.
 ```
 
-### 7. Apply the `template` schema (used by tenant signup)
+### 8. Apply the `template` schema (used by tenant signup)
 
 The template schema is what every new tenant's `tenant_<uuid>` schema gets cloned from at signup time. It's a hand-written SQL file.
 
@@ -126,7 +144,7 @@ Expect the nullable `cover_letter` column inherited from `public.applications`.
 
 ---
 
-### 8. Seed the 3 sample accounts
+### 9. Seed the 3 sample accounts
 
 ```sh
 cd backend
@@ -155,7 +173,7 @@ docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "SELECT c
 
 ---
 
-### 9. Start the backend
+### 10. Start the backend
 
 ```sh
 cd backend
@@ -168,11 +186,11 @@ curl http://localhost:3000/api/health
 # → {"data":{"status":"ok","timestamp":"..."},"message":"OK"}
 ```
 
-If you see `relation "users" does not exist` or any DrizzleQueryError on login → you skipped step 3, 4, 5, 6, or 7.
+If you see `relation "users" does not exist` or any DrizzleQueryError on login → you skipped step 3 through 8.
 
 ---
 
-### 10. Start the frontend
+### 11. Start the frontend
 
 ```sh
 cd frontend
@@ -183,7 +201,7 @@ npm run dev
 
 ---
 
-### 11. Log in with a sample account
+### 12. Log in with a sample account
 
 The seed script creates exactly three accounts:
 
@@ -222,7 +240,7 @@ cd frontend && npm run dev
 # 4. Open http://localhost:5173
 ```
 
-If login suddenly breaks with `relation "..." does not exist` — the Postgres volume was wiped. Re-run steps 3 → 7.
+If login suddenly breaks with `relation "..." does not exist` — the Postgres volume was wiped. Re-run steps 3 → 8.
 
 ---
 
@@ -237,7 +255,7 @@ docker compose down -v
 # 2. Restart infra
 docker compose up -d
 
-# 3. Re-run steps 3 → 7 above (migrations + template + seed)
+# 3. Re-run steps 3 → 8 above (migrations + template), then seed with step 9
 ```
 
 This is the fastest way to a known-good state. Drizzle migrations and the seed script are all idempotent (use `IF NOT EXISTS` / skip-on-existing checks).
@@ -377,8 +395,8 @@ Use this whenever you touch `schema.ts`:
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| `relation "user_emails" does not exist` on login | Migrations not applied | Re-run steps 3 → 7 |
-| `relation "template.users" does not exist` on signup | Template schema not applied | Re-run step 6 |
+| `relation "user_emails" does not exist` on login | Migrations not applied | Re-run steps 3 → 8 |
+| `relation "template.users" does not exist` on signup | Template schema not applied | Re-run step 8 |
 | Backend boots but every query 500s | DB container down | `docker ps` + `docker compose up -d` |
 | `ECONNREFUSED 5432` on backend start | Postgres not up yet | Wait a few seconds after `docker compose up -d`, then retry |
 | `EADDRINUSE :3000` | Old backend still running | `Get-Process node` → kill it |

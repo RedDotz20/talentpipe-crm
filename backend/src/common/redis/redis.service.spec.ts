@@ -4,8 +4,7 @@ import { RedisModule } from './redis.module';
 import { RedisService } from './redis.service';
 
 type MockRedis = {
-  incr: jest.Mock;
-  expire: jest.Mock;
+  eval: jest.Mock;
   get: jest.Mock;
   set: jest.Mock;
   del: jest.Mock;
@@ -16,8 +15,7 @@ type MockRedis = {
 
 function createRedisMock(): MockRedis {
   return {
-    incr: jest.fn(),
-    expire: jest.fn(),
+    eval: jest.fn(),
     get: jest.fn(),
     set: jest.fn(),
     del: jest.fn(),
@@ -45,27 +43,66 @@ describe('RedisService', () => {
   });
 
   it('sets the expiry only for the first increment', async () => {
-    redis.incr.mockResolvedValue(1);
+    redis.eval.mockResolvedValue(1);
 
     await expect(service.incrementWithWindow('key', 900)).resolves.toBe(1);
 
-    expect(redis.incr).toHaveBeenCalledWith('key');
-    expect(redis.expire).toHaveBeenCalledWith('key', 900);
+    expect(redis.eval).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "redis.call('SET', KEYS[1], '1', 'EX', ARGV[1], 'NX')",
+      ),
+      1,
+      'key',
+      900,
+    );
   });
 
   it('does not set a second expiry for an existing counter', async () => {
-    redis.incr.mockResolvedValue(2);
+    redis.eval.mockResolvedValue(2);
 
     await expect(service.incrementWithWindow('key', 900)).resolves.toBe(2);
 
-    expect(redis.expire).not.toHaveBeenCalled();
+    expect(redis.eval).toHaveBeenCalledTimes(1);
   });
 
   it('returns null when an increment fails', async () => {
-    redis.incr.mockRejectedValue(new Error('redis down'));
+    redis.eval.mockRejectedValue(new Error('redis down'));
 
     await expect(service.incrementWithWindow('key', 900)).resolves.toBeNull();
     expect(loggerError).toHaveBeenCalled();
+  });
+
+  it('uses one atomic script for dashboard generation invalidation', async () => {
+    redis.eval.mockResolvedValue(3);
+
+    await expect(
+      service.advanceDashboardGeneration('generation', 'summary'),
+    ).resolves.toBe(3);
+
+    expect(redis.eval).toHaveBeenCalledWith(
+      expect.stringContaining("redis.call('DEL', KEYS[2])"),
+      2,
+      'generation',
+      'summary',
+    );
+  });
+
+  it('suppresses a dashboard write when the generation changed', async () => {
+    redis.eval.mockResolvedValue(0);
+
+    await expect(
+      service.setIfGenerationMatches('generation', 'summary', 2, '{}', 60),
+    ).resolves.toBe(false);
+
+    expect(redis.eval).toHaveBeenCalledWith(
+      expect.stringContaining("redis.call('GET', KEYS[1])"),
+      2,
+      'generation',
+      'summary',
+      2,
+      '{}',
+      60,
+    );
   });
 
   it('returns the stored value from get', async () => {

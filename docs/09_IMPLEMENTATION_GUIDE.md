@@ -148,14 +148,16 @@ Create `backend/src/database/schema.ts` with ALL tables below.
 cd backend
 npx drizzle-kit generate
 ```
-This writes SQL files under `backend/drizzle/<timestamp>_<name>/migration.sql` — Drizzle never auto-applies. Apply manually via psql (see `00b_LOCAL_DEV_BOOTSTRAP.md` steps 3–6).
+This writes SQL files under `backend/drizzle/<timestamp>_<name>/migration.sql` — Drizzle never auto-applies. Apply manually via psql (see `00b_LOCAL_DEV_BOOTSTRAP.md` steps 3–7).
 
 **Applied migrations (current repo):**
 ```
 backend/drizzle/20260722095156_bright_iron_fist/migration.sql    # 16 public tables
 backend/drizzle/20260723191416_fresh_blindfold/migration.sql      # +candidate tables
 backend/drizzle/20260727163000_smooth_spitfire/migration.sql      # +super_admins
+backend/drizzle/20260803085856_redundant_tyrannus/migration.sql   # +candidate skills
 backend/drizzle/20260804101500_candidate_profile_redesign/migration.sql # profile/resume redesign
+backend/drizzle/20260805090000_candidate_application_integrity/migration.sql # application/candidate integrity
 ```
 
 **Template schema** (`backend/drizzle/template-schema.sql`) — the hand-written file cloned per tenant at signup. Apply it once to create the `template` schema:
@@ -166,7 +168,7 @@ Get-Content backend/drizzle/template-schema.sql |
 It defines the 9 tenant tables: `users, job_postings, candidates, pipeline_stages, applications, job_required_skills, interviews, interview_feedbacks, notes`.
 
 > **Note:** The candidate-related public tables (`candidate_accounts`, `candidate_skills`, `candidate_bookmarks`, `candidate_applications_index`, `job_listings_index`) are NOT in the template — they exist only in `public`. `super_admins`, `user_emails`, `refresh_tokens` are also public-only. Tenant `resumes` and `resume_skills` were removed in Phase 4.
-> **Runtime check:** any `relation "..." does not exist` on login means a migration or the template schema was skipped — re-run `00b_LOCAL_DEV_BOOTSTRAP.md` steps 3–6.
+> **Runtime check:** any `relation "..." does not exist` on login means a migration or the template schema was skipped — re-run `00b_LOCAL_DEV_BOOTSTRAP.md` steps 3–8.
 
 ### Step 1.3 — Drizzle provider
 Create `backend/src/database/drizzle.provider.ts` — export `DRIZZLE_PROVIDER` symbol + a factory that creates a `pg.Pool` from `DATABASE_URL` (injected via `ConfigService` — no direct `process.env`). Owned by `DatabaseModule`, which also provides/exports `DrizzleSchemaService`.
@@ -674,11 +676,21 @@ Implemented in `backend/src/common/cache/cache.service.ts` with JSON-safe `get<T
 with TTL, pattern invalidation, and tenant dashboard-key invalidation. Cache failures fall
 back to the underlying database operation.
 
+Final integrity hardening adds a tenant dashboard generation key. Invalidation advances
+the generation and removes the summary atomically; dashboard writes use an atomic
+generation compare-and-set, so a result queried before a mutation cannot repopulate a
+stale summary.
+
 ### Step 6.4 — Dashboard cache ✅
 `GET /dashboard/summary` is authenticated for internal organization roles and uses the
 tenant-namespaced key `tenant:{tenantId}:dashboard:summary:v1` with a 60-second TTL.
 Application, job-posting, pipeline-stage, and candidate-apply writes invalidate only the
 affected tenant's key; another tenant's cached summary remains available.
+
+Candidate detail, bookmark, and apply flows re-read the selected tenant job after the
+public open-job index lookup and return `404` if the source posting is no longer open.
+Tenant candidates now have a partial unique account link, with migration-time duplicate
+reconciliation and race-safe candidate creation.
 
 **Release-gate coverage:** `backend/test/phase5b-phase6.e2e-spec.ts` verifies candidate
 open-job filtering, duplicate application conflicts, ownership `404`s, index status

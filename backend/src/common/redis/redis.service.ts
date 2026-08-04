@@ -13,17 +13,82 @@ export class RedisService {
     windowSeconds: number,
   ): Promise<number | null> {
     try {
-      const count = await this.redis.incr(key);
-      if (count === 1) {
-        await this.redis.expire(key, windowSeconds);
-      }
-      return count;
+      const result = await this.redis.eval(
+        `local created = redis.call('SET', KEYS[1], '1', 'EX', ARGV[1], 'NX')
+if created then
+  return 1
+end
+local count = redis.call('INCR', KEYS[1])
+if redis.call('TTL', KEYS[1]) < 0 then
+  redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+return count`,
+        1,
+        key,
+        windowSeconds,
+      );
+      return result === null || result === undefined ? null : Number(result);
     } catch (error) {
       this.logger.error(
         `Redis increment failed for key "${key}"`,
         error instanceof Error ? error.stack : String(error),
       );
       return null;
+    }
+  }
+
+  async advanceDashboardGeneration(
+    generationKey: string,
+    summaryKey: string,
+  ): Promise<number | null> {
+    try {
+      const result = await this.redis.eval(
+        `local generation = redis.call('INCR', KEYS[1])
+redis.call('DEL', KEYS[2])
+return generation`,
+        2,
+        generationKey,
+        summaryKey,
+      );
+      return result === null || result === undefined ? null : Number(result);
+    } catch (error) {
+      this.logger.error(
+        `Redis dashboard invalidation failed for key "${summaryKey}"`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      return null;
+    }
+  }
+
+  async setIfGenerationMatches(
+    generationKey: string,
+    summaryKey: string,
+    expectedGeneration: number,
+    value: string,
+    ttlSeconds: number,
+  ): Promise<boolean> {
+    try {
+      const result = await this.redis.eval(
+        `local generation = redis.call('GET', KEYS[1])
+if generation == ARGV[1] or (not generation and ARGV[1] == '0') then
+  redis.call('SET', KEYS[2], ARGV[2], 'EX', ARGV[3])
+  return 1
+end
+return 0`,
+        2,
+        generationKey,
+        summaryKey,
+        expectedGeneration,
+        value,
+        ttlSeconds,
+      );
+      return Number(result) === 1;
+    } catch (error) {
+      this.logger.error(
+        `Redis compare-and-set failed for key "${summaryKey}"`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      return false;
     }
   }
 

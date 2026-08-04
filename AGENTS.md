@@ -2,7 +2,7 @@
 
 **One-liner:** Schema-per-tenant applicant tracking system. Each company gets an isolated PostgreSQL schema for job postings, candidate pipelines, interviews, recruiter collaboration, resume parsing, skill-matching, and rate-limited public application intake.
 
-**Status:** M1 (Auth + Tenancy + RBAC) — backend complete (NestJS + Drizzle), frontend scaffolded (Vite + React + Mantine + TanStack Router). 19 commits.
+**Status:** M6 (Redis rate limiting + tenant dashboard cache) — implemented; final review fixes are being applied on the current branch.
 
 ---
 
@@ -19,13 +19,13 @@
 | Auth | JWT access (15m) + refresh (7d), argon2 password hashing |
 | Multi-tenancy | One PostgreSQL database, **separate schema per tenant** (`SET search_path TO tenant_<id>, public`) |
 | Storage | S3-compatible (MinIO local) |
-| Cache/Queue/Rate-limit | Redis (not yet wired) |
+| Cache/Queue/Rate-limit | Redis (limiter + dashboard cache; BullMQ deferred) |
 
 ## Current State
 
-- **Backend:** Auth service (signup creates tenant schema from template, inserts OrgAdmin user + default pipeline stages). JWT strategy, roles guard, tenant context interceptor (AsyncLocalStorage), Drizzle schema service with `forCurrentTenant()`/`forPublic()`/`forSchema()`. Repositories for tenant and user. Health endpoint at `GET /api/health`.
-- **Frontend:** Vite dev server, Mantine providers, TanStack Router (login/signup/dashboard routes), AppShell with navbar, Zustand auth store (login/signup/logout/refresh), login/signup pages. Feature directories scaffolded.
-- **Not yet built:** M2+ modules (job-postings, candidates, applications, interviews, resume, public-apply, platform, notifications), Redis/BullMQ, CI.
+- **Backend:** Auth, schema-per-tenant repositories, candidate accounts, public careers, applications/pipeline, Redis sign-in limiting, and tenant dashboard cache. Health endpoint at `GET /api/health`.
+- **Frontend:** Vite/Mantine application with organization and candidate platforms, candidate job search/apply/bookmarks/profile flows, and the organization dashboard summary.
+- **Not yet built:** BullMQ, interviews, platform administration, and CI. Anonymous apply remains out of scope.
 
 ## Commands
 
@@ -55,11 +55,21 @@ docker compose up -d                # Start postgres:16 + redis:7 + minio
 Migrations and the seed are **not** run automatically. On a fresh DB you must, in order:
 
 1. `docker compose up -d` (wait for postgres to be ready)
-2. Apply the three migrations under `backend/drizzle/*/migration.sql` via `psql` (see `docs/00b_LOCAL_DEV_BOOTSTRAP.md` for the exact one-liners)
+2. Apply the six migrations under `backend/drizzle/*/migration.sql` chronologically via `psql` (see `docs/00b_LOCAL_DEV_BOOTSTRAP.md` for the exact one-liners)
 3. Apply `backend/drizzle/template-schema.sql`
 4. `cd backend && npm run seed` (creates the 3 sample accounts)
 
 Without steps 2–4 you'll get `relation "..." does not exist` on the first login. Full runbook with checks after each step: `docs/00b_LOCAL_DEV_BOOTSTRAP.md`.
+
+Applied migration order includes:
+```text
+20260722095156_bright_iron_fist
+20260723191416_fresh_blindfold
+20260727163000_smooth_spitfire
+20260803085856_redundant_tyrannus
+20260804101500_candidate_profile_redesign
+20260805090000_candidate_application_integrity
+```
 
 ## Architecture
 
@@ -80,7 +90,7 @@ Tables split across two groups:
 - **Public schema:** `tenants`, `skills`, `audit_logs`, `user_emails`, `refresh_tokens`
 - **Per-tenant schema (created on signup):** `users`, `job_postings`, `candidates`, `pipeline_stages`, `applications`, `resumes`, `resume_skills`, `job_required_skills`, `interviews`, `interview_feedbacks`, `notes`
 
-Template schema `template` is created via drizzle migration (`drizzle/0000_*`). Signup clones it.
+Template schema `template` is created by `drizzle/template-schema.sql`. Signup clones it.
 
 ### Backend Structure
 

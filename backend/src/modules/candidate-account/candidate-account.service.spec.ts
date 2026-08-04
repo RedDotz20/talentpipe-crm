@@ -66,6 +66,7 @@ describe('CandidateAccountService', () => {
     findAll: jest.fn(),
   };
   const jobPostingRepo = {
+    findById: jest.fn(),
     getRequiredSkillIds: jest.fn(),
   };
   const skillMatching = {
@@ -103,6 +104,7 @@ describe('CandidateAccountService', () => {
       ],
     }).compile();
     service = module.get<CandidateAccountService>(CandidateAccountService);
+    jobPostingRepo.findById.mockResolvedValue({ status: 'open' });
   });
 
   it('should be defined', () => {
@@ -121,6 +123,7 @@ describe('CandidateAccountService', () => {
         'j1',
       );
       expect(jobListingsIndexRepo.findById).not.toHaveBeenCalled();
+      expect(jobPostingRepo.findById).not.toHaveBeenCalled();
     });
 
     it('hides draft jobs from candidate detail', async () => {
@@ -141,6 +144,7 @@ describe('CandidateAccountService', () => {
       jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue(job);
 
       await expect(service.getJobDetail('t1', 'j1')).resolves.toEqual(job);
+      expect(jobPostingRepo.findById).toHaveBeenCalledWith('j1', 'tenant_t1');
     });
 
     it('hides closed jobs from candidate applications', async () => {
@@ -188,6 +192,47 @@ describe('CandidateAccountService', () => {
         'j1',
       );
       expect(candidateBookmarkRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('hides a stale open index when the tenant posting is closed', async () => {
+      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue({
+        tenantId: 't1',
+        jobPostingId: 'j1',
+        status: 'open',
+      });
+      jobPostingRepo.findById.mockResolvedValue({ status: 'closed' });
+
+      await expect(service.getJobDetail('t1', 'j1')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('rejects apply when the tenant posting is no longer open', async () => {
+      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue({
+        tenantId: 't1',
+        jobPostingId: 'j1',
+        status: 'open',
+      });
+      jobPostingRepo.findById.mockResolvedValue({ status: 'closed' });
+
+      await expect(
+        service.apply('candidate-1', 't1', 'j1', {}),
+      ).rejects.toThrow(NotFoundException);
+      expect(candidateAccountRepo.findById).not.toHaveBeenCalled();
+    });
+
+    it('rejects bookmarking when the tenant posting is no longer open', async () => {
+      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue({
+        tenantId: 't1',
+        jobPostingId: 'j1',
+        status: 'open',
+      });
+      jobPostingRepo.findById.mockResolvedValue({ status: 'closed' });
+
+      await expect(
+        service.addBookmark('candidate-1', 't1', 'j1'),
+      ).rejects.toThrow(NotFoundException);
+      expect(candidateBookmarkRepo.findByJob).not.toHaveBeenCalled();
     });
   });
 
@@ -450,6 +495,56 @@ describe('CandidateAccountService', () => {
         'You already applied to this application.',
       );
       expect(applicationRepo.delete).toHaveBeenCalledWith('app-a', 'tenant_t1');
+    });
+
+    it('reloads the winner after a concurrent candidate-account insert', async () => {
+      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue({
+        tenantId: 't1',
+        jobPostingId: 'j1',
+        status: 'open',
+        title: 'Engineer',
+        companyName: 'Acme',
+      });
+      candidateAccountRepo.findById.mockResolvedValue({
+        id: 'candidate-a',
+        email: 'candidate@example.com',
+        firstName: 'Jane',
+        lastName: 'Doe',
+      });
+      candidateApplicationsIndexRepo.findByJob.mockResolvedValue(null);
+      candidateSkillRepo.findByCandidateAccountId.mockResolvedValue([]);
+      skillRepo.findByIds.mockResolvedValue([]);
+      jobPostingRepo.getRequiredSkillIds.mockResolvedValue([]);
+      skillMatching.computeScore.mockReturnValue(0);
+      candidateRepo.findByAccountId
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 'winner-candidate' });
+      candidateRepo.createFromAccount.mockRejectedValue({
+        code: '23505',
+        constraint: 'unique_candidate_account',
+      });
+      pipelineStageRepo.findFirst.mockResolvedValue({
+        id: 'stage-1',
+        name: 'Applied',
+      });
+      applicationRepo.create.mockResolvedValue({ id: 'app-a' });
+      candidateApplicationsIndexRepo.create.mockResolvedValue({
+        id: 'index-a',
+      });
+
+      await expect(
+        service.apply('candidate-a', 't1', 'j1', {}),
+      ).resolves.toEqual({
+        applicationId: 'app-a',
+      });
+      expect(candidateRepo.findByAccountId).toHaveBeenLastCalledWith(
+        'candidate-a',
+        'tenant_t1',
+      );
+      expect(applicationRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ candidateId: 'winner-candidate' }),
+        'tenant_t1',
+      );
     });
 
     it('returns candidate-owned application detail from the tenant schema', async () => {

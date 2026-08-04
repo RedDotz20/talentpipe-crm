@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ApplicationRepository } from '../../repositories/application.repository';
 import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
 import { NoteRepository } from '../../repositories/note.repository';
@@ -39,11 +43,17 @@ export class ApplicationsService {
     if (!stage) throw new NotFoundException('Pipeline stage not found');
     const updated = await this.applicationRepo.updateStage(id, dto.stageId);
     if (!updated) throw new NotFoundException('Application not found');
-    await this.candidateApplicationsIndexRepo.updateStatus(
+    const indexed = await this.candidateApplicationsIndexRepo.updateStatus(
       id,
       tenantId,
       stage.name,
     );
+    if (application.candidateAccountId && !indexed) {
+      await this.applicationRepo.updateStage(id, application.currentStageId);
+      throw new ServiceUnavailableException(
+        'Candidate application status could not be synchronized',
+      );
+    }
     await this.cacheService.invalidateTenantDashboard(getTenantId());
     return this.getOne(id);
   }
