@@ -7,7 +7,7 @@ import {
 } from './login-rate-limiter.guard';
 
 type LoginRequest = {
-  body: { email: string };
+  body: { email?: unknown };
   ip?: string;
 };
 
@@ -55,9 +55,13 @@ describe('LoginRateLimiterGuard', () => {
   it('rejects the sixth attempt with retry metadata', async () => {
     redis.incrementWithWindow.mockResolvedValue(6);
 
-    await expect(guard.canActivate(context)).rejects.toThrow(
-      TooManyRequestsException,
-    );
+    try {
+      await guard.canActivate(context);
+      throw new Error('Expected the sixth attempt to be rejected');
+    } catch (error) {
+      expect(error).toBeInstanceOf(TooManyRequestsException);
+      expect((error as TooManyRequestsException).getStatus()).toBe(429);
+    }
     expect(response.setHeader).toHaveBeenCalledWith('Retry-After', 900);
   });
 
@@ -79,5 +83,24 @@ describe('LoginRateLimiterGuard', () => {
     redis.incrementWithWindow.mockResolvedValue(null);
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
+
+  it('fails open when Redis rejects the increment request', async () => {
+    redis.incrementWithWindow.mockRejectedValue(new Error('Redis unavailable'));
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
+
+  it('uses an empty email when pre-validation input is malformed', async () => {
+    request.body = { email: 42 };
+    redis.incrementWithWindow.mockResolvedValue(1);
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+
+    const emptyEmailHash = createHash('sha256').update('').digest('hex');
+    expect(redis.incrementWithWindow).toHaveBeenCalledWith(
+      `ratelimit:login:${emptyEmailHash}:127.0.0.1`,
+      900,
+    );
   });
 });

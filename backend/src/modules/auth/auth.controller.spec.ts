@@ -54,10 +54,20 @@ describe('AuthController', () => {
       GUARDS_METADATA,
       AuthController.prototype.refresh,
     );
+    const orgSignupGuards = Reflect.getMetadata(
+      GUARDS_METADATA,
+      AuthController.prototype.orgSignup,
+    );
+    const logoutGuards = Reflect.getMetadata(
+      GUARDS_METADATA,
+      AuthController.prototype.logout,
+    );
 
     expect(signinPath).toBe('signin');
     expect(signinGuards).toEqual([LoginRateLimiterGuard]);
     expect(signupGuards).toBeUndefined();
     expect(refreshGuards).toBeUndefined();
+    expect(orgSignupGuards).toBeUndefined();
+    expect(logoutGuards).not.toContain(LoginRateLimiterGuard);
   });
 });
