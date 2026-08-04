@@ -17,6 +17,19 @@ import { JobPostingRepository } from '../../repositories/job-posting.repository'
 import { SkillMatchingService } from '../skill-matching/skill-matching.service';
 import { ResumesService } from '../resumes/resumes.service';
 
+const isDuplicateCandidateApplicationError = (error: unknown): boolean => {
+  if (typeof error !== 'object' || error === null) return false;
+
+  const databaseError = error as {
+    code?: unknown;
+    constraint?: unknown;
+  };
+  return (
+    databaseError.code === '23505' &&
+    databaseError.constraint === 'unique_candidate_application'
+  );
+};
+
 @Injectable()
 export class CandidateAccountService {
   constructor(
@@ -160,6 +173,9 @@ export class CandidateAccountService {
         await this.applicationRepo.delete(application.id, schemaName);
       } catch {
         // Preserve the public index error while attempting the compensation.
+      }
+      if (isDuplicateCandidateApplicationError(error)) {
+        throw new ConflictException('You already applied to this application.');
       }
       throw error;
     }

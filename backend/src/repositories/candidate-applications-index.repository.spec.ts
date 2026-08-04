@@ -1,3 +1,5 @@
+import type { SQL } from 'drizzle-orm';
+import { PgDialect } from 'drizzle-orm/pg-core/dialect';
 import { DrizzleDB, DrizzleSchemaService } from '../database/drizzle-schema.service';
 import { CandidateApplicationsIndexRepository } from './candidate-applications-index.repository';
 
@@ -32,6 +34,13 @@ describe('CandidateApplicationsIndexRepository', () => {
       repository.findByCandidateAndApplication('candidate-a', 'app-a'),
     ).resolves.toEqual(expected);
     expect(forPublic).toHaveBeenCalled();
+    expect(where).toHaveBeenCalledTimes(1);
+    const query = new PgDialect().sqlToQuery(
+      where.mock.calls[0]?.[0] as SQL<unknown>,
+    );
+    expect(query.sql).toContain('candidate_account_id');
+    expect(query.sql).toContain('application_id');
+    expect(query.params).toEqual(['candidate-a', 'app-a']);
     expect(execute).toHaveBeenCalled();
   });
 
@@ -56,6 +65,13 @@ describe('CandidateApplicationsIndexRepository', () => {
       repository.updateStatus('app-a', 'tenant-a', 'Screening'),
     ).resolves.toEqual(expected);
     expect(set).toHaveBeenCalledWith({ status: 'Screening' });
+    expect(where).toHaveBeenCalledTimes(1);
+    const query = new PgDialect().sqlToQuery(
+      where.mock.calls[0]?.[0] as SQL<unknown>,
+    );
+    expect(query.sql).toContain('application_id');
+    expect(query.sql).toContain('tenant_id');
+    expect(query.params).toEqual(['app-a', 'tenant-a']);
     expect(execute).toHaveBeenCalled();
   });
 });
