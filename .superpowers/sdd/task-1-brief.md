@@ -1,218 +1,94 @@
-## Task 1: Backend repositories
+## Task 1: Lock the Phase 5b Route Boundary
 
 **Files:**
-- Create: `backend/src/repositories/job-posting.repository.ts`
-- Create: `backend/src/repositories/skill.repository.ts`
-- Modify: `backend/src/repositories/candidate.repository.ts` (add `findAll`, `findById`, loosen `create` email)
-- Modify: `backend/src/repositories/repositories.module.ts` (register the 2 new repos)
+- Modify: `backend/src/modules/candidate-account/candidate-account.controller.ts:38-49`
+- Modify: `backend/src/modules/candidate-account/candidate-account.service.ts:37-47`
+- Modify: `backend/src/repositories/job-listings-index.repository.ts:46-62`
+- Test: `backend/src/modules/candidate-account/candidate-account.service.spec.ts`
+- Test: `backend/src/common/guards/candidate-auth.guard.spec.ts` (create if absent)
 
 **Interfaces:**
-- Consumes: `BaseRepository`, `DrizzleSchemaService`, `jobPostings`, `jobRequiredSkills`, `skills`, `candidates` from `backend/src/database/schema.ts`.
-- Produces:
-  - `JobPostingRepository` — `findAll(status?: string): Promise<JobPostingRow[]>`; `findById(id): Promise<JobPostingRow | null>`; `create(data: { title: string; description?: string | null; createdByUserId?: string }): Promise<JobPostingRow>`; `update(id, data: Partial<{ title: string; description: string | null; status: string }>): Promise<JobPostingRow | null>`; `delete(id): Promise<void>`; `setRequiredSkills(jobPostingId: string, skillIds: string[]): Promise<void>`; `getRequiredSkillIds(jobPostingId: string): Promise<string[]>`.
-  - `SkillRepository` — `search(query?: string): Promise<SkillRow[]>` (ILIKE on name, limit 20 with query / 50 without); `findByIds(ids: string[]): Promise<SkillRow[]>` (returns `[]` for empty input).
-  - `CandidateRepository.findAll(): Promise<CandidateRow[]>` (order by createdAt desc); `findById(id): Promise<CandidateRow | null>`; `create` email param becomes `email?: string | null`.
+- Consumes: `AuthGuard('jwt')`, `CandidateAuthGuard`, `JobListingsIndexRepository.findOpenByTenantAndJob(tenantId, jobPostingId)`.
+- Produces: Candidate job list/detail routes that reject unauthenticated users and candidate detail that returns only open indexed jobs.
 
-- [ ] **Step 1: Write `job-posting.repository.ts`**
+- [ ] **Step 1: Add failing service tests for closed and draft candidate jobs.**
+
+Add cases to `candidate-account.service.spec.ts` that configure `jobListingsIndexRepo.findOpenByTenantAndJob` to return `null` for a closed or draft row and assert `service.getJobDetail('t1', 'j1')` rejects with `NotFoundException`. Add a case asserting an open row is returned.
 
 ```ts
-import { Injectable } from '@nestjs/common';
-import { eq, desc } from 'drizzle-orm';
-import { jobPostings, jobRequiredSkills } from '../database/schema';
-import { BaseRepository } from './base.repository';
+it('hides non-open jobs from candidate detail', async () => {
+  jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue(null);
 
-@Injectable()
-export class JobPostingRepository extends BaseRepository {
-  async findAll(status?: string) {
-    return this.withDb('current', async (db) => {
-      const base = db.select().from(jobPostings);
-      return status
-        ? base
-            .where(eq(jobPostings.status, status))
-            .orderBy(desc(jobPostings.createdAt))
-            .execute()
-        : base.orderBy(desc(jobPostings.createdAt)).execute();
-    });
-  }
+  await expect(service.getJobDetail('t1', 'j1')).rejects.toThrow(
+    NotFoundException,
+  );
+});
+```
 
-  async findById(id: string) {
-    return this.withDb('current', async (db) => {
-      const rows = await db
-        .select()
-        .from(jobPostings)
-        .where(eq(jobPostings.id, id))
-        .limit(1)
-        .execute();
-      return rows[0] ?? null;
-    });
-  }
+- [ ] **Step 2: Run the focused test and verify it fails.**
 
-  async create(data: {
-    title: string;
-    description?: string | null;
-    createdByUserId?: string;
-  }) {
-    return this.withDb('current', async (db) => {
-      const rows = await db
-        .insert(jobPostings)
-        .values(data)
-        .returning()
-        .execute();
-      return rows[0];
-    });
-  }
+Run:
 
-  async update(
-    id: string,
-    data: Partial<{ title: string; description: string | null; status: string }>,
-  ) {
-    return this.withDb('current', async (db) => {
-      const rows = await db
-        .update(jobPostings)
-        .set(data)
-        .where(eq(jobPostings.id, id))
-        .returning()
-        .execute();
-      return rows[0] ?? null;
-    });
-  }
+```text
+cd backend && npm test -- --runInBand src/modules/candidate-account/candidate-account.service.spec.ts
+```
 
-  async delete(id: string) {
-    return this.withDb('current', async (db) => {
-      await db.delete(jobPostings).where(eq(jobPostings.id, id)).execute();
-    });
-  }
+Expected: FAIL because `getJobDetail` currently uses `findById` without requiring `status = 'open'`.
 
-  async setRequiredSkills(jobPostingId: string, skillIds: string[]) {
-    return this.withDb('current', async (db) => {
-      await db
-        .delete(jobRequiredSkills)
-        .where(eq(jobRequiredSkills.jobPostingId, jobPostingId))
-        .execute();
-      if (skillIds.length > 0) {
-        await db
-          .insert(jobRequiredSkills)
-          .values(skillIds.map((skillId) => ({ jobPostingId, skillId })))
-          .execute();
-      }
-    });
-  }
+- [ ] **Step 3: Implement the open-job lookup.**
 
-  async getRequiredSkillIds(jobPostingId: string) {
-    return this.withDb('current', async (db) => {
-      const rows = await db
-        .select({ skillId: jobRequiredSkills.skillId })
-        .from(jobRequiredSkills)
-        .where(eq(jobRequiredSkills.jobPostingId, jobPostingId))
-        .execute();
-      return rows.map((r) => r.skillId);
-    });
-  }
+Use the existing repository method:
+
+```ts
+async findOpenByTenantAndJob(tenantId: string, jobPostingId: string) {
+  return this.withDb('public', async (db) => {
+    const rows = await db
+      .select()
+      .from(jobListingsIndex)
+      .where(
+        and(
+          eq(jobListingsIndex.tenantId, tenantId),
+          eq(jobListingsIndex.jobPostingId, jobPostingId),
+          eq(jobListingsIndex.status, 'open'),
+        ),
+      )
+      .limit(1)
+      .execute();
+    return rows[0] ?? null;
+  });
 }
 ```
 
-- [ ] **Step 2: Write `skill.repository.ts`**
+Change `getJobDetail` to call `findOpenByTenantAndJob` and throw `NotFoundException('Job posting not found')` for `null`. Use the same open lookup in bookmark creation and apply rather than relying on a possibly stale non-open index row.
+
+- [ ] **Step 4: Add guards to candidate job list and detail routes.**
+
+Apply both guards to `GET /candidate/jobs` and `GET /candidate/jobs/:tenantId/:jobId`:
 
 ```ts
-import { Injectable } from '@nestjs/common';
-import { ilike, inArray } from 'drizzle-orm';
-import { skills } from '../database/schema';
-import { BaseRepository } from './base.repository';
-
-@Injectable()
-export class SkillRepository extends BaseRepository {
-  async search(query?: string) {
-    return this.withDb('public', async (db) => {
-      if (query) {
-        return db
-          .select()
-          .from(skills)
-          .where(ilike(skills.name, `%${query}%`))
-          .orderBy(skills.name)
-          .limit(20)
-          .execute();
-      }
-      return db.select().from(skills).orderBy(skills.name).limit(50).execute();
-    });
-  }
-
-  async findByIds(ids: string[]) {
-    if (ids.length === 0) return [];
-    return this.withDb('public', async (db) => {
-      return db.select().from(skills).where(inArray(skills.id, ids)).execute();
-    });
-  }
+@Get('jobs')
+@UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
+async listJobs(@Query('search') search?: string) {
+  return this.candidateAccountService.getJobs(search);
 }
 ```
 
-- [ ] **Step 3: Modify `candidate.repository.ts`** — add `desc` to imports; add `findAll` and `findById`; change `create` signature `email: string` → `email?: string | null`. New file body:
+Use the same decorator order and guard pattern already used by the protected candidate routes.
 
-```ts
-import { Injectable } from '@nestjs/common';
-import { eq, desc } from 'drizzle-orm';
-import { candidates } from '../database/schema';
-import { BaseRepository } from './base.repository';
+- [ ] **Step 5: Run focused tests and commit the boundary fix.**
 
-@Injectable()
-export class CandidateRepository extends BaseRepository {
-  async findAll() {
-    return this.withDb('current', async (db) => {
-      return db
-        .select()
-        .from(candidates)
-        .orderBy(desc(candidates.createdAt))
-        .execute();
-    });
-  }
+Run:
 
-  async findById(id: string) {
-    return this.withDb('current', async (db) => {
-      const rows = await db
-        .select()
-        .from(candidates)
-        .where(eq(candidates.id, id))
-        .limit(1)
-        .execute();
-      return rows[0] ?? null;
-    });
-  }
-
-  async findByEmail(email: string, schema = 'current') {
-    return this.withDb(schema, async (db) => {
-      const rows = await db
-        .select()
-        .from(candidates)
-        .where(eq(candidates.email, email))
-        .execute();
-      return rows[0] ?? null;
-    });
-  }
-
-  async create(
-    data: { name: string; email?: string | null; phone?: string | null },
-    schema = 'current',
-  ) {
-    return this.withDb(schema, async (db) => {
-      const rows = await db
-        .insert(candidates)
-        .values(data)
-        .returning()
-        .execute();
-      return rows[0];
-    });
-  }
-}
+```text
+cd backend && npm test -- --runInBand src/modules/candidate-account/candidate-account.service.spec.ts src/common/guards/candidate-auth.guard.spec.ts
 ```
 
-- [ ] **Step 4: Register repos in `repositories.module.ts`** — add `JobPostingRepository` and `SkillRepository` to imports, the `REPOSITORIES` array, and `exports` (exports uses the same `REPOSITORIES` array, so just add both to the array).
+Expected: PASS. Commit:
 
-- [ ] **Step 5: Typecheck** — run `cd backend && npm run typecheck` from repo root. Expected: PASS (no new errors).
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add backend/src/repositories
-git commit -m "feat(m2): job-posting and skill repositories + candidate list/find"
+```text
+git add backend/src/modules/candidate-account backend/src/repositories/job-listings-index.repository.ts backend/src/common/guards/candidate-auth.guard.spec.ts
+git commit -m "fix(m5b): enforce candidate job visibility boundary"
 ```
 
+---
 
