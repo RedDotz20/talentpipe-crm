@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { SignInPage } from '@/features/auth/SignInPage';
 import { useAuthStore } from '@/api/useAuth';
+import { z } from 'zod';
 
 function redirectToDashboard() {
   const { role, isAuthenticated } = useAuthStore.getState();
@@ -15,6 +16,13 @@ function redirectToDashboard() {
 }
 
 export const Route = createFileRoute('/auth/signin')({
+  validateSearch: z.object({
+    returnTo: z.string().optional(),
+  }),
   beforeLoad: redirectToDashboard,
-  component: SignInPage,
+  component: SignInRoute,
 });
+
+function SignInRoute() {
+  return <SignInPage returnTo={Route.useSearch().returnTo} />;
+}

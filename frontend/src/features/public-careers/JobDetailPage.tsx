@@ -12,21 +12,44 @@ import {
   Title,
 } from '@mantine/core';
 import { Link, useNavigate } from '@tanstack/react-router';
+import { useState } from 'react';
+import { useAuthStore } from '@/api/useAuth';
+import { CandidateApplyModal } from '@/features/candidate-portal/applications/CandidateApplyModal';
+import { getSafeCareerReturnTo } from '@/features/auth/returnTo';
 import { usePublicJob } from './hooks/usePublicCareers';
 
 interface JobDetailPageProps {
   tenantSlug: string;
   jobId: string;
-  onApply?: () => void;
 }
 
 export function JobDetailPage({
   tenantSlug,
   jobId,
-  onApply,
 }: JobDetailPageProps) {
   const { data: job, isLoading, error } = usePublicJob(tenantSlug, jobId);
   const navigate = useNavigate();
+  const { isAuthenticated, role } = useAuthStore();
+  const [applyOpened, setApplyOpened] = useState(false);
+  const [candidateRequired, setCandidateRequired] = useState(false);
+
+  const handleApply = () => {
+    const returnTo =
+      getSafeCareerReturnTo(`/careers/${tenantSlug}/jobs/${jobId}`) ?? undefined;
+    if (!isAuthenticated()) {
+      navigate({
+        to: '/auth/signin',
+        search: returnTo ? { returnTo } : {},
+      });
+      return;
+    }
+    if (role === 'Candidate') {
+      setCandidateRequired(false);
+      setApplyOpened(true);
+      return;
+    }
+    setCandidateRequired(true);
+  };
 
   if (isLoading) {
     return (
@@ -98,14 +121,24 @@ export function JobDetailPage({
               )}
             </div>
 
-            {onApply && (
-              <Button onClick={onApply} size="md">
-                Apply now
-              </Button>
+            {candidateRequired && (
+              <Alert color="yellow" title="Candidate account required">
+                Sign in with a Candidate account to submit an application.
+              </Alert>
             )}
+            <Button onClick={handleApply} size="md">
+              Apply now
+            </Button>
           </Stack>
         </Card>
       </Stack>
+      {applyOpened && (
+        <CandidateApplyModal
+          opened
+          onClose={() => setApplyOpened(false)}
+          job={job}
+        />
+      )}
     </Container>
   );
 }

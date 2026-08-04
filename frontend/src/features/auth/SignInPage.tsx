@@ -1,18 +1,24 @@
 import { useState } from 'react';
 import type { SubmitEvent } from 'react';
-import { useNavigate, Link } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { Anchor, Button, Checkbox, PasswordInput, Text, TextInput } from '@mantine/core';
 import { useSignIn } from '@/hooks/auth';
 import { useAuthStore } from '@/api/useAuth';
+import { getSafeCareerReturnTo } from './returnTo';
 import { AuthLayout } from './AuthLayout';
 
-export function SignInPage() {
+interface SignInPageProps {
+  returnTo?: string;
+}
+
+export function SignInPage({ returnTo }: SignInPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const { mutateAsync: signin, isPending } = useSignIn();
   const navigate = useNavigate();
   const getAuthState = useAuthStore.getState;
+  const safeReturnTo = getSafeCareerReturnTo(returnTo);
 
   const handleSubmit = async (e: SubmitEvent) => {
     e.preventDefault();
@@ -20,8 +26,10 @@ export function SignInPage() {
     try {
       await signin({ email, password });
       const currentRole = getAuthState().role;
-      if (currentRole === 'Candidate') {
-        await navigate({to: '/dashboard'});
+      if (safeReturnTo && currentRole === 'Candidate') {
+        window.location.assign(safeReturnTo);
+      } else if (currentRole === 'Candidate') {
+        await navigate({ to: '/dashboard' });
       } else if (currentRole === 'SuperAdmin') {
         await navigate({ to: '/admin/tenants' });
       } else {
@@ -67,12 +75,19 @@ export function SignInPage() {
 
       <Text ta="center" mt="md">
         Don&apos;t have an account?{' '}
-        <Anchor component={Link} to="/auth/signup" fw={500}>
+        <Anchor
+          href={
+            safeReturnTo
+              ? `/auth/signup?returnTo=${encodeURIComponent(safeReturnTo)}`
+              : '/auth/signup'
+          }
+          fw={500}
+        >
           Register
         </Anchor>
       </Text>
       <Text ta="center" mt="xs">
-        <Anchor component={Link} to="/auth/org/signup" fw={500}>
+        <Anchor href="/auth/org/signup" fw={500}>
           Create a company account
         </Anchor>
       </Text>

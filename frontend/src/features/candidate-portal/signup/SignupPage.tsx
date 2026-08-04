@@ -1,14 +1,20 @@
 import { useState } from 'react';
-import { useNavigate, Link } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { Anchor, Button, PasswordInput, Text, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useCandidateSignup } from '@/hooks/auth';
 import { AuthLayout } from '@/features/auth/AuthLayout';
+import { getSafeCareerReturnTo } from '@/features/auth/returnTo';
 
-export function CandidateSignupPage() {
+interface CandidateSignupPageProps {
+  returnTo?: string;
+}
+
+export function CandidateSignupPage({ returnTo }: CandidateSignupPageProps) {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { mutateAsync: candidateSignup, isPending } = useCandidateSignup();
+  const safeReturnTo = getSafeCareerReturnTo(returnTo);
 
   const form = useForm({
     initialValues: { firstName: '', lastName: '', email: '', password: '', confirmPassword: '' },
@@ -27,7 +33,11 @@ export function CandidateSignupPage() {
         email: values.email!,
         password: values.password!,
       });
-      navigate({ to: '/dashboard' });
+      if (safeReturnTo) {
+        window.location.assign(safeReturnTo);
+      } else {
+        navigate({ to: '/dashboard' });
+      }
     } catch {
       setError('Signup failed');
     }
@@ -52,7 +62,14 @@ export function CandidateSignupPage() {
       </form>
       <Text ta="center" mt="md">
         Already have an account?{' '}
-        <Anchor component={Link} to="/auth/signin" fw={500}>
+        <Anchor
+          href={
+            safeReturnTo
+              ? `/auth/signin?returnTo=${encodeURIComponent(safeReturnTo)}`
+              : '/auth/signin'
+          }
+          fw={500}
+        >
           Sign in
         </Anchor>
       </Text>

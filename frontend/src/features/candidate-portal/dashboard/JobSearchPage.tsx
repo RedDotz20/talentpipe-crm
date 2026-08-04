@@ -1,22 +1,12 @@
 import { useState } from 'react';
-import { Card, Text, Title, Badge, Button, Group, Stack, Loader, Modal, TextInput, Textarea, Alert, MultiSelect } from '@mantine/core';
-import { useJobs, useApply, useAllSkills, useProfile } from '../hooks';
-import type { Job, Skill } from '../types';
+import { Alert, Badge, Button, Card, Group, Loader, Stack, Text, Title } from '@mantine/core';
+import { useJobs } from '../hooks';
+import { CandidateApplyModal } from '../applications/CandidateApplyModal';
+import type { Job } from '../types';
 
 export function JobSearchPage() {
   const { data: jobs = [], isLoading: jobsLoading, error: jobsError } = useJobs();
-  const { mutate: apply, isPending: isApplying, reset: resetApply } = useApply();
-  const { data: profile } = useProfile();
-  const { data: allSkills = [] } = useAllSkills();
-
-  // Apply modal state
-  const [applyModalOpen, setApplyModalOpen] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
-  const [applyPhone, setApplyPhone] = useState('');
-  const [applyCoverLetter, setApplyCoverLetter] = useState('');
-  const [applySkillIds, setApplySkillIds] = useState<string[]>([]);
-  const [applySuccess, setApplySuccess] = useState(false);
-  const [applyError, setApplyError] = useState('');
 
   if (jobsLoading) {
     return (
@@ -34,45 +24,7 @@ export function JobSearchPage() {
     return <Text>No jobs available</Text>;
   }
 
-  const openApplyModal = (jobId: string) => {
-    setSelectedJobId(jobId);
-    setApplyPhone(profile?.phone ?? '');
-    setApplyCoverLetter('');
-    setApplySkillIds(profile?.skills.map((s: Skill) => s.id) ?? []);
-    setApplySuccess(false);
-    setApplyError('');
-    setApplyModalOpen(true);
-  };
-
-  const handleApply = () => {
-    if (!selectedJobId) return;
-    apply(
-      {
-        tenantId: jobs.find((job) => job.id === selectedJobId)?.tenantId ?? '',
-        jobId: selectedJobId,
-        data: {
-          phone: applyPhone || undefined,
-          coverLetter: applyCoverLetter || undefined,
-          skillIds: applySkillIds.length > 0 ? applySkillIds : undefined,
-        },
-      },
-      {
-        onSuccess: () => {
-          setApplySuccess(true);
-        },
-        onError: () => {
-          setApplyError('Failed to submit application');
-        },
-      }
-    );
-  };
-
-  const closeModal = () => {
-    setApplyModalOpen(false);
-    setSelectedJobId(null);
-    setApplySkillIds([]);
-    resetApply();
-  };
+  const selectedJob = jobs.find((job) => job.id === selectedJobId);
 
   return (
     <Stack>
@@ -87,51 +39,16 @@ export function JobSearchPage() {
             <Badge>{job.employmentType}</Badge>
           </Group>
           <Text size="sm" mb="md">{job.location}</Text>
-          <Button onClick={() => openApplyModal(job.id)}>Apply</Button>
+          <Button onClick={() => setSelectedJobId(job.id)}>Apply</Button>
         </Card>
       ))}
-
-      <Modal
-        opened={applyModalOpen}
-        onClose={closeModal}
-        title="Apply for Job"
-        size="md"
-      >
-        {applySuccess ? (
-          <Stack>
-            <Alert color="green">Application submitted successfully!</Alert>
-            <Button onClick={closeModal}>Close</Button>
-          </Stack>
-        ) : (
-          <Stack>
-            {applyError && <Alert color="red">{applyError}</Alert>}
-            <Text size="sm">Applying as {profile?.firstName} {profile?.lastName} ({profile?.email})</Text>
-            <TextInput
-              label="Phone"
-              value={applyPhone}
-              onChange={(e) => setApplyPhone(e.currentTarget.value)}
-            />
-            <Textarea
-              label="Cover Letter"
-              minRows={4}
-              value={applyCoverLetter}
-              onChange={(e) => setApplyCoverLetter(e.currentTarget.value)}
-            />
-            <MultiSelect
-              label="Skills"
-              placeholder="Select or search skills"
-              data={allSkills.map((s: Skill) => ({ label: s.name, value: s.id }))}
-              value={applySkillIds}
-              onChange={setApplySkillIds}
-              searchable
-              clearable
-            />
-            <Button onClick={handleApply} loading={isApplying} fullWidth mt="md">
-              Submit Application
-            </Button>
-          </Stack>
-        )}
-      </Modal>
+      {selectedJob && (
+        <CandidateApplyModal
+          opened
+          onClose={() => setSelectedJobId(null)}
+          job={selectedJob}
+        />
+      )}
     </Stack>
   );
 }
