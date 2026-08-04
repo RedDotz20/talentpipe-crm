@@ -144,7 +144,10 @@ describe('PublicCareersService', () => {
       jobPostingId: 'job-a',
       status: 'open',
     });
-    jobPostingRepo.findById.mockResolvedValue({ id: 'job-a', status: 'closed' });
+    jobPostingRepo.findById.mockResolvedValue({
+      id: 'job-a',
+      status: 'closed',
+    });
 
     await expect(service.getOne('acme', 'job-a')).rejects.toThrow(
       NotFoundException,

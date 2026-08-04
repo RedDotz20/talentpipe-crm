@@ -42,10 +42,7 @@ export class PublicCareersService {
     return rows.map((row) => this.toPublicListing(row, tenant.id, tenant.slug));
   }
 
-  async getOne(
-    tenantSlug: string,
-    jobId: string,
-  ): Promise<PublicJobDetail> {
+  async getOne(tenantSlug: string, jobId: string): Promise<PublicJobDetail> {
     const tenant = await this.tenantRepo.findBySlug(tenantSlug);
     if (!tenant) throw new NotFoundException('Job posting not found');
 
@@ -78,7 +75,9 @@ export class PublicCareersService {
   }
 
   private toPublicListing(
-    row: Awaited<ReturnType<JobListingsIndexRepository['findOpenByTenant']>>[number],
+    row: Awaited<
+      ReturnType<JobListingsIndexRepository['findOpenByTenant']>
+    >[number],
     tenantId: string,
     tenantSlug: string,
   ): PublicJobListing {
