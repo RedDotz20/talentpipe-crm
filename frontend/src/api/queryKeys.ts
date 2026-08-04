@@ -7,6 +7,15 @@ export const queryKeys = {
     profile: () => ['candidate', 'profile'],
     skills: () => ['candidate', 'skills'],
   },
+  publicCareers: {
+    jobs: (tenantSlug: string) => ['public-careers', 'jobs', tenantSlug],
+    job: (tenantSlug: string, jobId: string) => [
+      'public-careers',
+      'jobs',
+      tenantSlug,
+      jobId,
+    ],
+  },
   auth: {
     me: () => ['auth', 'me'],
   },
