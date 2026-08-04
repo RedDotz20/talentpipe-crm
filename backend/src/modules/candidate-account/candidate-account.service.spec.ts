@@ -152,6 +152,25 @@ describe('CandidateAccountService', () => {
       ).toHaveBeenCalledWith('t1', 'j1');
       expect(jobListingsIndexRepo.findById).not.toHaveBeenCalled();
     });
+
+    it('rejects an existing bookmark when its job is no longer open', async () => {
+      const existingBookmark = {
+        id: 'bookmark-1',
+        candidateAccountId: 'candidate-1',
+        tenantId: 't1',
+        jobPostingId: 'j1',
+      };
+      candidateBookmarkRepo.findByJob.mockResolvedValue(existingBookmark);
+      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue(null);
+
+      await expect(
+        service.addBookmark('candidate-1', 't1', 'j1'),
+      ).rejects.toThrow(NotFoundException);
+      expect(
+        jobListingsIndexRepo.findOpenByTenantAndJob,
+      ).toHaveBeenCalledWith('t1', 'j1');
+      expect(candidateBookmarkRepo.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('getSkills', () => {

@@ -187,18 +187,18 @@ export class CandidateAccountService {
     tenantId: string,
     jobPostingId: string,
   ) {
+    const job = await this.jobListingsIndexRepo.findOpenByTenantAndJob(
+      tenantId,
+      jobPostingId,
+    );
+    if (!job) throw new NotFoundException('Job posting not found');
+
     const existing = await this.candidateBookmarkRepo.findByJob(
       candidateAccountId,
       tenantId,
       jobPostingId,
     );
     if (existing) return existing;
-
-    const job = await this.jobListingsIndexRepo.findOpenByTenantAndJob(
-      tenantId,
-      jobPostingId,
-    );
-    if (!job) throw new NotFoundException('Job posting not found');
 
     return this.candidateBookmarkRepo.create({
       candidateAccountId,
