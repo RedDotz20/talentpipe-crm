@@ -12,6 +12,7 @@ import { CandidateSkillRepository } from '../../repositories/candidate-skill.rep
 import { SkillRepository } from '../../repositories/skill.repository';
 import { JobPostingRepository } from '../../repositories/job-posting.repository';
 import { SkillMatchingService } from '../skill-matching/skill-matching.service';
+import { ResumesService } from '../../modules/resumes/resumes.service';
 
 describe('CandidateAccountService', () => {
   let service: CandidateAccountService;
@@ -57,6 +58,9 @@ describe('CandidateAccountService', () => {
   const skillMatching = {
     computeScore: jest.fn(),
   };
+  const resumesService = {
+    upload: jest.fn(),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -80,6 +84,7 @@ describe('CandidateAccountService', () => {
         { provide: SkillRepository, useValue: skillRepo },
         { provide: JobPostingRepository, useValue: jobPostingRepo },
         { provide: SkillMatchingService, useValue: skillMatching },
+        { provide: ResumesService, useValue: resumesService },
       ],
     }).compile();
     service = module.get<CandidateAccountService>(CandidateAccountService);

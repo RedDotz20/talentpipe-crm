@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -14,6 +15,7 @@ import { CandidateSkillRepository } from '../../repositories/candidate-skill.rep
 import { SkillRepository } from '../../repositories/skill.repository';
 import { JobPostingRepository } from '../../repositories/job-posting.repository';
 import { SkillMatchingService } from '../skill-matching/skill-matching.service';
+import { ResumesService } from '../resumes/resumes.service';
 
 @Injectable()
 export class CandidateAccountService {
@@ -29,6 +31,7 @@ export class CandidateAccountService {
     private readonly skillRepo: SkillRepository,
     private readonly jobPostingRepo: JobPostingRepository,
     private readonly skillMatching: SkillMatchingService,
+    private readonly resumesService: ResumesService,
   ) {}
 
   async getJobs(search?: string) {
@@ -48,8 +51,7 @@ export class CandidateAccountService {
     candidateAccountId: string,
     tenantId: string,
     jobPostingId: string,
-    phone?: string,
-    skillIds?: string[],
+    dto: { phone?: string; skillIds?: string[]; coverLetter?: string },
   ) {
     const job = await this.jobListingsIndexRepo.findById(
       tenantId,
@@ -63,16 +65,39 @@ export class CandidateAccountService {
 
     const schemaName = `tenant_${tenantId}`;
 
-    let candidate = await this.candidateRepo.findByEmail(
-      account.email,
+    // Check for existing application
+    const existing = await this.candidateApplicationsIndexRepo.findByJob(
+      candidateAccountId,
+      tenantId,
+      jobPostingId,
+    );
+    if (existing) {
+      throw new ConflictException('You already applied to this application.');
+    }
+
+    // Resolve or create tenant candidate via UUID link
+    let candidate = await this.candidateRepo.findByAccountId(
+      candidateAccountId,
       schemaName,
     );
     if (!candidate) {
-      candidate = await this.candidateRepo.create(
+      candidate = await this.candidateRepo.createFromAccount(
+        candidateAccountId,
         {
           name: `${account.firstName} ${account.lastName}`,
           email: account.email,
-          phone: phone || account.phone,
+          phone: dto.phone ?? account.phone,
+        },
+        schemaName,
+      );
+    } else {
+      // Update tenant candidate snapshot
+      await this.candidateRepo.update(
+        candidate.id,
+        {
+          name: `${account.firstName} ${account.lastName}`,
+          email: account.email,
+          phone: dto.phone ?? account.phone,
         },
         schemaName,
       );
@@ -82,22 +107,12 @@ export class CandidateAccountService {
     if (!firstStage)
       throw new NotFoundException('No pipeline stages configured');
 
-    const application = await this.applicationRepo.create(
-      {
-        candidateId: candidate.id,
-        jobPostingId,
-        currentStageId: firstStage.id,
-      },
-      schemaName,
-    );
-
-    let candidateSkillIds = skillIds ?? [];
-    if (!skillIds) {
-      candidateSkillIds =
-        await this.candidateSkillRepo.findByCandidateAccountId(
-          candidateAccountId,
-        );
-    }
+    // Resolve skill IDs for match scoring
+    const candidateSkillIds =
+      dto.skillIds ??
+      (await this.candidateSkillRepo.findByCandidateAccountId(
+        candidateAccountId,
+      ));
     const required = await this.jobPostingRepo.getRequiredSkillIds(
       jobPostingId,
       schemaName,
@@ -106,9 +121,18 @@ export class CandidateAccountService {
       required,
       candidateSkillIds,
     );
-    await this.applicationRepo.updateMatchScore(
-      application.id,
-      matchScore,
+
+    const application = await this.applicationRepo.create(
+      {
+        candidateId: candidate.id,
+        jobPostingId,
+        currentStageId: firstStage.id,
+        candidateName: `${account.firstName} ${account.lastName}`,
+        candidateEmail: account.email,
+        candidatePhone: dto.phone ?? account.phone,
+        appliedSkillIds: candidateSkillIds,
+        matchScore,
+      },
       schemaName,
     );
 
@@ -194,14 +218,65 @@ export class CandidateAccountService {
       await this.candidateAccountRepo.findById(candidateAccountId);
     if (!account) throw new NotFoundException('Candidate account not found');
 
+    const skillIds =
+      await this.candidateSkillRepo.findByCandidateAccountId(
+        candidateAccountId,
+      );
+    let skills: { id: string; name: string; category: string | null }[] = [];
+    if (skillIds.length > 0) {
+      const allSkills = await this.skillRepo.findByIds(skillIds);
+      skills = allSkills.map((s) => ({
+        id: s.id,
+        name: s.name,
+        category: s.category,
+      }));
+    }
+
     return {
       id: account.id,
       email: account.email,
       firstName: account.firstName,
       lastName: account.lastName,
       phone: account.phone,
+      resumeFileUrl: account.resumeFileUrl ?? null,
+      resumeUploadedAt: account.resumeUploadedAt ?? null,
+      skills,
       createdAt: account.createdAt,
       role: 'Candidate',
     };
+  }
+
+  async updateProfile(
+    candidateAccountId: string,
+    dto: {
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+      phone?: string;
+    },
+  ) {
+    if (dto.email) {
+      const existing = await this.candidateAccountRepo.findByEmail(dto.email);
+      if (existing && existing.id !== candidateAccountId) {
+        throw new ConflictException('Email already in use');
+      }
+    }
+    return this.candidateAccountRepo.updateProfile(candidateAccountId, dto);
+  }
+
+  async uploadResume(candidateAccountId: string, fileUrl: string) {
+    return this.candidateAccountRepo.uploadResume(candidateAccountId, fileUrl);
+  }
+
+  async removeResume(candidateAccountId: string) {
+    return this.resumesService.remove(candidateAccountId);
+  }
+
+  async uploadResumeFile(
+    candidateAccountId: string,
+    file: Express.Multer.File,
+  ) {
+    const result = await this.resumesService.upload(candidateAccountId, file);
+    return { fileUrl: result.fileUrl, uploadedAt: result.uploadedAt };
   }
 }

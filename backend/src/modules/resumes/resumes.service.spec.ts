@@ -2,12 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { asyncStorage } from '../../common/context/tenant-context';
 import { ResumesService } from './resumes.service';
-import { ResumeRepository } from '../../repositories/resume.repository';
-import { CandidateRepository } from '../../repositories/candidate.repository';
+import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
 import { StorageService } from '../../common/storage/storage.service';
 
 const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
-  asyncStorage.run({ tenantId: 't1', userId: 'u1', role: 'OrgAdmin' }, fn);
+  asyncStorage.run(
+    { tenantId: 'public', userId: 'acc-1', role: 'Candidate' },
+    fn,
+  );
 
 const pdfFile = (): Express.Multer.File =>
   ({
@@ -18,13 +20,14 @@ const pdfFile = (): Express.Multer.File =>
 
 describe('ResumesService', () => {
   let service: ResumesService;
-  const resumeRepo = {
-    findByCandidateId: jest.fn(),
-    create: jest.fn(),
+  const candidateAccountRepo = {
+    findById: jest.fn(),
+    uploadResume: jest.fn(),
+    removeResume: jest.fn(),
   };
-  const candidateRepo = { findById: jest.fn() };
   const storage = {
     upload: jest.fn(),
+    delete: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -32,8 +35,7 @@ describe('ResumesService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ResumesService,
-        { provide: ResumeRepository, useValue: resumeRepo },
-        { provide: CandidateRepository, useValue: candidateRepo },
+        { provide: CandidateAccountRepository, useValue: candidateAccountRepo },
         { provide: StorageService, useValue: storage },
       ],
     }).compile();
@@ -45,58 +47,84 @@ describe('ResumesService', () => {
   });
 
   it('get throws NotFoundException when no resume exists', async () => {
-    resumeRepo.findByCandidateId.mockResolvedValue(null);
-    await expect(service.get('c1')).rejects.toThrow(NotFoundException);
+    candidateAccountRepo.findById.mockResolvedValue(null);
+    await expect(service.get('acc-1')).rejects.toThrow(NotFoundException);
   });
 
   it('get returns resume', async () => {
     const uploadedAt = new Date();
-    resumeRepo.findByCandidateId.mockResolvedValue({
-      id: 'r1',
-      candidateId: 'c1',
-      fileUrl: 'k',
-      uploadedAt,
+    candidateAccountRepo.findById.mockResolvedValue({
+      id: 'acc-1',
+      resumeFileUrl: 'candidate-resumes/acc-1/uuid.pdf',
+      resumeUploadedAt: uploadedAt,
     });
-    await expect(service.get('c1')).resolves.toEqual({
-      id: 'r1',
-      candidateId: 'c1',
-      fileUrl: 'k',
+    await expect(service.get('acc-1')).resolves.toEqual({
+      fileUrl: 'candidate-resumes/acc-1/uuid.pdf',
       uploadedAt,
     });
   });
 
   it('upload rejects unsupported file types', async () => {
-    candidateRepo.findById.mockResolvedValue({ id: 'c1' });
     const txt = {
       mimetype: 'text/plain',
       buffer: Buffer.from('hi'),
     } as Express.Multer.File;
-    await expect(runInContext(() => service.upload('c1', txt))).rejects.toThrow(
-      BadRequestException,
-    );
+    await expect(
+      runInContext(() => service.upload('acc-1', txt)),
+    ).rejects.toThrow(BadRequestException);
   });
 
   it('upload throws NotFoundException when candidate is missing', async () => {
-    candidateRepo.findById.mockResolvedValue(null);
+    candidateAccountRepo.findById.mockResolvedValue(null);
     await expect(
-      runInContext(() => service.upload('c1', pdfFile())),
+      runInContext(() => service.upload('acc-1', pdfFile())),
     ).rejects.toThrow(NotFoundException);
   });
 
   it('upload stores file and returns resume', async () => {
-    candidateRepo.findById.mockResolvedValue({ id: 'c1' });
-    resumeRepo.create.mockResolvedValue({ id: 'r1', fileUrl: 'k' });
-    resumeRepo.findByCandidateId.mockResolvedValue({
-      id: 'r1',
-      candidateId: 'c1',
-      fileUrl: 'k',
-      uploadedAt: new Date(),
-    });
+    candidateAccountRepo.findById
+      .mockResolvedValueOnce({ id: 'acc-1' })
+      .mockResolvedValueOnce({
+        id: 'acc-1',
+        resumeFileUrl: 'candidate-resumes/acc-1/uuid.pdf',
+        resumeUploadedAt: new Date('2026-08-04T12:00:00Z'),
+      });
+    candidateAccountRepo.uploadResume.mockResolvedValue(null);
+    storage.upload.mockResolvedValue(null);
 
-    await runInContext(() => service.upload('c1', pdfFile()));
+    await runInContext(() => service.upload('acc-1', pdfFile()));
 
     expect(storage.upload).toHaveBeenCalledWith(
-      expect.stringMatching(/^tenants\/t1\/resumes\/c1\//),
+      expect.stringMatching(/^candidate-resumes\/acc-1\//),
+      Buffer.from('%PDF-1.4 fake'),
+      'application/pdf',
+    );
+    expect(candidateAccountRepo.uploadResume).toHaveBeenCalledWith(
+      'acc-1',
+      expect.stringMatching(/^candidate-resumes\/acc-1\//),
+    );
+  });
+
+  it('upload deletes old resume before uploading new', async () => {
+    candidateAccountRepo.findById
+      .mockResolvedValueOnce({
+        id: 'acc-1',
+        resumeFileUrl: 'old-resume-url',
+      })
+      .mockResolvedValueOnce({
+        id: 'acc-1',
+        resumeFileUrl: 'candidate-resumes/acc-1/uuid.pdf',
+        resumeUploadedAt: new Date('2026-08-04T12:00:00Z'),
+      });
+    candidateAccountRepo.uploadResume.mockResolvedValue(null);
+    storage.upload.mockResolvedValue(null);
+    storage.delete.mockResolvedValue(null);
+
+    await runInContext(() => service.upload('acc-1', pdfFile()));
+
+    expect(storage.delete).toHaveBeenCalledWith('old-resume-url');
+    expect(storage.upload).toHaveBeenCalledWith(
+      expect.stringMatching(/^candidate-resumes\/acc-1\//),
       Buffer.from('%PDF-1.4 fake'),
       'application/pdf',
     );

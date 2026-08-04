@@ -1,6 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { CandidateRepository } from '../../repositories/candidate.repository';
-import { ResumeRepository } from '../../repositories/resume.repository';
 import { ApplicationRepository } from '../../repositories/application.repository';
 import { CandidateSkillRepository } from '../../repositories/candidate-skill.repository';
 import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
@@ -11,7 +10,6 @@ import { CreateCandidateDto } from './dto/create-candidate.dto';
 export class CandidatesService {
   constructor(
     private readonly candidateRepo: CandidateRepository,
-    private readonly resumeRepo: ResumeRepository,
     private readonly applicationRepo: ApplicationRepository,
     private readonly candidateSkillRepo: CandidateSkillRepository,
     private readonly candidateAccountRepo: CandidateAccountRepository,
@@ -26,12 +24,38 @@ export class CandidatesService {
     const candidate = await this.candidateRepo.findById(id);
     if (!candidate) throw new NotFoundException('Candidate not found');
 
-    const resume = await this.resumeRepo.findByCandidateId(id);
     const applications = await this.applicationRepo.findByCandidateId(id);
 
     let skills: { id: string; name: string; category: string | null }[] = [];
+    let resume: { fileUrl: string | null; uploadedAt: Date | null } | null =
+      null;
 
-    if (candidate.email) {
+    if (candidate.candidateAccountId) {
+      const account = await this.candidateAccountRepo.findById(
+        candidate.candidateAccountId,
+      );
+      if (account) {
+        const skillIds = await this.candidateSkillRepo.findByCandidateAccountId(
+          account.id,
+        );
+        if (skillIds.length > 0) {
+          const allSkills = await this.skillRepo.findAll();
+          const skillMap = new Map(allSkills.map((s) => [s.id, s]));
+          skills = skillIds
+            .map((sid) => skillMap.get(sid))
+            .filter(
+              (s): s is { id: string; name: string; category: string | null } =>
+                s !== undefined,
+            )
+            .map((s) => ({ id: s.id, name: s.name, category: s.category }));
+        }
+        resume = {
+          fileUrl: account.resumeFileUrl ?? null,
+          uploadedAt: account.resumeUploadedAt ?? null,
+        };
+      }
+    } else if (candidate.email) {
+      // Fallback for legacy candidates without UUID link
       const account = await this.candidateAccountRepo.findByEmail(
         candidate.email,
       );
@@ -50,16 +74,16 @@ export class CandidatesService {
             )
             .map((s) => ({ id: s.id, name: s.name, category: s.category }));
         }
+        resume = {
+          fileUrl: account.resumeFileUrl ?? null,
+          uploadedAt: account.resumeUploadedAt ?? null,
+        };
       }
     }
 
     return {
       ...candidate,
-      resume: resume
-        ? {
-            ...resume,
-          }
-        : null,
+      resume,
       skills,
       applications,
     };

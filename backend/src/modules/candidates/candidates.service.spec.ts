@@ -2,7 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { CandidatesService } from './candidates.service';
 import { CandidateRepository } from '../../repositories/candidate.repository';
-import { ResumeRepository } from '../../repositories/resume.repository';
 import { ApplicationRepository } from '../../repositories/application.repository';
 import { CandidateSkillRepository } from '../../repositories/candidate-skill.repository';
 import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
@@ -13,10 +12,10 @@ describe('CandidatesService', () => {
   const candidateRepo = {
     findAll: jest.fn(),
     findById: jest.fn(),
+    findByAccountId: jest.fn(),
     create: jest.fn(),
-  };
-  const resumeRepo = {
-    findByCandidateId: jest.fn(),
+    createFromAccount: jest.fn(),
+    update: jest.fn(),
   };
   const applicationRepo = { findByCandidateId: jest.fn() };
   const candidateSkillRepo = {
@@ -24,6 +23,7 @@ describe('CandidatesService', () => {
   };
   const candidateAccountRepo = {
     findByEmail: jest.fn(),
+    findById: jest.fn(),
   };
   const skillRepo = {
     findAll: jest.fn(),
@@ -35,7 +35,6 @@ describe('CandidatesService', () => {
       providers: [
         CandidatesService,
         { provide: CandidateRepository, useValue: candidateRepo },
-        { provide: ResumeRepository, useValue: resumeRepo },
         { provide: ApplicationRepository, useValue: applicationRepo },
         { provide: CandidateSkillRepository, useValue: candidateSkillRepo },
         { provide: CandidateAccountRepository, useValue: candidateAccountRepo },
@@ -59,48 +58,106 @@ describe('CandidatesService', () => {
     await expect(service.getOne('nope')).rejects.toThrow(NotFoundException);
   });
 
-  it('getOne returns the candidate enriched with resume, skills, and applications', async () => {
-    candidateRepo.findById.mockResolvedValue({ id: 'c1', name: 'Jane' });
-    resumeRepo.findByCandidateId.mockResolvedValue({
-      id: 'r1',
-      fileUrl: 'k',
+  it('getOne resolves via candidate_account_id when link exists', async () => {
+    candidateRepo.findById.mockResolvedValue({
+      id: 'c1',
+      name: 'Jane',
+      email: 'jane@example.com',
+      phone: '555-1234',
+      candidateAccountId: 'acc-1',
     });
-    applicationRepo.findByCandidateId.mockResolvedValue([{ id: 'a1' }]);
-    candidateAccountRepo.findByEmail.mockResolvedValue(null);
+    candidateAccountRepo.findById.mockResolvedValue({
+      id: 'acc-1',
+      firstName: 'Jane',
+      lastName: 'Doe',
+      email: 'jane@example.com',
+      phone: '555-1234',
+      resumeFileUrl: 'candidate-resumes/acc-1/uuid.pdf',
+      resumeUploadedAt: new Date('2026-08-04T12:00:00Z'),
+    });
+    candidateSkillRepo.findByCandidateAccountId.mockResolvedValue([]);
+    applicationRepo.findByCandidateId.mockResolvedValue([]);
 
     await expect(service.getOne('c1')).resolves.toEqual({
       id: 'c1',
       name: 'Jane',
-      resume: { id: 'r1', fileUrl: 'k' },
+      email: 'jane@example.com',
+      phone: '555-1234',
+      candidateAccountId: 'acc-1',
+      resume: {
+        fileUrl: 'candidate-resumes/acc-1/uuid.pdf',
+        uploadedAt: new Date('2026-08-04T12:00:00Z'),
+      },
       skills: [],
-      applications: [{ id: 'a1' }],
+      applications: [],
     });
   });
 
-  it('getOne returns null resume when the candidate has none', async () => {
-    candidateRepo.findById.mockResolvedValue({ id: 'c1', name: 'Jane' });
-    resumeRepo.findByCandidateId.mockResolvedValue(null);
+  it('getOne falls back to email lookup for legacy candidates without UUID link', async () => {
+    candidateRepo.findById.mockResolvedValue({
+      id: 'c1',
+      name: 'Jane',
+      email: 'jane@example.com',
+      candidateAccountId: null,
+    });
+    candidateAccountRepo.findByEmail.mockResolvedValue({
+      id: 'acc-1',
+      firstName: 'Jane',
+      lastName: 'Doe',
+      email: 'jane@example.com',
+      resumeFileUrl: null,
+      resumeUploadedAt: null,
+    });
+    candidateSkillRepo.findByCandidateAccountId.mockResolvedValue([]);
     applicationRepo.findByCandidateId.mockResolvedValue([]);
-    candidateAccountRepo.findByEmail.mockResolvedValue(null);
 
     await expect(service.getOne('c1')).resolves.toEqual({
       id: 'c1',
       name: 'Jane',
+      email: 'jane@example.com',
+      candidateAccountId: null,
+      resume: { fileUrl: null, uploadedAt: null },
+      skills: [],
+      applications: [],
+    });
+  });
+
+  it('getOne returns empty skills when no account found', async () => {
+    candidateRepo.findById.mockResolvedValue({
+      id: 'c1',
+      name: 'Jane',
+      email: 'jane@example.com',
+      candidateAccountId: null,
+    });
+    candidateAccountRepo.findByEmail.mockResolvedValue(null);
+    applicationRepo.findByCandidateId.mockResolvedValue([]);
+
+    await expect(service.getOne('c1')).resolves.toEqual({
+      id: 'c1',
+      name: 'Jane',
+      email: 'jane@example.com',
+      candidateAccountId: null,
       resume: null,
       skills: [],
       applications: [],
     });
   });
 
-  it('getOne returns skills when candidate has a candidate_accounts entry', async () => {
+  it('getOne returns skills when candidate accounts entry has resume', async () => {
     candidateRepo.findById.mockResolvedValue({
       id: 'c1',
       name: 'Jane',
       email: 'jane@example.com',
+      candidateAccountId: 'acc-1',
     });
-    resumeRepo.findByCandidateId.mockResolvedValue(null);
-    applicationRepo.findByCandidateId.mockResolvedValue([]);
-    candidateAccountRepo.findByEmail.mockResolvedValue({ id: 'acc1' });
+    candidateAccountRepo.findById.mockResolvedValue({
+      id: 'acc-1',
+      firstName: 'Jane',
+      lastName: 'Doe',
+      email: 'jane@example.com',
+      resumeFileUrl: 'candidate-resumes/acc-1/uuid.pdf',
+      resumeUploadedAt: new Date('2026-08-04T12:00:00Z'),
+    });
     candidateSkillRepo.findByCandidateAccountId.mockResolvedValue([
       'skill1',
       'skill2',
@@ -110,52 +167,39 @@ describe('CandidatesService', () => {
       { id: 'skill2', name: 'React', category: 'Framework' },
       { id: 'skill3', name: 'Python', category: 'Language' },
     ]);
+    applicationRepo.findByCandidateId.mockResolvedValue([]);
 
-    await expect(service.getOne('c1')).resolves.toEqual({
-      id: 'c1',
-      name: 'Jane',
-      email: 'jane@example.com',
-      resume: null,
-      skills: [
-        { id: 'skill1', name: 'TypeScript', category: 'Language' },
-        { id: 'skill2', name: 'React', category: 'Framework' },
-      ],
-      applications: [],
+    const result = await service.getOne('c1');
+    expect(result.skills).toEqual([
+      { id: 'skill1', name: 'TypeScript', category: 'Language' },
+      { id: 'skill2', name: 'React', category: 'Framework' },
+    ]);
+    expect(result.resume).toEqual({
+      fileUrl: 'candidate-resumes/acc-1/uuid.pdf',
+      uploadedAt: new Date('2026-08-04T12:00:00Z'),
     });
   });
 
-  it('getOne returns empty skills when candidate has no candidate_accounts entry', async () => {
+  it('getOne returns null resume when candidate has no resume', async () => {
     candidateRepo.findById.mockResolvedValue({
       id: 'c1',
       name: 'Jane',
       email: 'jane@example.com',
+      candidateAccountId: 'acc-1',
     });
-    resumeRepo.findByCandidateId.mockResolvedValue(null);
-    applicationRepo.findByCandidateId.mockResolvedValue([]);
-    candidateAccountRepo.findByEmail.mockResolvedValue(null);
-
-    await expect(service.getOne('c1')).resolves.toEqual({
-      id: 'c1',
-      name: 'Jane',
+    candidateAccountRepo.findById.mockResolvedValue({
+      id: 'acc-1',
+      firstName: 'Jane',
+      lastName: 'Doe',
       email: 'jane@example.com',
-      resume: null,
-      skills: [],
-      applications: [],
+      resumeFileUrl: null,
+      resumeUploadedAt: null,
     });
-  });
-
-  it('getOne returns empty skills when candidate has no email', async () => {
-    candidateRepo.findById.mockResolvedValue({ id: 'c1', name: 'Jane' });
-    resumeRepo.findByCandidateId.mockResolvedValue(null);
+    candidateSkillRepo.findByCandidateAccountId.mockResolvedValue([]);
     applicationRepo.findByCandidateId.mockResolvedValue([]);
 
-    await expect(service.getOne('c1')).resolves.toEqual({
-      id: 'c1',
-      name: 'Jane',
-      resume: null,
-      skills: [],
-      applications: [],
-    });
+    const result = await service.getOne('c1');
+    expect(result.resume).toEqual({ fileUrl: null, uploadedAt: null });
   });
 
   it('create delegates to the repository', async () => {

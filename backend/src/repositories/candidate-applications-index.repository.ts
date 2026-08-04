@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import { candidateApplicationsIndex } from '../database/schema';
 import { BaseRepository } from './base.repository';
 
@@ -15,6 +15,31 @@ export class CandidateApplicationsIndexRepository extends BaseRepository {
         )
         .orderBy(desc(candidateApplicationsIndex.appliedAt))
         .execute();
+    });
+  }
+
+  async findByJob(
+    candidateAccountId: string,
+    tenantId: string,
+    jobPostingId: string,
+  ) {
+    return this.withDb('public', async (db) => {
+      const rows = await db
+        .select()
+        .from(candidateApplicationsIndex)
+        .where(
+          and(
+            eq(
+              candidateApplicationsIndex.candidateAccountId,
+              candidateAccountId,
+            ),
+            eq(candidateApplicationsIndex.tenantId, tenantId),
+            eq(candidateApplicationsIndex.jobPostingId, jobPostingId),
+          ),
+        )
+        .limit(1)
+        .execute();
+      return rows[0] ?? null;
     });
   }
 

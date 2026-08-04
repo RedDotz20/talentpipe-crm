@@ -9,5 +9,6 @@ import { ResumesService } from './resumes.service';
   imports: [AuthCoreModule, StorageModule, RepositoriesModule],
   controllers: [ResumesController],
   providers: [ResumesService],
+  exports: [ResumesService],
 })
 export class ResumesModule {}

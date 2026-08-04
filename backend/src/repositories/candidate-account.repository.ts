@@ -43,4 +43,48 @@ export class CandidateAccountRepository extends BaseRepository {
       return rows[0];
     });
   }
+
+  async updateProfile(
+    id: string,
+    data: {
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+      phone?: string;
+    },
+  ) {
+    return this.withDb('public', async (db) => {
+      const rows = await db
+        .update(candidateAccounts)
+        .set(data)
+        .where(eq(candidateAccounts.id, id))
+        .returning()
+        .execute();
+      return rows[0] ?? null;
+    });
+  }
+
+  async uploadResume(id: string, fileUrl: string) {
+    return this.withDb('public', async (db) => {
+      const rows = await db
+        .update(candidateAccounts)
+        .set({ resumeFileUrl: fileUrl, resumeUploadedAt: new Date() })
+        .where(eq(candidateAccounts.id, id))
+        .returning()
+        .execute();
+      return rows[0] ?? null;
+    });
+  }
+
+  async removeResume(id: string) {
+    return this.withDb('public', async (db) => {
+      const rows = await db
+        .update(candidateAccounts)
+        .set({ resumeFileUrl: null, resumeUploadedAt: null })
+        .where(eq(candidateAccounts.id, id))
+        .returning()
+        .execute();
+      return rows[0] ?? null;
+    });
+  }
 }

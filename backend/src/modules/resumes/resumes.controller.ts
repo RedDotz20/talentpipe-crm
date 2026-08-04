@@ -1,41 +1,32 @@
 import {
   Controller,
   Get,
+  NotFoundException,
   Param,
-  Post,
-  UploadedFile,
   UseGuards,
-  UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CandidateRepository } from '../../repositories/candidate.repository';
 import { ResumesService } from './resumes.service';
 
 const VIEW_ROLES = ['OrgAdmin', 'Recruiter', 'HiringManager'];
-const EDIT_ROLES = ['OrgAdmin', 'Recruiter'];
 
 @Controller('candidates/:candidateId/resume')
 export class ResumesController {
-  constructor(private readonly resumesService: ResumesService) {}
+  constructor(
+    private readonly resumesService: ResumesService,
+    private readonly candidateRepo: CandidateRepository,
+  ) {}
 
   @Get()
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
-  get(@Param('candidateId') candidateId: string) {
-    return this.resumesService.get(candidateId);
-  }
-
-  @Post()
-  @UseGuards(AuthGuard('jwt'))
-  @Roles(...EDIT_ROLES)
-  @UseInterceptors(
-    FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }),
-  )
-  upload(
-    @Param('candidateId') candidateId: string,
-    @UploadedFile() file: Express.Multer.File,
-  ) {
-    return this.resumesService.upload(candidateId, file);
+  async get(@Param('candidateId') candidateId: string) {
+    const candidate = await this.candidateRepo.findById(candidateId);
+    if (!candidate?.candidateAccountId) {
+      throw new NotFoundException('Candidate resume not found');
+    }
+    return this.resumesService.get(candidate.candidateAccountId);
   }
 }

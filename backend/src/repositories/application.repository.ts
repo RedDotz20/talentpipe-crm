@@ -19,12 +19,26 @@ const selectAppRow = {
   candidateEmail: candidates.email,
   jobTitle: jobPostings.title,
   stageName: pipelineStages.name,
+  // Snapshot fields
+  applicationCandidateName: applications.candidateName,
+  applicationCandidateEmail: applications.candidateEmail,
+  applicationCandidatePhone: applications.candidatePhone,
+  appliedSkillIds: applications.appliedSkillIds,
 };
 
 @Injectable()
 export class ApplicationRepository extends BaseRepository {
   async create(
-    data: { candidateId: string; jobPostingId: string; currentStageId: string },
+    data: {
+      candidateId: string;
+      jobPostingId: string;
+      currentStageId: string;
+      candidateName: string;
+      candidateEmail: string;
+      candidatePhone: string | null;
+      appliedSkillIds: string[];
+      matchScore: number;
+    },
     schema = 'current',
   ) {
     return this.withDb(schema, async (db) => {

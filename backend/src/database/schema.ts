@@ -8,6 +8,7 @@ import {
   timestamp,
   uniqueIndex,
   index,
+  jsonb,
 } from 'drizzle-orm/pg-core';
 
 // ── Public Schema Tables ──
@@ -101,10 +102,15 @@ export const candidates = pgTable(
     name: varchar('name', { length: 255 }).notNull(),
     email: varchar('email', { length: 255 }),
     phone: varchar('phone', { length: 50 }),
+    candidateAccountId: uuid('candidate_account_id').references(
+      () => candidateAccounts.id,
+      { onDelete: 'set null' },
+    ),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({
     emailIdx: index('idx_candidates_email').on(table.email),
+    accountIdx: index('idx_candidates_account').on(table.candidateAccountId),
   }),
 );
 
@@ -133,6 +139,10 @@ export const applications = pgTable(
     currentStageId: uuid('current_stage_id').references(
       () => pipelineStages.id,
     ),
+    candidateName: varchar('candidate_name', { length: 255 }),
+    candidateEmail: varchar('candidate_email', { length: 255 }),
+    candidatePhone: varchar('candidate_phone', { length: 50 }),
+    appliedSkillIds: jsonb('applied_skill_ids'),
     matchScore: doublePrecision('match_score').default(0),
     appliedAt: timestamp('applied_at').defaultNow().notNull(),
   },
@@ -140,37 +150,6 @@ export const applications = pgTable(
     jobStageIdx: index('idx_applications_job_stage').on(
       table.jobPostingId,
       table.currentStageId,
-    ),
-  }),
-);
-
-export const resumes = pgTable(
-  'resumes',
-  {
-    id: uuid('id').defaultRandom().primaryKey(),
-    candidateId: uuid('candidate_id')
-      .notNull()
-      .references(() => candidates.id),
-    fileUrl: varchar('file_url', { length: 512 }),
-    uploadedAt: timestamp('uploaded_at').defaultNow().notNull(),
-  },
-  (table) => ({
-    candidateIdx: index('idx_resumes_candidate').on(table.candidateId),
-  }),
-);
-
-export const resumeSkills = pgTable(
-  'resume_skills',
-  {
-    resumeId: uuid('resume_id')
-      .notNull()
-      .references(() => resumes.id),
-    skillId: uuid('skill_id').notNull(),
-  },
-  (table) => ({
-    uniqueIdx: uniqueIndex('idx_resume_skills_unique').on(
-      table.resumeId,
-      table.skillId,
     ),
   }),
 );
@@ -248,6 +227,8 @@ export const candidateAccounts = pgTable('candidate_accounts', {
   firstName: varchar('first_name', { length: 100 }).notNull(),
   lastName: varchar('last_name', { length: 100 }).notNull(),
   phone: varchar('phone', { length: 50 }),
+  resumeFileUrl: varchar('resume_file_url', { length: 512 }),
+  resumeUploadedAt: timestamp('resume_uploaded_at', { withTimezone: true }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

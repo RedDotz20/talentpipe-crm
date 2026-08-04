@@ -8,7 +8,10 @@ import {
   Param,
   Query,
   UseGuards,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
 import { CandidateAuthGuard } from '../../common/guards/candidate-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -21,6 +24,10 @@ import {
   SetCandidateSkillsSchema,
   SetCandidateSkillsDto,
 } from './dto/skills.dto';
+import {
+  UpdateProfileSchema,
+  UpdateProfileDto,
+} from './dto/profile-update.dto';
 
 @Controller('candidate')
 export class CandidateAccountController {
@@ -49,13 +56,11 @@ export class CandidateAccountController {
     @Body(new ZodValidationPipe(ApplyJobSchema)) body: ApplyJobDto,
     @CurrentUser() user: TenantContext,
   ) {
-    return this.candidateAccountService.apply(
-      user.userId,
-      tenantId,
-      jobId,
-      body.phone,
-      body.skillIds,
-    );
+    return this.candidateAccountService.apply(user.userId, tenantId, jobId, {
+      phone: body.phone,
+      skillIds: body.skillIds,
+      coverLetter: body.coverLetter,
+    });
   }
 
   @Get('applications')
@@ -112,5 +117,32 @@ export class CandidateAccountController {
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
   async getProfile(@CurrentUser() user: TenantContext) {
     return this.candidateAccountService.getProfile(user.userId);
+  }
+
+  @Put('profile')
+  @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
+  async updateProfile(
+    @Body(new ZodValidationPipe(UpdateProfileSchema)) body: UpdateProfileDto,
+    @CurrentUser() user: TenantContext,
+  ) {
+    return this.candidateAccountService.updateProfile(user.userId, body);
+  }
+
+  @Post('resume')
+  @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }),
+  )
+  async uploadResume(
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: TenantContext,
+  ) {
+    return this.candidateAccountService.uploadResumeFile(user.userId, file);
+  }
+
+  @Delete('resume')
+  @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
+  async removeResume(@CurrentUser() user: TenantContext) {
+    return this.candidateAccountService.removeResume(user.userId);
   }
 }
