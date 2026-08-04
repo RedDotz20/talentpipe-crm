@@ -88,4 +88,14 @@ describe('DashboardService', () => {
       summary,
     );
   });
+
+  it('returns the repository summary when caching the result fails', async () => {
+    cache.get.mockResolvedValue(null);
+    cache.set.mockRejectedValue(new Error('Redis unavailable'));
+    repository.findSummary.mockResolvedValue(summary);
+
+    await expect(runInTenant(() => service.getSummary())).resolves.toEqual(
+      summary,
+    );
+  });
 });

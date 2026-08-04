@@ -2,6 +2,7 @@ import {
   DrizzleDB,
   DrizzleSchemaService,
 } from '../database/drizzle-schema.service';
+import { pipelineStages } from '../database/schema';
 import { DashboardRepository } from './dashboard.repository';
 
 describe('DashboardRepository', () => {
@@ -25,6 +26,9 @@ describe('DashboardRepository', () => {
       { stageId: 'stage-1', stageName: 'Screening', count: '4' },
       { stageId: null, stageName: null, count: '1' },
     ]);
+    const groupBy = jest.fn().mockReturnValue({
+      orderBy: jest.fn().mockReturnValue({ execute: byStageExecute }),
+    });
 
     const db = {
       select: jest
@@ -43,9 +47,7 @@ describe('DashboardRepository', () => {
         .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({
             leftJoin: jest.fn().mockReturnValue({
-              groupBy: jest.fn().mockReturnValue({
-                orderBy: jest.fn().mockReturnValue({ execute: byStageExecute }),
-              }),
+              groupBy,
             }),
           }),
         }),
@@ -63,6 +65,11 @@ describe('DashboardRepository', () => {
         { stageId: 'unassigned', stageName: 'Unassigned', count: 1 },
       ],
     });
+    expect(groupBy).toHaveBeenCalledWith(
+      pipelineStages.id,
+      pipelineStages.name,
+      pipelineStages.order,
+    );
     expect(forCurrentTenant).toHaveBeenCalledTimes(1);
     expect(release).toHaveBeenCalledTimes(1);
   });

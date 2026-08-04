@@ -51,7 +51,7 @@ export class DashboardRepository extends BaseRepository {
           pipelineStages,
           eq(applications.currentStageId, pipelineStages.id),
         )
-        .groupBy(pipelineStages.id, pipelineStages.name)
+        .groupBy(pipelineStages.id, pipelineStages.name, pipelineStages.order)
         .orderBy(pipelineStages.order)
         .execute();
 
