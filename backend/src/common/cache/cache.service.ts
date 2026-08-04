@@ -13,7 +13,10 @@ export class CacheService {
       const value = await this.redis.get(key);
       return value === null ? null : (JSON.parse(value) as T);
     } catch (error) {
-      this.logger.error(`Cache read failed for key "${key}"`, String(error));
+      this.logger.error(
+        `Cache read failed for key "${key}"`,
+        error instanceof Error ? error.stack : String(error),
+      );
       return null;
     }
   }
@@ -26,7 +29,10 @@ export class CacheService {
       }
       await this.redis.set(key, serialized, ttlSeconds);
     } catch (error) {
-      this.logger.error(`Cache write failed for key "${key}"`, String(error));
+      this.logger.error(
+        `Cache write failed for key "${key}"`,
+        error instanceof Error ? error.stack : String(error),
+      );
     }
   }
 
@@ -36,7 +42,7 @@ export class CacheService {
     } catch (error) {
       this.logger.error(
         `Cache invalidation failed for pattern "${pattern}"`,
-        String(error),
+        error instanceof Error ? error.stack : String(error),
       );
     }
   }
@@ -47,7 +53,7 @@ export class CacheService {
     } catch (error) {
       this.logger.error(
         `Tenant dashboard cache invalidation failed for tenant "${tenantId}"`,
-        String(error),
+        error instanceof Error ? error.stack : String(error),
       );
     }
   }

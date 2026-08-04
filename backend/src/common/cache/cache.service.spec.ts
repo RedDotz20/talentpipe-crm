@@ -1,6 +1,9 @@
+import 'reflect-metadata';
 import { Logger } from '@nestjs/common';
+import { RedisModule } from '../redis/redis.module';
 import { CacheService } from './cache.service';
 import { dashboardSummaryKey } from './cache.constants';
+import { CacheModule } from './cache.module';
 import { RedisService } from '../redis/redis.service';
 
 describe('CacheService', () => {
@@ -87,5 +90,17 @@ describe('CacheService', () => {
     await expect(cache.invalidateTenantDashboard('tenant-1')).resolves.toBeUndefined();
 
     expect(redis.del).toHaveBeenCalledWith(dashboardSummaryKey('tenant-1'));
+  });
+});
+
+describe('CacheModule', () => {
+  it('imports RedisModule and exports RedisModule plus CacheService', () => {
+    const imports = Reflect.getMetadata('imports', CacheModule) as unknown[];
+    const exports = Reflect.getMetadata('exports', CacheModule) as unknown[];
+
+    expect(imports).toContain(RedisModule);
+    expect(exports).toEqual(
+      expect.arrayContaining([RedisModule, CacheService]),
+    );
   });
 });

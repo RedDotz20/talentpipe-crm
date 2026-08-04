@@ -5,6 +5,6 @@ import { CacheService } from './cache.service';
 @Module({
   imports: [RedisModule],
   providers: [CacheService],
-  exports: [CacheService],
+  exports: [RedisModule, CacheService],
 })
 export class CacheModule {}

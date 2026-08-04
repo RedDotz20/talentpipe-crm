@@ -23,7 +23,10 @@ export class RedisService {
       }
       return count;
     } catch (error) {
-      this.logger.error(`Redis increment failed for key "${key}"`, String(error));
+      this.logger.error(
+        `Redis increment failed for key "${key}"`,
+        error instanceof Error ? error.stack : String(error),
+      );
       return null;
     }
   }
@@ -32,7 +35,10 @@ export class RedisService {
     try {
       return await this.redis.get(key);
     } catch (error) {
-      this.logger.error(`Redis read failed for key "${key}"`, String(error));
+      this.logger.error(
+        `Redis read failed for key "${key}"`,
+        error instanceof Error ? error.stack : String(error),
+      );
       return null;
     }
   }
@@ -41,7 +47,10 @@ export class RedisService {
     try {
       await this.redis.set(key, value, 'EX', ttlSeconds);
     } catch (error) {
-      this.logger.error(`Redis write failed for key "${key}"`, String(error));
+      this.logger.error(
+        `Redis write failed for key "${key}"`,
+        error instanceof Error ? error.stack : String(error),
+      );
     }
   }
 
@@ -49,7 +58,10 @@ export class RedisService {
     try {
       await this.redis.del(key);
     } catch (error) {
-      this.logger.error(`Redis delete failed for key "${key}"`, String(error));
+      this.logger.error(
+        `Redis delete failed for key "${key}"`,
+        error instanceof Error ? error.stack : String(error),
+      );
     }
   }
 
@@ -73,7 +85,7 @@ export class RedisService {
     } catch (error) {
       this.logger.error(
         `Redis invalidation failed for pattern "${pattern}"`,
-        String(error),
+        error instanceof Error ? error.stack : String(error),
       );
     }
   }
