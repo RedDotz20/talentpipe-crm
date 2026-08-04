@@ -4,7 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Pool } from 'pg';
 import Redis from 'ioredis';
 import request from 'supertest';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { AppModule } from '../src/app.module';
 
 interface ErrorResponse {
@@ -29,6 +29,13 @@ let app: INestApplication | undefined;
 let cleanupPool: Pool | undefined;
 let cleanupRedis: Redis | undefined;
 const createdCandidateIds: string[] = [];
+const createdSigninEmailDigests: string[] = [];
+
+const trackSigninEmail = (email: string): void => {
+  createdSigninEmailDigests.push(
+    createHash('sha256').update(email.trim().toLowerCase()).digest('hex'),
+  );
+};
 
 const decodeClaims = (token: string): JwtClaims => {
   const payload = token.split('.')[1];
@@ -89,6 +96,22 @@ const verifyInfrastructure = async (): Promise<void> => {
   }
 };
 
+const cleanupRedisKeys = async (pattern: string): Promise<void> => {
+  if (!cleanupRedis) return;
+  let cursor = '0';
+  do {
+    const [nextCursor, keys] = await cleanupRedis.scan(
+      cursor,
+      'MATCH',
+      pattern,
+      'COUNT',
+      100,
+    );
+    if (keys.length > 0) await cleanupRedis.del(...keys);
+    cursor = nextCursor;
+  } while (cursor !== '0');
+};
+
 describe('App e2e', () => {
   beforeAll(async () => {
     await verifyInfrastructure();
@@ -127,6 +150,9 @@ describe('App e2e', () => {
       }
     } finally {
       if (app) await app.close();
+      for (const digest of createdSigninEmailDigests) {
+        await cleanupRedisKeys(`ratelimit:login:${digest}:*`);
+      }
       if (cleanupRedis) await cleanupRedis.quit();
       if (cleanupPool) await cleanupPool.end();
     }
@@ -146,6 +172,7 @@ describe('App e2e', () => {
       const createdId = decodeClaims(signupBody.data.accessToken).sub;
       createdCandidateIds.push(createdId);
 
+      trackSigninEmail(email);
       const res = await request(app!.getHttpServer() as unknown as string)
         .post('/api/auth/signin')
         .send({ email, password });
@@ -178,10 +205,12 @@ describe('App e2e', () => {
     });
 
     it('POST /auth/signin — bad credentials return { error: { code: "UNAUTHORIZED", message } }', async () => {
+      const email = `task8-unknown-${Date.now()}-${randomUUID().slice(0, 8)}@example.test`;
+      trackSigninEmail(email);
       const res = await request(app!.getHttpServer() as unknown as string)
         .post('/api/auth/signin')
         .send({
-          email: `task8-unknown-${Date.now()}-${randomUUID().slice(0, 8)}@example.test`,
+          email,
           password: `Task8!${randomUUID().slice(0, 20)}`,
         });
       assertStatus(res, 401);

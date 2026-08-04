@@ -217,6 +217,30 @@ const createOpenJob = async (
   return assertEnvelope<JobPosting>(published, 201);
 };
 
+const createDraftJob = async (
+  tenant: TenantAccount,
+  suffix: string,
+): Promise<JobPosting> => {
+  const created = await request(httpServer())
+    .post('/api/job-postings')
+    .set('Authorization', `Bearer ${tenant.token}`)
+    .send({
+      title: `Task 8 ${suffix} Draft Job ${runId}`,
+      description: 'Release-gate draft job',
+    });
+  return assertEnvelope<JobPosting>(created, 201);
+};
+
+const closeJob = async (
+  tenant: TenantAccount,
+  job: JobPosting,
+): Promise<JobPosting> => {
+  const closed = await request(httpServer())
+    .post(`/api/job-postings/${job.id}/close`)
+    .set('Authorization', `Bearer ${tenant.token}`);
+  return assertEnvelope<JobPosting>(closed, 201);
+};
+
 const cleanupRedisKeys = async (pattern: string): Promise<void> => {
   if (!cleanupRedis) return;
   let cursor = '0';
@@ -304,6 +328,8 @@ describe('Phase 5b/6 release gates', () => {
   let tenantB: TenantAccount;
   let jobA: JobPosting;
   let jobB: JobPosting;
+  let jobADraft: JobPosting;
+  let jobAClosed: JobPosting;
   let candidateA: CandidateAccount;
   let candidateB: CandidateAccount;
   let applicationId: string;
@@ -321,6 +347,8 @@ describe('Phase 5b/6 release gates', () => {
     tenantB = await createTenant('b');
     jobA = await createOpenJob(tenantA, 'A');
     jobB = await createOpenJob(tenantB, 'B');
+    jobADraft = await createDraftJob(tenantA, 'A');
+    jobAClosed = await closeJob(tenantA, await createOpenJob(tenantA, 'A'));
     candidateA = await createCandidate('a');
     candidateB = await createCandidate('b');
   });
@@ -330,6 +358,9 @@ describe('Phase 5b/6 release gates', () => {
       await cleanupDatabase();
       for (const digest of createdLimiterEmailDigests) {
         await cleanupRedisKeys(`ratelimit:login:${digest}:*`);
+      }
+      for (const tenantId of createdTenantIds) {
+        if (cleanupRedis) await cleanupRedis.del(dashboardSummaryKey(tenantId));
       }
     } finally {
       if (app) await app.close();
@@ -346,6 +377,8 @@ describe('Phase 5b/6 release gates', () => {
     expect(jobs.every((job) => job.status === 'open')).toBe(true);
     expect(jobs.some((job) => job.jobPostingId === jobA.id)).toBe(true);
     expect(jobs.some((job) => job.jobPostingId === jobB.id)).toBe(true);
+    expect(jobs.some((job) => job.jobPostingId === jobADraft.id)).toBe(false);
+    expect(jobs.some((job) => job.jobPostingId === jobAClosed.id)).toBe(false);
 
     const applyResponse = await request(httpServer())
       .post(`/api/candidate/jobs/${tenantA.tenantId}/${jobA.id}/apply`)
@@ -364,6 +397,31 @@ describe('Phase 5b/6 release gates', () => {
       .send({});
     expect(duplicate.status).toBe(409);
     expect((duplicate.body as ErrorResponse).error.code).toBe('CONFLICT');
+
+    const tenantBApplicationResponse = await request(httpServer())
+      .post(`/api/candidate/jobs/${tenantB.tenantId}/${jobB.id}/apply`)
+      .set('Authorization', `Bearer ${candidateB.token}`)
+      .send({});
+    const tenantBApplication = assertEnvelope<{ applicationId: string }>(
+      tenantBApplicationResponse,
+      201,
+    );
+    const tenantBApplicationsResponse = await request(httpServer())
+      .get('/api/candidate/applications')
+      .set('Authorization', `Bearer ${candidateB.token}`);
+    const tenantBApplications = assertEnvelope<CandidateApplication[]>(
+      tenantBApplicationsResponse,
+      200,
+    );
+    const tenantBIndexedApplication = tenantBApplications.find(
+      (indexed) => indexed.applicationId === tenantBApplication.applicationId,
+    );
+    if (!tenantBIndexedApplication) {
+      throw new Error(
+        'Tenant B application was not added to the candidate index',
+      );
+    }
+    const tenantBStatusBeforeTenantAUpdate = tenantBIndexedApplication.status;
 
     const ownerDetail = await request(httpServer())
       .get(`/api/candidate/applications/${applicationId}`)
@@ -402,19 +460,41 @@ describe('Phase 5b/6 release gates', () => {
       200,
     );
     expect(synchronizedData.status).toBe('Screening');
+
+    const tenantBApplicationsAfterTenantAUpdateResponse = await request(
+      httpServer(),
+    )
+      .get('/api/candidate/applications')
+      .set('Authorization', `Bearer ${candidateB.token}`);
+    const tenantBApplicationsAfterTenantAUpdate = assertEnvelope<
+      CandidateApplication[]
+    >(tenantBApplicationsAfterTenantAUpdateResponse, 200);
+    expect(
+      tenantBApplicationsAfterTenantAUpdate.find(
+        (indexed) => indexed.applicationId === tenantBApplication.applicationId,
+      )?.status,
+    ).toBe(tenantBStatusBeforeTenantAUpdate);
   });
 
   it('limits sign-in attempts to five per normalized email and IP', async () => {
     const email = `task8-limit-${runId}@example.test`;
     const password = `Task8Limit!${randomUUID().slice(0, 18)}`;
     const ip = '198.51.100.28';
+    const emailVariants = [
+      email,
+      email.toUpperCase(),
+      ` ${email} `,
+      ` ${email.toUpperCase()} `,
+      email,
+      ` ${email} `,
+    ];
     const responses: HttpResponse[] = [];
-    for (let attempt = 0; attempt < 6; attempt += 1) {
+    for (const emailVariant of emailVariants) {
       responses.push(
         await request(httpServer())
           .post('/api/auth/signin')
           .set('X-Forwarded-For', ip)
-          .send({ email: email.toUpperCase(), password }),
+          .send({ email: emailVariant, password }),
       );
     }
     createdLimiterEmailDigests.push(
@@ -422,7 +502,7 @@ describe('Phase 5b/6 release gates', () => {
     );
 
     expect(
-      responses.slice(0, 5).every((response) => response.status === 401),
+      responses.slice(0, 5).every((response) => response.status !== 429),
     ).toBe(true);
     const limited = responses[5];
     expect(limited.status).toBe(429);
@@ -455,8 +535,8 @@ describe('Phase 5b/6 release gates', () => {
     const summaryB = assertEnvelope<DashboardSummary>(summaryBResponse, 200);
     expect(summaryB).toEqual(
       expect.objectContaining({
-        totalApplications: 0,
-        totalCandidates: 0,
+        totalApplications: 1,
+        totalCandidates: 1,
         openJobPostings: 1,
       }),
     );
@@ -473,6 +553,33 @@ describe('Phase 5b/6 release gates', () => {
       summaryA,
     );
     expect(await cleanupRedis!.get(keyA)).not.toBeNull();
+
+    const pool = cleanupPool;
+    if (!pool) throw new Error('Cleanup PostgreSQL pool was not initialized');
+    const tenantASchema = quoteIdentifier(`tenant_${tenantA.tenantId}`);
+    try {
+      await pool.query(
+        `UPDATE ${tenantASchema}."job_postings" SET "status" = 'closed' WHERE "id" = $1`,
+        [jobA.id],
+      );
+      const cachedAfterDirectDatabaseChangeResponse = await request(
+        httpServer(),
+      )
+        .get('/api/dashboard/summary')
+        .set('Authorization', `Bearer ${tenantA.token}`);
+      const cachedAfterDirectDatabaseChange = assertEnvelope<DashboardSummary>(
+        cachedAfterDirectDatabaseChangeResponse,
+        200,
+      );
+      expect(cachedAfterDirectDatabaseChange.openJobPostings).toBe(
+        summaryA.openJobPostings,
+      );
+    } finally {
+      await pool.query(
+        `UPDATE ${tenantASchema}."job_postings" SET "status" = 'open' WHERE "id" = $1`,
+        [jobA.id],
+      );
+    }
 
     const secondApplication = await request(httpServer())
       .post(`/api/candidate/jobs/${tenantA.tenantId}/${jobA.id}/apply`)

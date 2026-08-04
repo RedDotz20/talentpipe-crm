@@ -158,6 +158,7 @@ Relationships:
 | GET | `/candidate/jobs/:tenantId/:jobId` | CANDIDATE | Job detail |
 | POST | `/candidate/jobs/:tenantId/:jobId/apply` | CANDIDATE | Apply with account |
 | GET | `/candidate/applications` | CANDIDATE | Application history |
+| GET | `/candidate/applications/:id` | CANDIDATE | Application detail |
 | POST | `/candidate/bookmarks` | CANDIDATE | Save job |
 | DELETE | `/candidate/bookmarks/:id` | CANDIDATE | Remove bookmark |
 | GET | `/candidate/bookmarks` | CANDIDATE | List bookmarks |
