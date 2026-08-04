@@ -72,9 +72,11 @@ describe('JobPostingsService', () => {
     jobPostingRepo.create.mockResolvedValue({ id: 'p1', title: 'Eng' });
     jobPostingRepo.getRequiredSkillIds.mockResolvedValue(['s1']);
 
-    const result = await service.create(
-      { tenantId: 't1', userId: 'u1', role: 'OrgAdmin' },
-      { title: 'Eng', requiredSkillIds: ['s1'] },
+    const result = await runInContext(() =>
+      service.create(
+        { tenantId: 't1', userId: 'u1', role: 'OrgAdmin' },
+        { title: 'Eng', requiredSkillIds: ['s1'] },
+      ),
     );
 
     expect(skillRepo.findByIds).toHaveBeenCalledWith(['s1']);
@@ -89,6 +91,7 @@ describe('JobPostingsService', () => {
       title: 'Eng',
       requiredSkillIds: ['s1'],
     });
+    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
   });
 
   it('create rejects unknown skill ids', async () => {
@@ -99,6 +102,7 @@ describe('JobPostingsService', () => {
         { title: 'Eng', requiredSkillIds: ['s1', 'missing'] },
       ),
     ).rejects.toThrow(NotFoundException);
+    expect(cacheService.invalidateTenantDashboard).not.toHaveBeenCalled();
   });
 
   it('publish only works on drafts and syncs the listing index', async () => {
@@ -187,6 +191,42 @@ describe('JobPostingsService', () => {
     expect(jobListingsIndexRepo.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ title: 'Eng v2', status: 'open' }),
     );
+    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
+  });
+
+  it('update writes required skills and invalidates the dashboard without a field update', async () => {
+    jobPostingRepo.findById.mockResolvedValue({
+      id: 'p1',
+      title: 'Eng',
+      description: null,
+      status: 'draft',
+    });
+    skillRepo.findByIds.mockResolvedValue([{ id: 's1' }]);
+    jobPostingRepo.getRequiredSkillIds.mockResolvedValue(['s1']);
+
+    await runInContext(() =>
+      service.update('p1', { requiredSkillIds: ['s1'] }),
+    );
+
+    expect(jobPostingRepo.update).not.toHaveBeenCalled();
+    expect(jobPostingRepo.setRequiredSkills).toHaveBeenCalledWith('p1', ['s1']);
+    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
+  });
+
+  it('update does not invalidate when no write occurs', async () => {
+    jobPostingRepo.findById.mockResolvedValue({
+      id: 'p1',
+      title: 'Eng',
+      description: null,
+      status: 'draft',
+    });
+    jobPostingRepo.getRequiredSkillIds.mockResolvedValue([]);
+
+    await runInContext(() => service.update('p1', {}));
+
+    expect(jobPostingRepo.update).not.toHaveBeenCalled();
+    expect(jobPostingRepo.setRequiredSkills).not.toHaveBeenCalled();
+    expect(cacheService.invalidateTenantDashboard).not.toHaveBeenCalled();
   });
 
   it('update does not resync the listing index for draft postings', async () => {

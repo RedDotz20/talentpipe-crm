@@ -91,6 +91,16 @@ describe('CacheService', () => {
 
     expect(redis.del).toHaveBeenCalledWith(dashboardSummaryKey('tenant-1'));
   });
+
+  it('does not throw and logs when tenant dashboard invalidation fails', async () => {
+    redis.del.mockRejectedValue(new Error('redis down'));
+
+    await expect(
+      cache.invalidateTenantDashboard('tenant-1'),
+    ).resolves.toBeUndefined();
+
+    expect(loggerError).toHaveBeenCalled();
+  });
 });
 
 describe('CacheModule', () => {

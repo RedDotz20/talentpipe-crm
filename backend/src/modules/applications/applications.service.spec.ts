@@ -119,6 +119,27 @@ describe('ApplicationsService', () => {
     expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
   });
 
+  it('updateStage rejects when the stage update writes no application', async () => {
+    applicationRepo.findById.mockResolvedValue({
+      id: 'a1',
+      candidateName: 'Jane',
+    });
+    pipelineStageRepo.findById.mockResolvedValue({
+      id: 's2',
+      name: 'Interview',
+    });
+    applicationRepo.updateStage.mockResolvedValue(null);
+
+    await expect(
+      runInContext(() =>
+        service.updateStage('a1', { stageId: 's2' }, 'tenant-a'),
+      ),
+    ).rejects.toThrow('Application not found');
+
+    expect(candidateApplicationsIndexRepo.updateStatus).not.toHaveBeenCalled();
+    expect(cacheService.invalidateTenantDashboard).not.toHaveBeenCalled();
+  });
+
   it('addNote creates a note with the current user', async () => {
     applicationRepo.findById.mockResolvedValue({ id: 'a1' });
     noteRepo.create.mockResolvedValue({ id: 'n1' });

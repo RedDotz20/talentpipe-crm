@@ -51,6 +51,7 @@ export class JobPostingsService {
         dto.requiredSkillIds,
       );
     }
+    await this.cacheService.invalidateTenantDashboard(getTenantId());
     return this.getOne(posting.id);
   }
 
@@ -60,6 +61,7 @@ export class JobPostingsService {
     if (dto.requiredSkillIds) {
       await this.assertSkillsExist(dto.requiredSkillIds);
     }
+    let didWrite = false;
     const patch: Partial<{
       title: string;
       description: string | null;
@@ -69,12 +71,19 @@ export class JobPostingsService {
     if (dto.description !== undefined) patch.description = dto.description;
     if (Object.keys(patch).length > 0) {
       const updated = await this.jobPostingRepo.update(id, patch);
+      if (updated) {
+        didWrite = true;
+      }
       if (posting.status !== 'draft' && updated) {
         await this.syncListing(updated);
       }
     }
     if (dto.requiredSkillIds) {
       await this.jobPostingRepo.setRequiredSkills(id, dto.requiredSkillIds);
+      didWrite = true;
+    }
+    if (didWrite) {
+      await this.cacheService.invalidateTenantDashboard(getTenantId());
     }
     return this.getOne(id);
   }
