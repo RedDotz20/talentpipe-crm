@@ -9,6 +9,7 @@ import { SkillsModule } from './modules/skills/skills.module';
 import { ApplicationsModule } from './modules/applications/applications.module';
 import { ResumesModule } from './modules/resumes/resumes.module';
 import { PipelineStagesModule } from './modules/pipeline-stages/pipeline-stages.module';
+import { PublicCareersModule } from './modules/public-careers/public-careers.module';
 import { HealthModule } from './modules/health/health.module';
 import { TenantContextInterceptor } from './common/interceptors/tenant-context.interceptor';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
@@ -27,6 +28,7 @@ import { LoggerMiddleware } from './common/middlewares/logger.middleware';
     ApplicationsModule,
     ResumesModule,
     PipelineStagesModule,
+    PublicCareersModule,
     HealthModule,
   ],
   providers: [
