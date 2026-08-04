@@ -39,7 +39,11 @@ export class ApplicationsService {
     if (!stage) throw new NotFoundException('Pipeline stage not found');
     const updated = await this.applicationRepo.updateStage(id, dto.stageId);
     if (!updated) throw new NotFoundException('Application not found');
-    await this.candidateApplicationsIndexRepo.updateStatus(id, tenantId, stage.name);
+    await this.candidateApplicationsIndexRepo.updateStatus(
+      id,
+      tenantId,
+      stage.name,
+    );
     await this.cacheService.invalidateTenantDashboard(getTenantId());
     return this.getOne(id);
   }

@@ -87,7 +87,9 @@ describe('CacheService', () => {
   it('invalidates a tenant dashboard summary key', async () => {
     redis.del.mockResolvedValue(undefined);
 
-    await expect(cache.invalidateTenantDashboard('tenant-1')).resolves.toBeUndefined();
+    await expect(
+      cache.invalidateTenantDashboard('tenant-1'),
+    ).resolves.toBeUndefined();
 
     expect(redis.del).toHaveBeenCalledWith(dashboardSummaryKey('tenant-1'));
   });

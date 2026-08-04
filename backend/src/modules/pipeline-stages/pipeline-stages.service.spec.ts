@@ -48,7 +48,9 @@ describe('PipelineStagesService', () => {
       name: 'New',
       order: 2,
     });
-    await expect(runInContext(() => service.create({ name: 'New' }))).resolves.toEqual({
+    await expect(
+      runInContext(() => service.create({ name: 'New' })),
+    ).resolves.toEqual({
       id: 's3',
       name: 'New',
       order: 2,

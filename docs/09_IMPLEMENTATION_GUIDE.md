@@ -6,7 +6,7 @@
 **Package manager:** npm
 **Prerequisites:** Node 20+, Docker Desktop, Git
 
-> **Status legend:** ✅ = already implemented in the repo. ⬜ = planned / not yet built. Phases 0–5 are complete on the Phase 5 branch. The steps below match the actual implementation, including the backend SOLID restructure, unified auth routes, global response envelope, three frontend platforms, candidate accounts, manual skills, storage-only resumes, and read-only public careers API.
+> **Status legend:** ✅ = implemented in the repo. ⬜ = planned / not yet built. Phases 0–6, including the Phase 5b candidate-account slice, are implemented and covered by release-gate tests. The steps below match the actual implementation, including the backend SOLID restructure, unified auth routes, global response envelope, three frontend platforms, candidate accounts, manual skills, storage-only resumes, read-only public careers API, Redis login limiting, and tenant dashboard caching. See the Task 8 report for the environment-specific verification result.
 
 ---
 
@@ -566,7 +566,7 @@ curl -X POST http://localhost:3000/api/candidate/jobs/<tenant-id>/<open-job-id>/
 
 ## Phase 5b — Candidate Accounts & Dashboard ✅ (implemented early)
 
-> **Status: ✅ implemented** (built early with the backend SOLID restructure and completed through Phase 4). The `/candidate/*` API + `CandidatePlatform` frontend exist, including profile skills, storage-only resume upload, authenticated apply, bookmarks, and application history. Steps below are kept for reference.
+> **Status: ✅ implemented** (built early with the backend SOLID restructure and completed through Phase 5b). The `/candidate/*` API + `CandidatePlatform` frontend exist, including profile skills, storage-only resume upload, authenticated apply, bookmarks, application history, and candidate-owned application detail. Steps below are kept for reference.
 
 ### Step 5b.1 — Add public schema tables
 **Done.**
@@ -614,6 +614,12 @@ GET    /candidate/profile                           — CANDIDATE (view)
 PATCH  /candidate/profile                           — CANDIDATE (update)
 ```
 
+All candidate routes above are authenticated with a Candidate JWT. Public careers remain
+read-only (`GET /public/:tenantSlug/jobs` and `GET /public/:tenantSlug/jobs/:id`); there is
+no anonymous application route. The application-detail route is implemented at
+`GET /candidate/applications/:id` and returns `404` when the application is not owned by
+the authenticated candidate.
+
 ### Step 5b.5 — Update ApplicationsModule
 In the stage transition handler (`PATCH /applications/:id/stage`): after updating the tenant's application record, also update `candidateApplicationsIndex` status field for that application. **Done.**
 
@@ -637,15 +643,19 @@ CANDIDATE_TOKEN=...
 curl http://localhost:3000/api/candidate/jobs -H "Authorization: Bearer $CANDIDATE_TOKEN"  -> { data: [ jobs from all tenants ] }
 curl -X POST http://localhost:3000/api/candidate/jobs/<tenantId>/<jobId>/apply -H "Authorization: Bearer $CANDIDATE_TOKEN"  -> { data: { applicationId } }
 
-# Existing unauthenticated apply still works
-curl -X POST http://localhost:3000/api/public/testcorp/jobs/<id>/apply -d '{"name":"Jane","email":"j@e.com"}'  -> 200
+# Anonymous apply remains out of scope and must not be available
+curl -X POST http://localhost:3000/api/public/testcorp/jobs/<id>/apply -d '{"name":"Jane","email":"j@e.com"}'  -> 404
 ```
 
 **Commit:** `git add -A && git commit -m "phase5b: candidate accounts and dashboard — backend + frontend"`
 
 ---
 
-## Phase 6 — Redis: Full Integration
+## Phase 6 — Redis: Full Integration ✅ (implemented)
+
+> **Status: ✅ implemented.** Redis is used for sign-in limiting and the
+> tenant-scoped dashboard summary cache. BullMQ background jobs remain out of scope for
+> this phase.
 
 ### Step 6.1 — Install Redis client and provider
 ```
@@ -653,16 +663,32 @@ cd backend && npm install ioredis
 ```
 Create `backend/src/database/redis.provider.ts` — `REDIS_PROVIDER` factory using the configured Redis URL.
 
-### Step 6.2 — Login rate limiter
-Create `backend/src/common/middlewares/login-rate-limiter.guard.ts` — key `ratelimit:login:{email}:{ip}`, threshold 5 per 15 min. Apply to POST /auth/signin.
+### Step 6.2 — Login rate limiter ✅
+Implemented in `backend/src/common/middlewares/login-rate-limiter.guard.ts`. The limiter is
+sign-in-only, normalizes the email, keys by email and IP, and allows five attempts per
+15-minute window. The sixth attempt returns `429 RATE_LIMITED` with a numeric `Retry-After`
+header. Other auth routes and the candidate apply route are not limited by this guard.
 
-### Step 6.3 — Cache service
-Create `backend/src/common/cache.service.ts` — get<T>(key), set(key, value, ttlSeconds), invalidate(pattern).
+### Step 6.3 — Cache service ✅
+Implemented in `backend/src/common/cache/cache.service.ts` with JSON-safe `get<T>`, `set`
+with TTL, pattern invalidation, and tenant dashboard-key invalidation. Cache failures fall
+back to the underlying database operation.
 
-### Step 6.4 — Dashboard cache
-In dashboard service: check cache before expensive queries. Set with 60s TTL. Invalidate on writes.
+### Step 6.4 — Dashboard cache ✅
+`GET /dashboard/summary` is authenticated for internal organization roles and uses the
+tenant-namespaced key `tenant:{tenantId}:dashboard:summary:v1` with a 60-second TTL.
+Application, job-posting, pipeline-stage, and candidate-apply writes invalidate only the
+affected tenant's key; another tenant's cached summary remains available.
 
-**Commit:** `git add -A && git commit -m "phase6: Redis rate limiting, login lockout, dashboard cache"`
+**Release-gate coverage:** `backend/test/phase5b-phase6.e2e-spec.ts` verifies candidate
+open-job filtering, duplicate application conflicts, ownership `404`s, index status
+synchronization, sign-in limiting, dashboard cache presence, tenant isolation, and scoped
+invalidation.
+
+**Out of scope:** anonymous apply and BullMQ workers/queues. These remain explicitly
+deferred to later milestones.
+
+**Commit:** `git add -A && git commit -m "docs(m6): verify phase5b and phase6"`
 
 ---
 

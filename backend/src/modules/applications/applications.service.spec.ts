@@ -81,9 +81,7 @@ describe('ApplicationsService', () => {
     applicationRepo.findById.mockResolvedValue(null);
     await expect(
       service.updateStage('a1', { stageId: 's1' }, 'tenant-a'),
-    ).rejects.toThrow(
-      NotFoundException,
-    );
+    ).rejects.toThrow(NotFoundException);
   });
 
   it('updateStage throws when the stage is missing', async () => {
@@ -91,9 +89,7 @@ describe('ApplicationsService', () => {
     pipelineStageRepo.findById.mockResolvedValue(null);
     await expect(
       service.updateStage('a1', { stageId: 's1' }, 'tenant-a'),
-    ).rejects.toThrow(
-      NotFoundException,
-    );
+    ).rejects.toThrow(NotFoundException);
   });
 
   it('updateStage updates the record and syncs the index status', async () => {
@@ -108,7 +104,9 @@ describe('ApplicationsService', () => {
     applicationRepo.updateStage.mockResolvedValue({ id: 'a1' });
     noteRepo.findByApplicationId.mockResolvedValue([]);
 
-    await runInContext(() => service.updateStage('a1', { stageId: 's2' }, 'tenant-a'));
+    await runInContext(() =>
+      service.updateStage('a1', { stageId: 's2' }, 'tenant-a'),
+    );
 
     expect(applicationRepo.updateStage).toHaveBeenCalledWith('a1', 's2');
     expect(candidateApplicationsIndexRepo.updateStatus).toHaveBeenCalledWith(

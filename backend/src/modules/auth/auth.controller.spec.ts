@@ -5,6 +5,28 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { LoginRateLimiterGuard } from '../../common/middlewares/login-rate-limiter.guard';
 
+type AuthControllerMethodName =
+  'signin' | 'signup' | 'refresh' | 'orgSignup' | 'logout';
+type ControllerMethod = (...args: never[]) => unknown;
+
+const getControllerMethod = (
+  methodName: AuthControllerMethodName,
+): ControllerMethod => {
+  const method = Object.getOwnPropertyDescriptor(
+    AuthController.prototype,
+    methodName,
+  )?.value as unknown;
+  if (typeof method !== 'function') {
+    throw new Error(`AuthController method ${methodName} was not found`);
+  }
+  return method as ControllerMethod;
+};
+
+const getMetadata = <T>(metadataKey: string, target: object): T | undefined => {
+  const metadata: unknown = Reflect.getMetadata(metadataKey, target);
+  return metadata as T | undefined;
+};
+
 describe('AuthController', () => {
   let controller: AuthController;
 
@@ -38,29 +60,24 @@ describe('AuthController', () => {
   });
 
   it('applies the login rate limiter only to sign-in', () => {
-    const signinPath = Reflect.getMetadata(
-      PATH_METADATA,
-      AuthController.prototype.signin,
-    );
-    const signinGuards = Reflect.getMetadata(
+    const signinMethod = getControllerMethod('signin');
+    const signinPath = getMetadata<string>(PATH_METADATA, signinMethod);
+    const signinGuards = getMetadata<unknown[]>(GUARDS_METADATA, signinMethod);
+    const signupGuards = getMetadata<unknown[]>(
       GUARDS_METADATA,
-      AuthController.prototype.signin,
+      getControllerMethod('signup'),
     );
-    const signupGuards = Reflect.getMetadata(
+    const refreshGuards = getMetadata<unknown[]>(
       GUARDS_METADATA,
-      AuthController.prototype.signup,
+      getControllerMethod('refresh'),
     );
-    const refreshGuards = Reflect.getMetadata(
+    const orgSignupGuards = getMetadata<unknown[]>(
       GUARDS_METADATA,
-      AuthController.prototype.refresh,
+      getControllerMethod('orgSignup'),
     );
-    const orgSignupGuards = Reflect.getMetadata(
+    const logoutGuards = getMetadata<unknown[]>(
       GUARDS_METADATA,
-      AuthController.prototype.orgSignup,
-    );
-    const logoutGuards = Reflect.getMetadata(
-      GUARDS_METADATA,
-      AuthController.prototype.logout,
+      getControllerMethod('logout'),
     );
 
     expect(signinPath).toBe('signin');

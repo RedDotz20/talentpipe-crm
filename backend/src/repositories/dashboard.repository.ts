@@ -19,9 +19,8 @@ export type DashboardSummary = {
   }>;
 };
 
-const toNumber = (
-  value: number | string | bigint | null | undefined,
-): number => Number(value ?? 0);
+const toNumber = (value: number | string | bigint | null | undefined): number =>
+  Number(value ?? 0);
 
 @Injectable()
 export class DashboardRepository extends BaseRepository {

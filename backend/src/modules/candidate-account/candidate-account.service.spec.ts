@@ -116,9 +116,10 @@ describe('CandidateAccountService', () => {
       await expect(service.getJobDetail('t1', 'j1')).rejects.toThrow(
         NotFoundException,
       );
-      expect(
-        jobListingsIndexRepo.findOpenByTenantAndJob,
-      ).toHaveBeenCalledWith('t1', 'j1');
+      expect(jobListingsIndexRepo.findOpenByTenantAndJob).toHaveBeenCalledWith(
+        't1',
+        'j1',
+      );
       expect(jobListingsIndexRepo.findById).not.toHaveBeenCalled();
     });
 
@@ -148,9 +149,10 @@ describe('CandidateAccountService', () => {
       await expect(
         service.apply('candidate-1', 't1', 'j1', {}),
       ).rejects.toThrow(NotFoundException);
-      expect(
-        jobListingsIndexRepo.findOpenByTenantAndJob,
-      ).toHaveBeenCalledWith('t1', 'j1');
+      expect(jobListingsIndexRepo.findOpenByTenantAndJob).toHaveBeenCalledWith(
+        't1',
+        'j1',
+      );
       expect(jobListingsIndexRepo.findById).not.toHaveBeenCalled();
     });
 
@@ -161,9 +163,10 @@ describe('CandidateAccountService', () => {
       await expect(
         service.addBookmark('candidate-1', 't1', 'j1'),
       ).rejects.toThrow(NotFoundException);
-      expect(
-        jobListingsIndexRepo.findOpenByTenantAndJob,
-      ).toHaveBeenCalledWith('t1', 'j1');
+      expect(jobListingsIndexRepo.findOpenByTenantAndJob).toHaveBeenCalledWith(
+        't1',
+        'j1',
+      );
       expect(jobListingsIndexRepo.findById).not.toHaveBeenCalled();
     });
 
@@ -180,9 +183,10 @@ describe('CandidateAccountService', () => {
       await expect(
         service.addBookmark('candidate-1', 't1', 'j1'),
       ).rejects.toThrow(NotFoundException);
-      expect(
-        jobListingsIndexRepo.findOpenByTenantAndJob,
-      ).toHaveBeenCalledWith('t1', 'j1');
+      expect(jobListingsIndexRepo.findOpenByTenantAndJob).toHaveBeenCalledWith(
+        't1',
+        'j1',
+      );
       expect(candidateBookmarkRepo.create).not.toHaveBeenCalled();
     });
   });
@@ -289,7 +293,9 @@ describe('CandidateAccountService', () => {
         lastName: 'Doe',
       });
       candidateApplicationsIndexRepo.findByJob.mockResolvedValue(null);
-      candidateRepo.findByAccountId.mockResolvedValue({ id: 'candidate-tenant' });
+      candidateRepo.findByAccountId.mockResolvedValue({
+        id: 'candidate-tenant',
+      });
       pipelineStageRepo.findFirst.mockResolvedValue({
         id: 'stage-1',
         name: 'Applied',
@@ -336,7 +342,9 @@ describe('CandidateAccountService', () => {
         lastName: 'Doe',
       });
       candidateApplicationsIndexRepo.findByJob.mockResolvedValue(null);
-      candidateRepo.findByAccountId.mockResolvedValue({ id: 'candidate-tenant' });
+      candidateRepo.findByAccountId.mockResolvedValue({
+        id: 'candidate-tenant',
+      });
       pipelineStageRepo.findFirst.mockResolvedValue({
         id: 'stage-1',
         name: 'Applied',
@@ -353,10 +361,7 @@ describe('CandidateAccountService', () => {
       await expect(
         service.apply('candidate-a', 't1', 'j1', {}),
       ).rejects.toThrow('index unavailable');
-      expect(applicationRepo.delete).toHaveBeenCalledWith(
-        'app-a',
-        'tenant_t1',
-      );
+      expect(applicationRepo.delete).toHaveBeenCalledWith('app-a', 'tenant_t1');
     });
 
     it('converts duplicate application index violations into a conflict', async () => {
@@ -374,7 +379,9 @@ describe('CandidateAccountService', () => {
         lastName: 'Doe',
       });
       candidateApplicationsIndexRepo.findByJob.mockResolvedValue(null);
-      candidateRepo.findByAccountId.mockResolvedValue({ id: 'candidate-tenant' });
+      candidateRepo.findByAccountId.mockResolvedValue({
+        id: 'candidate-tenant',
+      });
       pipelineStageRepo.findFirst.mockResolvedValue({
         id: 'stage-1',
         name: 'Applied',
@@ -397,10 +404,7 @@ describe('CandidateAccountService', () => {
       await expect(applicationPromise).rejects.toThrow(
         'You already applied to this application.',
       );
-      expect(applicationRepo.delete).toHaveBeenCalledWith(
-        'app-a',
-        'tenant_t1',
-      );
+      expect(applicationRepo.delete).toHaveBeenCalledWith('app-a', 'tenant_t1');
     });
 
     it('converts wrapped duplicate application violations into a conflict after compensation', async () => {
@@ -418,7 +422,9 @@ describe('CandidateAccountService', () => {
         lastName: 'Doe',
       });
       candidateApplicationsIndexRepo.findByJob.mockResolvedValue(null);
-      candidateRepo.findByAccountId.mockResolvedValue({ id: 'candidate-tenant' });
+      candidateRepo.findByAccountId.mockResolvedValue({
+        id: 'candidate-tenant',
+      });
       pipelineStageRepo.findFirst.mockResolvedValue({
         id: 'stage-1',
         name: 'Applied',
@@ -443,10 +449,7 @@ describe('CandidateAccountService', () => {
       await expect(applicationPromise).rejects.toThrow(
         'You already applied to this application.',
       );
-      expect(applicationRepo.delete).toHaveBeenCalledWith(
-        'app-a',
-        'tenant_t1',
-      );
+      expect(applicationRepo.delete).toHaveBeenCalledWith('app-a', 'tenant_t1');
     });
 
     it('returns candidate-owned application detail from the tenant schema', async () => {

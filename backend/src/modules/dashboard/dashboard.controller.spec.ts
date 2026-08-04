@@ -12,13 +12,34 @@ const INTERNAL_ROLES = [
   'Interviewer',
 ];
 
+type DashboardControllerMethodName = 'getSummary';
+type ControllerMethod = (...args: never[]) => unknown;
+
+const getControllerMethod = (
+  methodName: DashboardControllerMethodName,
+): ControllerMethod => {
+  const method = Object.getOwnPropertyDescriptor(
+    DashboardController.prototype,
+    methodName,
+  )?.value as unknown;
+  if (typeof method !== 'function') {
+    throw new Error(`DashboardController method ${methodName} was not found`);
+  }
+  return method as ControllerMethod;
+};
+
+const getMetadata = <T>(metadataKey: string, target: object): T | undefined => {
+  const metadata: unknown = Reflect.getMetadata(metadataKey, target);
+  return metadata as T | undefined;
+};
+
 const makeContext = (request: Record<string, unknown>): ExecutionContext =>
   ({
     switchToHttp: () => ({
       getRequest: () => request,
       getResponse: () => ({}),
     }),
-    getHandler: () => DashboardController.prototype.getSummary,
+    getHandler: () => getControllerMethod('getSummary'),
     getClass: () => DashboardController,
   }) as unknown as ExecutionContext;
 
@@ -31,7 +52,7 @@ describe('DashboardController authorization', () => {
 
   it('requires exactly the internal dashboard roles', () => {
     expect(
-      Reflect.getMetadata(ROLES_KEY, DashboardController.prototype.getSummary),
+      getMetadata<string[]>(ROLES_KEY, getControllerMethod('getSummary')),
     ).toEqual(INTERNAL_ROLES);
   });
 

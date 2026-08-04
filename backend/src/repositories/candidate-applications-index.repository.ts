@@ -53,7 +53,10 @@ export class CandidateApplicationsIndexRepository extends BaseRepository {
         .from(candidateApplicationsIndex)
         .where(
           and(
-            eq(candidateApplicationsIndex.candidateAccountId, candidateAccountId),
+            eq(
+              candidateApplicationsIndex.candidateAccountId,
+              candidateAccountId,
+            ),
             eq(candidateApplicationsIndex.applicationId, applicationId),
           ),
         )

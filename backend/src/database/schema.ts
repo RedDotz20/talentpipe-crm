@@ -302,9 +302,11 @@ export const candidateApplicationsIndex = pgTable(
       table.tenantId,
       table.jobPostingId,
     ),
-    uniqueCandidateApplication: uniqueIndex(
-      'unique_candidate_application',
-    ).on(table.candidateAccountId, table.tenantId, table.jobPostingId),
+    uniqueCandidateApplication: uniqueIndex('unique_candidate_application').on(
+      table.candidateAccountId,
+      table.tenantId,
+      table.jobPostingId,
+    ),
   }),
 );
 

@@ -4,7 +4,7 @@
 
 **Status:** v1 — portfolio + functional demo. Solo-built, self-tested, no external/real-user data.
 
-**Implementation status:** Phases 0–4 are implemented. Phase 5 public tenant-specific careers browsing is implemented: public GET listing/detail routes are available, while applications require an authenticated Candidate account. Phase 6 Redis rate limiting/cache work remains planned.
+**Implementation status:** Phases 0–6 are implemented and release-gate coverage is present. Phase 5 public tenant-specific careers browsing is read-only: public GET listing/detail routes are available, while applications require an authenticated Candidate account. Phase 6 provides sign-in-only Redis limiting (five attempts per 15 minutes) and a 60-second tenant-scoped dashboard cache. Anonymous apply and BullMQ remain out of scope.
 
 ---
 
@@ -279,13 +279,13 @@ File-based TanStack Router (`frontend/src/routes/`), Mantine 9 + TanStack Query 
 3. ✅ Applications/Pipeline — Kanban board end-to-end (demo centerpiece) — **implemented**
 4. ✅ Candidate resume storage + manual skills → matchScore — **implemented**
 5. ✅ Public tenant-specific careers listing/detail + Candidate-only apply — **implemented**
-6. ⬜ Redis: rate-limit (public apply + login) + dashboard cache
+6. ✅ Redis: sign-in rate-limit + tenant dashboard cache
 7. ⬜ BullMQ: resume parsing + notification emails as background jobs
 8. ⬜ Interviews + feedback
 9. ⬜ Docker Compose full stack + GitHub Actions CI
 10. ⬜ Deploy; S3-compatible client already in use (MinIO → real S3 = env swap)
 
-> **Note:** Candidate Accounts were built early (with the M1 restructure). Authenticated candidate features (signup via unified `POST /auth/signup`, signin via `POST /auth/signin`, jobs, applications history, bookmarks, profile, skills, and resume storage) are **implemented** (`CandidateAccountModule`, public-schema candidate tables, `/candidate/*` API, and candidate-portal frontend). Public careers browsing is implemented through read-only `/public/:tenantSlug/jobs` GET routes. There is intentionally no anonymous `/public/*` apply path; Apply redirects anonymous visitors to sign-in/signup.
+> **Note:** Candidate Accounts were built early (with the M1 restructure). Authenticated candidate features (signup via unified `POST /auth/signup`, signin via `POST /auth/signin`, jobs, applications history, application detail, bookmarks, profile, skills, and resume storage) are **implemented** (`CandidateAccountModule`, public-schema candidate tables, `/candidate/*` API, and candidate-portal frontend). Public careers browsing is implemented through read-only `/public/:tenantSlug/jobs` GET routes. There is intentionally no anonymous `/public/*` apply path; Apply redirects anonymous visitors to sign-in/signup. Phase 6's sign-in limiter and tenant dashboard cache are implemented; BullMQ remains deferred.
 
 **Testing:**
 - Unit: skill-match score (0/all/partial edge cases), stage-transition rules.
@@ -334,7 +334,7 @@ File-based TanStack Router (`frontend/src/routes/`), Mantine 9 + TanStack Query 
 | **M3** | Pipeline (Kanban) | "ApplicationsModule + PipelineStage + frontend PipelineBoard with dnd-kit optimistic updates (§9 /features/pipeline). Backend `PATCH /applications/:id/stage`." | Drag stage move works end-to-end | M2 |
 | **M4** | Resume + Skill Match ✅ | "Candidate profile resume storage in MinIO plus manual candidate skills and explainable match score from profile/override." | Candidate profile stores resume and apply shows match score | M2 |
 | **M5** | Public Careers + Candidate Apply ✅ | "PublicCareersModule: tenant-specific open listing/detail GET routes. Apply redirects anonymous visitors to unified auth; Candidate API performs the write." | Candidate can browse publicly and apply after authentication | M3,M4 |
-| **M6** | Redis (rate-limit + cache) | "Redis rate limiter on /public/apply + /auth/signin (429+Retry-After). Dashboard aggregate cache namespaced `tenant:{id}:`." | Load test shows limiter triggers | M5 |
+| **M6** | **Redis (rate-limit + cache) ✅** | "Sign-in-only Redis rate limiter (429+Retry-After). Dashboard aggregate cache namespaced `tenant:{id}:`." | Release-gate tests show limiter, cache, and tenant isolation | M5 |
 | **M7** | BullMQ background jobs | "Move resume parsing + notification emails to BullMQ workers (§8, NFR-7 retries)." | Apply enqueues, worker parses async | M4,M6 |
 | **M8** | Interviews + Feedback | "InterviewsModule + INTERVIEW_FEEDBACK table + scheduling + assigned-only feedback (server-side filter)." | Schedule + submit feedback works | M3 |
 | **M9** | Admin + Platform + CI | "OrgAdmin settings/users UI + PlatformModule (SuperAdmin, unscoped repos). GitHub Actions CI (lint→test→build→push) with isolation suite as gate." | CI green; platform views work | M6,M8 |

@@ -1,6 +1,9 @@
 import type { SQL } from 'drizzle-orm';
 import { PgDialect } from 'drizzle-orm/pg-core/dialect';
-import { DrizzleDB, DrizzleSchemaService } from '../database/drizzle-schema.service';
+import {
+  DrizzleDB,
+  DrizzleSchemaService,
+} from '../database/drizzle-schema.service';
 import { CandidateApplicationsIndexRepository } from './candidate-applications-index.repository';
 
 describe('CandidateApplicationsIndexRepository', () => {
@@ -24,7 +27,9 @@ describe('CandidateApplicationsIndexRepository', () => {
     const limit = jest.fn().mockReturnValue({ execute });
     const where = jest.fn().mockReturnValue({ limit });
     const from = jest.fn().mockReturnValue({ where });
-    const db = { select: jest.fn().mockReturnValue({ from }) } as unknown as DrizzleDB;
+    const db = {
+      select: jest.fn().mockReturnValue({ from }),
+    } as unknown as DrizzleDB;
     forPublic.mockResolvedValue({
       db,
       release: jest.fn(),
@@ -35,9 +40,10 @@ describe('CandidateApplicationsIndexRepository', () => {
     ).resolves.toEqual(expected);
     expect(forPublic).toHaveBeenCalled();
     expect(where).toHaveBeenCalledTimes(1);
-    const query = new PgDialect().sqlToQuery(
-      where.mock.calls[0]?.[0] as SQL<unknown>,
-    );
+    const firstCall = where.mock.calls.at(0) as unknown[] | undefined;
+    const predicate = firstCall?.at(0) as SQL<unknown> | undefined;
+    if (!predicate) throw new Error('Expected a where predicate');
+    const query = new PgDialect().sqlToQuery(predicate);
     expect(query.sql).toContain('candidate_account_id');
     expect(query.sql).toContain('application_id');
     expect(query.params).toEqual(['candidate-a', 'app-a']);
@@ -66,9 +72,10 @@ describe('CandidateApplicationsIndexRepository', () => {
     ).resolves.toEqual(expected);
     expect(set).toHaveBeenCalledWith({ status: 'Screening' });
     expect(where).toHaveBeenCalledTimes(1);
-    const query = new PgDialect().sqlToQuery(
-      where.mock.calls[0]?.[0] as SQL<unknown>,
-    );
+    const firstCall = where.mock.calls.at(0) as unknown[] | undefined;
+    const predicate = firstCall?.at(0) as SQL<unknown> | undefined;
+    if (!predicate) throw new Error('Expected a where predicate');
+    const query = new PgDialect().sqlToQuery(predicate);
     expect(query.sql).toContain('application_id');
     expect(query.sql).toContain('tenant_id');
     expect(query.params).toEqual(['app-a', 'tenant-a']);

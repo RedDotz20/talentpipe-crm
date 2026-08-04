@@ -16,12 +16,8 @@ describe('DashboardRepository', () => {
     const applicationTotalExecute = jest
       .fn()
       .mockResolvedValue([{ count: '7' }]);
-    const candidateTotalExecute = jest
-      .fn()
-      .mockResolvedValue([{ count: '5' }]);
-    const openJobTotalExecute = jest
-      .fn()
-      .mockResolvedValue([{ count: '2' }]);
+    const candidateTotalExecute = jest.fn().mockResolvedValue([{ count: '5' }]);
+    const openJobTotalExecute = jest.fn().mockResolvedValue([{ count: '2' }]);
     const byStageExecute = jest.fn().mockResolvedValue([
       { stageId: 'stage-1', stageName: 'Screening', count: '4' },
       { stageId: null, stageName: null, count: '1' },
