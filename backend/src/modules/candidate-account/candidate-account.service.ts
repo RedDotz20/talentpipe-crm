@@ -75,6 +75,29 @@ export class CandidateAccountService {
       throw new ConflictException('You already applied to this application.');
     }
 
+    const selectedSkillIds = Array.from(
+      new Set(
+        dto.skillIds ??
+          (await this.candidateSkillRepo.findByCandidateAccountId(
+            candidateAccountId,
+          )),
+      ),
+    );
+    const foundSkills = await this.skillRepo.findByIds(selectedSkillIds);
+    const foundSkillIds = new Set(foundSkills.map((skill) => skill.id));
+    if (selectedSkillIds.some((skillId) => !foundSkillIds.has(skillId))) {
+      throw new BadRequestException('One or more skill IDs are invalid');
+    }
+
+    const required = await this.jobPostingRepo.getRequiredSkillIds(
+      jobPostingId,
+      schemaName,
+    );
+    const matchScore = this.skillMatching.computeScore(
+      required,
+      selectedSkillIds,
+    );
+
     // Resolve or create tenant candidate via UUID link
     let candidate = await this.candidateRepo.findByAccountId(
       candidateAccountId,
@@ -107,21 +130,6 @@ export class CandidateAccountService {
     if (!firstStage)
       throw new NotFoundException('No pipeline stages configured');
 
-    // Resolve skill IDs for match scoring
-    const candidateSkillIds =
-      dto.skillIds ??
-      (await this.candidateSkillRepo.findByCandidateAccountId(
-        candidateAccountId,
-      ));
-    const required = await this.jobPostingRepo.getRequiredSkillIds(
-      jobPostingId,
-      schemaName,
-    );
-    const matchScore = this.skillMatching.computeScore(
-      required,
-      candidateSkillIds,
-    );
-
     const application = await this.applicationRepo.create(
       {
         candidateId: candidate.id,
@@ -130,21 +138,31 @@ export class CandidateAccountService {
         candidateName: `${account.firstName} ${account.lastName}`,
         candidateEmail: account.email,
         candidatePhone: dto.phone ?? account.phone,
-        appliedSkillIds: candidateSkillIds,
+        appliedSkillIds: selectedSkillIds,
+        coverLetter: dto.coverLetter ?? null,
         matchScore,
       },
       schemaName,
     );
 
-    await this.candidateApplicationsIndexRepo.create({
-      candidateAccountId,
-      tenantId,
-      jobPostingId,
-      applicationId: application.id,
-      jobTitle: job.title,
-      companyName: job.companyName,
-      status: firstStage.name,
-    });
+    try {
+      await this.candidateApplicationsIndexRepo.create({
+        candidateAccountId,
+        tenantId,
+        jobPostingId,
+        applicationId: application.id,
+        jobTitle: job.title,
+        companyName: job.companyName,
+        status: firstStage.name,
+      });
+    } catch (error: unknown) {
+      try {
+        await this.applicationRepo.delete(application.id, schemaName);
+      } catch {
+        // Preserve the public index error while attempting the compensation.
+      }
+      throw error;
+    }
 
     return { applicationId: application.id };
   }
@@ -153,6 +171,31 @@ export class CandidateAccountService {
     return this.candidateApplicationsIndexRepo.findByCandidate(
       candidateAccountId,
     );
+  }
+
+  async getApplicationDetail(
+    candidateAccountId: string,
+    applicationId: string,
+  ) {
+    const indexed =
+      await this.candidateApplicationsIndexRepo.findByCandidateAndApplication(
+        candidateAccountId,
+        applicationId,
+      );
+    if (!indexed) throw new NotFoundException('Application not found');
+
+    const application = await this.applicationRepo.findByIdForCandidate(
+      applicationId,
+      `tenant_${indexed.tenantId}`,
+    );
+    if (!application) throw new NotFoundException('Application not found');
+
+    return {
+      ...indexed,
+      matchScore: application.matchScore,
+      appliedSkillIds: application.appliedSkillIds,
+      coverLetter: application.coverLetter,
+    };
   }
 
   async getSkills(candidateAccountId: string) {

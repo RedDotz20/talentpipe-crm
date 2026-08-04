@@ -72,7 +72,9 @@ describe('ApplicationsService', () => {
 
   it('updateStage throws when the application is missing', async () => {
     applicationRepo.findById.mockResolvedValue(null);
-    await expect(service.updateStage('a1', { stageId: 's1' })).rejects.toThrow(
+    await expect(
+      service.updateStage('a1', { stageId: 's1' }, 'tenant-a'),
+    ).rejects.toThrow(
       NotFoundException,
     );
   });
@@ -80,7 +82,9 @@ describe('ApplicationsService', () => {
   it('updateStage throws when the stage is missing', async () => {
     applicationRepo.findById.mockResolvedValue({ id: 'a1' });
     pipelineStageRepo.findById.mockResolvedValue(null);
-    await expect(service.updateStage('a1', { stageId: 's1' })).rejects.toThrow(
+    await expect(
+      service.updateStage('a1', { stageId: 's1' }, 'tenant-a'),
+    ).rejects.toThrow(
       NotFoundException,
     );
   });
@@ -97,11 +101,12 @@ describe('ApplicationsService', () => {
     applicationRepo.updateStage.mockResolvedValue({ id: 'a1' });
     noteRepo.findByApplicationId.mockResolvedValue([]);
 
-    await service.updateStage('a1', { stageId: 's2' });
+    await service.updateStage('a1', { stageId: 's2' }, 'tenant-a');
 
     expect(applicationRepo.updateStage).toHaveBeenCalledWith('a1', 's2');
     expect(candidateApplicationsIndexRepo.updateStatus).toHaveBeenCalledWith(
       'a1',
+      'tenant-a',
       'Interview',
     );
   });

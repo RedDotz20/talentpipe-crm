@@ -28,6 +28,8 @@ describe('CandidateAccountService', () => {
   const candidateApplicationsIndexRepo = {
     findByCandidate: jest.fn(),
     create: jest.fn(),
+    findByJob: jest.fn(),
+    findByCandidateAndApplication: jest.fn(),
   };
   const jobListingsIndexRepo = {
     findAll: jest.fn(),
@@ -37,9 +39,14 @@ describe('CandidateAccountService', () => {
   const candidateRepo = {
     findByEmail: jest.fn(),
     create: jest.fn(),
+    findByAccountId: jest.fn(),
+    createFromAccount: jest.fn(),
+    update: jest.fn(),
   };
   const applicationRepo = {
     create: jest.fn(),
+    findByIdForCandidate: jest.fn(),
+    delete: jest.fn(),
     updateMatchScore: jest.fn(),
   };
   const pipelineStageRepo = {
@@ -217,6 +224,162 @@ describe('CandidateAccountService', () => {
         'nonexistent',
       );
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('application integrity and detail', () => {
+    it('rejects an application detail not owned by the candidate', async () => {
+      candidateApplicationsIndexRepo.findByCandidateAndApplication.mockResolvedValue(
+        null,
+      );
+
+      await expect(
+        service.getApplicationDetail('candidate-a', 'app-a'),
+      ).rejects.toThrow(NotFoundException);
+      expect(
+        candidateApplicationsIndexRepo.findByCandidateAndApplication,
+      ).toHaveBeenCalledWith('candidate-a', 'app-a');
+      expect(applicationRepo.findByIdForCandidate).not.toHaveBeenCalled();
+    });
+
+    it('rejects unknown override skills before creating an application', async () => {
+      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue({
+        tenantId: 't1',
+        jobPostingId: 'j1',
+        status: 'open',
+        title: 'Engineer',
+        companyName: 'Acme',
+      });
+      candidateAccountRepo.findById.mockResolvedValue({
+        id: 'candidate-a',
+        email: 'candidate@example.com',
+        firstName: 'Jane',
+        lastName: 'Doe',
+      });
+      candidateApplicationsIndexRepo.findByJob.mockResolvedValue(null);
+      skillRepo.findByIds.mockResolvedValue([{ id: 'known-skill' }]);
+
+      await expect(
+        service.apply('candidate-a', 't1', 'j1', {
+          skillIds: ['known-skill', 'missing'],
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(applicationRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('deduplicates and persists valid override skills and the cover letter', async () => {
+      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue({
+        tenantId: 't1',
+        jobPostingId: 'j1',
+        status: 'open',
+        title: 'Engineer',
+        companyName: 'Acme',
+      });
+      candidateAccountRepo.findById.mockResolvedValue({
+        id: 'candidate-a',
+        email: 'candidate@example.com',
+        firstName: 'Jane',
+        lastName: 'Doe',
+      });
+      candidateApplicationsIndexRepo.findByJob.mockResolvedValue(null);
+      candidateRepo.findByAccountId.mockResolvedValue({ id: 'candidate-tenant' });
+      pipelineStageRepo.findFirst.mockResolvedValue({
+        id: 'stage-1',
+        name: 'Applied',
+      });
+      skillRepo.findByIds.mockResolvedValue([
+        { id: 'known-skill' },
+        { id: 'second-skill' },
+      ]);
+      jobPostingRepo.getRequiredSkillIds.mockResolvedValue([]);
+      skillMatching.computeScore.mockReturnValue(1);
+      applicationRepo.create.mockResolvedValue({ id: 'app-a' });
+
+      await service.apply('candidate-a', 't1', 'j1', {
+        skillIds: ['known-skill', 'known-skill', 'second-skill'],
+        coverLetter: 'Interested in the role',
+      });
+
+      expect(skillRepo.findByIds).toHaveBeenCalledWith([
+        'known-skill',
+        'second-skill',
+      ]);
+      expect(applicationRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          appliedSkillIds: ['known-skill', 'second-skill'],
+          coverLetter: 'Interested in the role',
+        }),
+        'tenant_t1',
+      );
+    });
+
+    it('deletes the tenant application when the public index insert fails', async () => {
+      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue({
+        tenantId: 't1',
+        jobPostingId: 'j1',
+        status: 'open',
+        title: 'Engineer',
+        companyName: 'Acme',
+      });
+      candidateAccountRepo.findById.mockResolvedValue({
+        id: 'candidate-a',
+        email: 'candidate@example.com',
+        firstName: 'Jane',
+        lastName: 'Doe',
+      });
+      candidateApplicationsIndexRepo.findByJob.mockResolvedValue(null);
+      candidateRepo.findByAccountId.mockResolvedValue({ id: 'candidate-tenant' });
+      pipelineStageRepo.findFirst.mockResolvedValue({
+        id: 'stage-1',
+        name: 'Applied',
+      });
+      candidateSkillRepo.findByCandidateAccountId.mockResolvedValue([]);
+      skillRepo.findByIds.mockResolvedValue([]);
+      jobPostingRepo.getRequiredSkillIds.mockResolvedValue([]);
+      skillMatching.computeScore.mockReturnValue(0);
+      applicationRepo.create.mockResolvedValue({ id: 'app-a' });
+      candidateApplicationsIndexRepo.create.mockRejectedValue(
+        new Error('index unavailable'),
+      );
+
+      await expect(
+        service.apply('candidate-a', 't1', 'j1', {}),
+      ).rejects.toThrow('index unavailable');
+      expect(applicationRepo.delete).toHaveBeenCalledWith(
+        'app-a',
+        'tenant_t1',
+      );
+    });
+
+    it('returns candidate-owned application detail from the tenant schema', async () => {
+      const indexed = {
+        id: 'index-a',
+        candidateAccountId: 'candidate-a',
+        tenantId: 't1',
+        applicationId: 'app-a',
+        status: 'Applied',
+      };
+      candidateApplicationsIndexRepo.findByCandidateAndApplication.mockResolvedValue(
+        indexed,
+      );
+      applicationRepo.findByIdForCandidate.mockResolvedValue({
+        matchScore: 0.5,
+        appliedSkillIds: ['skill-a'],
+        coverLetter: 'Interested in the role',
+      });
+
+      await expect(
+        service.getApplicationDetail('candidate-a', 'app-a'),
+      ).resolves.toEqual({
+        ...indexed,
+        matchScore: 0.5,
+        appliedSkillIds: ['skill-a'],
+        coverLetter: 'Interested in the role',
+      });
+      expect(applicationRepo.findByIdForCandidate).toHaveBeenCalledWith(
+        'app-a',
+        'tenant_t1',
+      );
     });
   });
 

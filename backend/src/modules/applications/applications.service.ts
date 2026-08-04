@@ -27,13 +27,13 @@ export class ApplicationsService {
     return { ...application, notes };
   }
 
-  async updateStage(id: string, dto: UpdateStageDto) {
+  async updateStage(id: string, dto: UpdateStageDto, tenantId: string) {
     const application = await this.applicationRepo.findById(id);
     if (!application) throw new NotFoundException('Application not found');
     const stage = await this.pipelineStageRepo.findById(dto.stageId);
     if (!stage) throw new NotFoundException('Pipeline stage not found');
     await this.applicationRepo.updateStage(id, dto.stageId);
-    await this.candidateApplicationsIndexRepo.updateStatus(id, stage.name);
+    await this.candidateApplicationsIndexRepo.updateStatus(id, tenantId, stage.name);
     return this.getOne(id);
   }
 

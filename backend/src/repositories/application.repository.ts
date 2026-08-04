@@ -24,6 +24,7 @@ const selectAppRow = {
   applicationCandidateEmail: applications.candidateEmail,
   applicationCandidatePhone: applications.candidatePhone,
   appliedSkillIds: applications.appliedSkillIds,
+  coverLetter: applications.coverLetter,
 };
 
 @Injectable()
@@ -37,6 +38,7 @@ export class ApplicationRepository extends BaseRepository {
       candidateEmail: string;
       candidatePhone: string | null;
       appliedSkillIds: string[];
+      coverLetter: string | null;
       matchScore: number;
     },
     schema = 'current',
@@ -96,6 +98,24 @@ export class ApplicationRepository extends BaseRepository {
     });
   }
 
+  async findByIdForCandidate(id: string, schema: string) {
+    return this.withDb(schema, async (db) => {
+      const rows = await db
+        .select(selectAppRow)
+        .from(applications)
+        .innerJoin(candidates, eq(applications.candidateId, candidates.id))
+        .innerJoin(jobPostings, eq(applications.jobPostingId, jobPostings.id))
+        .leftJoin(
+          pipelineStages,
+          eq(applications.currentStageId, pipelineStages.id),
+        )
+        .where(eq(applications.id, id))
+        .limit(1)
+        .execute();
+      return rows[0] ?? null;
+    });
+  }
+
   async updateStage(id: string, stageId: string, schema = 'current') {
     return this.withDb(schema, async (db) => {
       const rows = await db
@@ -135,5 +155,11 @@ export class ApplicationRepository extends BaseRepository {
         .execute();
       return rows[0] ?? null;
     });
+  }
+
+  async delete(id: string, schema = 'current') {
+    return this.withDb(schema, (db) =>
+      db.delete(applications).where(eq(applications.id, id)).execute(),
+    );
   }
 }

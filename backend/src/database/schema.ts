@@ -143,6 +143,7 @@ export const applications = pgTable(
     candidateEmail: varchar('candidate_email', { length: 255 }),
     candidatePhone: varchar('candidate_phone', { length: 50 }),
     appliedSkillIds: jsonb('applied_skill_ids'),
+    coverLetter: text('cover_letter'),
     matchScore: doublePrecision('match_score').default(0),
     appliedAt: timestamp('applied_at').defaultNow().notNull(),
   },
@@ -301,6 +302,9 @@ export const candidateApplicationsIndex = pgTable(
       table.tenantId,
       table.jobPostingId,
     ),
+    uniqueCandidateApplication: uniqueIndex(
+      'unique_candidate_application',
+    ).on(table.candidateAccountId, table.tenantId, table.jobPostingId),
   }),
 );
 

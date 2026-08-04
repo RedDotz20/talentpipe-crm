@@ -46,8 +46,9 @@ export class ApplicationsController {
   updateStage(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateStageSchema)) dto: UpdateStageDto,
+    @CurrentUser() user: TenantContext,
   ) {
-    return this.applicationsService.updateStage(id, dto);
+    return this.applicationsService.updateStage(id, dto, user.tenantId);
   }
 
   @Post(':id/notes')

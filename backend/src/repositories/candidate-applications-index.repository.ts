@@ -43,6 +43,26 @@ export class CandidateApplicationsIndexRepository extends BaseRepository {
     });
   }
 
+  async findByCandidateAndApplication(
+    candidateAccountId: string,
+    applicationId: string,
+  ) {
+    return this.withDb('public', async (db) => {
+      const rows = await db
+        .select()
+        .from(candidateApplicationsIndex)
+        .where(
+          and(
+            eq(candidateApplicationsIndex.candidateAccountId, candidateAccountId),
+            eq(candidateApplicationsIndex.applicationId, applicationId),
+          ),
+        )
+        .limit(1)
+        .execute();
+      return rows[0] ?? null;
+    });
+  }
+
   async create(data: {
     candidateAccountId: string;
     tenantId: string;
@@ -62,12 +82,17 @@ export class CandidateApplicationsIndexRepository extends BaseRepository {
     });
   }
 
-  async updateStatus(applicationId: string, status: string) {
+  async updateStatus(applicationId: string, tenantId: string, status: string) {
     return this.withDb('public', async (db) => {
       const rows = await db
         .update(candidateApplicationsIndex)
         .set({ status })
-        .where(eq(candidateApplicationsIndex.applicationId, applicationId))
+        .where(
+          and(
+            eq(candidateApplicationsIndex.applicationId, applicationId),
+            eq(candidateApplicationsIndex.tenantId, tenantId),
+          ),
+        )
         .returning()
         .execute();
       return rows[0] ?? null;

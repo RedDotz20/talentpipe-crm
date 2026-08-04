@@ -71,6 +71,15 @@ export class CandidateAccountController {
     return this.candidateAccountService.getApplications(user.userId);
   }
 
+  @Get('applications/:id')
+  @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
+  async getApplicationDetail(
+    @Param('id') id: string,
+    @CurrentUser() user: TenantContext,
+  ) {
+    return this.candidateAccountService.getApplicationDetail(user.userId, id);
+  }
+
   @Get('skills')
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
   async getSkills(@CurrentUser() user: TenantContext) {
