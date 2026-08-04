@@ -16,6 +16,7 @@ import { SkillRepository } from '../../repositories/skill.repository';
 import { JobPostingRepository } from '../../repositories/job-posting.repository';
 import { SkillMatchingService } from '../skill-matching/skill-matching.service';
 import { ResumesService } from '../resumes/resumes.service';
+import { CacheService } from '../../common/cache/cache.service';
 
 const isDuplicateCandidateApplicationError = (error: unknown): boolean => {
   if (typeof error !== 'object' || error === null) return false;
@@ -56,6 +57,7 @@ export class CandidateAccountService {
     private readonly jobPostingRepo: JobPostingRepository,
     private readonly skillMatching: SkillMatchingService,
     private readonly resumesService: ResumesService,
+    private readonly cacheService: CacheService,
   ) {}
 
   async getJobs(search?: string) {
@@ -191,6 +193,7 @@ export class CandidateAccountService {
       throw error;
     }
 
+    await this.cacheService.invalidateTenantDashboard(tenantId);
     return { applicationId: application.id };
   }
 

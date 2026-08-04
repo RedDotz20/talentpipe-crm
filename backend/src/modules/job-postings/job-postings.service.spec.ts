@@ -6,6 +6,7 @@ import { JobPostingRepository } from '../../repositories/job-posting.repository'
 import { SkillRepository } from '../../repositories/skill.repository';
 import { TenantRepository } from '../../repositories/tenant.repository';
 import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
+import { CacheService } from '../../common/cache/cache.service';
 
 const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
   asyncStorage.run({ tenantId: 't1', userId: 'u1', role: 'OrgAdmin' }, fn);
@@ -24,6 +25,7 @@ describe('JobPostingsService', () => {
   const skillRepo = { findByIds: jest.fn() };
   const tenantRepo = { findById: jest.fn() };
   const jobListingsIndexRepo = { upsert: jest.fn(), delete: jest.fn() };
+  const cacheService = { invalidateTenantDashboard: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -34,6 +36,7 @@ describe('JobPostingsService', () => {
         { provide: SkillRepository, useValue: skillRepo },
         { provide: TenantRepository, useValue: tenantRepo },
         { provide: JobListingsIndexRepository, useValue: jobListingsIndexRepo },
+        { provide: CacheService, useValue: cacheService },
       ],
     }).compile();
     service = module.get<JobPostingsService>(JobPostingsService);
@@ -126,6 +129,7 @@ describe('JobPostingsService', () => {
       companySlug: 'acme',
       status: 'open',
     });
+    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
   });
 
   it('publish rejects non-draft postings', async () => {
@@ -155,6 +159,7 @@ describe('JobPostingsService', () => {
     expect(jobListingsIndexRepo.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'closed' }),
     );
+    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
   });
 
   it('update resyncs the listing index for non-draft postings', async () => {
@@ -222,5 +227,6 @@ describe('JobPostingsService', () => {
     await runInContext(() => service.remove('p1'));
     expect(jobPostingRepo.delete).toHaveBeenCalledWith('p1');
     expect(jobListingsIndexRepo.delete).toHaveBeenCalledWith('t1', 'p1');
+    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
   });
 });

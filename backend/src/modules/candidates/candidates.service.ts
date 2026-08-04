@@ -4,6 +4,8 @@ import { ApplicationRepository } from '../../repositories/application.repository
 import { CandidateSkillRepository } from '../../repositories/candidate-skill.repository';
 import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
 import { SkillRepository } from '../../repositories/skill.repository';
+import { CacheService } from '../../common/cache/cache.service';
+import { getTenantId } from '../../common/context/tenant-context';
 import { CreateCandidateDto } from './dto/create-candidate.dto';
 
 @Injectable()
@@ -14,6 +16,7 @@ export class CandidatesService {
     private readonly candidateSkillRepo: CandidateSkillRepository,
     private readonly candidateAccountRepo: CandidateAccountRepository,
     private readonly skillRepo: SkillRepository,
+    private readonly cacheService: CacheService,
   ) {}
 
   list() {
@@ -89,11 +92,15 @@ export class CandidatesService {
     };
   }
 
-  create(dto: CreateCandidateDto) {
-    return this.candidateRepo.create({
+  async create(dto: CreateCandidateDto) {
+    const candidate = await this.candidateRepo.create({
       name: dto.name,
       email: dto.email,
       phone: dto.phone,
     });
+    if (candidate) {
+      await this.cacheService.invalidateTenantDashboard(getTenantId());
+    }
+    return candidate;
   }
 }

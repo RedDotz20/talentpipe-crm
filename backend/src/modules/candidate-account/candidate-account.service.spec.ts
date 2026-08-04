@@ -17,6 +17,7 @@ import { SkillRepository } from '../../repositories/skill.repository';
 import { JobPostingRepository } from '../../repositories/job-posting.repository';
 import { SkillMatchingService } from '../skill-matching/skill-matching.service';
 import { ResumesService } from '../../modules/resumes/resumes.service';
+import { CacheService } from '../../common/cache/cache.service';
 
 describe('CandidateAccountService', () => {
   let service: CandidateAccountService;
@@ -73,6 +74,7 @@ describe('CandidateAccountService', () => {
   const resumesService = {
     upload: jest.fn(),
   };
+  const cacheService = { invalidateTenantDashboard: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -97,6 +99,7 @@ describe('CandidateAccountService', () => {
         { provide: JobPostingRepository, useValue: jobPostingRepo },
         { provide: SkillMatchingService, useValue: skillMatching },
         { provide: ResumesService, useValue: resumesService },
+        { provide: CacheService, useValue: cacheService },
       ],
     }).compile();
     service = module.get<CandidateAccountService>(CandidateAccountService);
@@ -315,6 +318,7 @@ describe('CandidateAccountService', () => {
         }),
         'tenant_t1',
       );
+      expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
     });
 
     it('deletes the tenant application when the public index insert fails', async () => {

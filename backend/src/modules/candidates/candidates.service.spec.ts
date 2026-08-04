@@ -6,6 +6,11 @@ import { ApplicationRepository } from '../../repositories/application.repository
 import { CandidateSkillRepository } from '../../repositories/candidate-skill.repository';
 import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
 import { SkillRepository } from '../../repositories/skill.repository';
+import { CacheService } from '../../common/cache/cache.service';
+import { asyncStorage } from '../../common/context/tenant-context';
+
+const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
+  asyncStorage.run({ tenantId: 't1', userId: 'u1', role: 'OrgAdmin' }, fn);
 
 describe('CandidatesService', () => {
   let service: CandidatesService;
@@ -28,6 +33,7 @@ describe('CandidatesService', () => {
   const skillRepo = {
     findAll: jest.fn(),
   };
+  const cacheService = { invalidateTenantDashboard: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -39,6 +45,7 @@ describe('CandidatesService', () => {
         { provide: CandidateSkillRepository, useValue: candidateSkillRepo },
         { provide: CandidateAccountRepository, useValue: candidateAccountRepo },
         { provide: SkillRepository, useValue: skillRepo },
+        { provide: CacheService, useValue: cacheService },
       ],
     }).compile();
     service = module.get<CandidatesService>(CandidatesService);
@@ -205,12 +212,15 @@ describe('CandidatesService', () => {
   it('create delegates to the repository', async () => {
     candidateRepo.create.mockResolvedValue({ id: 'c1', name: 'Jane' });
     await expect(
-      service.create({ name: 'Jane', email: 'jane@example.com' }),
+      runInContext(() =>
+        service.create({ name: 'Jane', email: 'jane@example.com' }),
+      ),
     ).resolves.toEqual({ id: 'c1', name: 'Jane' });
     expect(candidateRepo.create).toHaveBeenCalledWith({
       name: 'Jane',
       email: 'jane@example.com',
       phone: undefined,
     });
+    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
   });
 });

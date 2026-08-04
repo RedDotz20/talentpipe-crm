@@ -7,6 +7,7 @@ import {
   getTenantId,
   TenantContext,
 } from '../../common/context/tenant-context';
+import { CacheService } from '../../common/cache/cache.service';
 import { JobPostingRepository } from '../../repositories/job-posting.repository';
 import { SkillRepository } from '../../repositories/skill.repository';
 import { TenantRepository } from '../../repositories/tenant.repository';
@@ -21,6 +22,7 @@ export class JobPostingsService {
     private readonly skillRepo: SkillRepository,
     private readonly tenantRepo: TenantRepository,
     private readonly jobListingsIndexRepo: JobListingsIndexRepository,
+    private readonly cacheService: CacheService,
   ) {}
 
   list(status?: string) {
@@ -84,7 +86,10 @@ export class JobPostingsService {
       throw new ConflictException('Only draft postings can be published');
     }
     const updated = await this.jobPostingRepo.update(id, { status: 'open' });
-    if (updated) await this.syncListing(updated);
+    if (updated) {
+      await this.syncListing(updated);
+      await this.cacheService.invalidateTenantDashboard(getTenantId());
+    }
     return this.getOne(id);
   }
 
@@ -93,7 +98,10 @@ export class JobPostingsService {
     if (!posting) throw new NotFoundException('Job posting not found');
     if (posting.status === 'closed') return this.getOne(id);
     const updated = await this.jobPostingRepo.update(id, { status: 'closed' });
-    if (updated) await this.syncListing(updated);
+    if (updated) {
+      await this.syncListing(updated);
+      await this.cacheService.invalidateTenantDashboard(getTenantId());
+    }
     return this.getOne(id);
   }
 
@@ -108,6 +116,7 @@ export class JobPostingsService {
     const tenantId = getTenantId();
     await this.jobPostingRepo.delete(id);
     await this.jobListingsIndexRepo.delete(tenantId, id);
+    await this.cacheService.invalidateTenantDashboard(tenantId);
   }
 
   private async assertSkillsExist(skillIds: string[]) {

@@ -3,7 +3,11 @@ import { ApplicationRepository } from '../../repositories/application.repository
 import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
 import { NoteRepository } from '../../repositories/note.repository';
 import { CandidateApplicationsIndexRepository } from '../../repositories/candidate-applications-index.repository';
-import { TenantContext } from '../../common/context/tenant-context';
+import {
+  getTenantId,
+  TenantContext,
+} from '../../common/context/tenant-context';
+import { CacheService } from '../../common/cache/cache.service';
 import { UpdateStageDto } from './dto/update-stage.dto';
 import { CreateNoteDto } from './dto/create-note.dto';
 
@@ -14,6 +18,7 @@ export class ApplicationsService {
     private readonly pipelineStageRepo: PipelineStageRepository,
     private readonly noteRepo: NoteRepository,
     private readonly candidateApplicationsIndexRepo: CandidateApplicationsIndexRepository,
+    private readonly cacheService: CacheService,
   ) {}
 
   list(filters?: { jobPostingId?: string; stageId?: string }) {
@@ -34,6 +39,7 @@ export class ApplicationsService {
     if (!stage) throw new NotFoundException('Pipeline stage not found');
     await this.applicationRepo.updateStage(id, dto.stageId);
     await this.candidateApplicationsIndexRepo.updateStatus(id, tenantId, stage.name);
+    await this.cacheService.invalidateTenantDashboard(getTenantId());
     return this.getOne(id);
   }
 

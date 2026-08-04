@@ -5,6 +5,11 @@ import { ApplicationRepository } from '../../repositories/application.repository
 import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
 import { NoteRepository } from '../../repositories/note.repository';
 import { CandidateApplicationsIndexRepository } from '../../repositories/candidate-applications-index.repository';
+import { CacheService } from '../../common/cache/cache.service';
+import { asyncStorage } from '../../common/context/tenant-context';
+
+const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
+  asyncStorage.run({ tenantId: 't1', userId: 'u1', role: 'OrgAdmin' }, fn);
 
 describe('ApplicationsService', () => {
   let service: ApplicationsService;
@@ -17,6 +22,7 @@ describe('ApplicationsService', () => {
   const pipelineStageRepo = { findById: jest.fn() };
   const noteRepo = { findByApplicationId: jest.fn(), create: jest.fn() };
   const candidateApplicationsIndexRepo = { updateStatus: jest.fn() };
+  const cacheService = { invalidateTenantDashboard: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -30,6 +36,7 @@ describe('ApplicationsService', () => {
           provide: CandidateApplicationsIndexRepository,
           useValue: candidateApplicationsIndexRepo,
         },
+        { provide: CacheService, useValue: cacheService },
       ],
     }).compile();
     service = module.get<ApplicationsService>(ApplicationsService);
@@ -101,7 +108,7 @@ describe('ApplicationsService', () => {
     applicationRepo.updateStage.mockResolvedValue({ id: 'a1' });
     noteRepo.findByApplicationId.mockResolvedValue([]);
 
-    await service.updateStage('a1', { stageId: 's2' }, 'tenant-a');
+    await runInContext(() => service.updateStage('a1', { stageId: 's2' }, 'tenant-a'));
 
     expect(applicationRepo.updateStage).toHaveBeenCalledWith('a1', 's2');
     expect(candidateApplicationsIndexRepo.updateStatus).toHaveBeenCalledWith(
@@ -109,6 +116,7 @@ describe('ApplicationsService', () => {
       'tenant-a',
       'Interview',
     );
+    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
   });
 
   it('addNote creates a note with the current user', async () => {

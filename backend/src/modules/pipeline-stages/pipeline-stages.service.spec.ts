@@ -2,6 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { PipelineStagesService } from './pipeline-stages.service';
 import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
+import { CacheService } from '../../common/cache/cache.service';
+import { asyncStorage } from '../../common/context/tenant-context';
+
+const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
+  asyncStorage.run({ tenantId: 't1', userId: 'u1', role: 'OrgAdmin' }, fn);
 
 describe('PipelineStagesService', () => {
   let service: PipelineStagesService;
@@ -13,6 +18,7 @@ describe('PipelineStagesService', () => {
     delete: jest.fn(),
     countApplicationsForStage: jest.fn(),
   };
+  const cacheService = { invalidateTenantDashboard: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -20,6 +26,7 @@ describe('PipelineStagesService', () => {
       providers: [
         PipelineStagesService,
         { provide: PipelineStageRepository, useValue: pipelineStageRepo },
+        { provide: CacheService, useValue: cacheService },
       ],
     }).compile();
     service = module.get<PipelineStagesService>(PipelineStagesService);
@@ -41,7 +48,7 @@ describe('PipelineStagesService', () => {
       name: 'New',
       order: 2,
     });
-    await expect(service.create({ name: 'New' })).resolves.toEqual({
+    await expect(runInContext(() => service.create({ name: 'New' }))).resolves.toEqual({
       id: 's3',
       name: 'New',
       order: 2,
@@ -50,6 +57,7 @@ describe('PipelineStagesService', () => {
       name: 'New',
       order: 2,
     });
+    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
   });
 
   it('update throws NotFoundException when missing', async () => {
@@ -62,13 +70,13 @@ describe('PipelineStagesService', () => {
   it('update renames a stage', async () => {
     pipelineStageRepo.findById.mockResolvedValue({ id: 's1' });
     pipelineStageRepo.update.mockResolvedValue({ id: 's1', name: 'Screening' });
-    await expect(service.update('s1', { name: 'Screening' })).resolves.toEqual({
-      id: 's1',
-      name: 'Screening',
-    });
+    await expect(
+      runInContext(() => service.update('s1', { name: 'Screening' })),
+    ).resolves.toEqual({ id: 's1', name: 'Screening' });
     expect(pipelineStageRepo.update).toHaveBeenCalledWith('s1', {
       name: 'Screening',
     });
+    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
   });
 
   it('remove throws when stage is referenced by applications', async () => {
@@ -80,7 +88,10 @@ describe('PipelineStagesService', () => {
   it('remove deletes an unreferenced stage', async () => {
     pipelineStageRepo.findById.mockResolvedValue({ id: 's1' });
     pipelineStageRepo.countApplicationsForStage.mockResolvedValue(false);
-    await expect(service.remove('s1')).resolves.toEqual({ id: 's1' });
+    await expect(runInContext(() => service.remove('s1'))).resolves.toEqual({
+      id: 's1',
+    });
     expect(pipelineStageRepo.delete).toHaveBeenCalledWith('s1');
+    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
   });
 });
