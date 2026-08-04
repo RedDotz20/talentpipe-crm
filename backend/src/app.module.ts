@@ -16,6 +16,8 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 import { RolesGuard } from './common/guards/roles.guard';
 import { ApiExceptionFilter } from './common/filters/api-exception.filter';
 import { LoggerMiddleware } from './common/middlewares/logger.middleware';
+import { CacheModule } from './common/cache/cache.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { LoggerMiddleware } from './common/middlewares/logger.middleware';
     PipelineStagesModule,
     PublicCareersModule,
     HealthModule,
+    CacheModule,
+    DashboardModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: TenantContextInterceptor },
