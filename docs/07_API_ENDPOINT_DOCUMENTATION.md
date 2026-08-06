@@ -133,15 +133,17 @@ Note: resume upload is an authenticated candidate profile operation (`POST /cand
 
 The public careers section is read-only in Phase 5. Apply buttons redirect anonymous visitors to unified sign-in/signup; authenticated Candidates submit through `/candidate/jobs/:tenantId/:jobId/apply`. Redis rate limiting is deferred to Phase 6 because there is no anonymous public write endpoint.
 
-## Platform (SuperAdmin only, cross-tenant) ⬜
+## Platform (SuperAdmin only, cross-tenant) ✅
 
 | Method | Path | Roles | Description |
 |---|---|---|---|
 | GET | `/platform/tenants` | SA | List all tenants on the platform |
-| GET | `/platform/tenants/:id` | SA | Tenant detail + usage stats |
-| PATCH | `/platform/tenants/:id/suspend` | SA | Suspend a tenant account |
-| PATCH | `/platform/tenants/:id/reactivate` | SA | Reactivate a suspended tenant |
-| GET | `/platform/stats` | SA | Platform-wide aggregate stats |
+| GET | `/platform/tenants/:id` | SA | Tenant detail + usage stats (`users`, `applications` counts) |
+| PATCH | `/platform/tenants/:id/suspend` | SA | Suspend a tenant account (409 if already suspended; blocks sign-in/refresh and hides public careers) |
+| PATCH | `/platform/tenants/:id/reactivate` | SA | Reactivate a suspended tenant (409 if already active) |
+| GET | `/platform/stats` | SA | Platform-wide aggregate stats (tenant / user / application totals) |
+
+> **Suspend semantics (M9):** a suspended tenant's users get `403 FORBIDDEN` at sign-in and `401` on refresh-token rotation (existing 15-minute access tokens simply expire). Public careers routes for the tenant return `404`. Suspend/reactivate writes an audit row (`tenant.suspend` / `tenant.reactivate`) with the target tenant's id.
 
 ---
 

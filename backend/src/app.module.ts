@@ -21,6 +21,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { QueuesModule } from './queues/queues.module';
 import { InterviewsModule } from './modules/interviews/interviews.module';
 import { OrgModule } from './modules/org/org.module';
+import { PlatformModule } from './modules/platform/platform.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { OrgModule } from './modules/org/org.module';
     QueuesModule,
     InterviewsModule,
     OrgModule,
+    PlatformModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: TenantContextInterceptor },

@@ -20,6 +20,7 @@ import { DashboardRepository } from './dashboard.repository';
 import { AuditLogRepository } from './audit-log.repository';
 import { InterviewRepository } from './interview.repository';
 import { InterviewFeedbackRepository } from './interview-feedback.repository';
+import { UsageRepository } from './usage.repository';
 
 const REPOSITORIES = [
   UserRepository,
@@ -42,6 +43,7 @@ const REPOSITORIES = [
   AuditLogRepository,
   InterviewRepository,
   InterviewFeedbackRepository,
+  UsageRepository,
 ];
 
 @Module({
