@@ -83,16 +83,21 @@ Legend for **Roles**: SA = SuperAdmin, OA = Org Admin, R = Recruiter, HM = Hirin
 
 Note: resume upload is an authenticated candidate profile operation (`POST /candidate/resume`) or an internal recruiter upload for an existing candidate. Public careers browsing never accepts multipart files.
 
-## Interviews
+## Interviews ✅
 
 | Method | Path | Roles | Description |
 |---|---|---|---|
-| GET | `/interviews` | OA, R, HM | List interviews (HM/R see all in tenant) |
-| GET | `/interviews?assignedToMe=true` | IV | List only the requester's own assigned interviews |
-| POST | `/interviews` | OA, R, HM | Schedule an interview, assign interviewer(s) |
-| GET | `/interviews/:id` | OA, R, HM, IV (if assigned) | Interview detail |
-| POST | `/interviews/:id/feedback` | IV (if assigned) | Submit rating + comments |
-| PATCH | `/interviews/:id` | OA, R, HM | Reschedule / cancel |
+| GET | `/interviews` | OA, R, HM, IV | List interviews. Interviewer role is always filtered server-side to own assignments (FR-21); other roles see all in tenant, or pass `?assignedToMe=true` |
+| POST | `/interviews` | OA, R, HM | Schedule an interview: `{ applicationId, interviewerId, scheduledAt }`. Auto-moves the application to the tenant's `Interview` stage |
+| GET | `/interviews/:id` | OA, R, HM, IV (if assigned) | Interview detail (candidate, job, interviewer, feedback) |
+| POST | `/interviews/:id/feedback` | IV (if assigned) | Submit `{ rating: 1–5, comments? }` — 1:1 per interview, duplicate → 409; flips status to `completed` |
+| PATCH | `/interviews/:id` | OA, R, HM | Reschedule `{ scheduledAt }` / cancel `{ status: 'cancelled' }` |
+
+## Organization users ✅
+
+| Method | Path | Roles | Description |
+|---|---|---|---|
+| GET | `/org/users` | OA, R, HM | List tenant users (`id`, `email`, `role`) — interviewer picker |
 
 ## Candidate (authenticated) ✅
 

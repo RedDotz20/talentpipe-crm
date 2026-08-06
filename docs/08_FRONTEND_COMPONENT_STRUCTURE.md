@@ -51,7 +51,7 @@ React + TypeScript + Mantine + TanStack Query/Router. Feature-folder structure, 
 /org/job-postings   → M2
 /org/candidates     → M2
 /org/pipeline       → M3
-/org/interviews     → M8
+/org/interviews     → M8 ✅
 /org/settings       → M9
 
 /admin.tsx          → layout (SuperAdminPlatform) + beforeLoad guard: requireRole(SuperAdmin)
@@ -68,12 +68,12 @@ Access control is enforced in each route's `beforeLoad` (TanStack Router), redir
 - `OrgSignupPage.tsx` — tenant + Org Admin (`POST /auth/org/signup`)
 - All use `useApiMutation` (auto-toasts); auth state via `api/useAuth.ts` (Zustand)
 
-### `/features/org` — internal tenant UI (scaffolded; M2+)
+### `/features/org` — internal tenant UI (M2–M8 implemented)
 - `OrgDashboard.tsx`
 - `JobPostingList.tsx`, `JobPostingForm.tsx` (M2), `RequiredSkillsPicker.tsx`
 - `CandidateList.tsx`, `CandidateProfile.tsx` (M2)
-- `PipelineBoard.tsx`, `PipelineColumn.tsx`, `ApplicationCard.tsx` (M3, dnd-kit), `ApplicationDetailDrawer.tsx`, `NotesList`/`NoteForm`, `StageEditor.tsx`
-- `InterviewScheduler.tsx`, `InterviewListView.tsx`, `InterviewFeedbackForm.tsx` (M8)
+- `PipelineBoard.tsx`, `PipelineColumn.tsx`, `ApplicationCard.tsx` (M3, dnd-kit), `ApplicationDetailDrawer.tsx` (notes + live interviews tab), `NotesList`/`NoteForm`, `StageEditor.tsx`
+- `interviews/` (M8 ✅): `InterviewListView.tsx` (role-aware table), `InterviewScheduler.tsx` (modal, native datetime-local), `InterviewFeedbackForm.tsx` (Rating 1–5 + comments), `hooks/useInterviews.ts`
 - `OrgSettingsForm.tsx`, `UserManagementTable.tsx` (M9)
 
 ### `/features/admin` — SuperAdmin platform (scaffolded; M9)

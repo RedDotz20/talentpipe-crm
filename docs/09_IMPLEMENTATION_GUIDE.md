@@ -6,7 +6,7 @@
 **Package manager:** npm
 **Prerequisites:** Node 20+, Docker Desktop, Git
 
-> **Status legend:** ✅ = implemented in the repo. ⬜ = planned / not yet built. Phases 0–7, including the Phase 5b candidate-account slice, are implemented and covered by release-gate tests. The steps below match the actual implementation, including the backend SOLID restructure, unified auth routes, global response envelope, three frontend platforms, candidate accounts, manual skills, storage-only resumes, read-only public careers API, Redis login limiting, tenant dashboard caching, and the BullMQ notifications queue.
+> **Status legend:** ✅ = implemented in the repo. ⬜ = planned / not yet built. Phases 0–8, including the Phase 5b candidate-account slice, are implemented and covered by release-gate tests. The steps below match the actual implementation, including the backend SOLID restructure, unified auth routes, global response envelope, three frontend platforms, candidate accounts, manual skills, storage-only resumes, read-only public careers API, Redis login limiting, tenant dashboard caching, the BullMQ notifications queue, and interviews with feedback.
 
 ---
 
@@ -732,32 +732,49 @@ Created `backend/src/workers/notification.worker.service.ts` — Nest-managed wo
 
 ---
 
-## Phase 8 — Interviews & Feedback
+## Phase 8 — Interviews & Feedback ✅ (complete)
 
-### Step 8.1 — Repositories
-Create `backend/src/repositories/interview.repository.ts` — findAll(filters?), findById, create, update.
-Create `backend/src/repositories/interview-feedback.repository.ts` — findByInterviewId, create.
+> **Design decisions (see `docs/superpowers/specs/2026-08-07-phase8-interviews-feedback-design.md`):**
+> - No schema or migration work — `interviews` and `interview_feedbacks` already existed in the template schema and every tenant.
+> - The API surface is docs `07`'s five endpoints (the guide's three plus detail + reschedule/cancel) plus `GET /org/users` for the interviewer picker (also serves Phase 9).
+> - The Interviewer role's `GET /interviews` is filtered **server-side** to `interviewerId = current user` (FR-21); `?assignedToMe=true` is an optional filter for other roles.
+> - Scheduling auto-moves the application to the tenant's `Interview` stage by reusing `ApplicationsService.updateStage` — inheriting candidate-index sync, dashboard-cache invalidation, and the Phase 7 stage-change notification.
+> - Feedback is 1:1 with the interview: duplicate submission → `409 CONFLICT`; a successful submission flips the interview `status` to `completed`.
+> - Interviewer users come from the seed (`interviewer@acme.com`, password `Interviewer123!`); user management itself remains Phase 9.
 
-### Step 8.2 — Interviews module
-Create `backend/src/modules/interviews/` with module, controller, service.
-Endpoints:
-```
-GET   /interviews?assignedToMe=true   — all users (Interviewer sees only own)
-POST  /interviews                      — OA, R, HM (body: applicationId, interviewerId, scheduledAt)
-POST  /interviews/:id/feedback         — Interviewer only, verifies assignment (body: rating, comments?)
-```
+### Step 8.1 — Repositories ✅
+Created `backend/src/repositories/interview.repository.ts` — `findAll(filters?: { interviewerId?, applicationId? })` (joins applications → candidate name/job title, users → interviewer email, leftJoin feedback), `findById`, `create`, `update`; and `interview-feedback.repository.ts` — `findByInterviewId`, `create`. Added `UserRepository.findAll()` (id, email, role) for the picker. All registered in `RepositoriesModule` (tenant-scoped).
 
-### Step 8.3 — Frontend components
-Create `InterviewScheduler.tsx` — select application, select interviewer, date+time picker.
-Create `InterviewListView.tsx` — table: candidate, date, interviewer, status. Filter for Interviewer role.
-Create `InterviewFeedbackForm.tsx` — rating 1-5, comments. Only render if current user is assigned interviewer.
+### Step 8.2 — Interviews module ✅
+Created `backend/src/modules/interviews/` with module, controller, service, dto/:
+```
+GET   /interviews?assignedToMe=true — OA, R, HM, IV (Interviewer role is always own-only, server-side)
+GET   /interviews/:id               — OA, R, HM, IV (assigned) — 403 for unassigned Interviewers
+POST  /interviews                   — OA, R, HM (body: applicationId, interviewerId, scheduledAt ISO)
+PATCH /interviews/:id               — OA, R, HM (body: scheduledAt?, status? ∈ scheduled|completed|cancelled)
+POST  /interviews/:id/feedback      — IV only, verifies assignment (body: rating 1–5 required, comments?)
+GET   /org/users                    — OA, R, HM (tenant users for the interviewer picker)
+```
+All bodies validated via `@Body(new ZodValidationPipe(...))`. `ApplicationsModule` now exports `ApplicationsService` so scheduling can reuse the stage-move pipeline. Registering `InterviewsModule` in `AppModule` was the only wiring change.
 
-### Step 8.4 — Verify
+### Step 8.3 — Frontend components ✅
+Under `frontend/src/features/org/interviews/`:
+- `InterviewListView.tsx` — table (candidate, job, date, interviewer, status badge) with role-aware actions: Interviewer ⇒ Feedback button; OA/R/HM ⇒ Schedule / Reschedule / Cancel.
+- `InterviewScheduler.tsx` — modal: application select, interviewer select (from `GET /org/users`), native `datetime-local` input (no new Mantine package).
+- `InterviewFeedbackForm.tsx` — Mantine `Rating` 1–5 + comments; only rendered for the assigned interviewer.
+- Route `frontend/src/routes/org/interviews.tsx` (nav link already existed).
+- `ApplicationDetailDrawer` Interviews tab is now live (filters the shared interviews query by application id).
+
+### Step 8.4 — Verify ✅
 ```
-curl -X POST http://localhost:3000/interviews ... -d '{"applicationId":"<id>","interviewerId":"<id>","scheduledAt":"2026-08-01T14:00:00Z"}'
-curl -X POST http://localhost:3000/interviews/<id>/feedback ... -d '{"rating":4,"comments":"Strong"}'
+curl -X POST http://localhost:3000/api/interviews -H "Authorization: Bearer $TOKEN" \
+  -d '{"applicationId":"<id>","interviewerId":"<id>","scheduledAt":"2026-08-01T14:00:00Z"}'  # 201; application auto-moved to Interview stage
+curl -X POST http://localhost:3000/api/interviews/<id>/feedback -H "Authorization: Bearer $IV_TOKEN" \
+  -d '{"rating":4,"comments":"Strong"}'  # 201; interview status -> completed
 ```
-Non-assigned user -> 403.
+Non-assigned user → 403; duplicate feedback → 409.
+
+**Release-gate coverage:** `backend/test/phase8.e2e-spec.ts` — schedule → auto-stage move + candidate-index status sync, server-side assignment filtering (assigned IV sees own, other IV sees none), feedback 403/404/409 rules, reschedule + cancel, role 403s (candidate on all interview routes, OA on feedback), and interviewer-picker listing.
 
 **Commit:** `git add -A && git commit -m "phase8: interviews and feedback — backend + frontend"`
 

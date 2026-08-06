@@ -100,9 +100,9 @@ Small and mid-sized companies without budget for enterprise ATS platforms (Green
 2. ✅ Job postings + candidates (manual entry) — **implemented** (M2)
 3. ✅ Application pipeline (Kanban) — **implemented** (M3)
 4. ✅ Candidate resume storage + manual skill matching — **implemented** (M4)
-5. ✅ Public careers listing/detail + Candidate-only apply (M5); ⬜ Redis rate limiting/cache (M6)
-6. ⬜ Background jobs (BullMQ) + notifications (M7)
-7. ⬜ Interviews + feedback (M8)
+5. ✅ Public careers listing/detail + Candidate-only apply (M5); ✅ Redis rate limiting/cache (M6)
+6. ✅ Background jobs (BullMQ) + notifications (M7)
+7. ✅ Interviews + feedback (M8)
 8. ⬜ Containerization + CI/CD + deployment (M9–M10)
 
 > Candidate accounts (signup/login, dashboard, applications, bookmarks, profile) were **built early** alongside the M1 restructure. See `00_PROJECT_INSTRUCTIONS.md` §10 and `09_IMPLEMENTATION_GUIDE.md` for status.
@@ -200,9 +200,9 @@ See PRD §4 (Org Admin, Recruiter, Hiring Manager, Interviewer, Candidate). Acce
 
 | ID | Requirement |
 |---|---|
-| FR-19 | The system shall allow scheduling an interview for an application, assigned to one or more interviewers. |
-| FR-20 | The system shall allow an assigned interviewer to submit structured feedback (rating + comments) after an interview. |
-| FR-21 | Interviewers shall only see interviews they are assigned to. |
+| FR-19 | The system shall allow scheduling an interview for an application, assigned to one or more interviewers. ✅ M8 (v1: single `interviewerId` per interview per ERD/schema) |
+| FR-20 | The system shall allow an assigned interviewer to submit structured feedback (rating + comments) after an interview. ✅ M8 |
+| FR-21 | Interviewers shall only see interviews they are assigned to. ✅ M8 (server-side filter) |
 
 ### 3.6 Rate Limiting & Abuse Prevention
 

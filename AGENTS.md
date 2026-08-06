@@ -2,7 +2,7 @@
 
 **One-liner:** Schema-per-tenant applicant tracking system. Each company gets an isolated PostgreSQL schema for job postings, candidate pipelines, interviews, recruiter collaboration, resume parsing, skill-matching, and rate-limited public application intake.
 
-**Status:** M7 (BullMQ notifications queue) — implemented on top of M6 (Redis rate limiting + tenant dashboard cache).
+**Status:** M8 (Interviews + Feedback) — implemented on top of M7 (BullMQ notifications queue).
 
 ---
 
@@ -23,9 +23,9 @@
 
 ## Current State
 
-- **Backend:** Auth, schema-per-tenant repositories, candidate accounts, public careers, applications/pipeline, Redis sign-in limiting, tenant dashboard cache, and a BullMQ notifications queue (stage-change jobs delivered to `audit_logs`). Health endpoint at `GET /api/health`.
-- **Frontend:** Vite/Mantine application with organization and candidate platforms, candidate job search/apply/bookmarks/profile flows, and the organization dashboard summary.
-- **Not yet built:** interviews, platform administration, and CI. Anonymous apply and automated resume parsing remain out of scope.
+- **Backend:** Auth, schema-per-tenant repositories, candidate accounts, public careers, applications/pipeline, Redis sign-in limiting, tenant dashboard cache, a BullMQ notifications queue (stage-change jobs delivered to `audit_logs`), and interviews + feedback (scheduling with auto-move to the Interview stage, server-side interviewer scoping, 1:1 feedback, `GET /org/users`). Health endpoint at `GET /api/health`.
+- **Frontend:** Vite/Mantine application with organization and candidate platforms, candidate job search/apply/bookmarks/profile flows, the organization dashboard summary, and the interviews list/scheduler/feedback UI.
+- **Not yet built:** platform administration (Phase 9, incl. user management), and CI. Anonymous apply and automated resume parsing remain out of scope.
 
 ## Commands
 
@@ -155,7 +155,7 @@ frontend/src/
 | M5 | Public Careers + Apply | Unauthenticated browse + apply |
 | M6 | Redis (rate-limit + cache) | 429 on public apply, dashboard cache |
 | M7 | BullMQ background jobs | Stage-change notifications via BullMQ worker (audit-log delivery) |
-| M8 | Interviews + Feedback | Schedule + submit feedback |
+| M8 | Interviews + Feedback | Schedule + submit feedback works — done ✅ |
 | M9 | Admin + Platform + CI | OrgAdmin UI, platform views, CI green |
 | M10 | Deploy | Live URL, prod config |
 
