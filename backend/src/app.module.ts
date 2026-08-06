@@ -20,6 +20,7 @@ import { CacheModule } from './common/cache/cache.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { QueuesModule } from './queues/queues.module';
 import { InterviewsModule } from './modules/interviews/interviews.module';
+import { OrgModule } from './modules/org/org.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { InterviewsModule } from './modules/interviews/interviews.module';
     DashboardModule,
     QueuesModule,
     InterviewsModule,
+    OrgModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: TenantContextInterceptor },

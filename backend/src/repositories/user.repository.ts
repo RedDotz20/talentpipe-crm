@@ -46,4 +46,22 @@ export class UserRepository extends BaseRepository {
       return rows[0];
     });
   }
+
+  async updateRole(id: string, role: string, schema = 'current') {
+    return this.withDb(schema, async (db) => {
+      const rows = await db
+        .update(users)
+        .set({ role })
+        .where(eq(users.id, id))
+        .returning()
+        .execute();
+      return rows[0] ?? null;
+    });
+  }
+
+  async remove(id: string, schema = 'current') {
+    return this.withDb(schema, (db) =>
+      db.delete(users).where(eq(users.id, id)).execute(),
+    );
+  }
 }

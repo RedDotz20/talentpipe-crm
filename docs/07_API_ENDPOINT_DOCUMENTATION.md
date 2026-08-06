@@ -32,18 +32,18 @@ Legend for **Roles**: SA = SuperAdmin, OA = Org Admin, R = Recruiter, HM = Hirin
 
 | Method | Path | Roles | Description |
 |---|---|---|---|
-| GET | `/org` | — | Get current tenant's settings |
-| PATCH | `/org` | OA | Update tenant name/settings |
-| GET | `/org/users` | OA | List all users in the tenant |
-| POST | `/org/users/invite` | OA | Invite a new user by email + role |
-| PATCH | `/org/users/:userId/role` | OA | Change a user's role |
-| DELETE | `/org/users/:userId` | OA | Remove a user from the tenant |
+| GET | `/org` | OA, R, HM, IV | Get current tenant's settings (name, slug, plan, status) |
+| PATCH | `/org` | OA | Update tenant name (`{ name }`; slug and plan immutable) |
+| GET | `/org/users` | OA, R, HM | List all users in the tenant (interviewer picker) |
+| POST | `/org/users/invite` | OA | Invite a new user by email + role + password (no mailer — admin shares credentials out-of-band) |
+| PATCH | `/org/users/:userId/role` | OA | Change a user's role (no self-change; last OrgAdmin protected) |
+| DELETE | `/org/users/:userId` | OA | Remove a user from the tenant (no self-removal; last OrgAdmin protected; revokes refresh tokens) |
 | GET | `/org/pipeline-stages` | — | List configured pipeline stages, ordered |
 | POST | `/org/pipeline-stages` | OA | Create a new stage |
 | PATCH | `/org/pipeline-stages/:id` | OA | Rename/reorder a stage |
 | DELETE | `/org/pipeline-stages/:id` | OA | Remove a stage (only if no applications reference it) |
 
-> Most `/org/*` routes above are **planned** (M2/M9) — `GET /org/pipeline-stages` exists as a tenant-scoped repo but no controller yet.
+> `/org`, `PATCH /org`, and the user-management routes (`invite`, `role`, `delete`) are **implemented** (M9) in `backend/src/modules/org/` (`OrgController` + `OrgUsersController`, moved here from the interviews module in M9). User-management actions write audit rows (`user.invite`, `user.role_change`, `user.remove`). `GET /org/pipeline-stages` exists as a tenant-scoped repo but no controller yet.
 
 ## Job Postings
 

@@ -46,6 +46,18 @@ export class TenantRepository extends BaseRepository {
     });
   }
 
+  async updateName(id: string, name: string) {
+    return this.withDb('public', async (db) => {
+      const rows = await db
+        .update(tenants)
+        .set({ name })
+        .where(eq(tenants.id, id))
+        .returning()
+        .execute();
+      return rows[0] ?? null;
+    });
+  }
+
   async findById(id: string) {
     return this.withDb('public', async (db) => {
       const rows = await db

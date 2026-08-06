@@ -26,4 +26,10 @@ export class UserEmailRepository extends BaseRepository {
       return rows[0];
     });
   }
+
+  async deleteByUserId(userId: string) {
+    return this.withDb('public', (db) =>
+      db.delete(userEmails).where(eq(userEmails.userId, userId)).execute(),
+    );
+  }
 }
