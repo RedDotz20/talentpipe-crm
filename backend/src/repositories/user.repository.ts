@@ -5,6 +5,16 @@ import { BaseRepository } from './base.repository';
 
 @Injectable()
 export class UserRepository extends BaseRepository {
+  async findAll(schema = 'current') {
+    return this.withDb(schema, async (db) => {
+      return db
+        .select({ id: users.id, email: users.email, role: users.role })
+        .from(users)
+        .orderBy(users.email)
+        .execute();
+    });
+  }
+
   async findByEmail(email: string, schema = 'current') {
     return this.withDb(schema, async (db) => {
       const rows = await db

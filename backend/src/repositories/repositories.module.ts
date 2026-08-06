@@ -18,6 +18,8 @@ import { NoteRepository } from './note.repository';
 import { CandidateSkillRepository } from './candidate-skill.repository';
 import { DashboardRepository } from './dashboard.repository';
 import { AuditLogRepository } from './audit-log.repository';
+import { InterviewRepository } from './interview.repository';
+import { InterviewFeedbackRepository } from './interview-feedback.repository';
 
 const REPOSITORIES = [
   UserRepository,
@@ -38,6 +40,8 @@ const REPOSITORIES = [
   CandidateSkillRepository,
   DashboardRepository,
   AuditLogRepository,
+  InterviewRepository,
+  InterviewFeedbackRepository,
 ];
 
 @Module({
