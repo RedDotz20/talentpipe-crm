@@ -8,7 +8,12 @@ export class UserRepository extends BaseRepository {
   async findAll(schema = 'current') {
     return this.withDb(schema, async (db) => {
       return db
-        .select({ id: users.id, email: users.email, role: users.role })
+        .select({
+          id: users.id,
+          email: users.email,
+          role: users.role,
+          createdAt: users.createdAt,
+        })
         .from(users)
         .orderBy(users.email)
         .execute();

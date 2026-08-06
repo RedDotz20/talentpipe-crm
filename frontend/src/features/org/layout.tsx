@@ -1,7 +1,7 @@
 import { Outlet, Link, useNavigate } from '@tanstack/react-router';
 import { AppShell as MantineShell, Group, Text, Button, NavLink } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconDashboard, IconBriefcase, IconUsers, IconLayoutKanban, IconCalendarEvent } from '@tabler/icons-react';
+import { IconDashboard, IconBriefcase, IconUsers, IconLayoutKanban, IconCalendarEvent, IconSettings, IconUserPlus } from '@tabler/icons-react';
 import { useAuthStore } from '../../api/useAuth';
 import { useLogout } from '../../hooks/auth';
 
@@ -22,6 +22,12 @@ export function OrgPlatform() {
     { label: 'Candidates', icon: IconUsers, to: '/org/candidates' },
     { label: 'Pipeline', icon: IconLayoutKanban, to: '/org/pipeline' },
     { label: 'Interviews', icon: IconCalendarEvent, to: '/org/interviews' },
+    ...(role === 'OrgAdmin'
+      ? [
+          { label: 'Team', icon: IconUserPlus, to: '/org/users' },
+          { label: 'Settings', icon: IconSettings, to: '/org/settings' },
+        ]
+      : []),
   ];
 
   return (

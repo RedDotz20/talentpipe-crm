@@ -39,6 +39,7 @@ export const queryKeys = {
     interviews: () => ['org', 'interviews'],
     interview: (id: string) => ['org', 'interviews', id],
     orgUsers: () => ['org', 'users'],
+    orgSettings: () => ['org', 'settings'],
   },
 } as const;
 

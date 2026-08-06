@@ -52,10 +52,12 @@ React + TypeScript + Mantine + TanStack Query/Router. Feature-folder structure, 
 /org/candidates     → M2
 /org/pipeline       → M3
 /org/interviews     → M8 ✅
-/org/settings       → M9
+/org/settings       → M9 ✅ (OrgAdmin-only `beforeLoad`; OrgPlatform shows the link only for OrgAdmin)
+/org/users          → M9 ✅ (OrgAdmin-only `beforeLoad`)
 
 /admin.tsx          → layout (SuperAdminPlatform) + beforeLoad guard: requireRole(SuperAdmin)
-/admin/tenants      → M9
+/admin/tenants      → M9 ✅ (stats cards + tenant table)
+/admin/tenants/$tenantId → M9 ✅ (tenant detail + suspend/reactivate)
 ```
 
 Access control is enforced in each route's `beforeLoad` (TanStack Router), redirecting to the correct platform by role — there is no `<RoleGuard>` wrapper component. `/admin/*` uses a distinct top-level `SuperAdminPlatform`; candidate routes use the pathless `_candidate` layout → `CandidatePlatform`. The three platform layout components live at `features/{org,admin,candidate-portal}/layout.tsx` (`OrgPlatform`, `SuperAdminPlatform`, `CandidatePlatform`).
@@ -68,16 +70,19 @@ Access control is enforced in each route's `beforeLoad` (TanStack Router), redir
 - `OrgSignupPage.tsx` — tenant + Org Admin (`POST /auth/org/signup`)
 - All use `useApiMutation` (auto-toasts); auth state via `api/useAuth.ts` (Zustand)
 
-### `/features/org` — internal tenant UI (M2–M8 implemented)
+### `/features/org` — internal tenant UI (M2–M8 implemented, M9 admin views done)
 - `OrgDashboard.tsx`
 - `JobPostingList.tsx`, `JobPostingForm.tsx` (M2), `RequiredSkillsPicker.tsx`
 - `CandidateList.tsx`, `CandidateProfile.tsx` (M2)
 - `PipelineBoard.tsx`, `PipelineColumn.tsx`, `ApplicationCard.tsx` (M3, dnd-kit), `ApplicationDetailDrawer.tsx` (notes + live interviews tab), `NotesList`/`NoteForm`, `StageEditor.tsx`
 - `interviews/` (M8 ✅): `InterviewListView.tsx` (role-aware table), `InterviewScheduler.tsx` (modal, native datetime-local), `InterviewFeedbackForm.tsx` (Rating 1–5 + comments), `hooks/useInterviews.ts`
-- `OrgSettingsForm.tsx`, `UserManagementTable.tsx` (M9)
+- `settings/` (M9 ✅): `OrgSettingsPage.tsx` — company name editable (OrgAdmin), slug/plan/status read-only
+- `users/` (M9 ✅): `UserManagementPage.tsx` — team table (email/role select/created/remove), invite modal (email + role + initial password), self/last-admin disabled
 
-### `/features/admin` — SuperAdmin platform (scaffolded; M9)
-- `TenantsList.tsx`, `TenantDetail.tsx`, `PlatformStats.tsx`
+### `/features/admin` — SuperAdmin platform (M9 ✅)
+- `TenantsPage.tsx` — platform stats cards (tenants/users/applications) + tenant table (company, slug, plan, status, created)
+- `TenantDetail.tsx` — detail + usage counts + suspend/reactivate buttons
+- Route: `/admin/tenants` (list), `/admin/tenants/$tenantId` (detail)
 
 ### `/features/candidate-portal` ✅ (implemented)
 - `CandidatePlatform.tsx` (`layout.tsx`) — minimal header + nav (dashboard, applications, bookmarks, settings)
