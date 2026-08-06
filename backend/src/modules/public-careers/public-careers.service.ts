@@ -36,7 +36,9 @@ export class PublicCareersService {
 
   async list(tenantSlug: string): Promise<PublicJobListing[]> {
     const tenant = await this.tenantRepo.findBySlug(tenantSlug);
-    if (!tenant) throw new NotFoundException('Tenant not found');
+    if (!tenant || tenant.status === 'suspended') {
+      throw new NotFoundException('Tenant not found');
+    }
 
     const rows = await this.indexRepo.findOpenByTenant(tenant.id);
     return rows.map((row) => this.toPublicListing(row, tenant.id, tenant.slug));
@@ -44,7 +46,9 @@ export class PublicCareersService {
 
   async getOne(tenantSlug: string, jobId: string): Promise<PublicJobDetail> {
     const tenant = await this.tenantRepo.findBySlug(tenantSlug);
-    if (!tenant) throw new NotFoundException('Job posting not found');
+    if (!tenant || tenant.status === 'suspended') {
+      throw new NotFoundException('Job posting not found');
+    }
 
     const indexed = await this.indexRepo.findOpenByTenantAndJob(
       tenant.id,

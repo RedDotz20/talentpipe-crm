@@ -119,7 +119,22 @@ docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "\d publi
 # Expect the unique_candidate_application unique index.
 ```
 
-### 8. Apply the `template` schema (used by tenant signup)
+### 8. Apply the tenant status migration
+
+Adds `public.tenants.status` (`varchar(20)`, default `active`) for platform-level suspend/reactivate (Phase 9). Existing tenants default to `active`.
+
+```sh
+Get-Content backend/drizzle/20260806191320_superb_king_cobra/migration.sql `
+  | docker exec -i talentpipe-crm-postgres-1 psql -U devuser -d talentpipe
+```
+
+**Check:**
+```sh
+docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "SELECT id, slug, status FROM public.tenants;"
+# Expect every tenant to have status = 'active'.
+```
+
+### 9. Apply the `template` schema (used by tenant signup)
 
 The template schema is what every new tenant's `tenant_<uuid>` schema gets cloned from at signup time. It's a hand-written SQL file.
 
@@ -144,7 +159,7 @@ Expect the nullable `cover_letter` column inherited from `public.applications`.
 
 ---
 
-### 9. Seed the 3 sample accounts
+### 10. Seed the 3 sample accounts
 
 ```sh
 cd backend
@@ -173,7 +188,7 @@ docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "SELECT c
 
 ---
 
-### 10. Start the backend
+### 11. Start the backend
 
 ```sh
 cd backend
@@ -186,11 +201,11 @@ curl http://localhost:3000/api/health
 # → {"data":{"status":"ok","timestamp":"..."},"message":"OK"}
 ```
 
-If you see `relation "users" does not exist` or any DrizzleQueryError on login → you skipped step 3 through 8.
+If you see `relation "users" does not exist` or any DrizzleQueryError on login → you skipped step 3 through 9.
 
 ---
 
-### 11. Start the frontend
+### 12. Start the frontend
 
 ```sh
 cd frontend
@@ -201,7 +216,7 @@ npm run dev
 
 ---
 
-### 12. Log in with a sample account
+### 13. Log in with a sample account
 
 The seed script creates exactly three accounts:
 
@@ -240,7 +255,7 @@ cd frontend && npm run dev
 # 4. Open http://localhost:5173
 ```
 
-If login suddenly breaks with `relation "..." does not exist` — the Postgres volume was wiped. Re-run steps 3 → 8.
+If login suddenly breaks with `relation "..." does not exist` — the Postgres volume was wiped. Re-run steps 3 → 9.
 
 ---
 

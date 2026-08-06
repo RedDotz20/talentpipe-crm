@@ -118,7 +118,7 @@ cd frontend && npm run dev         # http://localhost:5173
 Create `backend/src/database/schema.ts` with ALL tables below.
 
 **Public schema tables (live once, shared across tenants):**
-- `tenants`: id (uuid pk), name (varchar 255), slug (varchar 100, unique), plan (varchar 50, default 'free'), createdAt.
+- `tenants`: id (uuid pk), name (varchar 255), slug (varchar 100, unique), plan (varchar 50, default 'free'), status (varchar 20, default 'active'), createdAt.
 - `skills`: id (uuid pk), name (varchar 255, unique), category (varchar 100).
 - `auditLogs`: id (uuid pk), tenantId, userId, action (varchar 100), resourceId, metadata (text), createdAt. Index on (tenantId, action).
 - `userEmails`: id (uuid pk), email (varchar 255, unique), tenantId, userId — **login lookup bridge** between a public-schema email and the owning tenant's schema.
@@ -158,6 +158,7 @@ backend/drizzle/20260727163000_smooth_spitfire/migration.sql      # +super_admin
 backend/drizzle/20260803085856_redundant_tyrannus/migration.sql   # +candidate skills
 backend/drizzle/20260804101500_candidate_profile_redesign/migration.sql # profile/resume redesign
 backend/drizzle/20260805090000_candidate_application_integrity/migration.sql # application/candidate integrity
+backend/drizzle/20260806191320_superb_king_cobra/migration.sql # +tenants.status (suspend/reactivate)
 ```
 
 **Template schema** (`backend/drizzle/template-schema.sql`) — the hand-written file cloned per tenant at signup. Apply it once to create the `template` schema:

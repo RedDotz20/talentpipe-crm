@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -14,6 +15,7 @@ import { UserEmailRepository } from '../../repositories/user-email.repository';
 import { UserRepository } from '../../repositories/user.repository';
 import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
 import { SuperAdminRepository } from '../../repositories/super-admin.repository';
+import { TenantRepository } from '../../repositories/tenant.repository';
 
 @Injectable()
 export class AuthService {
@@ -24,6 +26,7 @@ export class AuthService {
     private userRepo: UserRepository,
     private candidateAccountRepo: CandidateAccountRepository,
     private superAdminRepo: SuperAdminRepository,
+    private tenantRepo: TenantRepository,
   ) {}
 
   async orgSignup(dto: OrgSignupDto) {
@@ -47,6 +50,11 @@ export class AuthService {
       if (!user) throw new UnauthorizedException('Invalid credentials');
       const valid = await verifyPassword(user.passwordHash, dto.password);
       if (!valid) throw new UnauthorizedException('Invalid credentials');
+
+      const tenant = await this.tenantRepo.findById(emailRecord.tenantId);
+      if (tenant?.status === 'suspended') {
+        throw new ForbiddenException('This company account is suspended');
+      }
 
       const tokens = await this.tokenService.issueTokens({
         id: user.id,

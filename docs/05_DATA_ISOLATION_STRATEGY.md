@@ -187,7 +187,7 @@ function assertFound<T>(row: T | null): T {
 
 ### Public careers reads and authenticated candidate writes
 
-Public careers requests have no JWT and therefore run in the public context, but they are not cross-tenant queries. `GET /public/:tenantSlug/jobs` resolves the slug through `public.tenants` and filters `public.job_listings_index` by that tenant ID and `status = 'open'`. `GET /public/:tenantSlug/jobs/:id` performs the same index check, then reads required skills from the explicitly resolved `tenant_<id>` schema and the shared public skill taxonomy. Unknown, draft, and closed jobs return `404`.
+Public careers requests have no JWT and therefore run in the public context, but they are not cross-tenant queries. `GET /public/:tenantSlug/jobs` resolves the slug through `public.tenants` and filters `public.job_listings_index` by that tenant ID and `status = 'open'`. `GET /public/:tenantSlug/jobs/:id` performs the same index check, then reads required skills from the explicitly resolved `tenant_<id>` schema and the shared public skill taxonomy. Unknown, draft, closed, and **suspended-tenant** jobs return `404` (a suspended tenant's careers pages disappear from the outside).
 
 There is no anonymous application endpoint. The frontend redirects an anonymous Apply action to unified sign-in/signup with a validated same-origin careers return path. Only a JWT-authenticated Candidate can call `/candidate/jobs/:tenantId/:jobId/apply`; that service validates the public index entry before writing tenant application data and the public application index.
 

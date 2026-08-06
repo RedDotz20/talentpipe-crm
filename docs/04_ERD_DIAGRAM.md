@@ -42,6 +42,7 @@ erDiagram
     string name
     string slug "used in public careers URL"
     string plan
+    string status "active | suspended"
     datetime createdAt
   }
 

@@ -37,6 +37,8 @@ export const tenants = pgTable('tenants', {
   name: varchar('name', { length: 255 }).notNull(),
   slug: varchar('slug', { length: 100 }).notNull().unique(),
   plan: varchar('plan', { length: 50 }).default('free').notNull(),
+  status: varchar('status', { length: 20 }).default('active').notNull(),
+  // status: active | suspended
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { TenantProvisioningService } from './services/tenant-provisioning.service';
 import { TokenService } from './services/token.service';
@@ -7,6 +7,7 @@ import { UserEmailRepository } from '../../repositories/user-email.repository';
 import { UserRepository } from '../../repositories/user.repository';
 import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
 import { SuperAdminRepository } from '../../repositories/super-admin.repository';
+import { TenantRepository } from '../../repositories/tenant.repository';
 
 jest.mock('argon2', () => ({
   hash: jest.fn(),
@@ -21,6 +22,7 @@ describe('AuthService', () => {
   const userRepo = { findByEmail: jest.fn() };
   const candidateAccountRepo = { findByEmail: jest.fn(), create: jest.fn() };
   const superAdminRepo = { findByEmail: jest.fn() };
+  const tenantRepo = { findById: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -33,6 +35,7 @@ describe('AuthService', () => {
         { provide: UserRepository, useValue: userRepo },
         { provide: CandidateAccountRepository, useValue: candidateAccountRepo },
         { provide: SuperAdminRepository, useValue: superAdminRepo },
+        { provide: TenantRepository, useValue: tenantRepo },
       ],
     }).compile();
     service = module.get<AuthService>(AuthService);
@@ -84,6 +87,10 @@ describe('AuthService', () => {
         passwordHash: 'hash',
         role: 'OrgAdmin',
       });
+      tenantRepo.findById.mockResolvedValue({
+        id: 't1',
+        status: 'active',
+      });
       tokenService.issueTokens.mockResolvedValue({
         accessToken: 'a',
         refreshToken: 'r',
@@ -117,6 +124,27 @@ describe('AuthService', () => {
       await expect(
         service.signin({ email: 'ghost@nowhere.com', password: 'whatever' }),
       ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('throws ForbiddenException when the tenant is suspended', async () => {
+      userEmailRepo.findByEmail.mockResolvedValue({
+        tenantId: 't1',
+        userId: 'u1',
+      });
+      userRepo.findByEmail.mockResolvedValue({
+        id: 'u1',
+        email: 'admin@acme.com',
+        passwordHash: 'hash',
+        role: 'OrgAdmin',
+      });
+      tenantRepo.findById.mockResolvedValue({
+        id: 't1',
+        status: 'suspended',
+      });
+
+      await expect(
+        service.signin({ email: 'admin@acme.com', password: 'password1' }),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 

@@ -34,7 +34,7 @@ Why schema-per-tenant instead of shared-schema or database-per-tenant:
 
 ```
 Tenant (lives in `public` schema)
- └─ id, name, slug, plan, createdAt
+ └─ id, name, slug, plan, status [active|suspended], createdAt
 
 User (lives in tenant's schema — no tenantId column, inheritance is by schema)
  └─ id, email, passwordHash, role [SuperAdmin|OrgAdmin|Recruiter|HiringManager|Interviewer]

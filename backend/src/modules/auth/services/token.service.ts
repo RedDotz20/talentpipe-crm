@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as argon2 from 'argon2';
 import { RefreshTokenRepository } from '../../../repositories/refresh-token.repository';
+import { TenantRepository } from '../../../repositories/tenant.repository';
 
 const ACCESS_TTL = '15m';
 const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -26,6 +27,7 @@ export class TokenService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private refreshTokenRepo: RefreshTokenRepository,
+    private tenantRepo: TenantRepository,
   ) {}
 
   async issueTokens(subject: TokenSubject) {
@@ -73,6 +75,13 @@ export class TokenService {
 
     const tokenMatches = await argon2.verify(stored.tokenHash, refreshToken);
     if (!tokenMatches) throw new UnauthorizedException('Invalid refresh token');
+
+    if (payload.tenantId) {
+      const tenant = await this.tenantRepo.findById(payload.tenantId);
+      if (tenant?.status === 'suspended') {
+        throw new UnauthorizedException('This company account is suspended');
+      }
+    }
 
     return this.issueTokens({
       id: payload.sub,

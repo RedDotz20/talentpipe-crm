@@ -28,6 +28,24 @@ export class TenantRepository extends BaseRepository {
     });
   }
 
+  async findAll() {
+    return this.withDb('public', async (db) => {
+      return db.select().from(tenants).orderBy(tenants.createdAt).execute();
+    });
+  }
+
+  async updateStatus(id: string, status: 'active' | 'suspended') {
+    return this.withDb('public', async (db) => {
+      const rows = await db
+        .update(tenants)
+        .set({ status })
+        .where(eq(tenants.id, id))
+        .returning()
+        .execute();
+      return rows[0] ?? null;
+    });
+  }
+
   async findById(id: string) {
     return this.withDb('public', async (db) => {
       const rows = await db
