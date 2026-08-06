@@ -41,6 +41,11 @@ export const queryKeys = {
     orgUsers: () => ['org', 'users'],
     orgSettings: () => ['org', 'settings'],
   },
+  platform: {
+    tenants: () => ['platform', 'tenants'],
+    tenant: (id: string) => ['platform', 'tenants', id],
+    stats: () => ['platform', 'stats'],
+  },
 } as const;
 
 export type QueryKeys = typeof queryKeys;
