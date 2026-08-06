@@ -210,7 +210,7 @@ Feature-folder structure matches what you already prefer. The Kanban pipeline bo
 5. ✅ Public careers page + Candidate-only apply; public API is read-only
 5b. ✅ Candidate accounts + dashboard — `candidate_accounts` auth, job search, apply-as-candidate, bookmarks, history (built early)
 6. ⬜ Redis: rate limiting on public apply + login, dashboard query caching
-7. ⬜ BullMQ: move resume parsing and notification emails to background jobs
+7. ✅ BullMQ: stage-change notifications moved to a background worker (audit-log delivery; resume parsing is out of product design)
 8. ⬜ Interviews module + feedback
 9. ⬜ Docker Compose full stack, then GitHub Actions CI
 10. ⬜ Deploy; S3-compatible client already used (MinIO→real S3 = env swap)

@@ -6,7 +6,7 @@
 **Package manager:** npm
 **Prerequisites:** Node 20+, Docker Desktop, Git
 
-> **Status legend:** ✅ = implemented in the repo. ⬜ = planned / not yet built. Phases 0–6, including the Phase 5b candidate-account slice, are implemented and covered by release-gate tests. The steps below match the actual implementation, including the backend SOLID restructure, unified auth routes, global response envelope, three frontend platforms, candidate accounts, manual skills, storage-only resumes, read-only public careers API, Redis login limiting, and tenant dashboard caching. See the Task 8 report for the environment-specific verification result.
+> **Status legend:** ✅ = implemented in the repo. ⬜ = planned / not yet built. Phases 0–7, including the Phase 5b candidate-account slice, are implemented and covered by release-gate tests. The steps below match the actual implementation, including the backend SOLID restructure, unified auth routes, global response envelope, three frontend platforms, candidate accounts, manual skills, storage-only resumes, read-only public careers API, Redis login limiting, tenant dashboard caching, and the BullMQ notifications queue.
 
 ---
 
@@ -704,23 +704,31 @@ deferred to later milestones.
 
 ---
 
-## Phase 7 — BullMQ Background Jobs
+## Phase 7 — BullMQ Background Jobs ✅ (complete)
 
-### Step 7.1 — Install
+> **Design decisions (see `docs/superpowers/specs/2026-08-07-phase7-bullmq-notifications-design.md`):**
+> - Delivery is an `audit_logs` row + log output — the first real writer of the table. Email (FR-26 "email, queued") plugs into the worker's `deliver()` method when a mailer exists.
+> - Resume parsing is **not** part of the product design and is not queued.
+> - BullMQ uses a **dedicated** ioredis connection (`maxRetriesPerRequest: null` required by BullMQ; the Phase 6 limiter/cache connection uses `1` and is untouched).
+> - Step 7.4's `bootstrap.ts` was replaced by a Nest-managed `NotificationWorkerService` (`QueuesModule`): it gets DI (`AuditLogRepository`) and lifecycle (`onModuleDestroy` closes worker → queue → connection) for free, and e2e apps boot the worker automatically.
+
+### Step 7.1 — Install ✅
 ```
 cd backend && npm install bullmq
 ```
 
-### Step 7.2 — Queue definitions
-Create `backend/src/queues/queues.ts` — notificationQueue ('notifications') and any explicitly approved future queues, both with Redis connection from the Phase 6 provider.
+### Step 7.2 — Queue definitions ✅
+Created `backend/src/queues/queues.ts` — dedicated BullMQ connection, `notificationQueue` (`Queue('notifications')` with `defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 2000 }, removeOnComplete: 100, removeOnFail: 100 }`), `STAGE_CHANGE_JOB` constant, and the `StageChangeNotificationPayload` type. Registered in `backend/src/queues/queues.module.ts` (`QueuesModule` — provides `NOTIFICATION_QUEUE` + `BULLMQ_CONNECTION`, imports `RepositoriesModule`).
 
-### Step 7.3 — Notification worker
-Create `backend/src/workers/notification.worker.ts` — process queued stage-change or interview notifications with 3 retries and exponential backoff. Resume parsing is not part of the current product design.
+### Step 7.3 — Notification worker ✅
+Created `backend/src/workers/notification.worker.service.ts` — Nest-managed worker (concurrency 1) processing `stage-change` jobs: writes an `audit_logs` row (`action = 'notification.stage_change'`, `resourceId` = application id, JSON `metadata`) + logs. 3 retries with exponential backoff come from the queue's `defaultJobOptions`. Producer: `ApplicationsService.updateStage` enqueues fire-and-forget (a queue failure logs a warning and never fails the stage change).
 
-### Step 7.4 — Wire up worker
-Create `backend/src/workers/bootstrap.ts` — import workers. Call in main.ts after app boot.
+### Step 7.4 — Wire up worker ✅
+`QueuesModule` is imported by `AppModule` (worker starts on module init). `ApplicationsModule` imports `QueuesModule` for the queue token. No `bootstrap.ts` / `main.ts` change needed (deviation from the guide — Nest-managed lifecycle).
 
-**Commit:** `git add -A && git commit -m "phase7: BullMQ background jobs — resume parsing + notifications"`
+**Release-gate coverage:** `backend/test/phase7.e2e-spec.ts` — apply → stage change → poll `public.audit_logs` for the delivered notification row (payload fields: tenant, job, to-stage, recipient email).
+
+**Commit:** `git add -A && git commit -m "phase7: BullMQ background jobs — stage-change notifications with audit-log delivery"`
 
 ---
 

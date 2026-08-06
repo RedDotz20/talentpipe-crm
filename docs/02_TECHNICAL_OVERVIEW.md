@@ -55,7 +55,7 @@ What each technology is used for, and why it was chosen. Meant to double as an i
 
 1. **Rate limiting** — Phase 5 has no anonymous write endpoint. Phase 6 will protect `POST /auth/signin` and any future public write endpoint with counters keyed by IP/account and a TTL matching the rate-limit window; once the counter exceeds the configured threshold, the request will be rejected with `429`. ⬜ Planned (M6) — Redis is not wired yet.
 2. **Caching** — dashboard aggregate queries (e.g. "applications per pipeline stage" counts for the Kanban board header) are cached with a short TTL and invalidated on write, avoiding repeated expensive `GROUP BY` queries on every page load. Cache keys are always prefixed `tenant:{tenantId}:...` so tenants never collide on the same key and one tenant's cache can be flushed independently — see `05_DATA_ISOLATION_STRATEGY.md`. ⬜ Planned (M6).
-3. **Job queue** — BullMQ uses Redis under the hood to store and dispatch future background jobs (notification emails and other slow processing) to worker processes, decoupling slow work from the HTTP request cycle. ⬜ Planned (M7).
+3. **Job queue** — BullMQ uses Redis under the hood to store and dispatch background jobs (stage-change notifications; future email/reminder delivery) to worker processes, decoupling slow work from the HTTP request cycle. ✅ Implemented (M7).
 
 ## Deliberate Scope Boundaries (know these for interviews)
 

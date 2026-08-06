@@ -2,7 +2,7 @@
 
 **One-liner:** Schema-per-tenant applicant tracking system. Each company gets an isolated PostgreSQL schema for job postings, candidate pipelines, interviews, recruiter collaboration, resume parsing, skill-matching, and rate-limited public application intake.
 
-**Status:** M6 (Redis rate limiting + tenant dashboard cache) — implemented; final review fixes are being applied on the current branch.
+**Status:** M7 (BullMQ notifications queue) — implemented on top of M6 (Redis rate limiting + tenant dashboard cache).
 
 ---
 
@@ -19,13 +19,13 @@
 | Auth | JWT access (15m) + refresh (7d), argon2 password hashing |
 | Multi-tenancy | One PostgreSQL database, **separate schema per tenant** (`SET search_path TO tenant_<id>, public`) |
 | Storage | S3-compatible (MinIO local) |
-| Cache/Queue/Rate-limit | Redis (limiter + dashboard cache; BullMQ deferred) |
+| Cache/Queue/Rate-limit | Redis (limiter + dashboard cache) + BullMQ notifications queue |
 
 ## Current State
 
-- **Backend:** Auth, schema-per-tenant repositories, candidate accounts, public careers, applications/pipeline, Redis sign-in limiting, and tenant dashboard cache. Health endpoint at `GET /api/health`.
+- **Backend:** Auth, schema-per-tenant repositories, candidate accounts, public careers, applications/pipeline, Redis sign-in limiting, tenant dashboard cache, and a BullMQ notifications queue (stage-change jobs delivered to `audit_logs`). Health endpoint at `GET /api/health`.
 - **Frontend:** Vite/Mantine application with organization and candidate platforms, candidate job search/apply/bookmarks/profile flows, and the organization dashboard summary.
-- **Not yet built:** BullMQ, interviews, platform administration, and CI. Anonymous apply remains out of scope.
+- **Not yet built:** interviews, platform administration, and CI. Anonymous apply and automated resume parsing remain out of scope.
 
 ## Commands
 
@@ -154,7 +154,7 @@ frontend/src/
 | M4 | Resume + Skill Match | Match score computed on apply |
 | M5 | Public Careers + Apply | Unauthenticated browse + apply |
 | M6 | Redis (rate-limit + cache) | 429 on public apply, dashboard cache |
-| M7 | BullMQ background jobs | Async resume parsing + notifications |
+| M7 | BullMQ background jobs | Stage-change notifications via BullMQ worker (audit-log delivery) |
 | M8 | Interviews + Feedback | Schedule + submit feedback |
 | M9 | Admin + Platform + CI | OrgAdmin UI, platform views, CI green |
 | M10 | Deploy | Live URL, prod config |

@@ -18,6 +18,7 @@ import { ApiExceptionFilter } from './common/filters/api-exception.filter';
 import { LoggerMiddleware } from './common/middlewares/logger.middleware';
 import { CacheModule } from './common/cache/cache.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { QueuesModule } from './queues/queues.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     HealthModule,
     CacheModule,
     DashboardModule,
+    QueuesModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: TenantContextInterceptor },
