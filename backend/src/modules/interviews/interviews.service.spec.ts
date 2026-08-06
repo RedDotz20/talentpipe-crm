@@ -93,9 +93,7 @@ describe('InterviewsService', () => {
 
   it('getOne returns the interview to the assigned interviewer', async () => {
     interviewRepo.findById.mockResolvedValue(interview);
-    await expect(service.getOne(interviewer, 'i1')).resolves.toEqual(
-      interview,
-    );
+    await expect(service.getOne(interviewer, 'i1')).resolves.toEqual(interview);
   });
 
   it('schedule throws NotFoundException when the application is missing', async () => {
@@ -193,9 +191,9 @@ describe('InterviewsService', () => {
 
   it('update throws NotFoundException when missing', async () => {
     interviewRepo.findById.mockResolvedValue(null);
-    await expect(service.update('nope', { status: 'cancelled' })).rejects.toThrow(
-      NotFoundException,
-    );
+    await expect(
+      service.update('nope', { status: 'cancelled' }),
+    ).rejects.toThrow(NotFoundException);
   });
 
   it('update applies reschedule and status changes', async () => {
@@ -231,11 +229,9 @@ describe('InterviewsService', () => {
   it('submitFeedback forbids a non-assigned interviewer', async () => {
     interviewRepo.findById.mockResolvedValue(interview);
     await expect(
-      service.submitFeedback(
-        { ...interviewer, userId: 'other-iv' },
-        'i1',
-        { rating: 4 },
-      ),
+      service.submitFeedback({ ...interviewer, userId: 'other-iv' }, 'i1', {
+        rating: 4,
+      }),
     ).rejects.toThrow(ForbiddenException);
   });
 

@@ -200,7 +200,7 @@ const createInterviewerUser = async (
   const email = `phase8-interviewer-${suffix}-${runId}@example.test`;
   const password = `Phase8Iv!${randomUUID().slice(0, 16)}`;
   const userId = randomUUID();
-  const passwordHash = await argon2.hash(password);
+  const passwordHash = (await argon2.hash(password)) as string;
   await pool.query(
     `INSERT INTO "tenant_${tenant.tenantId}"."users" (id, email, password_hash, role)
      VALUES ($1, $2, $3, 'Interviewer')`,
@@ -379,7 +379,8 @@ describe('Phase 8 release gate', () => {
        WHERE application_id = $1`,
       [applicationId],
     );
-    expect(indexed.rows[0]?.status).toBe('Interview');
+    const indexedRow = indexed.rows[0] as { status?: string } | undefined;
+    expect(indexedRow?.status).toBe('Interview');
   });
 
   it('filters interviews server-side by assignment', async () => {
