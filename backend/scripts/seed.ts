@@ -130,6 +130,39 @@ async function seedOrg(client: any): Promise<void> {
   console.log(`[OK] Org created: Acme Corp (admin@acme.com, tenant: ${tenantId})`);
 }
 
+async function seedInterviewer(client: any): Promise<void> {
+  const tenant = await client.query(
+    `SELECT id FROM public.tenants WHERE slug = $1`,
+    ['acme-corp'],
+  );
+  if (tenant.rows.length === 0) {
+    console.log('[SKIP] Interviewer: no Acme tenant found');
+    return;
+  }
+  const tenantId = tenant.rows[0].id;
+  const existing = await client.query(
+    `SELECT id FROM "tenant_${tenantId}"."users" WHERE email = $1`,
+    ['interviewer@acme.com'],
+  );
+  if (existing.rows.length > 0) {
+    console.log('[SKIP] Interviewer already exists');
+    return;
+  }
+  const userId = randomUUID();
+  const passwordHash = await hash('Interviewer123!');
+  await client.query(
+    `INSERT INTO "tenant_${tenantId}"."users" (id, email, password_hash, role)
+     VALUES ($1, $2, $3, 'Interviewer')`,
+    [userId, 'interviewer@acme.com', passwordHash],
+  );
+  await client.query(
+    `INSERT INTO public.user_emails (id, email, tenant_id, user_id)
+     VALUES ($1, $2, $3, $4)`,
+    [randomUUID(), 'interviewer@acme.com', tenantId, userId],
+  );
+  console.log('[OK] Interviewer created: interviewer@acme.com');
+}
+
 async function seedCandidate(client: any): Promise<void> {
   const existing = await client.query(
     `SELECT id FROM public.candidate_accounts WHERE email = $1`,
@@ -214,6 +247,7 @@ async function main(): Promise<void> {
     await client.query('BEGIN');
     await seedSuperAdmin(client);
     await seedOrg(client);
+    await seedInterviewer(client);
     await seedCandidate(client);
     await seedSkills(client);
     await client.query('COMMIT');
