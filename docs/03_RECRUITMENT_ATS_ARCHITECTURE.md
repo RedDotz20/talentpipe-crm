@@ -100,7 +100,7 @@ AuditLog (lives in `public` schema)
 |---|---|
 | `AuthModule` ✅ | JWT auth, refresh tokens, role Guards |
 | `TenantsModule` | Org creation/settings, plan info |
-| `UsersModule` | Recruiters/admins within a tenant, invites |
+| `OrgModule` ✅ | Org settings (`GET/PATCH /org`) + user management — invite/role-change/remove with audit rows (`modules/org/`) |
 | `JobPostingsModule` | CRUD on job postings, required-skills config |
 | `CandidatesModule` | Tenant candidate records (created by authenticated candidate apply or manual entry) |
 | `CandidateAccountModule` ✅ | Candidate auth (signup/login via unified `/auth/*`), global `/candidate/*` API: dashboard, job search, applications history, bookmarks, profile |
@@ -110,7 +110,7 @@ AuditLog (lives in `public` schema)
 | `InterviewsModule` | Scheduling, feedback capture |
 | `NotificationsModule` | Email queue (stage changes, interview reminders) via BullMQ |
 | `PublicCareersModule` | **Unauthenticated read-only** careers API — tenant job listing + detail |
-| `PlatformModule` | **SuperAdmin only** — cross-tenant tenant list/suspend/stats. Uses SEPARATE unscoped repositories, reachable only via `requireRole('SuperAdmin')`, in its own `/platform/*` route file. (Added to match `00_PROJECT_INSTRUCTIONS.md` §3.2 — the original module list omitted it though `/platform/*` routes and the SuperAdmin role are defined in `07_API_ENDPOINT_DOCUMENTATION.md` and `06_ROLE_INTERACTIONS.md`.) |
+| `PlatformModule` ✅ | **SuperAdmin only** — cross-tenant tenant list/detail/suspend/reactivate/stats (`/platform/*`), guarded by `@Roles('SuperAdmin')`, public-schema repos; usage counts read explicit `tenant_<id>` schemas via `forSchema`. |
 
 Backend also ships `RepositoriesModule` (all repos extend `BaseRepository` with `withDb('current'|'public'|schema)`), `DatabaseModule` (pg `Pool` + `DrizzleSchemaService`), and `HealthModule` (`GET /api/health`).
 

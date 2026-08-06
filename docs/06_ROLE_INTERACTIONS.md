@@ -32,8 +32,9 @@ Six roles: **SuperAdmin, Org Admin, Recruiter, Hiring Manager, Interviewer, Cand
 
 ## 1. SuperAdmin
 
-**Frontend:** `/admin/*` route tree, separate `PlatformShell` layout (not the tenant dashboard). Sees `TenantsList`, `TenantDetail`, `PlatformStats`.
-**Backend:** Authorized by role check only — `@Roles('SuperAdmin')` on `/platform/*` handlers (global `RolesGuard`). The `TenantContextInterceptor` maps a SuperAdmin identity to `tenantId: 'public'`, so `getSchema()` returns `'public'` and platform repos use `withDb('public', ...)` — SuperAdmin never routes through a tenant schema.
+**Frontend:** `/admin/*` route tree, separate `PlatformShell` layout (not the tenant dashboard). Sees `TenantsPage` (platform stats cards + tenant table), `TenantDetail` (usage counts + suspend/reactivate).
+**Backend:** Authorized by role check only — `@Roles('SuperAdmin')` on `/platform/*` handlers (global `RolesGuard`). The `TenantContextInterceptor` maps a SuperAdmin identity to `tenantId: 'public'`, so `getSchema()` returns `'public'` and platform repos use `withDb('public', ...)` — SuperAdmin never routes through a tenant schema. Usage counts read explicit `tenant_<id>` schemas via `forSchema` (cross-schema reporting is the one sanctioned exception).
+**Suspend semantics (M9):** a suspended tenant's users get `403` at sign-in and `401` on refresh rotation (existing 15-minute access tokens expire); public careers return `404`. Suspend/reactivate write audit rows (`tenant.suspend` / `tenant.reactivate`) attributed to the target tenant.
 
 ```mermaid
 flowchart LR
@@ -47,8 +48,8 @@ flowchart LR
 
 ## 2. Org Admin
 
-**Frontend:** Full internal dashboard under `/org/*` (`OrgPlatform` layout) plus org settings, user management, and pipeline stage editor (future).
-**Backend:** `tenantId` derived from JWT; authorized for all Org Admin-marked routes within that tenant only.
+**Frontend:** Full internal dashboard under `/org/*` (`OrgPlatform` layout) plus org settings (`/org/settings`) and user management (`/org/users`) — sidebar links rendered for OrgAdmin only. Pipeline stage editor remains future work.
+**Backend:** `tenantId` derived from JWT; authorized for all Org Admin-marked routes within that tenant only. User-management actions (invite, role change, remove) write audit rows; self-change/self-remove and demoting the last OrgAdmin are rejected with `403`.
 
 ```mermaid
 flowchart LR

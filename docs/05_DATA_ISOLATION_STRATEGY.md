@@ -233,15 +233,16 @@ SuperAdmin operates outside the schema-per-tenant model. Do **not** route SuperA
 - SuperAdmin's Drizzle client operates in the `public` schema (via `withDb('public', ...)`) where cross-tenant data lives (the `Tenant` records, platform-wide `Skill` taxonomy, `super_admins`, audit logs).
 - Repos that touch the `public` schema (e.g. `TenantRepository`, `SuperAdminRepository`) are the platform/global ones — tenant-scoped repos always use `withDb('current', ...)`.
 - Keep `/platform/*` in its own module, never nested in a tenant-scoped route group, so it's visually obvious in code review which code path you're in.
+- **One sanctioned exception (M9):** platform usage stats (tenant detail `users`/`applications` counts and `GET /platform/stats` totals) read explicit `tenant_<id>` schemas via `forSchema` from `UsageRepository` — a deliberate, role-guarded cross-schema read. Everything else stays inside the schema-per-tenant boundary.
 
 ## Implementation Checklist
 
-- [ ] `tenantId` extracted only from the verified JWT, never from client-supplied input
-- [ ] `AsyncLocalStorage`-based request context with `getSchema()` helper, applied via NestJS interceptor
-- [ ] `DrizzleSchemaService` wraps the Drizzle client to set `search_path` per request
-- [ ] All DB access goes through repository functions; no direct Drizzle client or schema-qualified queries outside `/repositories`
-- [ ] Tenant schema is provisioned on signup (template schema cloned or DDL executed)
-- [ ] Redis keys and S3 object keys consistently namespaced by `tenantId`
-- [ ] One isolation test per resource across schemas, run in CI
-- [ ] SuperAdmin routes bypass tenant context and operate in `public` schema with explicitly-named platform repositories
-- [ ] Audit logging in place for role changes, data exports, and tenant-settings changes
+- [x] `tenantId` extracted only from the verified JWT, never from client-supplied input
+- [x] `AsyncLocalStorage`-based request context with `getSchema()` helper, applied via NestJS interceptor
+- [x] `DrizzleSchemaService` wraps the Drizzle client to set `search_path` per request
+- [x] All DB access goes through repository functions; no direct Drizzle client or schema-qualified queries outside `/repositories` (platform usage counts are the documented `forSchema` exception)
+- [x] Tenant schema is provisioned on signup (template schema cloned or DDL executed)
+- [x] Redis keys and S3 object keys consistently namespaced by `tenantId`
+- [x] One isolation test per resource across schemas, run in CI (release-gate e2e suites; CI added M9)
+- [x] SuperAdmin routes bypass tenant context and operate in `public` schema with explicitly-named platform repositories (`modules/platform/`)
+- [x] Audit logging in place for role changes, data exports, and tenant-settings changes (`common/audit/audit.service.ts`; data export has no call site yet)

@@ -4,7 +4,7 @@
 
 **Status:** v1 — portfolio + functional demo. Solo-built, self-tested, no external/real-user data.
 
-**Implementation status:** Phases 0–7 are implemented and release-gate coverage is present. Phase 5 public tenant-specific careers browsing is read-only: public GET listing/detail routes are available, while applications require an authenticated Candidate account. Phase 6 provides sign-in-only Redis limiting (five attempts per 15 minutes) and a 60-second tenant-scoped dashboard cache. Phase 7 adds a BullMQ `notifications` queue whose worker delivers stage-change notifications to `audit_logs` (3 retries, exponential backoff; email delivery deferred until a mailer exists). Anonymous apply remains out of scope.
+**Implementation status:** Phases 0–9 are implemented and release-gate coverage is present. Phase 5 public tenant-specific careers browsing is read-only: public GET listing/detail routes are available, while applications require an authenticated Candidate account. Phase 6 provides sign-in-only Redis limiting (five attempts per 15 minutes) and a 60-second tenant-scoped dashboard cache. Phase 7 adds a BullMQ `notifications` queue whose worker delivers stage-change notifications to `audit_logs` (3 retries, exponential backoff; email delivery deferred until a mailer exists). Phase 8 adds interviews + feedback (scheduling with auto-move to the Interview stage, server-side interviewer scoping, 1:1 feedback). Phase 9 adds tenant status (`active|suspended`) with sign-in/refresh/careers enforcement, org settings + user management (`GET/PATCH /org`, invite/role/remove with audit rows), the SuperAdmin platform module (`/platform/*`), the admin frontends, and a GitHub Actions CI pipeline (lint → typecheck → unit → e2e release gates → build). Anonymous apply remains out of scope.
 
 ---
 
@@ -67,17 +67,17 @@ Enforced via the 8-layer strategy in §7.
 |---|---|
 | `AuthModule` | JWT access+refresh, login/signup/logout, role guards |
 | `TenantsModule` | Org creation/settings, plan info (tenant-scoped) |
-| `UsersModule` | Recruiters/admins within tenant, invites, role changes |
+| `OrgModule` | Org settings (`GET/PATCH /org`) + user management — invite, role change, remove, audit (`modules/org/`) |
 | `JobPostingsModule` | CRUD, required-skills config, publish/close |
 | `CandidatesModule` | Tenant-scoped candidate records (company's view of who applied) |
 | `ApplicationsModule` | Pipeline — stage transitions, Kanban data, notes |
 | `ResumeModule` | Authenticated candidate resume storage and recruiter-facing metadata |
 | `SkillMatchingModule` | Score computation vs job posting requirements |
-| `InterviewsModule` | Scheduling, feedback capture |
+| `InterviewsModule` | Scheduling, feedback capture (`GET /org/users` picker moved to `OrgModule` in M9) |
 | `NotificationsModule` | Email queue (stage changes, reminders) via BullMQ |
 | `PublicCareersModule` | **Unauthenticated read-only** tenant careers API — open job listing and detail |
 | `CandidateAccountModule` | Candidate auth (signup/login via unified `POST /auth/signup` + `/auth/signin`), global /candidate/* API for dashboard, job search, applications history, bookmarks, profile |
-| `PlatformModule` | **SuperAdmin only** — cross-tenant tenant list/suspend/stats; uses SEPARATE unscoped repositories (`platformTenantsRepository`), reachable only via `requireRole('SuperAdmin')` guard, in its own `/platform/*` route file |
+| `PlatformModule` | **SuperAdmin only** — cross-tenant tenant list/suspend/reactivate/stats (`/platform/*`), public-schema repos, `@Roles('SuperAdmin')` only |
 
 `PublicCareersModule` is the unauthenticated read surface. It never creates candidates, applications, or resumes. Apply actions redirect visitors to unified sign-in; only the authenticated Candidate API creates applications. Redis rate limiting is deferred to Phase 6 for authentication and any future public write surfaces.
 
@@ -131,12 +131,12 @@ Relationships:
 | POST | `/auth/signup` | PUBLIC | Create candidate account (body: email, password, firstName, lastName, phone?) |
 | POST | `/auth/refresh` | PUBLIC | Exchange refresh token |
 | POST | `/auth/logout` | — | Revoke refresh token |
-| GET | `/org` | — | Tenant settings |
-| PATCH | `/org` | OA | Update tenant |
-| GET | `/org/users` | OA | List users |
-| POST | `/org/users/invite` | OA | Invite user+role |
-| PATCH | `/org/users/:userId/role` | OA | Change role |
-| DELETE | `/org/users/:userId` | OA | Remove user |
+| GET | `/org` | OA,R,HM,IV | Tenant settings (name, slug, plan, status) |
+| PATCH | `/org` | OA | Update tenant name (slug/plan immutable) |
+| GET | `/org/users` | OA,R,HM | List users (interviewer picker) |
+| POST | `/org/users/invite` | OA | Invite user+role+password (no mailer; duplicate → 409) |
+| PATCH | `/org/users/:userId/role` | OA | Change role (no self-change; last OrgAdmin protected) |
+| DELETE | `/org/users/:userId` | OA | Remove user (no self-remove; last OrgAdmin protected) |
 | GET/POST/PATCH/DELETE | `/org/pipeline-stages[/:id]` | OA (GET —) | Manage ordered stages |
 | GET/POST | `/job-postings` | — / OA,R | List / create |
 | GET/PATCH/DELETE | `/job-postings/:id` | — / OA,R / OA | Read / update / delete(draft) |
@@ -167,7 +167,9 @@ Relationships:
 | GET/PUT | `/candidate/profile` | CANDIDATE | View/update profile |
 | POST/DELETE | `/candidate/resume` | CANDIDATE | Upload/remove profile resume |
 | GET/POST | `/platform/tenants[/:id]` | SA | Tenant mgmt |
-| PATCH | `/platform/tenants/:id/suspend` | SA | Suspend |
+| GET | `/platform/tenants/:id` | SA | Tenant detail + usage counts |
+| PATCH | `/platform/tenants/:id/suspend` | SA | Suspend (409 if already; blocks sign-in/refresh/careers) |
+| PATCH | `/platform/tenants/:id/reactivate` | SA | Reactivate (409 if already) |
 | GET | `/platform/stats` | SA | Platform stats |
 
 **Cross-tenant convention:** resource exists-but-other-tenant → return **404 Not Found** (never 403). Log server-side (audit), never expose `TENANT_MISMATCH` to client.
@@ -302,17 +304,17 @@ File-based TanStack Router (`frontend/src/routes/`), Mantine 9 + TanStack Query 
 
 ## 11. Implementation Checklist (carry into build)
 
-- [ ] `tenantId` only from verified JWT
-- [ ] `AsyncLocalStorage` tenant context via NestJS interceptor before all guards and routes
-- [ ] Tenant schema created on signup (template schema cloned)
-- [ ] Per-request `search_path` set via Drizzle client wrapper based on `getTenantId()`
-- [ ] All DB via repositories; no direct Drizzle outside `/repositories`
-- [ ] Redis + S3 keys namespaced by `tenantId`
-- [ ] One isolation test per resource across schemas, in CI
-- [ ] SuperAdmin operates in public/platform schema with separate repos + role-only guard
-- [ ] Audit logging for role changes/exports/tenant-settings
-- [ ] Backend 403 test per role per protected action
-- [ ] Frontend route guards (`beforeLoad`) + backend guard both present
+- [x] `tenantId` only from verified JWT
+- [x] `AsyncLocalStorage` tenant context via NestJS interceptor before all guards and routes
+- [x] Tenant schema created on signup (template schema cloned)
+- [x] Per-request `search_path` set via Drizzle client wrapper based on `getTenantId()`
+- [x] All DB via repositories; no direct Drizzle outside `/repositories`
+- [x] Redis + S3 keys namespaced by `tenantId`
+- [x] One isolation test per resource across schemas, in CI
+- [x] SuperAdmin operates in public/platform schema with separate repos + role-only guard (`modules/platform/`, M9)
+- [x] Audit logging for role changes/exports/tenant-settings (`common/audit/audit.service.ts`, M9 — invite/role/remove/suspend/reactivate; data export has no call site yet)
+- [x] Backend 403 test per role per protected action (release-gate e2e suites)
+- [x] Frontend route guards (`beforeLoad`) + backend guard both present
 
 ---
 

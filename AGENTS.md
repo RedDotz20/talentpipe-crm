@@ -2,7 +2,7 @@
 
 **One-liner:** Schema-per-tenant applicant tracking system. Each company gets an isolated PostgreSQL schema for job postings, candidate pipelines, interviews, recruiter collaboration, resume parsing, skill-matching, and rate-limited public application intake.
 
-**Status:** M8 (Interviews + Feedback) — implemented on top of M7 (BullMQ notifications queue).
+**Status:** M9 (Admin + Platform + CI) — implemented on top of M8 (Interviews + Feedback) and M7 (BullMQ notifications queue).
 
 ---
 
@@ -23,9 +23,9 @@
 
 ## Current State
 
-- **Backend:** Auth, schema-per-tenant repositories, candidate accounts, public careers, applications/pipeline, Redis sign-in limiting, tenant dashboard cache, a BullMQ notifications queue (stage-change jobs delivered to `audit_logs`), and interviews + feedback (scheduling with auto-move to the Interview stage, server-side interviewer scoping, 1:1 feedback, `GET /org/users`). Health endpoint at `GET /api/health`.
-- **Frontend:** Vite/Mantine application with organization and candidate platforms, candidate job search/apply/bookmarks/profile flows, the organization dashboard summary, and the interviews list/scheduler/feedback UI.
-- **Not yet built:** platform administration (Phase 9, incl. user management), and CI. Anonymous apply and automated resume parsing remain out of scope.
+- **Backend:** Auth, schema-per-tenant repositories, candidate accounts, public careers, applications/pipeline, Redis sign-in limiting, tenant dashboard cache, a BullMQ notifications queue (stage-change jobs delivered to `audit_logs`), interviews + feedback (scheduling with auto-move to the Interview stage, server-side interviewer scoping, 1:1 feedback, `GET /org/users`), org settings + user management (invite/role/remove with audit rows), tenant suspend/reactivate (blocks sign-in/refresh + hides public careers), and the SuperAdmin platform module (`/platform/*`). Health endpoint at `GET /api/health`.
+- **Frontend:** Vite/Mantine application with organization and candidate platforms, candidate job search/apply/bookmarks/profile flows, the organization dashboard summary, interviews list/scheduler/feedback UI, OrgAdmin settings + team pages, and the SuperAdmin platform views (tenants list/detail/stats).
+- **Not yet built:** platform email/notifications, password-change flow, pipeline-stage management endpoints, anonymous apply, automated resume parsing, and deployment (Phase 10). CI runs via `.github/workflows/ci.yml` (lint → typecheck → unit → e2e release gates → build).
 
 ## Commands
 
@@ -156,7 +156,7 @@ frontend/src/
 | M6 | Redis (rate-limit + cache) | 429 on public apply, dashboard cache |
 | M7 | BullMQ background jobs | Stage-change notifications via BullMQ worker (audit-log delivery) |
 | M8 | Interviews + Feedback | Schedule + submit feedback works — done ✅ |
-| M9 | Admin + Platform + CI | OrgAdmin UI, platform views, CI green |
+| M9 | Admin + Platform + CI | OrgAdmin settings/users UI, platform views, CI green — done ✅ |
 | M10 | Deploy | Live URL, prod config |
 
 ## Documentation Index

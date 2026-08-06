@@ -76,11 +76,11 @@ Small and mid-sized companies without budget for enterprise ATS platforms (Green
 | Could | Customizable pipeline stages per tenant |
 | Won't (v1) | Billing integration, calendar sync |
 
-> **Status:** Milestones 0–5 are implemented through the current Phase 5 branch: auth/tenancy/RBAC, CRUD, pipeline, candidate profile skills/resume storage, and tenant-specific public careers browsing with Candidate-only apply. See `09_IMPLEMENTATION_GUIDE.md` for exact progress.
+> **Status:** Milestones 0–9 are implemented: auth/tenancy/RBAC, CRUD, pipeline, candidate profile skills/resume storage, tenant-specific public careers browsing with Candidate-only apply, Redis limiting/cache, BullMQ notifications, interviews + feedback, and admin/platform/CI (M9). See `09_IMPLEMENTATION_GUIDE.md` for exact progress.
 
 ## 7. Representative User Stories
 
-- As an **Org Admin**, I want to invite recruiters to my company account so my team can collaborate on hiring.
+- As an **Org Admin**, I want to invite recruiters to my company account so my team can collaborate on hiring. (Built — `POST /org/users/invite`; the admin sets the initial password, shared out-of-band.)
 - As a **Recruiter**, I want to post a job with required skills so the system can score incoming applicants against it.
 - As a **Recruiter**, I want to drag a candidate from "Screening" to "Interview" so the pipeline reflects reality without extra clicks.
 - As a **Hiring Manager**, I want to see interview feedback before making a decision so I'm not relying on verbal summaries.
@@ -159,7 +159,7 @@ See PRD §4 (Org Admin, Recruiter, Hiring Manager, Interviewer, Candidate). Acce
 | FR-2 | The system shall issue JWT access + refresh tokens on login. (✅ `POST /api/auth/signin`, unified for org users and candidates) |
 | FR-3 | The system shall derive `tenantId` for every authenticated request from the verified JWT, never from client-supplied parameters. (✅ `TenantContextInterceptor`) |
 | FR-4 | The system shall reject any data access attempt where the resource's `tenantId` does not match the authenticated user's `tenantId`. (✅ schema-per-tenant → cross-tenant reference returns 404) |
-| FR-5 | The system shall support role assignment (Org Admin, Recruiter, Hiring Manager, Interviewer) per user within a tenant. (✅ `RolesGuard`, `super_admins` + `users.role`) |
+| FR-5 | The system shall support role assignment (Org Admin, Recruiter, Hiring Manager, Interviewer) per user within a tenant. (✅ `RolesGuard`, `super_admins` + `users.role`; M9 adds invite/role-change/remove via `POST /org/users/invite` + `PATCH/DELETE /org/users/:userId`) |
 
 ### 3.1b Candidate Accounts ✅ (implemented early)
 

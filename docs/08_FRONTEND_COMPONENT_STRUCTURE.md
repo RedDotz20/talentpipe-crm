@@ -115,6 +115,6 @@ Access control is enforced in each route's `beforeLoad` (TanStack Router), redir
 3. ✅ Pipeline board (Kanban, drag-and-drop) — demo centerpiece
 4. ✅ Candidate profile resume storage + manual skills and match score display
 5. ✅ Public careers pages (separate shell, no auth for browsing; Candidate auth required to apply)
-6. ⬜ Interviews + feedback
-7. ⬜ Admin (`/org/settings`, `/org/users`) and Platform (`/admin/*`) views
+6. ✅ Interviews + feedback
+7. ✅ Admin (`/org/settings`, `/org/users`) and Platform (`/admin/tenants`, `/admin/tenants/$tenantId`) views
 8. ✅ Candidate portal — signup, job search, applications, bookmarks, profile (built early)

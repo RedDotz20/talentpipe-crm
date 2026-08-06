@@ -6,7 +6,7 @@
 **Package manager:** npm
 **Prerequisites:** Node 20+, Docker Desktop, Git
 
-> **Status legend:** ✅ = implemented in the repo. ⬜ = planned / not yet built. Phases 0–8, including the Phase 5b candidate-account slice, are implemented and covered by release-gate tests. The steps below match the actual implementation, including the backend SOLID restructure, unified auth routes, global response envelope, three frontend platforms, candidate accounts, manual skills, storage-only resumes, read-only public careers API, Redis login limiting, tenant dashboard caching, the BullMQ notifications queue, and interviews with feedback.
+> **Status legend:** ✅ = implemented in the repo. ⬜ = planned / not yet built. Phases 0–9, including the Phase 5b candidate-account slice, are implemented and covered by release-gate tests. The steps below match the actual implementation, including the backend SOLID restructure, unified auth routes, global response envelope, three frontend platforms, candidate accounts, manual skills, storage-only resumes, read-only public careers API, Redis login limiting, tenant dashboard caching, the BullMQ notifications queue, interviews with feedback, and the Phase 9 admin/platform/CI work (tenant status + suspension, org settings + user management, SuperAdmin platform module, GitHub Actions CI).
 
 ---
 
@@ -781,42 +781,58 @@ Non-assigned user → 403; duplicate feedback → 409.
 
 ---
 
-## Phase 9 — Admin, Platform & CI
+## Phase 9 — Admin, Platform & CI ✅ (complete)
 
-### Step 9.1 — Platform module (SuperAdmin)
-Create `backend/src/modules/platform/` — uses `forPublic()` only, `@Roles('SuperAdmin')` guard.
-Endpoints:
+> **Design decisions (see `docs/superpowers/specs/2026-08-07-phase9-admin-platform-ci-design.md`):**
+> - **No mailer exists**, so `POST /org/users/invite` takes an **admin-set initial password** (shared out-of-band); a password-change flow is deferred. Invited users get a tenant `users` row + a `user_emails` bridge row (so the unified sign-in finds them).
+> - **Suspend enforcement is sign-in + refresh + public careers only.** A suspended tenant's users get `403 FORBIDDEN` at sign-in and `401` on refresh rotation; existing 15-minute access tokens simply expire. No per-request status check (deferred until throughput demands it). Public careers for a suspended tenant return `404`.
+> - **Platform stats scope** is tenant / user / application totals (`GET /platform/stats`), counted per tenant schema; tenant detail returns that tenant's own counts.
+> - **`PATCH /org` edits the company name only** — slug (URL identity) and plan (platform-managed) stay immutable.
+> - `tenants.status` (varchar, default `'active'`) is the first public-schema migration added by a `drizzle-kit generate` in this phase (`20260806191320_superb_king_cobra`); the generated file was hand-trimmed to the real change because the diff-vs-live-DB output contained stale drift from earlier manual migrations.
+> - The Phase 8 `OrgUsersController` moved from `modules/interviews/` to the new `modules/org/` and gained invite/role/delete; `GET /org/users` (picker) keeps its OA/R/HM roles.
+> - Audit rows via `common/audit/audit.service.ts` (`AuditService`): `user.invite`, `user.role_change`, `user.remove`, `tenant.suspend`, `tenant.reactivate` (platform rows record the target tenant id).
+
+### Step 9.1 — Tenant status + suspension (backend) ✅
+- Migration `backend/drizzle/20260806191320_superb_king_cobra/migration.sql` adds `public.tenants.status` (default `'active'`).
+- `TenantRepository` gained `findAll()`, `updateStatus(id, status)`, `updateName(id, name)`; `UserRepository` gained `updateRole()` / `remove()`; `UserEmailRepository` gained `deleteByUserId()`; new `UsageRepository` counts users/applications per explicit tenant schema (`forSchema`).
+- `AuthService.signin` and `TokenService.rotate` reject suspended tenants; `PublicCareersService` returns `404` for suspended tenants.
+
+### Step 9.2 — Org module (settings + users, backend) ✅
+`backend/src/modules/org/` — `OrgController` (`GET /org` any internal role, `PATCH /org` OrgAdmin), `OrgUsersController` (moved from interviews + `POST /org/users/invite`, `PATCH /org/users/:userId/role`, `DELETE /org/users/:userId`, all OrgAdmin-only), `OrgUsersService` with self-change / self-remove / last-OrgAdmin guards and audit rows. DTOs under `dto/`. Registered in `AppModule`.
+
+### Step 9.3 — Platform module (SuperAdmin, backend) ✅
+`backend/src/modules/platform/` — `@Roles('SuperAdmin')` on all routes, public-schema repos only:
 ```
-GET    /platform/tenants                — list all tenants
-GET    /platform/tenants/:id            — tenant detail
-PATCH  /platform/tenants/:id/suspend    — mark suspended
-PATCH  /platform/tenants/:id/reactivate — mark active
-GET    /platform/stats                  — totals across tenants
+GET    /platform/tenants                — list all tenants (id, name, slug, plan, status, createdAt)
+GET    /platform/tenants/:id            — tenant detail + users/applications counts
+PATCH  /platform/tenants/:id/suspend    — 404 missing, 409 already suspended, audit
+PATCH  /platform/tenants/:id/reactivate — 404 missing, 409 already active, audit
+GET    /platform/stats                  — totals across tenants (tenants/users/applications)
 ```
 
-### Step 9.2 — Audit logging
-Create `backend/src/common/audit.service.ts` — `log(action, resourceId?, metadata?)` inserts into public.audit_logs with current tenantId + userId.
-Call in: user invite, role change, tenant suspend/reactivate, data export.
-
-### Step 9.3 — Frontend admin
+### Step 9.4 — Frontend admin (OrgAdmin) ✅
 Under `frontend/src/features/org/settings/` + `frontend/src/features/org/users/`:
-Create `OrgSettingsForm.tsx` — display company info, edit name, PATCH /org.
-Create `UserManagementTable.tsx` — table: email/role/created/actions, invite button, role dropdown, remove with confirm.
+- `OrgSettingsPage.tsx` — company info, editable name (OrgAdmin), slug/plan/status read-only; routes `/org/settings`.
+- `UserManagementPage.tsx` — team table (email / role Select / created / remove), invite modal (email + role + initial password), self-row actions disabled; routes `/org/users`.
+- Both routes carry an OrgAdmin-only `beforeLoad`; the `OrgPlatform` sidebar shows "Team" and "Settings" only for OrgAdmin.
+- API: `frontend/src/api/orgApi.ts`, extended `orgUsersApi.ts`, hooks under each feature folder.
 
-### Step 9.4 — Frontend platform (SuperAdmin)
+### Step 9.5 — Frontend platform (SuperAdmin) ✅
 Under `frontend/src/features/admin/`:
-Create `TenantsList.tsx` — table: company, slug, plan, status, created. Click -> detail.
-Create `TenantDetail.tsx` — detail + suspend/reactivate + usage stats.
-Create `PlatformStats.tsx` — cards: total tenants/users/applications.
+- `TenantsPage.tsx` — platform stats cards (tenants/users/applications from `GET /platform/stats`) + tenant table (company, slug, plan, status badge, created), row click → detail.
+- `TenantDetailPage.tsx` — detail + usage counts + suspend/reactivate button (route `/admin/tenants/$tenantId`).
+- API: `frontend/src/api/platformApi.ts`, hooks in `features/admin/hooks/usePlatform.ts`.
 
-### Step 9.5 — GitHub Actions CI
-Create `.github/workflows/ci.yml`:
-- Trigger: push, pull_request
-- Services: postgres:16 + redis:7-alpine
-- Steps: checkout -> setup-node 20 -> npm ci -> npm run lint -> npm test -> npm run build
-- Isolation tests run as part of npm test; failure breaks build.
+### Step 9.6 — GitHub Actions CI ✅
+Created `.github/workflows/ci.yml`:
+- Trigger: push, pull_request. Two parallel jobs (`backend`, `frontend`).
+- Services: postgres:16 + redis:7-alpine + minio (the backend requires MinIO at bootstrap — `StorageService.onApplicationBootstrap` creates the bucket).
+- Backend: `npm ci` → apply all `drizzle/*/migration.sql` in order + `drizzle/template-schema.sql` via `docker exec` against the service container → lint → typecheck → unit tests → **e2e release gates** (`npm run test:e2e` — the isolation suite breaks the build) → build.
+- Frontend: `npm ci` → lint (oxlint) → build.
 
-**Commit:** `git add -A && git commit -m "phase9: admin UI, platform module, CI pipeline"`
+**Release-gate coverage:** `backend/test/phase9.e2e-spec.ts` — SuperAdmin tenant list/detail/stats, non-SuperAdmin 403, suspend → sign-in 403 + refresh 401 + public careers 404 + double-suspend 409, reactivate → sign-in/rotation/careers restored + double-reactivate 409, org settings GET/PATCH, invite → sign-in works + duplicate 409 + role change + remove (removed user can't sign in), self/last-admin 403s, recruiter 403s, and audit rows for suspend/reactivate/invite/role_change/remove.
+
+**Commits (checkpoints):** `phase9: tenant status + suspension enforcement` · `phase9: org settings and user management — backend` · `phase9: platform module — tenant management and stats` · `phase9: org settings and user management — frontend` · `phase9: superadmin platform views — frontend` · `phase9: e2e release gate and CI pipeline` · `docs(m9): mark phase 9 complete`
 
 ---
 
