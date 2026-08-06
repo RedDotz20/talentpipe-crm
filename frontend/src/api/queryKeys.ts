@@ -36,6 +36,9 @@ export const queryKeys = {
     notes: (applicationId: string) => ['org', 'applications', applicationId, 'notes'],
     pipelineStages: () => ['org', 'pipeline-stages'],
     resume: (candidateId: string) => ['org', 'candidates', candidateId, 'resume'],
+    interviews: () => ['org', 'interviews'],
+    interview: (id: string) => ['org', 'interviews', id],
+    orgUsers: () => ['org', 'users'],
   },
 } as const;
 

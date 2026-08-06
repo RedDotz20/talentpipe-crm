@@ -14,6 +14,7 @@ import {
 import dayjs from 'dayjs';
 import type { Application } from '@/api/applicationsApi';
 import { useAddNote, useNotes } from './hooks/usePipeline';
+import { useInterviews } from '../interviews/hooks/useInterviews';
 
 export function ApplicationDetailDrawer({
   application,
@@ -25,10 +26,14 @@ export function ApplicationDetailDrawer({
   const [note, setNote] = useState('');
   const notesQuery = useNotes(application?.id ?? '');
   const addNote = useAddNote(application?.id ?? '');
+  const interviewsQuery = useInterviews();
 
   if (!application) return null;
 
   const notes = notesQuery.data ?? [];
+  const interviews =
+    interviewsQuery.data?.filter((i) => i.applicationId === application.id) ??
+    [];
 
   return (
     <Drawer
@@ -107,9 +112,38 @@ export function ApplicationDetailDrawer({
           </Tabs.Panel>
 
           <Tabs.Panel value="interviews" pt="md">
-            <Text size="sm" c="dimmed">
-              No interviews scheduled yet.
-            </Text>
+            <Stack gap="xs">
+              {interviewsQuery.isLoading ? (
+                <Loader size="sm" />
+              ) : interviews.length === 0 ? (
+                <Text size="sm" c="dimmed">
+                  No interviews scheduled yet.
+                </Text>
+              ) : (
+                interviews.map((interview) => (
+                  <Box
+                    key={interview.id}
+                    p="xs"
+                    style={{
+                      border: '1px solid var(--mantine-color-gray-3)',
+                      borderRadius: 8,
+                    }}
+                  >
+                    <Text size="sm">
+                      {dayjs(interview.scheduledAt).format(
+                        'MMM D, YYYY h:mm A',
+                      )}
+                    </Text>
+                    <Text size="xs" c="dimmed" mt={2}>
+                      {interview.interviewerEmail} · {interview.status}
+                      {interview.rating !== null
+                        ? ` · Rating ${interview.rating}/5`
+                        : ''}
+                    </Text>
+                  </Box>
+                ))
+              )}
+            </Stack>
           </Tabs.Panel>
         </Tabs>
       </Stack>
