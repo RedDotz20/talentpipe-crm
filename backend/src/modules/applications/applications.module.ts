@@ -10,5 +10,6 @@ import { ApplicationsService } from './applications.service';
   imports: [AuthCoreModule, RepositoriesModule, CacheModule, QueuesModule],
   controllers: [ApplicationsController],
   providers: [ApplicationsService],
+  exports: [ApplicationsService],
 })
 export class ApplicationsModule {}

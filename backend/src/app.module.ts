@@ -19,6 +19,7 @@ import { LoggerMiddleware } from './common/middlewares/logger.middleware';
 import { CacheModule } from './common/cache/cache.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { QueuesModule } from './queues/queues.module';
+import { InterviewsModule } from './modules/interviews/interviews.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { QueuesModule } from './queues/queues.module';
     CacheModule,
     DashboardModule,
     QueuesModule,
+    InterviewsModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: TenantContextInterceptor },
