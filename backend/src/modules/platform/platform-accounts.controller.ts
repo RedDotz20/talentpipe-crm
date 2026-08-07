@@ -84,6 +84,11 @@ export class PlatformAccountsController {
     return this.accountsService.removeTenantUser(id, userId);
   }
 
+  @Get('tenants/:id/pipeline-stages')
+  listTenantStages(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.accountsService.listTenantStages(id);
+  }
+
   @Get('candidates')
   listCandidates() {
     return this.accountsService.listCandidates();

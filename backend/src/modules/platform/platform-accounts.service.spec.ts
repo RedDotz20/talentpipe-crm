@@ -9,6 +9,7 @@ import { CandidateAccountRepository } from '../../repositories/candidate-account
 import { CandidateRepository } from '../../repositories/candidate.repository';
 import { CandidateApplicationsIndexRepository } from '../../repositories/candidate-applications-index.repository';
 import { ApplicationRepository } from '../../repositories/application.repository';
+import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
 import { AuditService } from '../../common/audit/audit.service';
 
 jest.mock('../../common/password', () => ({
@@ -64,6 +65,9 @@ function makeDeps() {
       findAll: jest.fn().mockResolvedValue([]),
       delete: jest.fn(),
     },
+    pipelineStageRepo: {
+      findAll: jest.fn().mockResolvedValue([]),
+    },
     auditService: { log: jest.fn() },
   };
 }
@@ -84,6 +88,7 @@ function makeService(
     merged.candidateRepo as CandidateRepository,
     merged.candidateIndexRepo as CandidateApplicationsIndexRepository,
     merged.applicationRepo as ApplicationRepository,
+    merged.pipelineStageRepo as PipelineStageRepository,
     merged.auditService as AuditService,
   );
 }
@@ -220,6 +225,14 @@ describe('PlatformAccountsService', () => {
         'tenant_tenant-a',
       );
       expect(deps.userEmailRepo.deleteByUserId).toHaveBeenCalledWith('u1');
+    });
+
+    it('lists tenant pipeline stages through the explicit schema', async () => {
+      const service = makeService();
+      await service.listTenantStages('tenant-a');
+      expect(deps.pipelineStageRepo.findAll).toHaveBeenCalledWith(
+        'tenant_tenant-a',
+      );
     });
   });
 

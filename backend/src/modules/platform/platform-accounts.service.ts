@@ -15,6 +15,7 @@ import { CandidateAccountRepository } from '../../repositories/candidate-account
 import { CandidateRepository } from '../../repositories/candidate.repository';
 import { CandidateApplicationsIndexRepository } from '../../repositories/candidate-applications-index.repository';
 import { ApplicationRepository } from '../../repositories/application.repository';
+import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
 import { CreateTenantUserDto } from './dto/create-tenant-user.dto';
 import { UpdateTenantUserDto } from './dto/update-tenant-user.dto';
 import { CreateCandidateDto } from './dto/create-candidate.dto';
@@ -32,6 +33,7 @@ export class PlatformAccountsService {
     private readonly candidateRepo: CandidateRepository,
     private readonly candidateIndexRepo: CandidateApplicationsIndexRepository,
     private readonly applicationRepo: ApplicationRepository,
+    private readonly pipelineStageRepo: PipelineStageRepository,
     private readonly auditService: AuditService,
   ) {}
 
@@ -158,6 +160,11 @@ export class PlatformAccountsService {
       tenantId,
     );
     return { id: userId };
+  }
+
+  async listTenantStages(tenantId: string) {
+    await this.requireTenant(tenantId);
+    return this.pipelineStageRepo.findAll(this.schemaOf(tenantId));
   }
 
   async listCandidates() {
