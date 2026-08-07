@@ -55,9 +55,12 @@ React + TypeScript + Mantine + TanStack Query/Router. Feature-folder structure, 
 /org/settings       → M9 ✅ (OrgAdmin-only `beforeLoad`; OrgPlatform shows the link only for OrgAdmin)
 /org/users          → M9 ✅ (OrgAdmin-only `beforeLoad`)
 
+/_candidate/jobs/$jobId → M11 ✅ (candidate job detail; URL `/jobs/$jobId`, `tenantId` as search param; renders the shared `JobDetailsView`)
+
 /admin.tsx          → layout (SuperAdminPlatform) + beforeLoad guard: requireRole(SuperAdmin)
 /admin/tenants      → M9 ✅ (stats cards + tenant table)
-/admin/tenants/$tenantId → M9 ✅ (tenant detail + suspend/reactivate)
+/admin/tenants/$tenantId → M9 ✅ (tenant detail + suspend/reactivate) — M11 ✅ adds Users / Applications / Interviews tabs
+/admin/candidates   → M11 ✅ (cross-tenant candidate table + create/edit/delete)
 ```
 
 Access control is enforced in each route's `beforeLoad` (TanStack Router), redirecting to the correct platform by role — there is no `<RoleGuard>` wrapper component. `/admin/*` uses a distinct top-level `SuperAdminPlatform`; candidate routes use the pathless `_candidate` layout → `CandidatePlatform`. The three platform layout components live at `features/{org,admin,candidate-portal}/layout.tsx` (`OrgPlatform`, `SuperAdminPlatform`, `CandidatePlatform`).
@@ -79,16 +82,18 @@ Access control is enforced in each route's `beforeLoad` (TanStack Router), redir
 - `settings/` (M9 ✅): `OrgSettingsPage.tsx` — company name editable (OrgAdmin), slug/plan/status read-only
 - `users/` (M9 ✅): `UserManagementPage.tsx` — team table (email/role select/created/remove), invite modal (email + role + initial password), self/last-admin disabled
 
-### `/features/admin` — SuperAdmin platform (M9 ✅)
+### `/features/admin` — SuperAdmin platform (M9 ✅, M11 ✅)
 - `TenantsPage.tsx` — platform stats cards (tenants/users/applications) + tenant table (company, slug, plan, status, created)
-- `TenantDetail.tsx` — detail + usage counts + suspend/reactivate buttons
-- Route: `/admin/tenants` (list), `/admin/tenants/$tenantId` (detail)
+- `TenantDetailPage.tsx` — detail + usage counts + suspend/reactivate buttons, with **M11 tabs**: Users (table: email/role/status/created + create modal + role Select + reset-password + suspend/reactivate + remove confirm), Applications (table: candidate/job/stage/date + stage Select from the tenant's stages), Interviews (table: candidate/job/interviewer/datetime/status + reschedule/cancel)
+- `CandidatesPage.tsx` (M11) — cross-tenant candidate table (name/email/created) + create/edit modal + delete confirm
+- Route: `/admin/tenants` (list), `/admin/tenants/$tenantId` (detail, tabs), `/admin/candidates`
 
 ### `/features/candidate-portal` ✅ (implemented)
 - `CandidatePlatform.tsx` (`layout.tsx`) — minimal header + nav (dashboard, applications, bookmarks, settings)
-- `dashboard/JobSearchPage.tsx` — search/browse open jobs across tenants
+- `dashboard/JobSearchPage.tsx` — search/browse open jobs across tenants; job cards link to `/jobs/$jobId` (M11)
+- `jobs/JobDetailsView.tsx` (M11) — shared job-detail component (also rendered by the public `JobDetailPage`); candidate route passes `tenantId` as a search param and uses the authenticated job-detail API
 - `signup/SignupPage.tsx` — candidate registration (rendered at `/auth/signup`)
-- `applications/ApplicationsPage.tsx` — history with status badges per tenant
+- `applications/ApplicationsPage.tsx` — history with status badges per tenant; rows link to the job detail page, drawer shows a status timeline (Applied → current stage) and a Withdraw button with confirm (M11; calls `DELETE /candidate/applications/:id`)
 - `bookmarks/BookmarksPage.tsx` — saved jobs
 - `settings/SettingsPage.tsx` — edit profile
 
@@ -118,3 +123,4 @@ Access control is enforced in each route's `beforeLoad` (TanStack Router), redir
 6. ✅ Interviews + feedback
 7. ✅ Admin (`/org/settings`, `/org/users`) and Platform (`/admin/tenants`, `/admin/tenants/$tenantId`) views
 8. ✅ Candidate portal — signup, job search, applications, bookmarks, profile (built early)
+9. ✅ M11 — platform account/data tabs in tenant detail (`/admin/tenants/$tenantId`), `/admin/candidates`, candidate job detail (`/jobs/$jobId` via shared `JobDetailsView`), applications stepper + withdraw

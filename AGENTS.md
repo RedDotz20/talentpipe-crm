@@ -2,7 +2,7 @@
 
 **One-liner:** Schema-per-tenant applicant tracking system. Each company gets an isolated PostgreSQL schema for job postings, candidate pipelines, interviews, recruiter collaboration, resume parsing, skill-matching, and rate-limited public application intake.
 
-**Status:** M10 (Deploy) — implemented on top of M9 (Admin + Platform + CI).
+**Status:** M11 (Platform Control + Candidate Experience) — implemented on top of M10 (Deploy).
 
 ---
 
@@ -25,6 +25,7 @@
 
 - **Backend:** Auth, schema-per-tenant repositories, candidate accounts, public careers, applications/pipeline, Redis sign-in limiting, tenant dashboard cache, a BullMQ notifications queue (stage-change jobs delivered to `audit_logs`), interviews + feedback (scheduling with auto-move to the Interview stage, server-side interviewer scoping, 1:1 feedback, `GET /org/users`), org settings + user management (invite/role/remove with audit rows), tenant suspend/reactivate (blocks sign-in/refresh + hides public careers), and the SuperAdmin platform module (`/platform/*`). Health endpoint at `GET /api/health`.
 - **Frontend:** Vite/Mantine application with organization and candidate platforms, candidate job search/apply/bookmarks/profile flows, the organization dashboard summary, interviews list/scheduler/feedback UI, OrgAdmin settings + team pages, and the SuperAdmin platform views (tenants list/detail/stats).
+- **M11:** SuperAdmin account management across tenants (user create/role/password/suspend/reactivate/remove, candidate CRUD with cascade delete), cross-tenant application stage moves + interview reschedule/cancel, per-user suspension (`users.status`, enforced at sign-in/refresh), candidate withdraw (`DELETE /candidate/applications/:id`), candidate job detail page (`/jobs/$jobId` via shared `JobDetailsView`), and the applications page (job links, status stepper, withdraw). Seed now creates 6 accounts (all five internal roles + Candidate).
 - **Not yet built:** platform email/notifications, password-change flow, pipeline-stage management endpoints, anonymous apply, and automated resume parsing. CI runs via `.github/workflows/ci.yml` (lint → typecheck → unit → e2e release gates → build). Production: self-hosted `docker-compose.prod.yml` stack (backend/frontend Dockerfiles, one-shot migrate service, env-file secrets) — see `09_IMPLEMENTATION_GUIDE.md` Phase 10 for the deploy runbook.
 
 ## Commands
@@ -55,9 +56,9 @@ docker compose up -d                # Start postgres:16 + redis:7 + minio
 Migrations and the seed are **not** run automatically. On a fresh DB you must, in order:
 
 1. `docker compose up -d` (wait for postgres to be ready)
-2. Apply the six migrations under `backend/drizzle/*/migration.sql` chronologically via `psql` (see `docs/00b_LOCAL_DEV_BOOTSTRAP.md` for the exact one-liners)
+2. Apply the eight migrations under `backend/drizzle/*/migration.sql` chronologically via `psql` (see `docs/00b_LOCAL_DEV_BOOTSTRAP.md` for the exact one-liners)
 3. Apply `backend/drizzle/template-schema.sql`
-4. `cd backend && npm run seed` (creates the 3 sample accounts)
+4. `cd backend && npm run seed` (creates the 6 sample accounts: SuperAdmin, OrgAdmin, Interviewer, HiringManager, Recruiter, Candidate)
 
 Without steps 2–4 you'll get `relation "..." does not exist` on the first login. Full runbook with checks after each step: `docs/00b_LOCAL_DEV_BOOTSTRAP.md`.
 
@@ -71,6 +72,8 @@ Applied migration order includes:
 20260805090000_candidate_application_integrity
 20260806191320_superb_king_cobra
 20260807090000_scheduled_at_timezone
+20260808090000_platform_user_suspend
+20260808100000_platform_account_cascades
 ```
 
 ## Architecture
@@ -159,7 +162,8 @@ frontend/src/
 | M7 | BullMQ background jobs | Stage-change notifications via BullMQ worker (audit-log delivery) |
 | M8 | Interviews + Feedback | Schedule + submit feedback works — done ✅ |
 | M9 | Admin + Platform + CI | OrgAdmin settings/users UI, platform views, CI green — done ✅ |
-| M10 | Deploy | Live URL, prod config |
+| M10 | Deploy | Live URL, prod config — done ✅ |
+| M11 | Platform Control + Candidate Experience | SA account CRUD + per-user suspend + cross-tenant applications/interviews + candidate job detail/withdraw — done ✅ |
 
 ## Documentation Index
 
@@ -188,7 +192,7 @@ frontend/src/
 ## Testing Quirks
 
 - Backend uses `supertest` (v7) for HTTP assertions
-- Tests currently minimal (only health controller spec + default app e2e spec)
-- No integration tests tenant isolation yet
-- No CI pipeline configured yet (no .github/workflows)
+- E2E release gates live in `backend/test/` (`phase*.e2e-spec.ts` — M11 adds `phase11.e2e-spec.ts` with platform-account/data + candidate-withdraw scenarios)
+- Unit specs live alongside sources (`platform-accounts.service.spec.ts`, `platform-data.service.spec.ts`, etc.)
+- CI pipeline runs lint → typecheck → unit → e2e release gates → build (`.github/workflows/ci.yml`)
 - Docker daemon needed for integration tests hitting real postgres

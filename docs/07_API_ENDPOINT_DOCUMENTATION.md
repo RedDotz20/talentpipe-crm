@@ -108,6 +108,7 @@ Note: resume upload is an authenticated candidate profile operation (`POST /cand
 | POST | `/candidate/jobs/:tenantId/:jobId/apply` | CANDIDATE | Submit application. Body: `{ phone?, coverLetter?, skillIds?: string[] }` — if omitted, uses candidate's profile skills from `/candidate/skills` |
 | GET | `/candidate/applications` | CANDIDATE | Application history with statuses |
 | GET | `/candidate/applications/:id` | CANDIDATE | Application detail |
+| DELETE | `/candidate/applications/:id` | CANDIDATE | Withdraw own application — deletes the tenant application row + `candidate_applications_index` row; `404` if the application is not owned by the caller (via index lookup); `409` when the application still has interviews/notes |
 | POST | `/candidate/bookmarks` | CANDIDATE | Bookmark a job |
 | DELETE | `/candidate/bookmarks/:id` | CANDIDATE | Remove a bookmark |
 | GET | `/candidate/bookmarks` | CANDIDATE | List bookmarks |
@@ -136,7 +137,7 @@ The public careers section is read-only in Phase 5. Apply buttons redirect anony
 ## Platform (SuperAdmin only, cross-tenant) ✅
 
 | Method | Path | Roles | Description |
-|---|---|---|---|
+|---|---|---|---|---|
 | GET | `/platform/tenants` | SA | List all tenants on the platform |
 | GET | `/platform/tenants/:id` | SA | Tenant detail + usage stats (`users`, `applications` counts) |
 | PATCH | `/platform/tenants/:id/suspend` | SA | Suspend a tenant account (409 if already suspended; blocks sign-in/refresh and hides public careers) |
@@ -144,6 +145,31 @@ The public careers section is read-only in Phase 5. Apply buttons redirect anony
 | GET | `/platform/stats` | SA | Platform-wide aggregate stats (tenant / user / application totals) |
 
 > **Suspend semantics (M9):** a suspended tenant's users get `403 FORBIDDEN` at sign-in and `401` on refresh-token rotation (existing 15-minute access tokens simply expire). Public careers routes for the tenant return `404`. Suspend/reactivate writes an audit row (`tenant.suspend` / `tenant.reactivate`) with the target tenant's id.
+
+## Platform Accounts (SuperAdmin, M11) ✅
+
+| Method | Path | Roles | Description |
+|---|---|---|---|
+| GET | `/platform/tenants/:id/users` | SA | List tenant users (email, role, status, created) |
+| POST | `/platform/tenants/:id/users` | SA | Create tenant user: `{ email, password, role }` (role ∈ OrgAdmin/HiringManager/Recruiter/Interviewer); mirrors org invite incl. `user_emails` bridge; audit `platform.user.create` |
+| PATCH | `/platform/tenants/:id/users/:userId` | SA | Update role and/or reset password; audit `platform.user.update` |
+| PATCH | `/platform/tenants/:id/users/:userId/suspend` | SA | Suspend an individual user (`users.status = 'suspended'`); 404 missing, 409 already suspended; blocks sign-in (403) + refresh (401); audit `platform.user.suspend` |
+| PATCH | `/platform/tenants/:id/users/:userId/reactivate` | SA | Reactivate a suspended user; 409 already active; audit `platform.user.reactivate` |
+| DELETE | `/platform/tenants/:id/users/:userId` | SA | Remove tenant user (revokes refresh tokens); audit `platform.user.remove` |
+| GET | `/platform/tenants/:id/pipeline-stages` | SA | List the tenant's configured pipeline stages, ordered |
+| GET | `/platform/candidates` | SA | List candidates across tenants (filterable by tenant) |
+| POST | `/platform/candidates` | SA | Create a candidate; audit `platform.candidate.create` |
+| PATCH | `/platform/candidates/:id` | SA | Update a candidate; audit `platform.candidate.update` |
+| DELETE | `/platform/candidates/:id` | SA | Remove a candidate — cascades: tenant applications + `candidate_applications_index` rows + linked candidate account; audit `platform.candidate.remove` |
+
+## Platform Data (SuperAdmin, M11) ✅
+
+| Method | Path | Roles | Description |
+|---|---|---|---|
+| GET | `/platform/applications?tenantId=&status=` | SA | List applications across tenants (optional filters) |
+| PATCH | `/platform/applications/:id/stage` | SA | Move an application to a stage in its own tenant's schema (stage must belong to that tenant); syncs `candidate_applications_index` status — on sync failure the move rolls back and returns `503 SERVICE_UNAVAILABLE`; audit `platform.application.stage_move` (no BullMQ) |
+| GET | `/platform/interviews?tenantId=&status=` | SA | List interviews across tenants (optional filters) |
+| PATCH | `/platform/interviews/:id` | SA | Reschedule (`{ scheduledAt }`) / cancel (`{ status: 'cancelled' }`); audit `platform.interview.update` |
 
 ---
 

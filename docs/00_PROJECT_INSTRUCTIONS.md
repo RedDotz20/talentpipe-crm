@@ -4,7 +4,7 @@
 
 **Status:** v1 — portfolio + functional demo. Solo-built, self-tested, no external/real-user data.
 
-**Implementation status:** Phases 0–9 are implemented and release-gate coverage is present. Phase 5 public tenant-specific careers browsing is read-only: public GET listing/detail routes are available, while applications require an authenticated Candidate account. Phase 6 provides sign-in-only Redis limiting (five attempts per 15 minutes) and a 60-second tenant-scoped dashboard cache. Phase 7 adds a BullMQ `notifications` queue whose worker delivers stage-change notifications to `audit_logs` (3 retries, exponential backoff; email delivery deferred until a mailer exists). Phase 8 adds interviews + feedback (scheduling with auto-move to the Interview stage, server-side interviewer scoping, 1:1 feedback). Phase 9 adds tenant status (`active|suspended`) with sign-in/refresh/careers enforcement, org settings + user management (`GET/PATCH /org`, invite/role/remove with audit rows), the SuperAdmin platform module (`/platform/*`), the admin frontends, and a GitHub Actions CI pipeline (lint → typecheck → unit → e2e release gates → build). Anonymous apply remains out of scope.
+**Implementation status:** Phases 0–9 are implemented and release-gate coverage is present. Phase 5 public tenant-specific careers browsing is read-only: public GET listing/detail routes are available, while applications require an authenticated Candidate account. Phase 6 provides sign-in-only Redis limiting (five attempts per 15 minutes) and a 60-second tenant-scoped dashboard cache. Phase 7 adds a BullMQ `notifications` queue whose worker delivers stage-change notifications to `audit_logs` (3 retries, exponential backoff; email delivery deferred until a mailer exists). Phase 8 adds interviews + feedback (scheduling with auto-move to the Interview stage, server-side interviewer scoping, 1:1 feedback). Phase 9 adds tenant status (`active|suspended`) with sign-in/refresh/careers enforcement, org settings + user management (`GET/PATCH /org`, invite/role/remove with audit rows), the SuperAdmin platform module (`/platform/*`), the admin frontends, and a GitHub Actions CI pipeline (lint → typecheck → unit → e2e release gates → build). Phase 10 ships the self-hosted Docker deployment (Dockerfiles, prod compose, one-shot migrate service). Phase 11 (M11) adds SuperAdmin account management across tenants (user create/role/password/suspend/reactivate/remove via `users.status`, candidate CRUD with cascade delete), cross-tenant application stage moves + interview reschedule/cancel, candidate withdraw (`DELETE /candidate/applications/:id`), and candidate-experience UX (job detail page via shared `JobDetailsView`, applications page with job links + status stepper + withdraw). Anonymous apply remains out of scope.
 
 ---
 
@@ -114,6 +114,7 @@ Relationships:
 
 **Key fields:**
 - `USER.tenantId` — **nullable** (null = SuperAdmin).
+- `USER.status` — `VARCHAR(20) NOT NULL DEFAULT 'active'` (`active|suspended`); per-user suspension by SuperAdmin (M11), enforced at sign-in (403) + refresh (401). Column added to `public.users`, `template.users`, and every `tenant_<id>.users` by migration `20260808090000_platform_user_suspend`.
 - `SKILL` — **NOT tenant-scoped** (shared taxonomy).
 - `APPLICATION.matchScore` — denormalized float (0.0–1.0), recompute via background job if required skills change.
 - Join tables: `candidate_skills` (candidateAccountId, skillId), `job_required_skills` (jobPostingId, skillId).
@@ -161,6 +162,7 @@ Relationships:
 | POST | `/candidate/jobs/:tenantId/:jobId/apply` | CANDIDATE | Apply with account |
 | GET | `/candidate/applications` | CANDIDATE | Application history |
 | GET | `/candidate/applications/:id` | CANDIDATE | Application detail |
+| DELETE | `/candidate/applications/:id` | CANDIDATE | Withdraw own application (404 foreign; 409 when interviews/notes exist) |
 | POST | `/candidate/bookmarks` | CANDIDATE | Save job |
 | DELETE | `/candidate/bookmarks/:id` | CANDIDATE | Remove bookmark |
 | GET | `/candidate/bookmarks` | CANDIDATE | List bookmarks |
@@ -171,6 +173,18 @@ Relationships:
 | PATCH | `/platform/tenants/:id/suspend` | SA | Suspend (409 if already; blocks sign-in/refresh/careers) |
 | PATCH | `/platform/tenants/:id/reactivate` | SA | Reactivate (409 if already) |
 | GET | `/platform/stats` | SA | Platform stats |
+| GET/POST | `/platform/tenants/:id/users` | SA | List / create tenant users (role+password) |
+| PATCH | `/platform/tenants/:id/users/:userId` | SA | Change role / reset password |
+| PATCH | `/platform/tenants/:id/users/:userId/suspend` | SA | Suspend user (409 if already; blocks sign-in/refresh) |
+| PATCH | `/platform/tenants/:id/users/:userId/reactivate` | SA | Reactivate user (409 if already) |
+| DELETE | `/platform/tenants/:id/users/:userId` | SA | Remove tenant user (revokes refresh tokens) |
+| GET | `/platform/tenants/:id/pipeline-stages` | SA | List tenant pipeline stages |
+| GET/POST | `/platform/candidates` | SA | List / create candidates across tenants |
+| PATCH/DELETE | `/platform/candidates/:id` | SA | Update / remove candidate (delete cascades applications + index + account) |
+| GET | `/platform/applications?tenantId=&status=` | SA | List applications across tenants |
+| PATCH | `/platform/applications/:id/stage` | SA | Move stage cross-tenant (syncs candidate index; rollback + 503 on sync failure) |
+| GET | `/platform/interviews?tenantId=&status=` | SA | List interviews across tenants |
+| PATCH | `/platform/interviews/:id` | SA | Reschedule / cancel interview |
 
 **Cross-tenant convention:** resource exists-but-other-tenant → return **404 Not Found** (never 403). Log server-side (audit), never expose `TENANT_MISMATCH` to client.
 **Success shape:** `{ "data": ..., "message": "OK" }` (global `ResponseInterceptor`; explicit envelopes pass through).
@@ -181,8 +195,9 @@ Relationships:
 ## 6. Role & Permission Matrix
 
 | Capability | SA | OA | R | HM | IV | Candidate |
-|---|---|---|---|---|---|---|
+|---|---|---|---|---|---|---|---|
 | Manage all tenants | ✅ | — | — | — | — | — |
+| Manage tenant users / per-user suspend, candidates, applications & interviews cross-tenant | ✅ | — | — | — | — | — |
 | Tenant settings / users / roles / stages | — | ✅ | — | — | — | — |
 | Create/edit job postings | — | ✅ | ✅ | — | — | — |
 | View candidates & applications | — | ✅ | ✅ | ✅ | — | — |

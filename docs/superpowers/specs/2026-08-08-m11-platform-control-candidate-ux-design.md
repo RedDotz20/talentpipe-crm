@@ -1,7 +1,7 @@
 # M11 — Platform Control + Candidate Experience: Design
 
 **Date:** 2026-08-08
-**Status:** planned
+**Status:** implemented
 
 ## Context
 
@@ -129,3 +129,13 @@ features/candidate-portal/applications/ApplicationsPage.tsx
 - SuperAdmin create/delete of applications and interviews (view + stage/reschedule only).
 - OrgAdmin-level user suspension (platform-only; OrgAdmin removes users).
 - Platform email/notifications.
+
+## Implemented notes (deltas from the design above)
+
+- **Cascade migration was added** — the design said "Migration: None"; shipping added `backend/drizzle/20260808100000_platform_account_cascades/migration.sql` (FK cascades: `candidate_bookmarks → candidate_accounts` CASCADE, `interview_feedbacks → interviews` CASCADE, `interviews → applications` CASCADE, `notes → applications` CASCADE, `notes → users` CASCADE, `job_postings → users` SET NULL) applied across `public`, `template`, and every `tenant_%` schema. `provisionSchema` (`tenant.repository.ts`) and `template-schema.sql` create the same FKs for new tenants.
+- **`GET /platform/tenants/:id/pipeline-stages`** was added to `PlatformAccountsController` (not in the design's endpoint list) so the admin UI's Applications tab can render the tenant's stages.
+- **Candidate job detail route is `/jobs/$jobId`** via `routes/_candidate/jobs.$jobId.tsx` with `tenantId` as a search param (design said `/candidate/jobs/$jobId`). `JobDetailsView` is shared with the public careers `JobDetailPage` as designed.
+- **Withdraw returns `409 CONFLICT`** when the application has interviews or notes (design said only 404-not-owned); the `409` avoids tripping the new cascades.
+- **Stage move robustness**: platform stage moves sync `candidate_applications_index` with full rollback + `503 SERVICE_UNAVAILABLE` on sync failure, and deliberately do **not** enqueue a BullMQ notification (design didn't specify either).
+- **Audit actions** as shipped: `platform.user.create|update|suspend|reactivate|remove`, `platform.candidate.create|update|remove`, `platform.application.stage_move`, `platform.interview.update` — target `tenantId` recorded as the 4th audit arg.
+- **Tests**: `backend/test/phase11.e2e-spec.ts` release gate (9 scenarios) + unit specs `platform-accounts.service.spec.ts` (14) and `platform-data.service.spec.ts` (9); auth specs extended for user suspension.

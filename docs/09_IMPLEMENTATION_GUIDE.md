@@ -6,7 +6,7 @@
 **Package manager:** npm
 **Prerequisites:** Node 20+, Docker Desktop, Git
 
-> **Status legend:** ✅ = implemented in the repo. ⬜ = planned / not yet built. Phases 0–10, including the Phase 5b candidate-account slice, are implemented and covered by release-gate tests. The steps below match the actual implementation, including the backend SOLID restructure, unified auth routes, global response envelope, three frontend platforms, candidate accounts, manual skills, storage-only resumes, read-only public careers API, Redis login limiting, tenant dashboard caching, the BullMQ notifications queue, interviews with feedback, the Phase 9 admin/platform/CI work (tenant status + suspension, org settings + user management, SuperAdmin platform module, GitHub Actions CI), and the Phase 10 self-hosted Docker deployment (Dockerfiles, prod compose, one-shot migrations, resume file streaming endpoint).
+> **Status legend:** ✅ = implemented in the repo. ⬜ = planned / not yet built. Phases 0–11, including the Phase 5b candidate-account slice, are implemented and covered by release-gate tests. The steps below match the actual implementation, including the backend SOLID restructure, unified auth routes, global response envelope, three frontend platforms, candidate accounts, manual skills, storage-only resumes, read-only public careers API, Redis login limiting, tenant dashboard caching, the BullMQ notifications queue, interviews with feedback, the Phase 9 admin/platform/CI work (tenant status + suspension, org settings + user management, SuperAdmin platform module, GitHub Actions CI), the Phase 10 self-hosted Docker deployment (Dockerfiles, prod compose, one-shot migrations, resume file streaming endpoint), and the Phase 11 platform-control + candidate-experience work (per-user suspension, SuperAdmin account/data management across tenants, candidate job detail + withdraw).
 
 ---
 
@@ -159,6 +159,9 @@ backend/drizzle/20260803085856_redundant_tyrannus/migration.sql   # +candidate s
 backend/drizzle/20260804101500_candidate_profile_redesign/migration.sql # profile/resume redesign
 backend/drizzle/20260805090000_candidate_application_integrity/migration.sql # application/candidate integrity
 backend/drizzle/20260806191320_superb_king_cobra/migration.sql # +tenants.status (suspend/reactivate)
+backend/drizzle/20260807090000_scheduled_at_timezone/migration.sql # interviews.scheduled_at → timestamptz
+backend/drizzle/20260808090000_platform_user_suspend/migration.sql # +users.status (per-user suspend, public+template+tenant)
+backend/drizzle/20260808100000_platform_account_cascades/migration.sql # FK cascades (bookmarks/feedbacks/interviews/notes/job_postings)
 ```
 
 **Template schema** (`backend/drizzle/template-schema.sql`) — the hand-written file cloned per tenant at signup. Apply it once to create the `template` schema:
@@ -889,3 +892,65 @@ docker compose -f docker-compose.prod.yml exec -T postgres pg_dump -U $POSTGRES_
 **Updates:** `git pull && docker compose -f docker-compose.prod.yml up -d --build` (migrate service no-ops when already migrated).
 
 **Commit:** `git add -A && git commit -m "phase10: Dockerfiles, production config, deployment"`
+
+---
+
+## Phase 11 — Platform Control + Candidate Experience ✅ (complete)
+
+> **Design decisions (see `docs/superpowers/specs/2026-08-08-m11-platform-control-candidate-ux-design.md`):**
+> - **Per-user suspension** extends the M9 tenant-suspend pattern to accounts: `users.status VARCHAR(20) NOT NULL DEFAULT 'active'` on `public.users`, cloned to `template` + every `tenant_<id>` (migration `20260808090000_platform_user_suspend`, same DO-loop shape as `scheduled_at_timezone`). Enforced at sign-in (`403`) + refresh rotation (`401`); `404` missing, `409` same-state, audit rows.
+> - **Cascade migration** `20260808100000_platform_account_cascades` (delta vs the design, which said "no migration"): FK cascades on `candidate_bookmarks → candidate_accounts` (CASCADE), `interview_feedbacks → interviews` (CASCADE), `interviews → applications` (CASCADE), `notes → applications` (CASCADE), `notes → users` (CASCADE), `job_postings → users` (SET NULL) — applied to `public`, `template`, and every `tenant_%` schema. `provisionSchema` (`tenant.repository.ts`) and `template-schema.sql` create the same FKs for new tenants.
+> - **Platform account/data modules** reuse the sanctioned `withDb('tenant_<id>', ...)` cross-schema pattern (as `UsageRepository` does). All routes `@Roles('SuperAdmin')`. Every mutation writes an audit row with the target `tenantId` as the 4th arg (`platform.user.create|update|suspend|reactivate|remove`, `platform.candidate.create|update|remove`, `platform.application.stage_move`, `platform.interview.update`).
+> - **Stage move** syncs `candidate_applications_index` (same as the tenant path); on sync failure the whole move rolls back and returns `503 SERVICE_UNAVAILABLE`. No BullMQ enqueue on the platform path.
+> - **Withdraw** is ownership-checked via `candidate_applications_index` (foreign → `404`); an application with interviews or notes refuses with `409 CONFLICT` (delete would violate the new cascades).
+> - Seed now creates **6 accounts** (SuperAdmin, OrgAdmin, Interviewer, + new HiringManager `hiring.manager@acme.com` / `HiringManager123!` and Recruiter `recruiter@acme.com` / `Recruiter123!`, + Candidate).
+> - Candidate job detail route is `/_candidate/jobs.$jobId.tsx` → URL `/jobs/$jobId` with `tenantId` as a search param (delta vs the design's `/candidate/jobs/$jobId`); public careers `JobDetailPage` and the candidate route share `JobDetailsView`.
+
+### Step 11.1 — Per-user suspension (backend) ✅
+Migration `20260808090000_platform_user_suspend` adds `users.status` (default `'active'`) to `public`, `template`, and all `tenant_%` schemas; `database/schema.ts` mirrors the column. Enforcement: `AuthService.signin` → `403 FORBIDDEN` for suspended users (alongside the existing tenant-status check); `TokenService.rotate` → `401`. Existing users default to `active`; no backfill.
+
+### Step 11.2 — Platform accounts (SuperAdmin) ✅
+`backend/src/modules/platform/` gains `PlatformAccountsService` + controller:
+```
+GET    /platform/tenants/:id/users              — list tenant users
+POST   /platform/tenants/:id/users              — create (email, password, role; mirrors org invite incl. user_emails bridge)
+PATCH  /platform/tenants/:id/users/:userId      — change role / reset password
+PATCH  /platform/tenants/:id/users/:userId/suspend    — 404 missing, 409 same-state
+PATCH  /platform/tenants/:id/users/:userId/reactivate — 404 missing, 409 same-state
+DELETE /platform/tenants/:id/users/:userId      — remove (revokes refresh tokens)
+GET    /platform/tenants/:id/pipeline-stages    — tenant's ordered stages
+GET/POST /platform/candidates                   — cross-tenant list / create
+PATCH/DELETE /platform/candidates/:id           — update / remove (cascade delete: tenant applications + candidate_applications_index + linked candidate account)
+```
+Repos: `platform-user.repository.ts` (explicit `withDb('tenant_<id>', ...)`), `platform-candidate.repository.ts` (public schema). Unit specs: `platform-accounts.service.spec.ts` (14 cases).
+
+### Step 11.3 — Platform data (SuperAdmin) ✅
+`PlatformDataService` + controller:
+```
+GET   /platform/applications?tenantId=&status=   — cross-tenant list
+PATCH /platform/applications/:id/stage           — stage move (stage must belong to that tenant; index sync with rollback + 503 on failure)
+GET   /platform/interviews?tenantId=&status=     — cross-tenant list
+PATCH /platform/interviews/:id                   — reschedule / cancel
+```
+Repos: `platform-application.repository.ts`, `platform-interview.repository.ts`. Unit specs: `platform-data.service.spec.ts` (9 cases).
+
+### Step 11.4 — Candidate withdraw ✅
+`DELETE /candidate/applications/:id` in `candidate-account` module: ownership via `candidate_applications_index` (foreign → 404); `409` when interviews/notes exist; deletes the tenant application row + index row.
+
+### Step 11.5 — Frontend ✅
+- `features/admin/TenantDetailPage.tsx` — tabs: Users (table + create modal + role select + reset-password + suspend/reactivate + remove confirm), Applications (stage select from the tenant's stages), Interviews (reschedule/cancel).
+- `features/admin/CandidatesPage.tsx` — new route `/admin/candidates`.
+- `features/candidate-portal/jobs/JobDetailsView.tsx` — shared with public `JobDetailPage`; route `routes/_candidate/jobs.$jobId.tsx` (URL `/jobs/$jobId`).
+- `features/candidate-portal/applications/ApplicationsPage.tsx` — job links, status stepper (Applied → current stage), Withdraw with confirm.
+
+### Step 11.6 — Verify ✅
+```
+# Per-user suspend: platform suspend → user sign-in 403 + refresh 401; reactivate → restored; double-actions 409
+# Platform stage move cross-tenant → candidate index status updated; audit row present
+# Withdraw: candidate deletes own application (row + index gone); other candidate → 404; interviews/notes present → 409
+# Seed: all five internal roles + Candidate can sign in
+```
+
+**Release-gate coverage:** `backend/test/phase11.e2e-spec.ts` (9 scenarios: platform user CRUD + sign-in checks, suspension cycle, candidate CRUD + cascade delete, application list/stage-move, interview list/reschedule/cancel, withdraw rules, audit rows, non-SuperAdmin 403s, seed roles). Auth specs extended for user suspension; existing phase e2e suites still green.
+
+**Commits (checkpoints):** `feat(m11): platform account management — users, candidates, audit` · `feat(m11): per-user suspension + account cascades` · `feat(m11): cross-tenant applications and interviews` · `feat(m11): candidate withdraw` · `feat(m11): tenant detail tabs + candidates page` · `feat(m11): candidate job detail + applications UX` · `test(m11): e2e release gate for platform control and candidate UX` · `docs(m11): platform control + candidate experience`

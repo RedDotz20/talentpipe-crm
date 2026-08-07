@@ -11,8 +11,9 @@ Six roles: **SuperAdmin, Org Admin, Recruiter, Hiring Manager, Interviewer, Cand
 ## Permission Matrix
 
 | Capability | SuperAdmin | Org Admin | Recruiter | Hiring Manager | Interviewer | Candidate |
-|---|---|---|---|---|---|---|
+|---|---|---|---|---|---|---|---|
 | Manage all tenants | ✅ | — | — | — | — | — |
+| Manage tenant users, per-user suspend, candidates, applications & interviews cross-tenant | ✅ | — | — | — | — | — |
 | Manage own tenant settings | — | ✅ | — | — | — | — |
 | Invite/remove users, assign roles | — | ✅ | — | — | — | — |
 | Configure pipeline stages | — | ✅ | — | — | — | — |
@@ -32,9 +33,10 @@ Six roles: **SuperAdmin, Org Admin, Recruiter, Hiring Manager, Interviewer, Cand
 
 ## 1. SuperAdmin
 
-**Frontend:** `/admin/*` route tree, separate `PlatformShell` layout (not the tenant dashboard). Sees `TenantsPage` (platform stats cards + tenant table), `TenantDetail` (usage counts + suspend/reactivate).
+**Frontend:** `/admin/*` route tree, separate `PlatformShell` layout (not the tenant dashboard). Sees `TenantsPage` (platform stats cards + tenant table), `TenantDetail` (usage counts + suspend/reactivate + **Users / Applications / Interviews tabs**), and `CandidatesPage` (cross-tenant candidate table with create/edit/delete).
 **Backend:** Authorized by role check only — `@Roles('SuperAdmin')` on `/platform/*` handlers (global `RolesGuard`). The `TenantContextInterceptor` maps a SuperAdmin identity to `tenantId: 'public'`, so `getSchema()` returns `'public'` and platform repos use `withDb('public', ...)` — SuperAdmin never routes through a tenant schema. Usage counts read explicit `tenant_<id>` schemas via `forSchema` (cross-schema reporting is the one sanctioned exception).
 **Suspend semantics (M9):** a suspended tenant's users get `403` at sign-in and `401` on refresh rotation (existing 15-minute access tokens expire); public careers return `404`. Suspend/reactivate write audit rows (`tenant.suspend` / `tenant.reactivate`) attributed to the target tenant.
+**Account management (M11):** SuperAdmin can create/update/remove tenant users (`/platform/tenants/:id/users*`), suspend/reactivate **individual users** via `users.status` (same sign-in `403` / refresh `401` enforcement; `409` on same-state double-action; audit rows `platform.user.create|update|suspend|reactivate|remove`), and create/update/delete candidates across tenants (`/platform/candidates*` — delete cascades tenant applications + `candidate_applications_index` + the linked candidate account; audit `platform.candidate.*`). Cross-tenant operations on applications and interviews (`/platform/applications*`, `/platform/interviews*`) follow the same 404-for-foreign-resource convention; stage moves sync `candidate_applications_index` (rollback + `503` on sync failure) and write `platform.application.stage_move` / `platform.interview.update` audit rows targeting the tenant.
 
 ```mermaid
 flowchart LR

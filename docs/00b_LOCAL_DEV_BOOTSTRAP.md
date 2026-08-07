@@ -149,6 +149,36 @@ docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "\d publi
 # Expect scheduled_at as timestamp with time zone.
 ```
 
+### 8c. Apply the per-user suspension migration
+
+Adds `users.status` (`varchar(20)`, default `active`) to `public.users`, the `template` schema, and every existing `tenant_<id>.users` (M11 — SuperAdmin suspend/reactivate of individual tenant users).
+
+```sh
+Get-Content backend/drizzle/20260808090000_platform_user_suspend/migration.sql `
+  | docker exec -i talentpipe-crm-postgres-1 psql -U devuser -d talentpipe
+```
+
+**Check:**
+```sh
+docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "\d public.users"
+# Expect a status column with default 'active'.
+```
+
+### 8d. Apply the platform account cascades migration
+
+Re-creates FK constraints with delete behavior for platform account management (M11): `candidate_bookmarks → candidate_accounts` (CASCADE), `interview_feedbacks → interviews` (CASCADE), `interviews → applications` (CASCADE), `notes → applications` (CASCADE), `notes → users` (CASCADE), `job_postings → users` (SET NULL) — in `public`, `template`, and every `tenant_%` schema.
+
+```sh
+Get-Content backend/drizzle/20260808100000_platform_account_cascades/migration.sql `
+  | docker exec -i talentpipe-crm-postgres-1 psql -U devuser -d talentpipe
+```
+
+**Check:**
+```sh
+docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "\d public.interviews"
+# Expect applications FK with ON DELETE CASCADE.
+```
+
 ### 9. Apply the `template` schema (used by tenant signup)
 
 The template schema is what every new tenant's `tenant_<uuid>` schema gets cloned from at signup time. It's a hand-written SQL file.
@@ -174,7 +204,7 @@ Expect the nullable `cover_letter` column inherited from `public.applications`.
 
 ---
 
-### 10. Seed the 3 sample accounts
+### 10. Seed the 6 sample accounts
 
 ```sh
 cd backend
@@ -185,6 +215,9 @@ npm run seed
 ```
 [OK] SuperAdmin created: superadmin@talentpipe.com
 [OK] Org created: Acme Corp (admin@acme.com, tenant: <uuid>)
+[OK] Interviewer created: interviewer@acme.com
+[OK] Hiring Manager created: hiring.manager@acme.com
+[OK] Recruiter created: recruiter@acme.com
 [OK] Candidate created: candidate@test.com
 Seed complete.
 ```
@@ -233,12 +266,15 @@ npm run dev
 
 ### 13. Log in with a sample account
 
-The seed script creates exactly three accounts:
+The seed script creates exactly six accounts:
 
 | Role | Email | Password |
 |------|-------|----------|
 | SuperAdmin (platform-wide) | `superadmin@talentpipe.com` | `SuperAdmin123!` |
 | OrgAdmin (Acme Corp) | `admin@acme.com` | `Admin123!` |
+| Interviewer (Acme Corp) | `interviewer@acme.com` | `Interviewer123!` |
+| HiringManager (Acme Corp) | `hiring.manager@acme.com` | `HiringManager123!` |
+| Recruiter (Acme Corp) | `recruiter@acme.com` | `Recruiter123!` |
 | Candidate (cross-tenant) | `candidate@test.com` | `Candidate123!` |
 
 Login at `http://localhost:5173/auth/signin`. SuperAdmin and OrgAdmin land in their org dashboard; Candidate lands in the candidate portal.
@@ -285,7 +321,7 @@ docker compose down -v
 # 2. Restart infra
 docker compose up -d
 
-# 3. Re-run steps 3 → 8 above (migrations + template), then seed with step 9
+# 3. Re-run steps 3 → 9 above (migrations + template), then seed with step 10
 ```
 
 This is the fastest way to a known-good state. Drizzle migrations and the seed script are all idempotent (use `IF NOT EXISTS` / skip-on-existing checks).
@@ -425,8 +461,8 @@ Use this whenever you touch `schema.ts`:
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| `relation "user_emails" does not exist` on login | Migrations not applied | Re-run steps 3 → 8 |
-| `relation "template.users" does not exist` on signup | Template schema not applied | Re-run step 8 |
+| `relation "user_emails" does not exist` on login | Migrations not applied | Re-run steps 3 → 9 |
+| `relation "template.users" does not exist` on signup | Template schema not applied | Re-run step 9 |
 | Backend boots but every query 500s | DB container down | `docker ps` + `docker compose up -d` |
 | `ECONNREFUSED 5432` on backend start | Postgres not up yet | Wait a few seconds after `docker compose up -d`, then retry |
 | `EADDRINUSE :3000` | Old backend still running | `Get-Process node` → kill it |
@@ -449,8 +485,8 @@ Use this whenever you touch `schema.ts`:
 | Seed script | `backend/scripts/seed.ts` |
 | Env vars | `backend/.env` |
 | Docker services | `docker-compose.yml` (project root) |
-| Sample accounts table | this file, §9 |
-| "Editing the schema" workflow | this file, §10 |
+| Sample accounts table | this file, step 13 |
+| "Editing the schema" workflow | this file, "Editing the schema" |
 
 ---
 
