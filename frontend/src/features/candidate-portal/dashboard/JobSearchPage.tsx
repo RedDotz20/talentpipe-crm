@@ -35,7 +35,7 @@ export function JobSearchPage() {
           </Group>
           <Button
             component={Link}
-            to="/_candidate/jobs/$jobId"
+            to="/jobs/$jobId"
             params={{ jobId: job.id }}
             search={{ tenantId: job.tenantId }}
           >

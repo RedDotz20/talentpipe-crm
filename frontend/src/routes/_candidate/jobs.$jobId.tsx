@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { Alert, Container, Group, Loader } from '@mantine/core';
-import { useAuthStore } from '@/api/useAuth';
 import { useJobDetail } from '@/features/candidate-portal/hooks';
 import { JobDetailsView } from '@/features/candidate-portal/jobs/JobDetailsView';
 import { CandidateApplyModal } from '@/features/candidate-portal/applications/CandidateApplyModal';
@@ -16,7 +15,6 @@ export const Route = createFileRoute('/_candidate/jobs/$jobId')({
 function CandidateJobDetailRoute() {
   const { jobId } = Route.useParams();
   const { tenantId } = Route.useSearch();
-  const { role } = useAuthStore();
   const { data: job, isLoading, error } = useJobDetail(tenantId, jobId);
   const [applyOpened, setApplyOpened] = useState(false);
 
@@ -46,7 +44,7 @@ function CandidateJobDetailRoute() {
         job={job}
         backLink={<Link to="/dashboard">Back to job search</Link>}
         onApply={() => setApplyOpened(true)}
-        applyLabel={role === 'Candidate' ? 'Apply now' : 'Sign in to apply'}
+        applyLabel="Apply now"
       />
       {applyOpened && (
         <CandidateApplyModal
