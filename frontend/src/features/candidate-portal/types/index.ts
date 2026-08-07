@@ -17,6 +17,8 @@ export interface Application {
   companyName: string;
   status: string;
   appliedAt: string;
+  tenantId: string;
+  jobPostingId: string;
 }
 
 export interface CandidateApplicationDetail extends Application {

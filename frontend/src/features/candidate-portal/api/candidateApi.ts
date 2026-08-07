@@ -49,6 +49,10 @@ export const candidateApi = {
     return unwrap(data as ApiEnvelope<CandidateApplicationDetail>);
   },
 
+  withdrawApplication: async (applicationId: string): Promise<void> => {
+    await apiClient.delete(`/candidate/applications/${applicationId}`);
+  },
+
   applyToJob: async (tenantId: string, jobId: string, applicationData: ApplyData): Promise<{ applicationId: string }> => {
     const { data } = await apiClient.post(`/candidate/jobs/${tenantId}/${jobId}/apply`, applicationData);
     return unwrap(data as ApiEnvelope<{ applicationId: string }>);

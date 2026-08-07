@@ -8,6 +8,7 @@ export { useAddBookmark } from './useAddBookmark';
 export { useRemoveBookmark } from './useRemoveBookmark';
 export { useProfile, useUpdateProfile, useUploadResume, useRemoveResume } from './useProfile';
 export { useCandidateSkills, useSetCandidateSkills, useAllSkills } from './useSkills';
+export { useWithdrawApplication } from '../applications/hooks/useWithdraw';
 
 export type {
   Job,
