@@ -67,6 +67,17 @@ const isDuplicateCandidateAccountError = (error: unknown): boolean => {
   });
 };
 
+const isForeignKeyViolation = (error: unknown): boolean => {
+  if (typeof error !== 'object' || error === null) return false;
+  const errorWithCause = error as { code?: unknown; cause?: unknown };
+  return [errorWithCause, errorWithCause.cause].some(
+    (candidate) =>
+      typeof candidate === 'object' &&
+      candidate !== null &&
+      (candidate as { code?: unknown }).code === '23503',
+  );
+};
+
 @Injectable()
 export class CandidateAccountService {
   constructor(
@@ -293,7 +304,16 @@ export class CandidateAccountService {
     if (!indexed) throw new NotFoundException('Application not found');
 
     const schemaName = `tenant_${indexed.tenantId}`;
-    await this.applicationRepo.delete(indexed.applicationId, schemaName);
+    try {
+      await this.applicationRepo.delete(indexed.applicationId, schemaName);
+    } catch (error) {
+      if (isForeignKeyViolation(error)) {
+        throw new ConflictException(
+          'Cannot withdraw: this application has scheduled interviews or notes. Contact the recruiter.',
+        );
+      }
+      throw error;
+    }
     await this.candidateApplicationsIndexRepo.deleteById(indexed.id);
     await this.cacheService.invalidateTenantDashboard(indexed.tenantId);
     return { applicationId };

@@ -624,6 +624,19 @@ describe('CandidateAccountService', () => {
       expect(applicationRepo.delete).not.toHaveBeenCalled();
       expect(candidateApplicationsIndexRepo.deleteById).not.toHaveBeenCalled();
     });
+
+    it('409s when the application has interviews or notes', async () => {
+      candidateApplicationsIndexRepo.findByCandidateAndApplication.mockResolvedValue(
+        { id: 'idx1', tenantId: 'tenant-a', applicationId: 'app1' },
+      );
+      applicationRepo.delete.mockRejectedValue({ code: '23503' });
+
+      await expect(service.withdraw('candidate-a', 'app1')).rejects.toThrow(
+        ConflictException,
+      );
+      expect(candidateApplicationsIndexRepo.deleteById).not.toHaveBeenCalled();
+      expect(cacheService.invalidateTenantDashboard).not.toHaveBeenCalled();
+    });
   });
 
   describe('setSkills', () => {
