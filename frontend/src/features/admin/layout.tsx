@@ -1,7 +1,7 @@
 import { Outlet, Link, useNavigate } from '@tanstack/react-router';
 import { AppShell as MantineShell, Group, Text, Button, NavLink } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconBuildingEstate } from '@tabler/icons-react';
+import { IconBuildingEstate, IconUsers } from '@tabler/icons-react';
 import { useLogout } from '@/hooks/auth';
 
 export function SuperAdminPlatform() {
@@ -33,6 +33,12 @@ export function SuperAdminPlatform() {
           leftSection={<IconBuildingEstate size="1rem" />}
           component={Link}
           to="/admin/tenants"
+        />
+        <NavLink
+          label="Candidates"
+          leftSection={<IconUsers size="1rem" />}
+          component={Link}
+          to="/admin/candidates"
         />
       </MantineShell.Navbar>
 
