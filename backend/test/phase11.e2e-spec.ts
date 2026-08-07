@@ -705,6 +705,22 @@ describe('Phase 11 release gate', () => {
       );
       const foreignApplicationId = withdrawal.applicationId;
 
+      const pool = cleanupPool;
+      if (!pool) throw new Error('Cleanup PostgreSQL pool was not initialized');
+
+      const interviewedWithdraw = await request(httpServer())
+        .delete(`/api/candidate/applications/${applicationId}`)
+        .set('Authorization', `Bearer ${candidateAToken}`);
+      assertStatus(interviewedWithdraw, 409);
+
+      const interviewStillThere = (
+        await pool.query(
+          `SELECT COUNT(*)::int AS count FROM "tenant_${tenant.tenantId}".interviews WHERE id = $1`,
+          [interviewId],
+        )
+      ).rows[0] as { count: number } | undefined;
+      expect(interviewStillThere?.count).toBe(1);
+
       const foreignWithdraw = await request(httpServer())
         .delete(`/api/candidate/applications/${foreignApplicationId}`)
         .set('Authorization', `Bearer ${candidateAToken}`);
@@ -720,8 +736,6 @@ describe('Phase 11 release gate', () => {
         .set('Authorization', `Bearer ${candidateCToken}`);
       assertEnvelope<{ applicationId: string }>(ownWithdraw, 200);
 
-      const pool = cleanupPool;
-      if (!pool) throw new Error('Cleanup PostgreSQL pool was not initialized');
       const appRow = (
         await pool.query(
           `SELECT COUNT(*)::int AS count FROM "tenant_${tenant.tenantId}".applications WHERE id = $1`,

@@ -17,6 +17,8 @@ import { SkillRepository } from '../../repositories/skill.repository';
 import { JobPostingRepository } from '../../repositories/job-posting.repository';
 import { TenantRepository } from '../../repositories/tenant.repository';
 import { UserEmailRepository } from '../../repositories/user-email.repository';
+import { InterviewRepository } from '../../repositories/interview.repository';
+import { NoteRepository } from '../../repositories/note.repository';
 import { SkillMatchingService } from '../skill-matching/skill-matching.service';
 import { ResumesService } from '../../modules/resumes/resumes.service';
 import { CacheService } from '../../common/cache/cache.service';
@@ -86,6 +88,12 @@ describe('CandidateAccountService', () => {
   const userEmailRepo = {
     findByEmail: jest.fn().mockResolvedValue(null),
   };
+  const interviewRepo = {
+    findAll: jest.fn(),
+  };
+  const noteRepo = {
+    findByApplicationId: jest.fn(),
+  };
   const cacheService = { invalidateTenantDashboard: jest.fn() };
 
   beforeEach(async () => {
@@ -111,6 +119,8 @@ describe('CandidateAccountService', () => {
         { provide: JobPostingRepository, useValue: jobPostingRepo },
         { provide: TenantRepository, useValue: tenantRepo },
         { provide: UserEmailRepository, useValue: userEmailRepo },
+        { provide: InterviewRepository, useValue: interviewRepo },
+        { provide: NoteRepository, useValue: noteRepo },
         { provide: SkillMatchingService, useValue: skillMatching },
         { provide: ResumesService, useValue: resumesService },
         { provide: CacheService, useValue: cacheService },
@@ -597,9 +607,19 @@ describe('CandidateAccountService', () => {
       candidateApplicationsIndexRepo.findByCandidateAndApplication.mockResolvedValue(
         { id: 'idx1', tenantId: 'tenant-a', applicationId: 'app1' },
       );
+      interviewRepo.findAll.mockResolvedValue([]);
+      noteRepo.findByApplicationId.mockResolvedValue([]);
 
       const result = await service.withdraw('candidate-a', 'app1');
 
+      expect(interviewRepo.findAll).toHaveBeenCalledWith(
+        { applicationId: 'app1' },
+        'tenant_tenant-a',
+      );
+      expect(noteRepo.findByApplicationId).toHaveBeenCalledWith(
+        'app1',
+        'tenant_tenant-a',
+      );
       expect(applicationRepo.delete).toHaveBeenCalledWith(
         'app1',
         'tenant_tenant-a',
@@ -621,6 +641,8 @@ describe('CandidateAccountService', () => {
       await expect(service.withdraw('candidate-a', 'app1')).rejects.toThrow(
         NotFoundException,
       );
+      expect(interviewRepo.findAll).not.toHaveBeenCalled();
+      expect(noteRepo.findByApplicationId).not.toHaveBeenCalled();
       expect(applicationRepo.delete).not.toHaveBeenCalled();
       expect(candidateApplicationsIndexRepo.deleteById).not.toHaveBeenCalled();
     });
@@ -629,6 +651,23 @@ describe('CandidateAccountService', () => {
       candidateApplicationsIndexRepo.findByCandidateAndApplication.mockResolvedValue(
         { id: 'idx1', tenantId: 'tenant-a', applicationId: 'app1' },
       );
+      interviewRepo.findAll.mockResolvedValue([{ id: 'iv1' }]);
+      noteRepo.findByApplicationId.mockResolvedValue([]);
+
+      await expect(service.withdraw('candidate-a', 'app1')).rejects.toThrow(
+        ConflictException,
+      );
+      expect(applicationRepo.delete).not.toHaveBeenCalled();
+      expect(candidateApplicationsIndexRepo.deleteById).not.toHaveBeenCalled();
+      expect(cacheService.invalidateTenantDashboard).not.toHaveBeenCalled();
+    });
+
+    it('still 409s on a foreign-key violation from delete as belt-and-suspenders', async () => {
+      candidateApplicationsIndexRepo.findByCandidateAndApplication.mockResolvedValue(
+        { id: 'idx1', tenantId: 'tenant-a', applicationId: 'app1' },
+      );
+      interviewRepo.findAll.mockResolvedValue([]);
+      noteRepo.findByApplicationId.mockResolvedValue([]);
       applicationRepo.delete.mockRejectedValue({ code: '23503' });
 
       await expect(service.withdraw('candidate-a', 'app1')).rejects.toThrow(

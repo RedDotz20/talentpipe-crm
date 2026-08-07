@@ -19,6 +19,8 @@ import { SkillMatchingService } from '../skill-matching/skill-matching.service';
 import { ResumesService } from '../resumes/resumes.service';
 import { CacheService } from '../../common/cache/cache.service';
 import { UserEmailRepository } from '../../repositories/user-email.repository';
+import { InterviewRepository } from '../../repositories/interview.repository';
+import { NoteRepository } from '../../repositories/note.repository';
 
 const isDuplicateCandidateApplicationError = (error: unknown): boolean => {
   if (typeof error !== 'object' || error === null) return false;
@@ -96,6 +98,8 @@ export class CandidateAccountService {
     private readonly resumesService: ResumesService,
     private readonly cacheService: CacheService,
     private readonly userEmailRepo: UserEmailRepository,
+    private readonly interviewRepo: InterviewRepository,
+    private readonly noteRepo: NoteRepository,
   ) {}
 
   async getJobs(search?: string) {
@@ -304,6 +308,19 @@ export class CandidateAccountService {
     if (!indexed) throw new NotFoundException('Application not found');
 
     const schemaName = `tenant_${indexed.tenantId}`;
+    const interviews = await this.interviewRepo.findAll(
+      { applicationId: indexed.applicationId },
+      schemaName,
+    );
+    const notes = await this.noteRepo.findByApplicationId(
+      indexed.applicationId,
+      schemaName,
+    );
+    if (interviews.length > 0 || notes.length > 0) {
+      throw new ConflictException(
+        'Cannot withdraw: this application has scheduled interviews or notes. Contact the recruiter.',
+      );
+    }
     try {
       await this.applicationRepo.delete(indexed.applicationId, schemaName);
     } catch (error) {

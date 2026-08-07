@@ -5,8 +5,8 @@ import { BaseRepository } from './base.repository';
 
 @Injectable()
 export class NoteRepository extends BaseRepository {
-  async findByApplicationId(applicationId: string) {
-    return this.withDb('current', async (db) => {
+  async findByApplicationId(applicationId: string, schema = 'current') {
+    return this.withDb(schema, async (db) => {
       return db
         .select()
         .from(notes)
