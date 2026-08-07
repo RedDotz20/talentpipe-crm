@@ -19,6 +19,7 @@ M10 (deploy) is complete. User review of the working product surfaced four gaps:
 | Cross-tenant data access | New platform repos using the sanctioned `withDb('tenant_<id>', ...)` pattern (as `UsageRepository` already does) | SuperAdmin is the one sanctioned cross-schema exception; tenant code stays untouched; no impersonation tokens |
 | Platform module structure | Existing `PlatformService` stays; new `PlatformAccountsService` (users, candidates) + `PlatformDataService` (applications, interviews) | Keeps services focused; all under `modules/platform/`, `@Roles('SuperAdmin')` |
 | Platform user management | Create/role-change/password-reset/remove on `tenant_<id>.users` with `user_emails` + `refresh_tokens` cleanup | Mirrors OrgUsersService semantics without its self/last-admin guards (SuperAdmin is external to the tenant) |
+| User suspension | SuperAdmin can suspend/reactivate individual tenant users via a `status` column (`active\|suspended`, default `active`) on `users`; enforced at sign-in (403) + refresh (401); 404 missing, 409 same-state, audit rows | Extends the M9 tenant-suspend pattern to accounts; OrgAdmin still removes users outright |
 | Candidate delete | Cascade: remove applications in each tenant schema + `candidate_applications_index` rows | Prevents dangling candidate refs in tenant pipelines and candidate index lookups |
 | Application stage move | Reuse existing stage repo logic against explicit schema; sync candidate index; audit row | Same behavior a tenant OrgAdmin gets, with audit attribution to the target tenant |
 | Interview manage | Reschedule (datetime) + cancel only | Matches user scope: "view + stage moves + interview reschedule"; no create/delete |
@@ -27,6 +28,16 @@ M10 (deploy) is complete. User review of the working product surfaced four gaps:
 | Job meta fields (location/salary/type) | **Not added** | Job postings have no such columns; user chose to skip — no migration |
 | Migration | None | Roles, candidates, applications, interviews, index tables all exist |
 | Audit rows | Every platform mutation logs with target tenant id | Consistent with M9 platform audit convention |
+
+## Data model
+
+`users` (master in public, cloned to `template` + each `tenant_<id>`) gains:
+
+```sql
+status VARCHAR(20) NOT NULL DEFAULT 'active'  -- active | suspended
+```
+
+Migration: `backend/drizzle/20260808090000_platform_user_suspend/migration.sql` — `ALTER TABLE public.users ADD COLUMN IF NOT EXISTS status ...` + DO-loop over `template` and `tenant_%` schemas (same shape as the `scheduled_at_timezone` migration). Existing users default to `active`; no backfill.
 
 ## Backend
 
@@ -39,7 +50,7 @@ scripts/seed.ts
 repositories/
   platform-user.repository.ts         tenant users via withDb('tenant_<id>'): list, create
                                       (role ∈ OrgAdmin|HiringManager|Recruiter|Interviewer),
-                                      updateRole, resetPassword, remove
+                                      updateRole, resetPassword, setStatus, remove
   platform-candidate.repository.ts    public schema: list/create/update/remove candidates
                                       + cascade delete (applications + index)
   platform-application.repository.ts  list across tenants (tenantId/status filters), getById,
@@ -47,11 +58,15 @@ repositories/
   platform-interview.repository.ts    list across tenants (tenantId/status filters), getById,
                                       reschedule, cancel
 
+database/schema.ts                   users gains status column (matches migration)
+
 modules/platform/
   platform-accounts.controller.ts  @Roles('SuperAdmin')
     GET    /platform/tenants/:id/users
     POST   /platform/tenants/:id/users
     PATCH  /platform/tenants/:id/users/:userId
+    PATCH  /platform/tenants/:id/users/:userId/suspend
+    PATCH  /platform/tenants/:id/users/:userId/reactivate
     DELETE /platform/tenants/:id/users/:userId
     GET    /platform/candidates
     POST   /platform/candidates
@@ -72,12 +87,14 @@ modules/candidate-account/
 
 Error semantics: missing tenant/user/candidate/application/interview → 404; invalid role → 400 `VALIDATION_ERROR`; stage must belong to the application's tenant schema.
 
+Enforcement hooks: `AuthService.signin` (403 after password check — alongside the existing tenant-status check at auth.service.ts:55), `TokenService.rotate` (401 — alongside token.service.ts:81).
+
 ## Frontend
 
 ```
 features/admin/TenantDetailPage.tsx   → tabs: Users / Applications / Interviews
-  Users:        table (email/role/created) + create modal (email, role, password)
-                + role Select + reset-password + remove confirm
+  Users:        table (email/role/status/created) + create modal (email, role, password)
+                + role Select + reset-password + suspend/reactivate + remove confirm
   Applications: table (candidate, job, stage, date) + stage Select (tenant stages)
   Interviews:   table (candidate, job, interviewer, datetime, status)
                 + reschedule/cancel actions
@@ -98,6 +115,7 @@ features/candidate-portal/applications/ApplicationsPage.tsx
 `backend/test/phase11.e2e-spec.ts`:
 
 - Platform users: create → sign-in works → role change → password reset → delete → sign-in fails; non-SuperAdmin → 403 on every platform route.
+- Platform user suspension: suspend → sign-in 403 + refresh 401; reactivate → sign-in restored; double-suspend/double-reactivate → 409; audit rows.
 - Platform candidates: CRUD cycle; delete cascades to tenant applications + candidate index.
 - Platform applications: list filters, stage move updates stage + candidate index status; unknown id → 404.
 - Platform interviews: list filters, reschedule + cancel; unknown id → 404.
@@ -109,5 +127,5 @@ features/candidate-portal/applications/ApplicationsPage.tsx
 
 - Job meta fields (location/salary/type) — user chose to skip.
 - SuperAdmin create/delete of applications and interviews (view + stage/reschedule only).
-- User suspension per account (tenants have status; users are removed or role-changed).
+- OrgAdmin-level user suspension (platform-only; OrgAdmin removes users).
 - Platform email/notifications.
