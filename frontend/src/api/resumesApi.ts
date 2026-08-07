@@ -28,4 +28,11 @@ export const resumesApi = {
     );
     return data as ApiEnvelope<Resume>;
   },
+  download: async (candidateId: string): Promise<string> => {
+    const { data } = await apiClient.get(
+      `/candidates/${candidateId}/resume/file`,
+      { responseType: 'blob' },
+    );
+    return URL.createObjectURL(data as Blob);
+  },
 };

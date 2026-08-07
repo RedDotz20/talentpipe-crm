@@ -28,6 +28,7 @@ describe('ResumesService', () => {
   const storage = {
     upload: jest.fn(),
     delete: jest.fn(),
+    get: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -62,6 +63,50 @@ describe('ResumesService', () => {
       fileUrl: 'candidate-resumes/acc-1/uuid.pdf',
       uploadedAt,
     });
+  });
+
+  it('getFile throws NotFoundException when no resume exists', async () => {
+    candidateAccountRepo.findById.mockResolvedValue(null);
+    await expect(service.getFile('acc-1')).rejects.toThrow(NotFoundException);
+  });
+
+  it('getFile throws NotFoundException when file missing in storage', async () => {
+    candidateAccountRepo.findById.mockResolvedValue({
+      id: 'acc-1',
+      resumeFileUrl: 'candidate-resumes/acc-1/uuid.pdf',
+    });
+    storage.get.mockResolvedValue(null);
+    await expect(service.getFile('acc-1')).rejects.toThrow(NotFoundException);
+  });
+
+  it('getFile returns buffer and pdf content type', async () => {
+    const bytes = Buffer.from('%PDF-1.4 fake');
+    candidateAccountRepo.findById.mockResolvedValue({
+      id: 'acc-1',
+      resumeFileUrl: 'candidate-resumes/acc-1/uuid.pdf',
+    });
+    storage.get.mockResolvedValue(bytes);
+    await expect(service.getFile('acc-1')).resolves.toEqual({
+      buffer: bytes,
+      contentType: 'application/pdf',
+      filename: 'resume.pdf',
+    });
+    expect(storage.get).toHaveBeenCalledWith(
+      'candidate-resumes/acc-1/uuid.pdf',
+    );
+  });
+
+  it('getFile returns docx content type for docx keys', async () => {
+    candidateAccountRepo.findById.mockResolvedValue({
+      id: 'acc-1',
+      resumeFileUrl: 'candidate-resumes/acc-1/uuid.docx',
+    });
+    storage.get.mockResolvedValue(Buffer.from('docx'));
+    const file = await service.getFile('acc-1');
+    expect(file.contentType).toBe(
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    );
+    expect(file.filename).toBe('resume.docx');
   });
 
   it('upload rejects unsupported file types', async () => {

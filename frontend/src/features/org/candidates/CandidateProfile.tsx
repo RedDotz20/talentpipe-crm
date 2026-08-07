@@ -1,4 +1,6 @@
 import { Anchor, Badge, Group, Loader, Modal, Stack, Table, Text, Title } from '@mantine/core';
+import { useEffect, useState } from 'react';
+import { resumesApi } from '@/api/resumesApi';
 import { useCandidate } from './hooks/useCandidates';
 import { MatchScoreBadge } from './MatchScoreBadge';
 
@@ -9,6 +11,23 @@ interface Props {
 
 export function CandidateProfile({ candidateId, onClose }: Props) {
   const { data: candidate, isLoading } = useCandidate(candidateId ?? '');
+  const [resumeUrl, setResumeUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let url: string | null = null;
+    if (candidateId && candidate?.resume?.fileUrl) {
+      resumesApi
+        .download(candidateId)
+        .then((u) => {
+          url = u;
+          setResumeUrl(u);
+        })
+        .catch(() => setResumeUrl(null));
+    }
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [candidateId, candidate?.resume?.fileUrl]);
 
   return (
     <Modal opened={!!candidateId} onClose={onClose} title="Candidate Profile">
@@ -39,9 +58,15 @@ export function CandidateProfile({ candidateId, onClose }: Props) {
             <Stack gap="xs">
               {candidate.resume.fileUrl ? (
                 <Text size="sm">
-                    <Anchor href={candidate.resume.fileUrl} target="_blank">
-                    View Resume
-                  </Anchor>
+                  {resumeUrl ? (
+                    <Anchor href={resumeUrl} target="_blank">
+                      View Resume
+                    </Anchor>
+                  ) : (
+                    <Text span c="dimmed">
+                      Loading resume…
+                    </Text>
+                  )}
                 </Text>
               ) : (
                 <Text size="sm" c="dimmed">

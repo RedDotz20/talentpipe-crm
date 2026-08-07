@@ -5,6 +5,7 @@ import {
   NestInterceptor,
 } from '@nestjs/common';
 import { Observable, map } from 'rxjs';
+import { SKIP_ENVELOPE } from '../decorators/skip-envelope.decorator';
 
 export interface ApiResponse<T> {
   data: T;
@@ -30,9 +31,13 @@ export class ResponseInterceptor<T> implements NestInterceptor<
   ApiResponse<T>
 > {
   intercept(
-    _ctx: ExecutionContext,
+    ctx: ExecutionContext,
     next: CallHandler<T>,
   ): Observable<ApiResponse<T>> {
+    const handler = ctx.getHandler?.();
+    if (handler && Reflect.getMetadata(SKIP_ENVELOPE, handler)) {
+      return next.handle() as Observable<ApiResponse<T>>;
+    }
     return next.handle().pipe(
       map((value) => {
         if (isExplicitEnvelope(value)) {

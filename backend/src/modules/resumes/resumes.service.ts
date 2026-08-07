@@ -31,6 +31,23 @@ export class ResumesService {
     };
   }
 
+  async getFile(candidateAccountId: string) {
+    const account =
+      await this.candidateAccountRepo.findById(candidateAccountId);
+    const key = account?.resumeFileUrl;
+    if (!key) throw new NotFoundException('No resume found for candidate');
+    const buffer = await this.storage.get(key);
+    if (!buffer) {
+      throw new NotFoundException('Resume file not found in storage');
+    }
+    const isDocx = key.endsWith('.docx');
+    return {
+      buffer,
+      contentType: isDocx ? DOCX_MIME : PDF_MIME,
+      filename: `resume.${isDocx ? 'docx' : 'pdf'}`,
+    };
+  }
+
   async upload(candidateAccountId: string, file: Express.Multer.File) {
     const account =
       await this.candidateAccountRepo.findById(candidateAccountId);
