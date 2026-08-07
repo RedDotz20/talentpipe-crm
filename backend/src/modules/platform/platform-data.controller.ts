@@ -29,7 +29,8 @@ export class PlatformDataController {
 
   @Get('applications')
   listApplications(
-    @Query('tenantId') tenantId?: string,
+    @Query('tenantId', new ParseUUIDPipe({ optional: true }))
+    tenantId?: string,
     @Query('status') status?: string,
   ) {
     return this.dataService.listApplications({
@@ -49,7 +50,8 @@ export class PlatformDataController {
 
   @Get('interviews')
   listInterviews(
-    @Query('tenantId') tenantId?: string,
+    @Query('tenantId', new ParseUUIDPipe({ optional: true }))
+    tenantId?: string,
     @Query('status') status?: string,
   ) {
     return this.dataService.listInterviews({

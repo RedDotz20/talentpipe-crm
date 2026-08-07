@@ -8,13 +8,11 @@ describe('PlatformDataService', () => {
         findAll: jest
           .fn()
           .mockResolvedValue([{ id: 'tenant-a', name: 'Acme' }]),
-        findById: jest.fn().mockResolvedValue({ id: 'tenant-a', name: 'Acme' }),
       },
       applicationRepo: {
         findAll: jest.fn().mockResolvedValue([]),
         findById: jest.fn(),
         updateStage: jest.fn(),
-        delete: jest.fn(),
       },
       pipelineStageRepo: {
         findById: jest.fn(),
@@ -54,7 +52,6 @@ describe('PlatformDataService', () => {
             .mockResolvedValue([{ id: 'app1', stageName: 'Screening' }]),
           findById: jest.fn(),
           updateStage: jest.fn(),
-          delete: jest.fn(),
         },
       });
       const result = await service.listApplications({});
@@ -90,7 +87,6 @@ describe('PlatformDataService', () => {
           ]),
           findById: jest.fn(),
           updateStage: jest.fn(),
-          delete: jest.fn(),
         },
       });
       const result = await service.listApplications({ status: 'Screening' });
@@ -115,11 +111,6 @@ describe('PlatformDataService', () => {
       mocks.candidateIndexRepo.findByApplication.mockResolvedValue({
         id: 'idx1',
         tenantId: 'tenant-a',
-      });
-      mocks.applicationRepo.findById.mockResolvedValue({
-        id: 'app1',
-        jobPostingId: 'j1',
-        currentStageId: 's1',
       });
       mocks.pipelineStageRepo.findById.mockResolvedValue({
         id: 's2',

@@ -59,6 +59,10 @@ export class PlatformDataService {
     applicationId: string,
     dto: MoveApplicationStageDto,
   ) {
+    // ponytail: tenant discovery couples to candidate_applications_index (rows
+    // only exist for candidate-apply flow). When anonymous apply / org-side
+    // application creation lands, fall back to a tenant scan like
+    // rescheduleInterview instead of 404ing on a real application.
     const indexed =
       await this.candidateIndexRepo.findByApplication(applicationId);
     if (!indexed) throw new NotFoundException('Application not found');
@@ -95,6 +99,8 @@ export class PlatformDataService {
         'Candidate application status could not be synchronized',
       );
     }
+    // ponytail: platform stage moves skip the BullMQ notifications queue
+    // (tenant-side moves still enqueue); re-add when notifications become mail.
     await this.cacheService.invalidateTenantDashboard(indexed.tenantId);
     await this.auditService.log(
       'platform.application.stage_move',
@@ -155,7 +161,7 @@ export class PlatformDataService {
           },
           tenant.id,
         );
-        return updated;
+        return updated ?? interview;
       }
     }
     throw new NotFoundException('Interview not found');
