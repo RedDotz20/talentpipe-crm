@@ -2,7 +2,7 @@
 
 **One-liner:** Schema-per-tenant applicant tracking system. Each company gets an isolated PostgreSQL schema for job postings, candidate pipelines, interviews, recruiter collaboration, resume parsing, skill-matching, and rate-limited public application intake.
 
-**Status:** M9 (Admin + Platform + CI) — implemented on top of M8 (Interviews + Feedback) and M7 (BullMQ notifications queue).
+**Status:** M10 (Deploy) — implemented on top of M9 (Admin + Platform + CI).
 
 ---
 
@@ -25,7 +25,7 @@
 
 - **Backend:** Auth, schema-per-tenant repositories, candidate accounts, public careers, applications/pipeline, Redis sign-in limiting, tenant dashboard cache, a BullMQ notifications queue (stage-change jobs delivered to `audit_logs`), interviews + feedback (scheduling with auto-move to the Interview stage, server-side interviewer scoping, 1:1 feedback, `GET /org/users`), org settings + user management (invite/role/remove with audit rows), tenant suspend/reactivate (blocks sign-in/refresh + hides public careers), and the SuperAdmin platform module (`/platform/*`). Health endpoint at `GET /api/health`.
 - **Frontend:** Vite/Mantine application with organization and candidate platforms, candidate job search/apply/bookmarks/profile flows, the organization dashboard summary, interviews list/scheduler/feedback UI, OrgAdmin settings + team pages, and the SuperAdmin platform views (tenants list/detail/stats).
-- **Not yet built:** platform email/notifications, password-change flow, pipeline-stage management endpoints, anonymous apply, automated resume parsing, and deployment (Phase 10). CI runs via `.github/workflows/ci.yml` (lint → typecheck → unit → e2e release gates → build).
+- **Not yet built:** platform email/notifications, password-change flow, pipeline-stage management endpoints, anonymous apply, and automated resume parsing. CI runs via `.github/workflows/ci.yml` (lint → typecheck → unit → e2e release gates → build). Production: self-hosted `docker-compose.prod.yml` stack (backend/frontend Dockerfiles, one-shot migrate service, env-file secrets) — see `09_IMPLEMENTATION_GUIDE.md` Phase 10 for the deploy runbook.
 
 ## Commands
 

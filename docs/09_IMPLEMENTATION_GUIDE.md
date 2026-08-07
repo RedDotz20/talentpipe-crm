@@ -6,7 +6,7 @@
 **Package manager:** npm
 **Prerequisites:** Node 20+, Docker Desktop, Git
 
-> **Status legend:** ✅ = implemented in the repo. ⬜ = planned / not yet built. Phases 0–9, including the Phase 5b candidate-account slice, are implemented and covered by release-gate tests. The steps below match the actual implementation, including the backend SOLID restructure, unified auth routes, global response envelope, three frontend platforms, candidate accounts, manual skills, storage-only resumes, read-only public careers API, Redis login limiting, tenant dashboard caching, the BullMQ notifications queue, interviews with feedback, and the Phase 9 admin/platform/CI work (tenant status + suspension, org settings + user management, SuperAdmin platform module, GitHub Actions CI).
+> **Status legend:** ✅ = implemented in the repo. ⬜ = planned / not yet built. Phases 0–10, including the Phase 5b candidate-account slice, are implemented and covered by release-gate tests. The steps below match the actual implementation, including the backend SOLID restructure, unified auth routes, global response envelope, three frontend platforms, candidate accounts, manual skills, storage-only resumes, read-only public careers API, Redis login limiting, tenant dashboard caching, the BullMQ notifications queue, interviews with feedback, the Phase 9 admin/platform/CI work (tenant status + suspension, org settings + user management, SuperAdmin platform module, GitHub Actions CI), and the Phase 10 self-hosted Docker deployment (Dockerfiles, prod compose, one-shot migrations, resume file streaming endpoint).
 
 ---
 
@@ -836,23 +836,56 @@ Created `.github/workflows/ci.yml`:
 
 ---
 
-## Phase 10 — Deployment
+## Phase 10 — Deployment ✅ (complete)
 
-### Step 10.1 — Backend Dockerfile
-Create `backend/Dockerfile` — multi-stage build (node:20-alpine), expose 3000, run dist/main.js.
+> **Design decisions (see `docs/superpowers/specs/2026-08-07-phase10-deployment-design.md`):**
+> - Target is a **self-hosted Ubuntu server** running a `docker compose` prod stack. TLS/domain handled by **host-level nginx** (user-managed); the frontend container exposes port 80 only. Postgres/Redis/MinIO live on an internal Docker network, unreachable from outside.
+> - Resume upload stays **backend-proxied** (browser → NestJS → MinIO); nginx `client_max_body_size 15m` covers the 10MB multer limit. Presigned uploads deferred.
+> - Secrets come from a root `.env` file (compose auto-loads it for `${VAR}` interpolation, and `backend` consumes it via `env_file`). `.env.prod.example` is committed; `.env` is gitignored.
+> - **Migrations** run via a one-shot `migrate` compose service (postgres:16-alpine + bind-mounted `backend/drizzle/` + `scripts/prod-migrate.sh`). Idempotent guard: skips when `public.tenants` exists. `backend` waits on `condition: service_completed_successfully`.
+> - No seed in prod — org signup provisions everything.
+> - **Resume view fix:** the org candidate profile previously linked `href={fileUrl}` where `fileUrl` is a bare S3 key (dead relative URL in dev and prod). Added `GET /candidates/:candidateId/resume/file` (OA/R/HM) streaming from MinIO with `@SkipEnvelope()` (new decorator that short-circuits the global `ResponseInterceptor`), and the frontend now blob-fetches through `apiClient` (Bearer attached) → object URL. No MinIO exposure needed.
+> - YAGNI: no CI docker builds, no presigned uploads, no HTTPS config (host nginx), no backup automation (one-liner below), no monitoring.
 
-### Step 10.2 — Frontend Dockerfile
-Create `frontend/Dockerfile` — build with node:20-alpine, serve with nginx:alpine.
-Create `frontend/nginx.conf` — listen 80, root /usr/share/nginx/html, try_files for SPA.
+### Step 10.1 — Backend Dockerfile ✅
+`backend/Dockerfile` — 3-stage `node:20-alpine`:
+- `deps`: `apk add python3 make g++` (argon2 has no musl prebuilds — node-gyp compiles it) → `npm ci --omit=dev`
+- `build`: `FROM deps AS build` (inherits the compile tools) → `npm ci` → `nest build`
+- `runtime`: copies `node_modules` from deps + `dist` from build → `CMD ["node", "dist/main.js"]`, EXPOSE 3000.
+`backend/.dockerignore` — node_modules, dist, .env, test, coverage.
 
-### Step 10.3 — Production env
-Create `backend/.env.production` with production DATABASE_URL, REDIS_URL, JWT_SECRET, MINIO keys, CORS_ORIGIN.
+### Step 10.2 — Frontend Dockerfile ✅
+`frontend/Dockerfile` — build stage (`ARG VITE_API_URL=/api` — required: the client default `http://localhost:3000/api` is wrong in prod) → `nginx:alpine` runtime with `frontend/nginx.conf`:
+```
+location /api/ { proxy_pass http://backend:3000; ... }   # same-origin API
+location / { try_files $uri $uri/ /index.html; }          # SPA fallback
+client_max_body_size 15m;
+```
 
-### Step 10.4 — Deploy to Railway/Render
-Backend: connect repo, Node.js service, build `cd backend && npm ci && npm run build`, start `cd backend && node dist/main.js`.
-Frontend: connect repo, build `cd frontend && npm ci && npm run build`, publish dir `frontend/dist`.
+### Step 10.3 — Production compose + env ✅
+`docker-compose.prod.yml` (project `talentpipe-prod`): services `postgres:16-alpine`, `migrate` (one-shot), `redis:7-alpine`, `minio`, `backend` (`env_file: .env`), `frontend` (ports `80:80`). All on internal network `backend`; healthchecks on postgres/redis/minio; `restart: unless-stopped`; named volumes `pgdata`/`miniodata`.
+`.env.prod.example` (committed) → copy to `.env` (gitignored) and replace all values. Keys: POSTGRES_USER/PASSWORD/DB, DATABASE_URL (`@postgres:5432`), REDIS_URL (`redis://redis:6379`), JWT_SECRET, JWT_REFRESH_SECRET, MINIO_ENDPOINT (`http://minio:9000`), MINIO_ROOT_USER/PASSWORD + MINIO_ACCESS_KEY/SECRET_KEY (**must match each other** — the app authenticates as the MinIO root user), MINIO_BUCKET, CORS_ORIGIN.
+`.gitattributes` — `*.sh text eol=lf` (protects the migrate script on Windows checkouts).
 
-### Step 10.5 — Verify production
-Visit live URL -> signup -> post job -> public apply (incognito) -> drag pipeline -> schedule interview + feedback -> confirm rate limiting.
+### Step 10.4 — First-boot migrations ✅
+`scripts/prod-migrate.sh` (bind-mounted into the `migrate` service): applies `drizzle/*/migration.sql` chronologically + `drizzle/template-schema.sql` via psql; skips everything when `public.tenants` already exists (idempotent across `compose up` re-runs).
+
+### Step 10.5 — Deploy runbook (Ubuntu server)
+```sh
+# On the server
+git clone <repo> && cd talentpipe-crm
+cp .env.prod.example .env        # edit: strong passwords/secrets, MINIO_ACCESS_KEY = MINIO_ROOT_USER
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml ps   # all Up / Healthy, backend not restarting
+```
+Host nginx: point the domain at the server and reverse-proxy port 80 (or serve it directly as the frontend listens on 80). TLS via certbot if desired. The frontend serves both the SPA and `/api` (same-origin proxy), so no CORS config needed beyond `CORS_ORIGIN`.
+
+**Verify:** visit the live URL → `/api/health` → org signup → post + publish a job → apply as a candidate (incognito careers page) → check the org pipeline → upload a resume as a candidate and open "View Resume" as an org user → sign-in rate limit (6 bad attempts → 429).
+
+**Backup one-liner:**
+```sh
+docker compose -f docker-compose.prod.yml exec -T postgres pg_dump -U $POSTGRES_USER $POSTGRES_DB > backup-$(date +%F).sql
+```
+**Updates:** `git pull && docker compose -f docker-compose.prod.yml up -d --build` (migrate service no-ops when already migrated).
 
 **Commit:** `git add -A && git commit -m "phase10: Dockerfiles, production config, deployment"`
