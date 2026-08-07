@@ -5,6 +5,7 @@ dist/
 *.log
 .DS_Store
 coverage/
+*.tsbuildinfo
 .superpowers/
 http-client.private.env.json
 /.env
