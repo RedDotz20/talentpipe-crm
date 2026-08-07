@@ -6,6 +6,7 @@ import { OrgUsersService } from './org-users.service';
 import { UserRepository } from '../../repositories/user.repository';
 import { UserEmailRepository } from '../../repositories/user-email.repository';
 import { RefreshTokenRepository } from '../../repositories/refresh-token.repository';
+import { InterviewRepository } from '../../repositories/interview.repository';
 
 jest.mock('../../common/password', () => ({
   hashPassword: jest.fn().mockResolvedValue('hashed'),
@@ -28,6 +29,7 @@ describe('OrgUsersService', () => {
     deleteByUserId: jest.fn(),
   };
   const refreshTokenRepo = { deleteByUser: jest.fn() };
+  const interviewRepo = { deleteByInterviewer: jest.fn() };
   const auditService = { log: jest.fn() };
 
   const runAs = <T>(fn: () => Promise<T>) =>
@@ -41,6 +43,7 @@ describe('OrgUsersService', () => {
         { provide: UserRepository, useValue: userRepo },
         { provide: UserEmailRepository, useValue: userEmailRepo },
         { provide: RefreshTokenRepository, useValue: refreshTokenRepo },
+        { provide: InterviewRepository, useValue: interviewRepo },
         { provide: AuditService, useValue: auditService },
       ],
     }).compile();
@@ -132,6 +135,7 @@ describe('OrgUsersService', () => {
         service.updateRole('u2', { role: 'HiringManager' }),
       );
       expect(userRepo.updateRole).toHaveBeenCalledWith('u2', 'HiringManager');
+      expect(refreshTokenRepo.deleteByUser).toHaveBeenCalledWith('u2');
       expect(auditService.log).toHaveBeenCalledWith('user.role_change', 'u2', {
         fromRole: 'Recruiter',
         toRole: 'HiringManager',
@@ -163,6 +167,7 @@ describe('OrgUsersService', () => {
         { id: 'u2', email: 'u2@acme.com', role: 'Recruiter' },
       ]);
       await runAs(() => service.remove('u2'));
+      expect(interviewRepo.deleteByInterviewer).toHaveBeenCalledWith('u2');
       expect(userRepo.remove).toHaveBeenCalledWith('u2');
       expect(userEmailRepo.deleteByUserId).toHaveBeenCalledWith('u2');
       expect(refreshTokenRepo.deleteByUser).toHaveBeenCalledWith('u2');

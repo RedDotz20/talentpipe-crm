@@ -3,6 +3,7 @@ import {
   Get,
   NotFoundException,
   Param,
+  ParseUUIDPipe,
   Res,
   UseGuards,
 } from '@nestjs/common';
@@ -25,7 +26,7 @@ export class ResumesController {
   @Get()
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
-  async get(@Param('candidateId') candidateId: string) {
+  async get(@Param('candidateId', new ParseUUIDPipe()) candidateId: string) {
     const candidate = await this.candidateRepo.findById(candidateId);
     if (!candidate?.candidateAccountId) {
       throw new NotFoundException('Candidate resume not found');
@@ -38,7 +39,7 @@ export class ResumesController {
   @Roles(...VIEW_ROLES)
   @SkipEnvelope()
   async downloadFile(
-    @Param('candidateId') candidateId: string,
+    @Param('candidateId', new ParseUUIDPipe()) candidateId: string,
     @Res() res: Response,
   ) {
     const candidate = await this.candidateRepo.findById(candidateId);

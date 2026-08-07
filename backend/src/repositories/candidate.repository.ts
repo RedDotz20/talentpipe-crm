@@ -94,4 +94,10 @@ export class CandidateRepository extends BaseRepository {
       return rows[0] ?? null;
     });
   }
+
+  async delete(id: string, schema = 'current') {
+    return this.withDb(schema, (db) =>
+      db.delete(candidates).where(eq(candidates.id, id)).execute(),
+    );
+  }
 }

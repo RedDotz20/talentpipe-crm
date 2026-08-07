@@ -6,6 +6,7 @@ import { JobPostingRepository } from '../../repositories/job-posting.repository'
 import { SkillRepository } from '../../repositories/skill.repository';
 import { TenantRepository } from '../../repositories/tenant.repository';
 import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
+import { ApplicationRepository } from '../../repositories/application.repository';
 import { CacheService } from '../../common/cache/cache.service';
 
 const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
@@ -25,6 +26,7 @@ describe('JobPostingsService', () => {
   const skillRepo = { findByIds: jest.fn() };
   const tenantRepo = { findById: jest.fn() };
   const jobListingsIndexRepo = { upsert: jest.fn(), delete: jest.fn() };
+  const applicationRepo = { countByJobPosting: jest.fn().mockResolvedValue(0) };
   const cacheService = { invalidateTenantDashboard: jest.fn() };
 
   beforeEach(async () => {
@@ -36,6 +38,7 @@ describe('JobPostingsService', () => {
         { provide: SkillRepository, useValue: skillRepo },
         { provide: TenantRepository, useValue: tenantRepo },
         { provide: JobListingsIndexRepository, useValue: jobListingsIndexRepo },
+        { provide: ApplicationRepository, useValue: applicationRepo },
         { provide: CacheService, useValue: cacheService },
       ],
     }).compile();

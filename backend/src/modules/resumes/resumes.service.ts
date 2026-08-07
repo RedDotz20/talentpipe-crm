@@ -53,6 +53,7 @@ export class ResumesService {
       await this.candidateAccountRepo.findById(candidateAccountId);
     if (!account) throw new NotFoundException('Candidate not found');
     this.assertSupportedType(file.mimetype);
+    this.assertSupportedContent(file.buffer, file.mimetype);
 
     const ext = file.mimetype === PDF_MIME ? 'pdf' : 'docx';
     const tenantId = getTenantId();
@@ -85,6 +86,20 @@ export class ResumesService {
     if (mimeType !== PDF_MIME && mimeType !== DOCX_MIME) {
       throw new BadRequestException(
         'Unsupported file type. Only PDF and DOCX are allowed.',
+      );
+    }
+  }
+
+  private assertSupportedContent(buffer: Buffer, mimeType: string) {
+    const isPdf =
+      mimeType === PDF_MIME &&
+      buffer.subarray(0, 5).toString('ascii') === '%PDF-';
+    const isDocx =
+      mimeType === DOCX_MIME &&
+      buffer.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]));
+    if (!isPdf && !isDocx) {
+      throw new BadRequestException(
+        'File content does not match an allowed type (PDF or DOCX)',
       );
     }
   }

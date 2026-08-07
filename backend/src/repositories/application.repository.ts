@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, count } from 'drizzle-orm';
 import {
   applications,
   candidates,
@@ -117,12 +117,23 @@ export class ApplicationRepository extends BaseRepository {
     });
   }
 
-  async updateStage(id: string, stageId: string | null, schema = 'current') {
+  async updateStage(
+    id: string,
+    stageId: string | null,
+    schema = 'current',
+    expectedCurrentStageId?: string,
+  ) {
     return this.withDb(schema, async (db) => {
+      const where = expectedCurrentStageId
+        ? and(
+            eq(applications.id, id),
+            eq(applications.currentStageId, expectedCurrentStageId),
+          )
+        : eq(applications.id, id);
       const rows = await db
         .update(applications)
         .set({ currentStageId: stageId })
-        .where(eq(applications.id, id))
+        .where(where)
         .returning()
         .execute();
       return rows[0] ?? null;
@@ -155,6 +166,17 @@ export class ApplicationRepository extends BaseRepository {
         .returning()
         .execute();
       return rows[0] ?? null;
+    });
+  }
+
+  async countByJobPosting(jobPostingId: string, schema = 'current') {
+    return this.withDb(schema, async (db) => {
+      const rows = await db
+        .select({ value: count() })
+        .from(applications)
+        .where(eq(applications.jobPostingId, jobPostingId))
+        .execute();
+      return Number(rows[0]?.value ?? 0);
     });
   }
 

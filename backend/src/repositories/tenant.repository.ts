@@ -34,6 +34,16 @@ export class TenantRepository extends BaseRepository {
     });
   }
 
+  async findSuspendedIds() {
+    return this.withDb('public', (db) =>
+      db
+        .select({ id: tenants.id })
+        .from(tenants)
+        .where(eq(tenants.status, 'suspended'))
+        .execute(),
+    );
+  }
+
   async updateStatus(id: string, status: 'active' | 'suspended') {
     return this.withDb('public', async (db) => {
       const rows = await db

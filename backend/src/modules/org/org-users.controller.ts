@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   UseGuards,
@@ -39,7 +40,7 @@ export class OrgUsersController {
   @UseGuards(AuthGuard('jwt'))
   @Roles('OrgAdmin')
   updateRole(
-    @Param('userId') userId: string,
+    @Param('userId', new ParseUUIDPipe()) userId: string,
     @Body(new ZodValidationPipe(UpdateRoleSchema)) dto: UpdateRoleDto,
   ) {
     return this.orgUsersService.updateRole(userId, dto);
@@ -48,7 +49,7 @@ export class OrgUsersController {
   @Delete(':userId')
   @UseGuards(AuthGuard('jwt'))
   @Roles('OrgAdmin')
-  remove(@Param('userId') userId: string) {
+  remove(@Param('userId', new ParseUUIDPipe()) userId: string) {
     return this.orgUsersService.remove(userId);
   }
 }

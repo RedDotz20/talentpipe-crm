@@ -34,6 +34,8 @@ export class TenantProvisioningService {
   async createTenant(dto: CreateTenantDto) {
     const existing = await this.tenantRepo.findBySlug(dto.slug);
     if (existing) throw new ConflictException('Slug already taken');
+    const emailOwner = await this.userEmailRepo.findByEmail(dto.email);
+    if (emailOwner) throw new ConflictException('Email already taken');
 
     const tenantId = randomUUID();
     const schemaName = `tenant_${tenantId}`;

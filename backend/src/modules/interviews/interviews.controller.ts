@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -47,7 +48,10 @@ export class InterviewsController {
   @Get(':id')
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
-  getOne(@Param('id') id: string, @CurrentUser() user: TenantContext) {
+  getOne(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: TenantContext,
+  ) {
     return this.interviewsService.getOne(user, id);
   }
 
@@ -65,7 +69,7 @@ export class InterviewsController {
   @UseGuards(AuthGuard('jwt'))
   @Roles(...SCHEDULER_ROLES)
   update(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodValidationPipe(UpdateInterviewSchema)) dto: UpdateInterviewDto,
   ) {
     return this.interviewsService.update(id, dto);
@@ -75,7 +79,7 @@ export class InterviewsController {
   @UseGuards(AuthGuard('jwt'))
   @Roles('Interviewer')
   submitFeedback(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodValidationPipe(SubmitFeedbackSchema)) dto: SubmitFeedbackDto,
     @CurrentUser() user: TenantContext,
   ) {

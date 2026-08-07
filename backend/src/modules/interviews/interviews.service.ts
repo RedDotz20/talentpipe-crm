@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -53,6 +54,11 @@ export class InterviewsService {
     if (!application) throw new NotFoundException('Application not found');
     const interviewer = await this.userRepo.findById(dto.interviewerId);
     if (!interviewer) throw new NotFoundException('Interviewer not found');
+    if (interviewer.role !== 'Interviewer') {
+      throw new BadRequestException(
+        'Interviews can only be scheduled for users with the Interviewer role',
+      );
+    }
     const interview = await this.interviewRepo.create({
       applicationId: dto.applicationId,
       interviewerId: dto.interviewerId,

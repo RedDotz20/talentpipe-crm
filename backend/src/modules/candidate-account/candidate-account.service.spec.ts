@@ -15,6 +15,8 @@ import { PipelineStageRepository } from '../../repositories/pipeline-stage.repos
 import { CandidateSkillRepository } from '../../repositories/candidate-skill.repository';
 import { SkillRepository } from '../../repositories/skill.repository';
 import { JobPostingRepository } from '../../repositories/job-posting.repository';
+import { TenantRepository } from '../../repositories/tenant.repository';
+import { UserEmailRepository } from '../../repositories/user-email.repository';
 import { SkillMatchingService } from '../skill-matching/skill-matching.service';
 import { ResumesService } from '../../modules/resumes/resumes.service';
 import { CacheService } from '../../common/cache/cache.service';
@@ -47,6 +49,7 @@ describe('CandidateAccountService', () => {
     findByAccountId: jest.fn(),
     createFromAccount: jest.fn(),
     update: jest.fn(),
+    delete: jest.fn(),
   };
   const applicationRepo = {
     create: jest.fn(),
@@ -75,6 +78,13 @@ describe('CandidateAccountService', () => {
   const resumesService = {
     upload: jest.fn(),
   };
+  const tenantRepo = {
+    findById: jest.fn().mockResolvedValue({ status: 'active' }),
+    findSuspendedIds: jest.fn().mockResolvedValue([]),
+  };
+  const userEmailRepo = {
+    findByEmail: jest.fn().mockResolvedValue(null),
+  };
   const cacheService = { invalidateTenantDashboard: jest.fn() };
 
   beforeEach(async () => {
@@ -98,6 +108,8 @@ describe('CandidateAccountService', () => {
         { provide: CandidateSkillRepository, useValue: candidateSkillRepo },
         { provide: SkillRepository, useValue: skillRepo },
         { provide: JobPostingRepository, useValue: jobPostingRepo },
+        { provide: TenantRepository, useValue: tenantRepo },
+        { provide: UserEmailRepository, useValue: userEmailRepo },
         { provide: SkillMatchingService, useValue: skillMatching },
         { provide: ResumesService, useValue: resumesService },
         { provide: CacheService, useValue: cacheService },

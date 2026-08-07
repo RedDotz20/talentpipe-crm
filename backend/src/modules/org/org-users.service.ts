@@ -15,6 +15,7 @@ import { AuditService } from '../../common/audit/audit.service';
 import { UserRepository } from '../../repositories/user.repository';
 import { UserEmailRepository } from '../../repositories/user-email.repository';
 import { RefreshTokenRepository } from '../../repositories/refresh-token.repository';
+import { InterviewRepository } from '../../repositories/interview.repository';
 import { InviteUserDto } from './dto/invite-user.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 
@@ -24,6 +25,7 @@ export class OrgUsersService {
     private readonly userRepo: UserRepository,
     private readonly userEmailRepo: UserEmailRepository,
     private readonly refreshTokenRepo: RefreshTokenRepository,
+    private readonly interviewRepo: InterviewRepository,
     private readonly auditService: AuditService,
   ) {}
 
@@ -69,6 +71,8 @@ export class OrgUsersService {
     await this.ensureOrgAdminRemains(userId);
 
     const updated = await this.userRepo.updateRole(userId, dto.role);
+    if (!updated) throw new NotFoundException('User not found');
+    await this.refreshTokenRepo.deleteByUser(userId);
     await this.auditService.log('user.role_change', userId, {
       fromRole: user.role,
       toRole: dto.role,
@@ -86,6 +90,7 @@ export class OrgUsersService {
     }
     await this.ensureOrgAdminRemains(userId);
 
+    await this.interviewRepo.deleteByInterviewer(userId);
     await this.userRepo.remove(userId);
     await this.userEmailRepo.deleteByUserId(userId);
     await this.refreshTokenRepo.deleteByUser(userId);

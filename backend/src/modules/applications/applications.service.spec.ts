@@ -182,7 +182,13 @@ describe('ApplicationsService', () => {
     ).rejects.toBeInstanceOf(ServiceUnavailableException);
 
     expect(applicationRepo.updateStage).toHaveBeenNthCalledWith(1, 'a1', 's2');
-    expect(applicationRepo.updateStage).toHaveBeenNthCalledWith(2, 'a1', 's1');
+    expect(applicationRepo.updateStage).toHaveBeenNthCalledWith(
+      2,
+      'a1',
+      's1',
+      undefined,
+      's2',
+    );
     expect(cacheService.invalidateTenantDashboard).not.toHaveBeenCalled();
   });
 

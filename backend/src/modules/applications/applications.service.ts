@@ -62,7 +62,12 @@ export class ApplicationsService {
       stage.name,
     );
     if (application.candidateAccountId && !indexed) {
-      await this.applicationRepo.updateStage(id, application.currentStageId);
+      await this.applicationRepo.updateStage(
+        id,
+        application.currentStageId,
+        undefined,
+        dto.stageId,
+      );
       throw new ServiceUnavailableException(
         'Candidate application status could not be synchronized',
       );

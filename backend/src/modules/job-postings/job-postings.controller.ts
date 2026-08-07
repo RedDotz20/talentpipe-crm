@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -52,7 +53,7 @@ export class JobPostingsController {
   @Get(':id')
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
-  getOne(@Param('id') id: string) {
+  getOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.jobPostingsService.getOne(id);
   }
 
@@ -60,7 +61,7 @@ export class JobPostingsController {
   @UseGuards(AuthGuard('jwt'))
   @Roles(...EDIT_ROLES)
   update(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodValidationPipe(UpdateJobPostingSchema))
     dto: UpdateJobPostingDto,
   ) {
@@ -70,21 +71,21 @@ export class JobPostingsController {
   @Post(':id/publish')
   @UseGuards(AuthGuard('jwt'))
   @Roles(...EDIT_ROLES)
-  publish(@Param('id') id: string) {
+  publish(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.jobPostingsService.publish(id);
   }
 
   @Post(':id/close')
   @UseGuards(AuthGuard('jwt'))
   @Roles(...EDIT_ROLES)
-  close(@Param('id') id: string) {
+  close(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.jobPostingsService.close(id);
   }
 
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'))
   @Roles('OrgAdmin')
-  remove(@Param('id') id: string) {
+  remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.jobPostingsService.remove(id);
   }
 }

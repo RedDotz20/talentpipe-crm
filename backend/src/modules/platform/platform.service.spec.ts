@@ -91,18 +91,15 @@ describe('PlatformService', () => {
 
     it('throws NotFoundException for an unknown tenant', async () => {
       tenantRepo.findById.mockResolvedValue(null);
-      await expect(service.setTenantStatus('nope', 'suspended')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.setTenantStatus('nope', 'suspended'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
   describe('getStats', () => {
     it('sums users and applications across all tenant schemas', async () => {
-      tenantRepo.findAll.mockResolvedValue([
-        { id: 't1' },
-        { id: 't2' },
-      ]);
+      tenantRepo.findAll.mockResolvedValue([{ id: 't1' }, { id: 't2' }]);
       const result = await service.getStats();
       expect(result).toEqual({ tenants: 2, users: 4, applications: 10 });
     });

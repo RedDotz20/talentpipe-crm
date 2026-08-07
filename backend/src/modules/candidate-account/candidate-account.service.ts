@@ -14,9 +14,11 @@ import { PipelineStageRepository } from '../../repositories/pipeline-stage.repos
 import { CandidateSkillRepository } from '../../repositories/candidate-skill.repository';
 import { SkillRepository } from '../../repositories/skill.repository';
 import { JobPostingRepository } from '../../repositories/job-posting.repository';
+import { TenantRepository } from '../../repositories/tenant.repository';
 import { SkillMatchingService } from '../skill-matching/skill-matching.service';
 import { ResumesService } from '../resumes/resumes.service';
 import { CacheService } from '../../common/cache/cache.service';
+import { UserEmailRepository } from '../../repositories/user-email.repository';
 
 const isDuplicateCandidateApplicationError = (error: unknown): boolean => {
   if (typeof error !== 'object' || error === null) return false;
@@ -78,16 +80,23 @@ export class CandidateAccountService {
     private readonly candidateSkillRepo: CandidateSkillRepository,
     private readonly skillRepo: SkillRepository,
     private readonly jobPostingRepo: JobPostingRepository,
+    private readonly tenantRepo: TenantRepository,
     private readonly skillMatching: SkillMatchingService,
     private readonly resumesService: ResumesService,
     private readonly cacheService: CacheService,
+    private readonly userEmailRepo: UserEmailRepository,
   ) {}
 
   async getJobs(search?: string) {
-    return this.jobListingsIndexRepo.findAll(search);
+    const jobs = await this.jobListingsIndexRepo.findAll(search);
+    const suspendedIds = new Set(
+      (await this.tenantRepo.findSuspendedIds()).map((t) => t.id),
+    );
+    return jobs.filter((job) => !suspendedIds.has(job.tenantId));
   }
 
   async getJobDetail(tenantId: string, jobPostingId: string) {
+    await this.requireActiveTenant(tenantId);
     const job = await this.jobListingsIndexRepo.findOpenByTenantAndJob(
       tenantId,
       jobPostingId,
@@ -227,6 +236,13 @@ export class CandidateAccountService {
       } catch {
         // Preserve the public index error while attempting the compensation.
       }
+      if (createdCandidate && candidate) {
+        try {
+          await this.candidateRepo.delete(candidate.id, schemaName);
+        } catch {
+          // Preserve the public index error while attempting the compensation.
+        }
+      }
       if (isDuplicateCandidateApplicationError(error)) {
         throw new ConflictException('You already applied to this application.');
       }
@@ -283,12 +299,13 @@ export class CandidateAccountService {
   }
 
   async setSkills(candidateAccountId: string, skillIds: string[]) {
-    const found = await this.skillRepo.findByIds(skillIds);
-    if (found.length !== skillIds.length) {
+    const uniqueIds = Array.from(new Set(skillIds));
+    const found = await this.skillRepo.findByIds(uniqueIds);
+    if (found.length !== uniqueIds.length) {
       throw new BadRequestException('One or more skill IDs are invalid');
     }
-    await this.candidateSkillRepo.replaceAll(candidateAccountId, skillIds);
-    return { skills: skillIds.length };
+    await this.candidateSkillRepo.replaceAll(candidateAccountId, uniqueIds);
+    return { skills: uniqueIds.length };
   }
 
   async getBookmarks(candidateAccountId: string) {
@@ -323,10 +340,18 @@ export class CandidateAccountService {
     });
   }
 
+  private async requireActiveTenant(tenantId: string): Promise<void> {
+    const tenant = await this.tenantRepo.findById(tenantId);
+    if (!tenant || tenant.status === 'suspended') {
+      throw new NotFoundException('Tenant not found');
+    }
+  }
+
   private async requireOpenTenantJob(
     tenantId: string,
     jobPostingId: string,
   ): Promise<void> {
+    await this.requireActiveTenant(tenantId);
     const posting = await this.jobPostingRepo.findById(
       jobPostingId,
       `tenant_${tenantId}`,
@@ -385,6 +410,10 @@ export class CandidateAccountService {
     if (dto.email) {
       const existing = await this.candidateAccountRepo.findByEmail(dto.email);
       if (existing && existing.id !== candidateAccountId) {
+        throw new ConflictException('Email already in use');
+      }
+      const orgOwner = await this.userEmailRepo.findByEmail(dto.email);
+      if (orgOwner) {
         throw new ConflictException('Email already in use');
       }
     }

@@ -186,7 +186,7 @@ export const interviews = pgTable(
     interviewerId: uuid('interviewer_id')
       .notNull()
       .references(() => users.id),
-    scheduledAt: timestamp('scheduled_at').notNull(),
+    scheduledAt: timestamp('scheduled_at', { withTimezone: true }).notNull(),
     status: varchar('status', { length: 50 }).default('scheduled').notNull(),
   },
   (table) => ({

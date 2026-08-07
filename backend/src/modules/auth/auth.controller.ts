@@ -56,6 +56,6 @@ export class AuthController {
   @UseGuards(AuthGuard('jwt'))
   async logout(@CurrentUser() user: TenantContext) {
     await this.authService.logout(user.userId);
-    return { message: 'Logged out' };
+    return { data: null, message: 'Logged out' };
   }
 }

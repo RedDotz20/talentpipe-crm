@@ -93,6 +93,8 @@ export class AuthService {
   async candidateSignup(dto: CandidateSignupDto) {
     const existing = await this.candidateAccountRepo.findByEmail(dto.email);
     if (existing) throw new ConflictException('Email already taken');
+    const orgOwner = await this.userEmailRepo.findByEmail(dto.email);
+    if (orgOwner) throw new ConflictException('Email already taken');
 
     const passwordHash = await hashPassword(dto.password);
     const account = await this.candidateAccountRepo.create({

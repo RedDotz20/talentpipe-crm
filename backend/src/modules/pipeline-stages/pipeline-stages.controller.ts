@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   UseGuards,
@@ -53,7 +54,7 @@ export class PipelineStagesController {
   @UseGuards(AuthGuard('jwt'))
   @Roles('OrgAdmin')
   update(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodValidationPipe(UpdatePipelineStageSchema))
     dto: UpdatePipelineStageDto,
   ) {
@@ -63,7 +64,7 @@ export class PipelineStagesController {
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'))
   @Roles('OrgAdmin')
-  remove(@Param('id') id: string) {
+  remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.pipelineStagesService.remove(id);
   }
 }

@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -27,8 +28,9 @@ export class ApplicationsController {
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
   list(
-    @Query('jobPostingId') jobPostingId?: string,
-    @Query('stageId') stageId?: string,
+    @Query('jobPostingId', new ParseUUIDPipe({ optional: true }))
+    jobPostingId?: string,
+    @Query('stageId', new ParseUUIDPipe({ optional: true })) stageId?: string,
   ) {
     return this.applicationsService.list({ jobPostingId, stageId });
   }
@@ -36,7 +38,7 @@ export class ApplicationsController {
   @Get(':id')
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
-  getOne(@Param('id') id: string) {
+  getOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.applicationsService.getOne(id);
   }
 
@@ -44,7 +46,7 @@ export class ApplicationsController {
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
   updateStage(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodValidationPipe(UpdateStageSchema)) dto: UpdateStageDto,
     @CurrentUser() user: TenantContext,
   ) {
@@ -55,7 +57,7 @@ export class ApplicationsController {
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
   addNote(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodValidationPipe(CreateNoteSchema)) dto: CreateNoteDto,
     @CurrentUser() user: TenantContext,
   ) {
@@ -65,7 +67,7 @@ export class ApplicationsController {
   @Get(':id/notes')
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
-  listNotes(@Param('id') id: string) {
+  listNotes(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.applicationsService.listNotes(id);
   }
 }

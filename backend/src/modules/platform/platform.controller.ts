@@ -1,4 +1,11 @@
-import { Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { PlatformService } from './platform.service';
@@ -15,17 +22,17 @@ export class PlatformController {
   }
 
   @Get('tenants/:id')
-  getTenant(@Param('id') id: string) {
+  getTenant(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.platformService.getTenant(id);
   }
 
   @Patch('tenants/:id/suspend')
-  suspendTenant(@Param('id') id: string) {
+  suspendTenant(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.platformService.setTenantStatus(id, 'suspended');
   }
 
   @Patch('tenants/:id/reactivate')
-  reactivateTenant(@Param('id') id: string) {
+  reactivateTenant(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.platformService.setTenantStatus(id, 'active');
   }
 

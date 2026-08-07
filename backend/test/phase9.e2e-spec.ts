@@ -171,7 +171,13 @@ const createSuperAdmin = async (): Promise<TenantAccount> => {
 
   const response = await signIn(email, password);
   const tokens = assertEnvelope<Tokens>(response, 200);
-  return { tenantId: 'public', userId, token: tokens.accessToken, email, password };
+  return {
+    tenantId: 'public',
+    userId,
+    token: tokens.accessToken,
+    email,
+    password,
+  };
 };
 
 const createOpenJob = async (
@@ -349,12 +355,16 @@ describe('Phase 9 release gate', () => {
     let storedRefreshToken = '';
 
     it('suspends a tenant, blocking sign-in, refresh rotation, and public careers', async () => {
-      const initialSignin = await signIn(secondTenant.email, secondTenant.password);
+      const initialSignin = await signIn(
+        secondTenant.email,
+        secondTenant.password,
+      );
       const initialTokens = assertEnvelope<Tokens>(initialSignin, 200);
       storedRefreshToken = initialTokens.refreshToken;
 
-      const beforeSuspend = await request(httpServer())
-        .get(`/api/public/phase9-b-${runId}/jobs`);
+      const beforeSuspend = await request(httpServer()).get(
+        `/api/public/phase9-b-${runId}/jobs`,
+      );
       assertEnvelope<unknown[]>(beforeSuspend, 200);
 
       const suspended = assertEnvelope<PlatformTenant>(
@@ -368,7 +378,10 @@ describe('Phase 9 release gate', () => {
       const suspendedList = await request(httpServer())
         .get('/api/platform/tenants')
         .set('Authorization', `Bearer ${superAdmin.token}`);
-      const platformTenants = assertEnvelope<PlatformTenant[]>(suspendedList, 200);
+      const platformTenants = assertEnvelope<PlatformTenant[]>(
+        suspendedList,
+        200,
+      );
       expect(
         platformTenants.find((t) => t.id === secondTenant.tenantId)?.status,
       ).toBe('suspended');
@@ -381,8 +394,9 @@ describe('Phase 9 release gate', () => {
         .send({ refreshToken: storedRefreshToken });
       assertStatus(refresh, 401);
 
-      const careers = await request(httpServer())
-        .get(`/api/public/phase9-b-${runId}/jobs`);
+      const careers = await request(httpServer()).get(
+        `/api/public/phase9-b-${runId}/jobs`,
+      );
       assertStatus(careers, 404);
 
       const double = await request(httpServer())
@@ -410,8 +424,9 @@ describe('Phase 9 release gate', () => {
         .send({ refreshToken: storedRefreshToken });
       assertEnvelope<Tokens>(refresh, 200);
 
-      const careers = await request(httpServer())
-        .get(`/api/public/phase9-b-${runId}/jobs`);
+      const careers = await request(httpServer()).get(
+        `/api/public/phase9-b-${runId}/jobs`,
+      );
       assertEnvelope<unknown[]>(careers, 200);
     });
   });
@@ -479,7 +494,10 @@ describe('Phase 9 release gate', () => {
       const list = await request(httpServer())
         .get('/api/org/users')
         .set('Authorization', `Bearer ${tenant.token}`);
-      const users = assertEnvelope<Array<{ id: string; role: string }>>(list, 200);
+      const users = assertEnvelope<Array<{ id: string; role: string }>>(
+        list,
+        200,
+      );
       expect(users.find((u) => u.id === user.id)?.role).toBe('HiringManager');
 
       assertEnvelope<{ id: string }>(
@@ -531,9 +549,9 @@ describe('Phase 9 release gate', () => {
          WHERE tenant_id = $1`,
         [secondTenant.tenantId],
       );
-      const platformRows = (platformActions.rows as Array<{ action: string }>).map(
-        (row) => row.action,
-      );
+      const platformRows = (
+        platformActions.rows as Array<{ action: string }>
+      ).map((row) => row.action);
       expect(platformRows).toContain('tenant.suspend');
       expect(platformRows).toContain('tenant.reactivate');
 

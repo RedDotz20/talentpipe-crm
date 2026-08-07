@@ -109,4 +109,13 @@ export class InterviewRepository extends BaseRepository {
       return rows[0] ?? null;
     });
   }
+
+  async deleteByInterviewer(interviewerId: string, schema = 'current') {
+    return this.withDb(schema, (db) =>
+      db
+        .delete(interviews)
+        .where(eq(interviews.interviewerId, interviewerId))
+        .execute(),
+    );
+  }
 }

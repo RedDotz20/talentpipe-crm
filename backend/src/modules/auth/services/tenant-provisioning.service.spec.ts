@@ -20,7 +20,10 @@ describe('TenantProvisioningService', () => {
     provisionSchema: jest.fn().mockResolvedValue(undefined),
   };
   const userRepo = { create: jest.fn().mockResolvedValue({ id: 'uuid-1' }) };
-  const userEmailRepo = { create: jest.fn().mockResolvedValue({ id: 'e1' }) };
+  const userEmailRepo = {
+    findByEmail: jest.fn().mockResolvedValue(null),
+    create: jest.fn().mockResolvedValue({ id: 'e1' }),
+  };
   const pipelineStageRepo = {
     createMany: jest.fn().mockResolvedValue(undefined),
   };

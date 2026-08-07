@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  ParseUUIDPipe,
   Query,
   UseGuards,
   UploadedFile,
@@ -44,8 +45,8 @@ export class CandidateAccountController {
   @Get('jobs/:tenantId/:jobId')
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
   async getJobDetail(
-    @Param('tenantId') tenantId: string,
-    @Param('jobId') jobId: string,
+    @Param('tenantId', new ParseUUIDPipe()) tenantId: string,
+    @Param('jobId', new ParseUUIDPipe()) jobId: string,
   ) {
     return this.candidateAccountService.getJobDetail(tenantId, jobId);
   }
@@ -53,8 +54,8 @@ export class CandidateAccountController {
   @Post('jobs/:tenantId/:jobId/apply')
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
   async apply(
-    @Param('tenantId') tenantId: string,
-    @Param('jobId') jobId: string,
+    @Param('tenantId', new ParseUUIDPipe()) tenantId: string,
+    @Param('jobId', new ParseUUIDPipe()) jobId: string,
     @Body(new ZodValidationPipe(ApplyJobSchema)) body: ApplyJobDto,
     @CurrentUser() user: TenantContext,
   ) {
@@ -74,7 +75,7 @@ export class CandidateAccountController {
   @Get('applications/:id')
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
   async getApplicationDetail(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: TenantContext,
   ) {
     return this.candidateAccountService.getApplicationDetail(user.userId, id);
@@ -112,7 +113,7 @@ export class CandidateAccountController {
   @Delete('bookmarks/:id')
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
   async removeBookmark(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: TenantContext,
   ) {
     return this.candidateAccountService.removeBookmark(user.userId, id);

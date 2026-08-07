@@ -12,6 +12,7 @@ import { JobPostingRepository } from '../../repositories/job-posting.repository'
 import { SkillRepository } from '../../repositories/skill.repository';
 import { TenantRepository } from '../../repositories/tenant.repository';
 import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
+import { ApplicationRepository } from '../../repositories/application.repository';
 import { CreateJobPostingDto } from './dto/create-job-posting.dto';
 import { UpdateJobPostingDto } from './dto/update-job-posting.dto';
 
@@ -22,6 +23,7 @@ export class JobPostingsService {
     private readonly skillRepo: SkillRepository,
     private readonly tenantRepo: TenantRepository,
     private readonly jobListingsIndexRepo: JobListingsIndexRepository,
+    private readonly applicationRepo: ApplicationRepository,
     private readonly cacheService: CacheService,
   ) {}
 
@@ -120,6 +122,12 @@ export class JobPostingsService {
     if (posting.status === 'open') {
       throw new ConflictException(
         'Open postings must be closed before deletion',
+      );
+    }
+    const applicationCount = await this.applicationRepo.countByJobPosting(id);
+    if (applicationCount > 0) {
+      throw new ConflictException(
+        'Cannot delete a job posting that has applications',
       );
     }
     const tenantId = getTenantId();

@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { AuditService } from '../../common/audit/audit.service';
 import { TenantRepository } from '../../repositories/tenant.repository';
 import { UsageRepository } from '../../repositories/usage.repository';
@@ -59,6 +63,10 @@ export class PlatformService {
       totalUsers += users;
       totalApplications += applications;
     }
-    return { tenants: tenants.length, users: totalUsers, applications: totalApplications };
+    return {
+      tenants: tenants.length,
+      users: totalUsers,
+      applications: totalApplications,
+    };
   }
 }

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
@@ -119,12 +120,32 @@ describe('InterviewsService', () => {
     ).rejects.toThrow(NotFoundException);
   });
 
+  it('schedule throws BadRequestException when the interviewer lacks the Interviewer role', async () => {
+    applicationRepo.findById.mockResolvedValue({ id: 'a1' });
+    userRepo.findById.mockResolvedValue({
+      id: 'iv1',
+      email: 'iv@acme.com',
+      role: 'Recruiter',
+    });
+    await expect(
+      service.schedule(scheduler, {
+        applicationId: 'a1',
+        interviewerId: 'iv1',
+        scheduledAt: '2026-08-10T14:00:00Z',
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
   it('schedule creates the interview and auto-moves the application to the Interview stage', async () => {
     applicationRepo.findById.mockResolvedValue({
       id: 'a1',
       currentStageId: 'stage-screening',
     });
-    userRepo.findById.mockResolvedValue({ id: 'iv1', email: 'iv@acme.com' });
+    userRepo.findById.mockResolvedValue({
+      id: 'iv1',
+      email: 'iv@acme.com',
+      role: 'Interviewer',
+    });
     interviewRepo.create.mockResolvedValue(interview);
     pipelineStageRepo.findAll.mockResolvedValue([
       { id: 'stage-applied', name: 'Applied' },
@@ -156,7 +177,11 @@ describe('InterviewsService', () => {
       id: 'a1',
       currentStageId: 'stage-interview',
     });
-    userRepo.findById.mockResolvedValue({ id: 'iv1', email: 'iv@acme.com' });
+    userRepo.findById.mockResolvedValue({
+      id: 'iv1',
+      email: 'iv@acme.com',
+      role: 'Interviewer',
+    });
     interviewRepo.create.mockResolvedValue(interview);
     pipelineStageRepo.findAll.mockResolvedValue([
       { id: 'stage-interview', name: 'Interview' },
@@ -175,7 +200,11 @@ describe('InterviewsService', () => {
       id: 'a1',
       currentStageId: 'stage-screening',
     });
-    userRepo.findById.mockResolvedValue({ id: 'iv1', email: 'iv@acme.com' });
+    userRepo.findById.mockResolvedValue({
+      id: 'iv1',
+      email: 'iv@acme.com',
+      role: 'Interviewer',
+    });
     interviewRepo.create.mockResolvedValue(interview);
     pipelineStageRepo.findAll.mockResolvedValue([
       { id: 'stage-screening', name: 'Screening' },

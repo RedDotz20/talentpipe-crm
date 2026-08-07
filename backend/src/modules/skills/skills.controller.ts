@@ -1,7 +1,9 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { SkillsService } from './skills.service';
 
 @Controller('skills')
+@UseGuards(AuthGuard('jwt'))
 export class SkillsController {
   constructor(private readonly skillsService: SkillsService) {}
 
