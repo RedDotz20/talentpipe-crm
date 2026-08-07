@@ -88,7 +88,7 @@ export class TokenService {
         payload.sub,
         `tenant_${payload.tenantId}`,
       );
-      if (user?.status === 'suspended') {
+      if (!user || user.status === 'suspended') {
         throw new UnauthorizedException('This account is suspended');
       }
     }

@@ -125,6 +125,7 @@ describe('TokenService', () => {
         tokenHash: 'hashed-value',
       });
       tenantRepo.findById.mockResolvedValue({ id: 't1', status: 'active' });
+      userRepo.findById.mockResolvedValue({ id: 'u1', status: 'active' });
       const result = await service.rotate('refresh-token');
       expect(result).toEqual({ accessToken: 'token', refreshToken: 'token' });
     });
@@ -163,6 +164,22 @@ describe('TokenService', () => {
       await expect(service.rotate('refresh-token')).rejects.toThrow(
         UnauthorizedException,
       );
+      expect(refreshTokenRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('skips tenant and user checks for nil-tenant tokens', async () => {
+      jwtService.verify.mockReturnValue({
+        sub: 'u1',
+        tenantId: null,
+        role: 'Candidate',
+      });
+      refreshTokenRepo.findLatestByUser.mockResolvedValue({
+        expiresAt: new Date(Date.now() + 60_000),
+        tokenHash: 'hashed-value',
+      });
+      await service.rotate('refresh-token');
+      expect(tenantRepo.findById).not.toHaveBeenCalled();
+      expect(userRepo.findById).not.toHaveBeenCalled();
     });
   });
 

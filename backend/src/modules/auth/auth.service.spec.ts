@@ -167,6 +167,7 @@ describe('AuthService', () => {
       await expect(
         service.signin({ email: 'admin@acme.com', password: 'password1' }),
       ).rejects.toThrow(ForbiddenException);
+      expect(tokenService.issueTokens).not.toHaveBeenCalled();
     });
   });
 
