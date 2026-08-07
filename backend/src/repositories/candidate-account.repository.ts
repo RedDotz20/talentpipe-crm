@@ -68,7 +68,8 @@ export class CandidateAccountRepository extends BaseRepository {
       firstName?: string;
       lastName?: string;
       email?: string;
-      phone?: string;
+      phone?: string | null;
+      passwordHash?: string;
     },
   ) {
     return this.withDb('public', async (db) => {
@@ -80,6 +81,15 @@ export class CandidateAccountRepository extends BaseRepository {
         .execute();
       return rows[0] ?? null;
     });
+  }
+
+  async remove(id: string) {
+    return this.withDb('public', (db) =>
+      db
+        .delete(candidateAccounts)
+        .where(eq(candidateAccounts.id, id))
+        .execute(),
+    );
   }
 
   async uploadResume(id: string, fileUrl: string) {
