@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { candidateAccounts } from '../database/schema';
 import { BaseRepository } from './base.repository';
 
@@ -24,6 +24,16 @@ export class CandidateAccountRepository extends BaseRepository {
         .where(eq(candidateAccounts.id, id))
         .execute();
       return rows[0] ?? null;
+    });
+  }
+
+  async findAll() {
+    return this.withDb('public', async (db) => {
+      return db
+        .select()
+        .from(candidateAccounts)
+        .orderBy(desc(candidateAccounts.createdAt))
+        .execute();
     });
   }
 

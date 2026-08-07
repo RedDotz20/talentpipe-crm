@@ -12,6 +12,7 @@ export class UserRepository extends BaseRepository {
           id: users.id,
           email: users.email,
           role: users.role,
+          status: users.status,
           createdAt: users.createdAt,
         })
         .from(users)
@@ -57,6 +58,34 @@ export class UserRepository extends BaseRepository {
       const rows = await db
         .update(users)
         .set({ role })
+        .where(eq(users.id, id))
+        .returning()
+        .execute();
+      return rows[0] ?? null;
+    });
+  }
+
+  async updateStatus(
+    id: string,
+    status: 'active' | 'suspended',
+    schema = 'current',
+  ) {
+    return this.withDb(schema, async (db) => {
+      const rows = await db
+        .update(users)
+        .set({ status })
+        .where(eq(users.id, id))
+        .returning()
+        .execute();
+      return rows[0] ?? null;
+    });
+  }
+
+  async resetPassword(id: string, passwordHash: string, schema = 'current') {
+    return this.withDb(schema, async (db) => {
+      const rows = await db
+        .update(users)
+        .set({ passwordHash })
         .where(eq(users.id, id))
         .returning()
         .execute();

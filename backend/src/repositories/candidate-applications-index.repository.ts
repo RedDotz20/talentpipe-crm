@@ -66,6 +66,27 @@ export class CandidateApplicationsIndexRepository extends BaseRepository {
     });
   }
 
+  async findByApplication(applicationId: string) {
+    return this.withDb('public', async (db) => {
+      const rows = await db
+        .select()
+        .from(candidateApplicationsIndex)
+        .where(eq(candidateApplicationsIndex.applicationId, applicationId))
+        .limit(1)
+        .execute();
+      return rows[0] ?? null;
+    });
+  }
+
+  async deleteById(id: string) {
+    return this.withDb('public', (db) =>
+      db
+        .delete(candidateApplicationsIndex)
+        .where(eq(candidateApplicationsIndex.id, id))
+        .execute(),
+    );
+  }
+
   async create(data: {
     candidateAccountId: string;
     tenantId: string;
