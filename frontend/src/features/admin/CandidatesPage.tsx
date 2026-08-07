@@ -90,6 +90,7 @@ export function CandidatesPage() {
         body: {
           firstName: form.firstName,
           lastName: form.lastName,
+          email: form.email || undefined,
           phone: form.phone || null,
           password: form.password || undefined,
         },
@@ -216,6 +217,12 @@ export function CandidatesPage() {
             required
             value={form.lastName}
             onChange={(e) => setField('lastName', e.currentTarget.value)}
+          />
+          <TextInput
+            label="Email"
+            required
+            value={form.email}
+            onChange={(e) => setField('email', e.currentTarget.value)}
           />
           <TextInput
             label="Phone"

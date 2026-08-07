@@ -407,7 +407,7 @@ function ApplicationsTab({ tenantId }: { tenantId: string }) {
             label="Stage"
             data={stages.map((s) => ({ value: s.id, label: s.name }))}
             value={stageId || null}
-            onChange={setStageId}
+            onChange={(value) => setStageId(value ?? '')}
             searchable
             required
           />
@@ -444,6 +444,7 @@ function InterviewsTab({ tenantId }: { tenantId: string }) {
     null,
   )
   const [scheduledAt, setScheduledAt] = useState('')
+  const [cancelTarget, setCancelTarget] = useState<PlatformInterview | null>(null)
 
   const interviews = interviewsQuery.data ?? []
 
@@ -505,13 +506,7 @@ function InterviewsTab({ tenantId }: { tenantId: string }) {
                         size="xs"
                         variant="light"
                         color="red"
-                        loading={reschedule.isPending}
-                        onClick={() =>
-                          reschedule.mutate({
-                            id: interview.id,
-                            body: { status: 'cancelled' },
-                          })
-                        }
+                        onClick={() => setCancelTarget(interview)}
                       >
                         Cancel
                       </Button>
@@ -557,6 +552,38 @@ function InterviewsTab({ tenantId }: { tenantId: string }) {
               }}
             >
               Save
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal
+        opened={cancelTarget !== null}
+        onClose={() => setCancelTarget(null)}
+        title="Cancel interview"
+      >
+        <Stack>
+          <Alert color="red">
+            Cancel the interview for <b>{cancelTarget?.candidateName}</b> (
+            {cancelTarget?.jobTitle})?
+          </Alert>
+          <Group justify="flex-end">
+            <Button variant="light" onClick={() => setCancelTarget(null)}>
+              Back
+            </Button>
+            <Button
+              color="red"
+              loading={reschedule.isPending}
+              onClick={() => {
+                if (cancelTarget) {
+                  reschedule.mutate(
+                    { id: cancelTarget.id, body: { status: 'cancelled' } },
+                    { onSuccess: () => setCancelTarget(null) },
+                  )
+                }
+              }}
+            >
+              Cancel interview
             </Button>
           </Group>
         </Stack>
