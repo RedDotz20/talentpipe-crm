@@ -144,7 +144,7 @@ export function ApplicationsPage() {
               <Text span fw={600}>Status: </Text>
               <Badge color={statusColors[detail.status] ?? 'gray'}>{detail.status}</Badge>
             </Text>
-            <Stepper active={pipelineStep(detail.status)} size="xs">
+            <Stepper active={pipelineStep(detail.status)} size="xs" color={detail.status === 'Rejected' ? 'red' : undefined}>
               {PIPELINE.map((step) => (
                 <Stepper.Step key={step} label={step} />
               ))}

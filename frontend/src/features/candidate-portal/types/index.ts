@@ -22,8 +22,6 @@ export interface Application {
 }
 
 export interface CandidateApplicationDetail extends Application {
-  tenantId: string;
-  applicationId: string;
   matchScore: number | null;
   appliedSkillIds: string[] | null;
   coverLetter: string | null;
