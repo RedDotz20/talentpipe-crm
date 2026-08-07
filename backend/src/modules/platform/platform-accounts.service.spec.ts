@@ -120,6 +120,22 @@ describe('PlatformAccountsService', () => {
       ).rejects.toThrow(ConflictException);
     });
 
+    it('409s when a case-variant email clashes with a lowercase candidate account', async () => {
+      deps.userEmailRepo.findByEmail.mockResolvedValue(null);
+      deps.candidateAccountRepo.findByEmail.mockResolvedValue({ id: 'c1' });
+      const service = makeService();
+      await expect(
+        service.createTenantUser('tenant-a', {
+          email: 'John@Acme.com',
+          role: 'Recruiter',
+          password: 'password1',
+        }),
+      ).rejects.toThrow(ConflictException);
+      expect(deps.candidateAccountRepo.findByEmail).toHaveBeenCalledWith(
+        'john@acme.com',
+      );
+    });
+
     it('creates a tenant user and its email bridge', async () => {
       const service = makeService();
       await service.createTenantUser('tenant-a', {

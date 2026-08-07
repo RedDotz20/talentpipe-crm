@@ -95,6 +95,18 @@ export class TenantRepository extends BaseRepository {
           `CREATE TABLE IF NOT EXISTS "${schemaName}"."${table}" (LIKE template."${table}" INCLUDING ALL)`,
         );
       }
+      // LIKE never copies FK constraints; re-apply the platform cascade rules
+      // (names must match 20260808100000_platform_account_cascades).
+      const cascadeFks = [
+        `ALTER TABLE "${schemaName}"."interview_feedbacks" ADD CONSTRAINT interview_feedbacks_interview_id_interviews_id_fkey FOREIGN KEY (interview_id) REFERENCES "${schemaName}"."interviews"(id) ON DELETE CASCADE`,
+        `ALTER TABLE "${schemaName}"."interviews" ADD CONSTRAINT interviews_application_id_applications_id_fkey FOREIGN KEY (application_id) REFERENCES "${schemaName}"."applications"(id) ON DELETE CASCADE`,
+        `ALTER TABLE "${schemaName}"."notes" ADD CONSTRAINT notes_application_id_applications_id_fkey FOREIGN KEY (application_id) REFERENCES "${schemaName}"."applications"(id) ON DELETE CASCADE`,
+        `ALTER TABLE "${schemaName}"."notes" ADD CONSTRAINT notes_author_user_id_users_id_fkey FOREIGN KEY (author_user_id) REFERENCES "${schemaName}"."users"(id) ON DELETE CASCADE`,
+        `ALTER TABLE "${schemaName}"."job_postings" ADD CONSTRAINT job_postings_created_by_user_id_users_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES "${schemaName}"."users"(id) ON DELETE SET NULL`,
+      ];
+      for (const fk of cascadeFks) {
+        await db.execute(fk);
+      }
     });
   }
 }

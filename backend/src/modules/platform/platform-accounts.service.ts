@@ -52,34 +52,33 @@ export class PlatformAccountsService {
 
   async createTenantUser(tenantId: string, dto: CreateTenantUserDto) {
     await this.requireTenant(tenantId);
-    const existing = await this.userEmailRepo.findByEmail(dto.email);
+    const email = dto.email.trim().toLowerCase();
+    const existing = await this.userEmailRepo.findByEmail(email);
     if (existing) {
       throw new ConflictException('A user with this email already exists');
     }
-    const candidateAccount = await this.candidateAccountRepo.findByEmail(
-      dto.email,
-    );
+    const candidateAccount = await this.candidateAccountRepo.findByEmail(email);
     if (candidateAccount) {
       throw new ConflictException('A user with this email already exists');
     }
     const passwordHash = await hashPassword(dto.password);
     const id = randomUUID();
     await this.userRepo.create(
-      { id, email: dto.email, passwordHash, role: dto.role },
+      { id, email, passwordHash, role: dto.role },
       this.schemaOf(tenantId),
     );
     await this.userEmailRepo.create({
-      email: dto.email,
+      email,
       tenantId,
       userId: id,
     });
     await this.auditService.log(
       'platform.user.create',
       id,
-      { email: dto.email, role: dto.role },
+      { email, role: dto.role },
       tenantId,
     );
-    return { id, email: dto.email, role: dto.role };
+    return { id, email, role: dto.role };
   }
 
   async updateTenantUser(
@@ -105,7 +104,7 @@ export class PlatformAccountsService {
     await this.auditService.log(
       'platform.user.update',
       userId,
-      { email: user.email, role: dto.role },
+      { email: user.email, role: updates.role ?? user.role },
       tenantId,
     );
     return { id: userId, email: user.email, role: updates.role ?? user.role };
@@ -222,7 +221,7 @@ export class PlatformAccountsService {
     }
     const updated = await this.candidateAccountRepo.updateProfile(id, data);
     await this.auditService.log('platform.candidate.update', id, {
-      email: dto.email ?? account.email,
+      email: updated.email,
     });
     return {
       id: updated.id,
