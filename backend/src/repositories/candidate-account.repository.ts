@@ -30,7 +30,15 @@ export class CandidateAccountRepository extends BaseRepository {
   async findAll() {
     return this.withDb('public', async (db) => {
       return db
-        .select()
+        .select({
+          id: candidateAccounts.id,
+          email: candidateAccounts.email,
+          firstName: candidateAccounts.firstName,
+          lastName: candidateAccounts.lastName,
+          phone: candidateAccounts.phone,
+          resumeFileUrl: candidateAccounts.resumeFileUrl,
+          createdAt: candidateAccounts.createdAt,
+        })
         .from(candidateAccounts)
         .orderBy(desc(candidateAccounts.createdAt))
         .execute();
