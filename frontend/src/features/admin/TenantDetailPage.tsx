@@ -389,7 +389,9 @@ function ApplicationsTab({ tenantId }: { tenantId: string }) {
                 </Table.Td>
                 <Table.Td>{dayjs(app.appliedAt).format('MMM D, YYYY')}</Table.Td>
                 <Table.Td>
-                  {app.matchScore != null ? `${app.matchScore}%` : '—'}
+                  {app.matchScore === null || app.matchScore === undefined
+                    ? '—'
+                    : `${Math.round(app.matchScore * 100)}%`}
                 </Table.Td>
               </Table.Tr>
             ))}

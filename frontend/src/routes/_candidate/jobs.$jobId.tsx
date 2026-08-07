@@ -18,7 +18,17 @@ function CandidateJobDetailRoute() {
   const { data: job, isLoading, error } = useJobDetail(tenantId, jobId);
   const [applyOpened, setApplyOpened] = useState(false);
 
-  if (isLoading || !tenantId) {
+  if (!tenantId) {
+    return (
+      <Container size="md" py="xl">
+        <Alert color="red" title="Job not found">
+          This position is no longer available or could not be loaded.
+        </Alert>
+      </Container>
+    );
+  }
+
+  if (isLoading) {
     return (
       <Container size="md" py="xl">
         <Group justify="center">
