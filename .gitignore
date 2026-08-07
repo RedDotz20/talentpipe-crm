@@ -7,3 +7,4 @@ dist/
 coverage/
 .superpowers/
 http-client.private.env.json
+/.env
