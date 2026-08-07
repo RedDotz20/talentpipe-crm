@@ -5,6 +5,7 @@ import { UnauthorizedException } from '@nestjs/common';
 import { TokenService } from './token.service';
 import { RefreshTokenRepository } from '../../../repositories/refresh-token.repository';
 import { TenantRepository } from '../../../repositories/tenant.repository';
+import { UserRepository } from '../../../repositories/user.repository';
 
 jest.mock('argon2', () => ({
   hash: jest.fn().mockResolvedValue('hashed-value'),
@@ -24,6 +25,7 @@ describe('TokenService', () => {
     findLatestByUser: jest.fn(),
   };
   const tenantRepo = { findById: jest.fn() };
+  const userRepo = { findById: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -34,6 +36,7 @@ describe('TokenService', () => {
         { provide: ConfigService, useValue: configService },
         { provide: RefreshTokenRepository, useValue: refreshTokenRepo },
         { provide: TenantRepository, useValue: tenantRepo },
+        { provide: UserRepository, useValue: userRepo },
       ],
     }).compile();
     service = module.get<TokenService>(TokenService);
@@ -137,6 +140,26 @@ describe('TokenService', () => {
         tokenHash: 'hashed-value',
       });
       tenantRepo.findById.mockResolvedValue({ id: 't1', status: 'suspended' });
+      await expect(service.rotate('refresh-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('rejects rotation for a suspended user', async () => {
+      jwtService.verify.mockReturnValue({
+        sub: 'u1',
+        tenantId: 't1',
+        role: 'OrgAdmin',
+      });
+      refreshTokenRepo.findLatestByUser.mockResolvedValue({
+        expiresAt: new Date(Date.now() + 60_000),
+        tokenHash: 'hashed-value',
+      });
+      tenantRepo.findById.mockResolvedValue({ id: 't1', status: 'active' });
+      userRepo.findById.mockResolvedValue({
+        id: 'u1',
+        status: 'suspended',
+      });
       await expect(service.rotate('refresh-token')).rejects.toThrow(
         UnauthorizedException,
       );

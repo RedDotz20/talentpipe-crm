@@ -56,6 +56,10 @@ export class AuthService {
         throw new ForbiddenException('This company account is suspended');
       }
 
+      if (user.status === 'suspended') {
+        throw new ForbiddenException('This account is suspended');
+      }
+
       const tokens = await this.tokenService.issueTokens({
         id: user.id,
         tenantId: emailRecord.tenantId,

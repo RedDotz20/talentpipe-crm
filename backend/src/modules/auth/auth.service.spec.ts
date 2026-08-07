@@ -146,6 +146,28 @@ describe('AuthService', () => {
         service.signin({ email: 'admin@acme.com', password: 'password1' }),
       ).rejects.toThrow(ForbiddenException);
     });
+
+    it('throws ForbiddenException when the user is suspended', async () => {
+      userEmailRepo.findByEmail.mockResolvedValue({
+        tenantId: 't1',
+        userId: 'u1',
+      });
+      userRepo.findByEmail.mockResolvedValue({
+        id: 'u1',
+        email: 'admin@acme.com',
+        passwordHash: 'hash',
+        role: 'OrgAdmin',
+        status: 'suspended',
+      });
+      tenantRepo.findById.mockResolvedValue({
+        id: 't1',
+        status: 'active',
+      });
+
+      await expect(
+        service.signin({ email: 'admin@acme.com', password: 'password1' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
   });
 
   describe('refresh', () => {

@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import * as argon2 from 'argon2';
 import { RefreshTokenRepository } from '../../../repositories/refresh-token.repository';
 import { TenantRepository } from '../../../repositories/tenant.repository';
+import { UserRepository } from '../../../repositories/user.repository';
 
 const ACCESS_TTL = '15m';
 const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -28,6 +29,7 @@ export class TokenService {
     private configService: ConfigService,
     private refreshTokenRepo: RefreshTokenRepository,
     private tenantRepo: TenantRepository,
+    private userRepo: UserRepository,
   ) {}
 
   async issueTokens(subject: TokenSubject) {
@@ -80,6 +82,14 @@ export class TokenService {
       const tenant = await this.tenantRepo.findById(payload.tenantId);
       if (tenant?.status === 'suspended') {
         throw new UnauthorizedException('This company account is suspended');
+      }
+
+      const user = await this.userRepo.findById(
+        payload.sub,
+        `tenant_${payload.tenantId}`,
+      );
+      if (user?.status === 'suspended') {
+        throw new UnauthorizedException('This account is suspended');
       }
     }
 
