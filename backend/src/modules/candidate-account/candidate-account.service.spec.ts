@@ -37,6 +37,7 @@ describe('CandidateAccountService', () => {
     create: jest.fn(),
     findByJob: jest.fn(),
     findByCandidateAndApplication: jest.fn(),
+    deleteById: jest.fn(),
   };
   const jobListingsIndexRepo = {
     findAll: jest.fn(),
@@ -588,6 +589,40 @@ describe('CandidateAccountService', () => {
         'app-a',
         'tenant_t1',
       );
+    });
+  });
+
+  describe('withdraw', () => {
+    it('deletes the application and its index row', async () => {
+      candidateApplicationsIndexRepo.findByCandidateAndApplication.mockResolvedValue(
+        { id: 'idx1', tenantId: 'tenant-a', applicationId: 'app1' },
+      );
+
+      const result = await service.withdraw('candidate-a', 'app1');
+
+      expect(applicationRepo.delete).toHaveBeenCalledWith(
+        'app1',
+        'tenant_tenant-a',
+      );
+      expect(candidateApplicationsIndexRepo.deleteById).toHaveBeenCalledWith(
+        'idx1',
+      );
+      expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith(
+        'tenant-a',
+      );
+      expect(result).toEqual({ applicationId: 'app1' });
+    });
+
+    it('404s for an application the candidate does not own', async () => {
+      candidateApplicationsIndexRepo.findByCandidateAndApplication.mockResolvedValue(
+        null,
+      );
+
+      await expect(service.withdraw('candidate-a', 'app1')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(applicationRepo.delete).not.toHaveBeenCalled();
+      expect(candidateApplicationsIndexRepo.deleteById).not.toHaveBeenCalled();
     });
   });
 

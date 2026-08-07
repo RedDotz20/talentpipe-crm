@@ -81,6 +81,15 @@ export class CandidateAccountController {
     return this.candidateAccountService.getApplicationDetail(user.userId, id);
   }
 
+  @Delete('applications/:id')
+  @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
+  async withdrawApplication(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: TenantContext,
+  ) {
+    return this.candidateAccountService.withdraw(user.userId, id);
+  }
+
   @Get('skills')
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
   async getSkills(@CurrentUser() user: TenantContext) {

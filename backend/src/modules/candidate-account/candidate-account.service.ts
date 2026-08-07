@@ -284,6 +284,21 @@ export class CandidateAccountService {
     };
   }
 
+  async withdraw(candidateAccountId: string, applicationId: string) {
+    const indexed =
+      await this.candidateApplicationsIndexRepo.findByCandidateAndApplication(
+        candidateAccountId,
+        applicationId,
+      );
+    if (!indexed) throw new NotFoundException('Application not found');
+
+    const schemaName = `tenant_${indexed.tenantId}`;
+    await this.applicationRepo.delete(indexed.applicationId, schemaName);
+    await this.candidateApplicationsIndexRepo.deleteById(indexed.id);
+    await this.cacheService.invalidateTenantDashboard(indexed.tenantId);
+    return { applicationId };
+  }
+
   async getSkills(candidateAccountId: string) {
     const skillIds =
       await this.candidateSkillRepo.findByCandidateAccountId(
