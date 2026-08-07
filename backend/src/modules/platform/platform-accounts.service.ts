@@ -56,6 +56,12 @@ export class PlatformAccountsService {
     if (existing) {
       throw new ConflictException('A user with this email already exists');
     }
+    const candidateAccount = await this.candidateAccountRepo.findByEmail(
+      dto.email,
+    );
+    if (candidateAccount) {
+      throw new ConflictException('A user with this email already exists');
+    }
     const passwordHash = await hashPassword(dto.password);
     const id = randomUUID();
     await this.userRepo.create(
@@ -96,7 +102,12 @@ export class PlatformAccountsService {
       await this.userRepo.resetPassword(userId, updates.passwordHash, schema);
     }
     await this.refreshTokenRepo.deleteByUser(userId);
-    await this.auditService.log('platform.user.update', userId, dto, tenantId);
+    await this.auditService.log(
+      'platform.user.update',
+      userId,
+      { email: user.email, role: dto.role },
+      tenantId,
+    );
     return { id: userId, email: user.email, role: updates.role ?? user.role };
   }
 
@@ -125,7 +136,12 @@ export class PlatformAccountsService {
       { email: user.email },
       tenantId,
     );
-    return updated;
+    return {
+      id: updated.id,
+      email: updated.email,
+      role: updated.role,
+      status: updated.status,
+    };
   }
 
   async removeTenantUser(tenantId: string, userId: string) {
@@ -179,14 +195,6 @@ export class PlatformAccountsService {
   async updateCandidate(id: string, dto: UpdateCandidateDto) {
     const account = await this.candidateAccountRepo.findById(id);
     if (!account) throw new NotFoundException('Candidate not found');
-    if (dto.email) {
-      const existing = await this.candidateAccountRepo.findByEmail(dto.email);
-      if (existing && existing.id !== id) {
-        throw new ConflictException('Email already in use');
-      }
-      const orgOwner = await this.userEmailRepo.findByEmail(dto.email);
-      if (orgOwner) throw new ConflictException('Email already in use');
-    }
     const data: {
       firstName?: string;
       lastName?: string;
@@ -196,15 +204,34 @@ export class PlatformAccountsService {
     } = {
       firstName: dto.firstName,
       lastName: dto.lastName,
-      email: dto.email,
       phone: dto.phone,
     };
+    if (dto.email) {
+      const normalizedEmail = dto.email.trim().toLowerCase();
+      const existing =
+        await this.candidateAccountRepo.findByEmail(normalizedEmail);
+      if (existing && existing.id !== id) {
+        throw new ConflictException('Email already in use');
+      }
+      const orgOwner = await this.userEmailRepo.findByEmail(normalizedEmail);
+      if (orgOwner) throw new ConflictException('Email already in use');
+      data.email = normalizedEmail;
+    }
     if (dto.password) {
       data.passwordHash = await hashPassword(dto.password);
     }
     const updated = await this.candidateAccountRepo.updateProfile(id, data);
-    await this.auditService.log('platform.candidate.update', id, dto);
-    return updated;
+    await this.auditService.log('platform.candidate.update', id, {
+      email: dto.email ?? account.email,
+    });
+    return {
+      id: updated.id,
+      email: updated.email,
+      firstName: updated.firstName,
+      lastName: updated.lastName,
+      phone: updated.phone,
+      createdAt: updated.createdAt,
+    };
   }
 
   async removeCandidate(id: string) {
@@ -213,11 +240,11 @@ export class PlatformAccountsService {
     const tenants = await this.tenantRepo.findAll();
     const indexed = await this.candidateIndexRepo.findByCandidate(id);
     for (const row of indexed) {
+      await this.candidateIndexRepo.deleteById(row.id);
       await this.applicationRepo.delete(
         row.applicationId,
         this.schemaOf(row.tenantId),
       );
-      await this.candidateIndexRepo.deleteById(row.id);
     }
     for (const tenant of tenants) {
       const candidate = await this.candidateRepo.findByAccountId(

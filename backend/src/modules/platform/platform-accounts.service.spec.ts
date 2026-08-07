@@ -46,6 +46,7 @@ function makeDeps() {
     interviewRepo: { deleteByInterviewer: jest.fn() },
     candidateAccountRepo: {
       findAll: jest.fn().mockResolvedValue([]),
+      findByEmail: jest.fn(),
       create: jest.fn(),
       findById: jest.fn(),
       updateProfile: jest.fn(),
@@ -135,6 +136,35 @@ describe('PlatformAccountsService', () => {
       );
     });
 
+    it('updates a tenant user role and logs safe metadata', async () => {
+      deps.userRepo.findById.mockResolvedValue({
+        id: 'u1',
+        email: 'r@acme.com',
+        role: 'Recruiter',
+      });
+      const service = makeService();
+      const result = await service.updateTenantUser('tenant-a', 'u1', {
+        role: 'Interviewer',
+      });
+      expect(deps.userRepo.updateRole).toHaveBeenCalledWith(
+        'u1',
+        'Interviewer',
+        'tenant_tenant-a',
+      );
+      expect(deps.refreshTokenRepo.deleteByUser).toHaveBeenCalledWith('u1');
+      expect(deps.auditService.log).toHaveBeenCalledWith(
+        'platform.user.update',
+        'u1',
+        { email: 'r@acme.com', role: 'Interviewer' },
+        'tenant-a',
+      );
+      expect(result).toEqual({
+        id: 'u1',
+        email: 'r@acme.com',
+        role: 'Interviewer',
+      });
+    });
+
     it('rejects a second suspension state change with 409', async () => {
       deps.userRepo.findById.mockResolvedValue({
         id: 'u1',
@@ -149,6 +179,12 @@ describe('PlatformAccountsService', () => {
     });
 
     it('suspends a user and deletes their refresh tokens', async () => {
+      deps.userRepo.updateStatus.mockResolvedValue({
+        id: 'u1',
+        email: 'u1@x.com',
+        role: 'Recruiter',
+        status: 'suspended',
+      });
       const service = makeService();
       await service.setTenantUserStatus('tenant-a', 'u1', 'suspended');
       expect(deps.userRepo.updateStatus).toHaveBeenCalledWith(
@@ -178,7 +214,48 @@ describe('PlatformAccountsService', () => {
       expect(deps.candidateAccountRepo.findAll).toHaveBeenCalled();
     });
 
-    it('removes a candidate and cascades to applications, index, skills, and bookmarks', async () => {
+    it('409s when creating a candidate whose email belongs to an org user', async () => {
+      deps.candidateAccountRepo.findByEmail.mockResolvedValue(null);
+      deps.userEmailRepo.findByEmail.mockResolvedValue({ id: 'e1' });
+      const service = makeService();
+      await expect(
+        service.createCandidate({
+          email: 'c@x.com',
+          password: 'password1',
+          firstName: 'C',
+          lastName: 'X',
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('returns an updateCandidate projection without the password hash', async () => {
+      deps.candidateAccountRepo.findById.mockResolvedValue({
+        id: 'c1',
+        email: 'c@x.com',
+      });
+      deps.candidateAccountRepo.updateProfile.mockResolvedValue({
+        id: 'c1',
+        email: 'c@x.com',
+        passwordHash: 'secret-hash',
+        firstName: 'C',
+        lastName: 'X',
+        phone: null,
+        createdAt: new Date('2026-01-01'),
+      });
+      const service = makeService();
+      const result = await service.updateCandidate('c1', { firstName: 'New' });
+      expect(result).not.toHaveProperty('passwordHash');
+      expect(result).toEqual({
+        id: 'c1',
+        email: 'c@x.com',
+        firstName: 'C',
+        lastName: 'X',
+        phone: null,
+        createdAt: new Date('2026-01-01'),
+      });
+    });
+
+    it('removes a candidate and cascades index rows first, then applications and tenant candidates', async () => {
       deps.candidateAccountRepo.findById.mockResolvedValue({
         id: 'c1',
         email: 'c@x.com',
@@ -190,11 +267,14 @@ describe('PlatformAccountsService', () => {
       deps.candidateRepo.findByAccountId.mockResolvedValue({ id: 'tc1' });
       const service = makeService();
       await service.removeCandidate('c1');
+      expect(deps.candidateIndexRepo.deleteById).toHaveBeenCalledWith('idx1');
       expect(deps.applicationRepo.delete).toHaveBeenCalledWith(
         'app1',
         'tenant_tenant-a',
       );
-      expect(deps.candidateIndexRepo.deleteById).toHaveBeenCalledWith('idx1');
+      expect(
+        deps.candidateIndexRepo.deleteById.mock.invocationCallOrder[0],
+      ).toBeLessThan(deps.applicationRepo.delete.mock.invocationCallOrder[0]);
       expect(deps.candidateRepo.delete).toHaveBeenCalledWith(
         'tc1',
         'tenant_tenant-a',
