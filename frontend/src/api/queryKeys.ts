@@ -47,6 +47,19 @@ export const queryKeys = {
   platform: {
     tenants: () => ['platform', 'tenants'],
     tenant: (id: string) => ['platform', 'tenants', id],
+    tenantUsers: (tenantId: string) => ['platform', 'tenants', tenantId, 'users'],
+    tenantStages: (tenantId: string) => ['platform', 'tenants', tenantId, 'stages'],
+    candidates: () => ['platform', 'candidates'],
+    applications: (filters?: { tenantId?: string; status?: string }) => [
+      'platform',
+      'applications',
+      filters,
+    ],
+    interviews: (filters?: { tenantId?: string; status?: string }) => [
+      'platform',
+      'interviews',
+      filters,
+    ],
     stats: () => ['platform', 'stats'],
   },
 } as const;
