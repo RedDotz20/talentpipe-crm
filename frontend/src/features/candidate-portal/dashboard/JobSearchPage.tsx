@@ -1,12 +1,10 @@
-import { useState } from 'react';
 import { Alert, Button, Card, Group, Loader, Stack, Text, Title } from '@mantine/core';
+import { Link } from '@tanstack/react-router';
 import { useJobs } from '../hooks';
-import { CandidateApplyModal } from '../applications/CandidateApplyModal';
 import type { Job } from '../types';
 
 export function JobSearchPage() {
   const { data: jobs = [], isLoading: jobsLoading, error: jobsError } = useJobs();
-  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
 
   if (jobsLoading) {
     return (
@@ -24,8 +22,6 @@ export function JobSearchPage() {
     return <Text>No jobs available</Text>;
   }
 
-  const selectedJob = jobs.find((job) => job.id === selectedJobId);
-
   return (
     <Stack>
       <Title order={2}>Job Search</Title>
@@ -37,16 +33,16 @@ export function JobSearchPage() {
               <Text size="sm" c="dimmed">{job.companyName}</Text>
             </div>
           </Group>
-          <Button onClick={() => setSelectedJobId(job.id)}>Apply</Button>
+          <Button
+            component={Link}
+            to="/_candidate/jobs/$jobId"
+            params={{ jobId: job.id }}
+            search={{ tenantId: job.tenantId }}
+          >
+            View details
+          </Button>
         </Card>
       ))}
-      {selectedJob && (
-        <CandidateApplyModal
-          opened
-          onClose={() => setSelectedJobId(null)}
-          job={selectedJob}
-        />
-      )}
     </Stack>
   );
 }
