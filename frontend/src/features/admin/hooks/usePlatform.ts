@@ -157,7 +157,7 @@ export function useMoveApplicationStage() {
     mutationFn: ({ id, stageId }: { id: string; stageId: string }) =>
       platformApi.moveApplicationStage(id, stageId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.platform.applications() });
+      queryClient.invalidateQueries({ queryKey: ['platform', 'applications'] });
     },
   });
 }
@@ -168,7 +168,7 @@ export function useRescheduleInterview() {
     mutationFn: ({ id, body }: { id: string; body: { scheduledAt?: string; status?: string } }) =>
       platformApi.rescheduleInterview(id, body),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.platform.interviews() });
+      queryClient.invalidateQueries({ queryKey: ['platform', 'interviews'] });
     },
   });
 }
