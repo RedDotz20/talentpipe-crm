@@ -15,19 +15,6 @@ export const resumesApi = {
     const { data } = await apiClient.get(`/candidates/${candidateId}/resume`);
     return unwrap(data as ApiEnvelope<Resume>);
   },
-  upload: async (
-    candidateId: string,
-    file: File,
-  ): Promise<ApiEnvelope<Resume>> => {
-    const formData = new FormData();
-    formData.append('file', file);
-    const { data } = await apiClient.post(
-      `/candidates/${candidateId}/resume`,
-      formData,
-      { headers: { 'Content-Type': undefined } },
-    );
-    return data as ApiEnvelope<Resume>;
-  },
   download: async (candidateId: string): Promise<string> => {
     const { data } = await apiClient.get(
       `/candidates/${candidateId}/resume/file`,

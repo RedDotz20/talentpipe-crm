@@ -7,8 +7,8 @@ import type {
   Bookmark,
   Profile,
   ApplyData,
-  CandidateSkills,
   ResumeUpload,
+  Skill,
 } from '@/features/candidate-portal/types';
 
 const unwrap = <T>(body: ApiEnvelope<T>): T => body.data;
@@ -73,14 +73,14 @@ export const candidateApi = {
     return unwrap(data as ApiEnvelope<Profile>);
   },
 
-  getSkills: async (): Promise<CandidateSkills> => {
+  getSkills: async (): Promise<Skill[]> => {
     const { data } = await apiClient.get('/candidate/skills');
-    return unwrap(data as ApiEnvelope<CandidateSkills>);
+    return unwrap(data as ApiEnvelope<Skill[]>);
   },
 
-  setSkills: async (skillIds: string[]): Promise<CandidateSkills> => {
+  setSkills: async (skillIds: string[]): Promise<{ skills: number }> => {
     const { data } = await apiClient.put('/candidate/skills', { skillIds });
-    return unwrap(data as ApiEnvelope<CandidateSkills>);
+    return unwrap(data as ApiEnvelope<{ skills: number }>);
   },
 
   updateProfile: async (

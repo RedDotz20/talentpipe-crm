@@ -5,8 +5,6 @@ export interface Job {
   tenantId: string;
   title: string;
   companyName: string;
-  location: string;
-  employmentType: string;
   description?: string;
   requirements?: string;
   benefits?: string;
@@ -31,11 +29,10 @@ export interface CandidateApplicationDetail extends Application {
 
 export interface Bookmark {
   id: string;
-  jobListingId: string;
-  title: string;
+  jobPostingId: string;
+  jobTitle: string;
   companyName: string;
-  location: string;
-  employmentType: string;
+  createdAt: string;
 }
 
 export interface Profile {
@@ -65,8 +62,4 @@ export interface Skill {
   id: string;
   name: string;
   category: string | null;
-}
-
-export interface CandidateSkills {
-  skills: Skill[];
 }

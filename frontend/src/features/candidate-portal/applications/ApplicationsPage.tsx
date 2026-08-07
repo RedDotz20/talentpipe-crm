@@ -14,12 +14,12 @@ import { useApplicationDetail, useApplications } from '../hooks';
 import type { Application } from '../types';
 
 const statusColors: Record<string, string> = {
-  pending: 'yellow',
-  reviewed: 'blue',
-  interviewed: 'purple',
-  offered: 'green',
-  rejected: 'red',
-  withdrawn: 'gray',
+  Applied: 'blue',
+  Screening: 'yellow',
+  Interview: 'purple',
+  Offer: 'green',
+  Hired: 'teal',
+  Rejected: 'red',
 };
 
 export function ApplicationsPage() {

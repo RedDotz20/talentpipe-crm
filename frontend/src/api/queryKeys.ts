@@ -1,4 +1,7 @@
 export const queryKeys = {
+  skills: {
+    all: () => ['skills', 'all'],
+  },
   candidate: {
     jobs: (search?: string) => ['candidate', 'jobs', { search }],
     jobDetail: (tenantId: string, jobId: string) => ['candidate', 'jobs', tenantId, jobId],

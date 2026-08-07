@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Badge, Button, Card, Group, Loader, Stack, Text, Title } from '@mantine/core';
+import { Alert, Button, Card, Group, Loader, Stack, Text, Title } from '@mantine/core';
 import { useJobs } from '../hooks';
 import { CandidateApplyModal } from '../applications/CandidateApplyModal';
 import type { Job } from '../types';
@@ -36,9 +36,7 @@ export function JobSearchPage() {
               <Title order={4}>{job.title}</Title>
               <Text size="sm" c="dimmed">{job.companyName}</Text>
             </div>
-            <Badge>{job.employmentType}</Badge>
           </Group>
-          <Text size="sm" mb="md">{job.location}</Text>
           <Button onClick={() => setSelectedJobId(job.id)}>Apply</Button>
         </Card>
       ))}

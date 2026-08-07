@@ -17,6 +17,5 @@ export type {
   Profile,
   ApplyData,
   Skill,
-  CandidateSkills,
   ResumeUpload,
 } from '../types';

@@ -79,7 +79,7 @@ Legend for **Roles**: SA = SuperAdmin, OA = Org Admin, R = Recruiter, HM = Hirin
 
 | Method | Path | Roles | Description |
 |---|---|---|---|
-| GET | `/candidates/:id/resume` | OA, R, HM | Get resume metadata only — returns `{ id, candidateId, fileUrl, uploadedAt }` (no parsed text, no extracted skills) |
+| GET | `/candidates/:id/resume` | OA, R, HM | Get resume metadata only — returns `{ fileUrl, uploadedAt }` (no parsed text, no extracted skills) |
 
 Note: resume upload is an authenticated candidate profile operation (`POST /candidate/resume`) or an internal recruiter upload for an existing candidate. Public careers browsing never accepts multipart files.
 
@@ -118,11 +118,11 @@ Note: resume upload is an authenticated candidate profile operation (`POST /cand
 | GET | `/candidate/skills` | CANDIDATE | List candidate's declared skills (returns `[{ id, name, category }]`) |
 | PUT | `/candidate/skills` | CANDIDATE | Replace all skills. Body: `{ skillIds: string[] }` |
 
-## Candidate Skills (public taxonomy) ⬜
+## Candidate Skills (public taxonomy) ✅
 
 | Method | Path | Roles | Description |
 |---|---|---|---|
-| GET | `/skills?search=` | — | Search the skill taxonomy (for the RequiredSkillsPicker) — planned with M2 |
+| GET | `/skills?search=` | ALL AUTHED | Search the skill taxonomy (used by the org RequiredSkillsPicker and the candidate apply modal) |
 
 ## Public Careers (unauthenticated read-only) ✅
 
@@ -169,6 +169,6 @@ Auth endpoints return an explicit envelope, e.g. `{ "data": { "accessToken": "..
 }
 ```
 
-Standard `code` values: `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `RATE_LIMITED`, `INTERNAL_ERROR`.
+Standard `code` values: `VALIDATION_ERROR` (400 + 413), `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT` (409), `UNPROCESSABLE` (422), `RATE_LIMITED`, `SERVICE_UNAVAILABLE`, `INTERNAL_ERROR`.
 
 Note: a tenant mismatch is logged server-side with detail (for audit purposes, per `05_DATA_ISOLATION_STRATEGY.md` Layer 8) but is always returned to the client as `NOT_FOUND` — there is no client-facing `TENANT_MISMATCH` code, to avoid leaking that the resource exists elsewhere.

@@ -38,11 +38,21 @@ export function useUpdateStage() {
     onMutate: async ({ applicationId, stageId }) => {
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<Application[]>(key);
+      const stages = queryClient.getQueryData<PipelineStage[]>(
+        queryKeys.org.pipelineStages(),
+      );
+      const stageName = stages?.find((s) => s.id === stageId)?.name;
       if (previous) {
         queryClient.setQueryData<Application[]>(
           key,
           previous.map((app) =>
-            app.id === applicationId ? { ...app, currentStageId: stageId } : app,
+            app.id === applicationId
+              ? {
+                  ...app,
+                  currentStageId: stageId,
+                  ...(stageName ? { stageName } : {}),
+                }
+              : app,
           ),
         );
       }

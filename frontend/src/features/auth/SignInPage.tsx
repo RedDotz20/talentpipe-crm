@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { SubmitEvent } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { Anchor, Button, Checkbox, PasswordInput, Text, TextInput } from '@mantine/core';
+import { Anchor, Button, PasswordInput, Text, TextInput } from '@mantine/core';
 import { useSignIn } from '@/hooks/auth';
 import { useAuthStore } from '@/api/useAuth';
 import { getSafeCareerReturnTo } from './returnTo';
@@ -35,8 +35,10 @@ export function SignInPage({ returnTo }: SignInPageProps) {
       } else {
         await navigate({ to: '/org/dashboard' });
       }
-    } catch {
-      setError('Invalid email or password');
+    } catch (err) {
+      const message = (err as { response?: { data?: { error?: { message?: string } } } })
+        ?.response?.data?.error?.message;
+      setError(message ?? 'Invalid email or password');
     }
   };
 
@@ -67,7 +69,6 @@ export function SignInPage({ returnTo }: SignInPageProps) {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        <Checkbox label="Keep me logged in" mt="xl" size="md" />
         <Button fullWidth mt="xl" size="md" radius="md" type="submit" loading={isPending}>
           Login
         </Button>

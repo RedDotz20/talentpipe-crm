@@ -4,10 +4,9 @@ import { queryKeys } from '@/api/queryKeys';
 import type { Skill } from '../types';
 
 export function useCandidateSkills() {
-  return useQuery({
+  return useQuery<Skill[]>({
     queryKey: queryKeys.candidate.skills(),
     queryFn: candidateApi.getSkills,
-    select: (data) => data.skills,
   });
 }
 
@@ -25,7 +24,7 @@ export function useSetCandidateSkills() {
 
 export function useAllSkills() {
   return useQuery<Skill[]>({
-    queryKey: ['skills', 'all'],
+    queryKey: queryKeys.skills.all(),
     queryFn: async () => {
       const { skillsApi } = await import('@/api/skillsApi');
       const result = await skillsApi.search();

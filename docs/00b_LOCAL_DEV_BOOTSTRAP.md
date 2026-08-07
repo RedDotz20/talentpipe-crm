@@ -134,6 +134,21 @@ docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "SELECT i
 # Expect every tenant to have status = 'active'.
 ```
 
+### 8b. Apply the interviews scheduled_at timezone migration
+
+Converts `interviews.scheduled_at` from a naive timestamp to `TIMESTAMP WITH TIME ZONE` in `public`, `template`, and all existing tenant schemas.
+
+```sh
+Get-Content backend/drizzle/20260807090000_scheduled_at_timezone/migration.sql `
+  | docker exec -i talentpipe-crm-postgres-1 psql -U devuser -d talentpipe
+```
+
+**Check:**
+```sh
+docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "\d public.interviews"
+# Expect scheduled_at as timestamp with time zone.
+```
+
 ### 9. Apply the `template` schema (used by tenant signup)
 
 The template schema is what every new tenant's `tenant_<uuid>` schema gets cloned from at signup time. It's a hand-written SQL file.

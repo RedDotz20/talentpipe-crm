@@ -69,6 +69,8 @@ Applied migration order includes:
 20260803085856_redundant_tyrannus
 20260804101500_candidate_profile_redesign
 20260805090000_candidate_application_integrity
+20260806191320_superb_king_cobra
+20260807090000_scheduled_at_timezone
 ```
 
 ## Architecture

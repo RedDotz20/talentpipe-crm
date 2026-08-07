@@ -1,4 +1,4 @@
-import { Card, Text, Title, Badge, Button, Group, Stack, Loader, Alert } from '@mantine/core';
+import { Card, Text, Title, Button, Group, Stack, Loader, Alert } from '@mantine/core';
 import { useBookmarks, useRemoveBookmark } from '../hooks';
 import type { Bookmark } from '../types';
 
@@ -27,22 +27,20 @@ export function BookmarksPage() {
       <Title order={2}>My Bookmarks</Title>
       {bookmarks.map((bookmark: Bookmark) => (
         <Card key={bookmark.id} shadow="sm" padding="lg" radius="md" withBorder>
-          <Group justify="space-between" mb="xs">
+          <Group justify="space-between">
             <div>
-              <Title order={4}>{bookmark.title}</Title>
+              <Title order={4}>{bookmark.jobTitle}</Title>
               <Text size="sm" c="dimmed">{bookmark.companyName}</Text>
             </div>
-            <Badge>{bookmark.employmentType}</Badge>
+            <Button
+              color="red"
+              variant="outline"
+              onClick={() => removeBookmark(bookmark.id)}
+              loading={isRemoving}
+            >
+              Remove Bookmark
+            </Button>
           </Group>
-          <Text size="sm" mb="md">{bookmark.location}</Text>
-          <Button
-            color="red"
-            variant="outline"
-            onClick={() => removeBookmark(bookmark.jobListingId)}
-            loading={isRemoving}
-          >
-            Remove Bookmark
-          </Button>
         </Card>
       ))}
     </Stack>
