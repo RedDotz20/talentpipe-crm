@@ -7,7 +7,7 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 const TENANT_TABLES = [
   'users', 'job_postings', 'candidates', 'pipeline_stages',
-  'applications', 'resumes', 'resume_skills', 'job_required_skills',
+  'applications', 'job_required_skills',
   'interviews', 'interview_feedbacks', 'notes',
 ];
 
