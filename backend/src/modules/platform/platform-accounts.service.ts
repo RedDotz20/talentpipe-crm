@@ -128,6 +128,10 @@ export class PlatformAccountsService {
     const updated = await this.userRepo.updateStatus(userId, status, schema);
     if (status === 'suspended') {
       await this.refreshTokenRepo.deleteByUser(userId);
+      if (user.role === 'CompanyAdmin') {
+        await this.userRepo.setAllStatus('suspended', schema);
+        await this.refreshTokenRepo.deleteByCompany(companyId);
+      }
     }
     await this.auditService.log(
       status === 'suspended'

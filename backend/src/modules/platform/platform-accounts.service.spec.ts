@@ -36,6 +36,7 @@ function makeDeps() {
       updateRole: jest.fn(),
       resetPassword: jest.fn(),
       updateStatus: jest.fn(),
+      setAllStatus: jest.fn(),
       remove: jest.fn(),
     },
     userEmailRepo: {
@@ -43,7 +44,7 @@ function makeDeps() {
       create: jest.fn(),
       deleteByUserId: jest.fn(),
     },
-    refreshTokenRepo: { deleteByUser: jest.fn() },
+    refreshTokenRepo: { deleteByUser: jest.fn(), deleteByCompany: jest.fn() },
     interviewRepo: { deleteByInterviewer: jest.fn() },
     candidateAccountRepo: {
       findAll: jest.fn().mockResolvedValue([]),
@@ -350,6 +351,68 @@ describe('PlatformAccountsService', () => {
         createdAt: expect.any(Date),
       });
       expect(deps.userRepo.findAll).toHaveBeenCalledWith('company_tenant-a');
+    });
+  });
+
+  describe('setCompanyUserStatus', () => {
+    it('cascades when the suspended user is the CompanyAdmin', async () => {
+      deps.userRepo.findById.mockResolvedValue({
+        id: 'u1',
+        email: 'admin@x.com',
+        role: 'CompanyAdmin',
+        status: 'active',
+      });
+      deps.userRepo.updateStatus.mockResolvedValue({
+        id: 'u1',
+        email: 'admin@x.com',
+        role: 'CompanyAdmin',
+        status: 'suspended',
+      });
+      const service = makeService();
+      await service.setCompanyUserStatus('tenant-a', 'u1', 'suspended');
+      expect(deps.userRepo.setAllStatus).toHaveBeenCalledWith(
+        'suspended',
+        'company_tenant-a',
+      );
+      expect(deps.refreshTokenRepo.deleteByCompany).toHaveBeenCalledWith(
+        'tenant-a',
+      );
+    });
+
+    it('does not cascade for non-admin roles', async () => {
+      deps.userRepo.findById.mockResolvedValue({
+        id: 'u1',
+        email: 'rec@x.com',
+        role: 'Recruiter',
+        status: 'active',
+      });
+      deps.userRepo.updateStatus.mockResolvedValue({
+        id: 'u1',
+        email: 'rec@x.com',
+        role: 'Recruiter',
+        status: 'suspended',
+      });
+      const service = makeService();
+      await service.setCompanyUserStatus('tenant-a', 'u1', 'suspended');
+      expect(deps.userRepo.setAllStatus).not.toHaveBeenCalled();
+    });
+
+    it('does not cascade on reactivation of a CompanyAdmin', async () => {
+      deps.userRepo.findById.mockResolvedValue({
+        id: 'u1',
+        email: 'admin@x.com',
+        role: 'CompanyAdmin',
+        status: 'suspended',
+      });
+      deps.userRepo.updateStatus.mockResolvedValue({
+        id: 'u1',
+        email: 'admin@x.com',
+        role: 'CompanyAdmin',
+        status: 'active',
+      });
+      const service = makeService();
+      await service.setCompanyUserStatus('tenant-a', 'u1', 'active');
+      expect(deps.userRepo.setAllStatus).not.toHaveBeenCalled();
     });
   });
 });
