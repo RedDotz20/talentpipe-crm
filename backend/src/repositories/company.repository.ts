@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
-import { tenants } from '../database/schema';
+import { companies } from '../database/schema';
 import { BaseRepository } from './base.repository';
 
-const TENANT_TABLES = [
+const COMPANY_TABLES = [
   'users',
   'job_postings',
   'candidates',
@@ -16,13 +16,13 @@ const TENANT_TABLES = [
 ];
 
 @Injectable()
-export class TenantRepository extends BaseRepository {
+export class CompanyRepository extends BaseRepository {
   async findBySlug(slug: string) {
     return this.withDb('public', async (db) => {
       const rows = await db
         .select()
-        .from(tenants)
-        .where(eq(tenants.slug, slug))
+        .from(companies)
+        .where(eq(companies.slug, slug))
         .execute();
       return rows[0] ?? null;
     });
@@ -30,16 +30,16 @@ export class TenantRepository extends BaseRepository {
 
   async findAll() {
     return this.withDb('public', async (db) => {
-      return db.select().from(tenants).orderBy(tenants.createdAt).execute();
+      return db.select().from(companies).orderBy(companies.createdAt).execute();
     });
   }
 
   async findSuspendedIds() {
     return this.withDb('public', (db) =>
       db
-        .select({ id: tenants.id })
-        .from(tenants)
-        .where(eq(tenants.status, 'suspended'))
+        .select({ id: companies.id })
+        .from(companies)
+        .where(eq(companies.status, 'suspended'))
         .execute(),
     );
   }
@@ -47,21 +47,33 @@ export class TenantRepository extends BaseRepository {
   async updateStatus(id: string, status: 'active' | 'suspended') {
     return this.withDb('public', async (db) => {
       const rows = await db
-        .update(tenants)
+        .update(companies)
         .set({ status })
-        .where(eq(tenants.id, id))
+        .where(eq(companies.id, id))
         .returning()
         .execute();
       return rows[0] ?? null;
     });
   }
 
+  async remove(id: string) {
+    return this.withDb('public', (db) =>
+      db.delete(companies).where(eq(companies.id, id)).execute(),
+    );
+  }
+
+  async dropSchema(companyId: string) {
+    return this.withDb('public', (db) =>
+      db.execute(`DROP SCHEMA IF EXISTS "company_${companyId}" CASCADE`),
+    );
+  }
+
   async updateName(id: string, name: string) {
     return this.withDb('public', async (db) => {
       const rows = await db
-        .update(tenants)
+        .update(companies)
         .set({ name })
-        .where(eq(tenants.id, id))
+        .where(eq(companies.id, id))
         .returning()
         .execute();
       return rows[0] ?? null;
@@ -72,8 +84,8 @@ export class TenantRepository extends BaseRepository {
     return this.withDb('public', async (db) => {
       const rows = await db
         .select()
-        .from(tenants)
-        .where(eq(tenants.id, id))
+        .from(companies)
+        .where(eq(companies.id, id))
         .execute();
       return rows[0] ?? null;
     });
@@ -81,16 +93,20 @@ export class TenantRepository extends BaseRepository {
 
   async create(data: { id: string; name: string; slug: string }) {
     return this.withDb('public', async (db) => {
-      const rows = await db.insert(tenants).values(data).returning().execute();
+      const rows = await db
+        .insert(companies)
+        .values(data)
+        .returning()
+        .execute();
       return rows[0];
     });
   }
 
-  async provisionSchema(tenantId: string) {
-    const schemaName = `tenant_${tenantId}`;
+  async provisionSchema(companyId: string) {
+    const schemaName = `company_${companyId}`;
     return this.withDb('public', async (db) => {
       await db.execute(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
-      for (const table of TENANT_TABLES) {
+      for (const table of COMPANY_TABLES) {
         await db.execute(
           `CREATE TABLE IF NOT EXISTS "${schemaName}"."${table}" (LIKE template."${table}" INCLUDING ALL)`,
         );

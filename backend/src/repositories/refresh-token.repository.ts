@@ -27,9 +27,18 @@ export class RefreshTokenRepository extends BaseRepository {
     );
   }
 
+  async deleteByCompany(companyId: string) {
+    return this.withDb('public', (db) =>
+      db
+        .delete(refreshTokens)
+        .where(eq(refreshTokens.companyId, companyId))
+        .execute(),
+    );
+  }
+
   async create(data: {
     userId: string;
-    tenantId: string;
+    companyId: string;
     tokenHash: string;
     expiresAt: Date;
   }) {

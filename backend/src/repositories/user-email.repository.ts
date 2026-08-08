@@ -16,7 +16,7 @@ export class UserEmailRepository extends BaseRepository {
     });
   }
 
-  async create(data: { email: string; tenantId: string; userId: string }) {
+  async create(data: { email: string; companyId: string; userId: string }) {
     return this.withDb('public', async (db) => {
       const rows = await db
         .insert(userEmails)
@@ -30,6 +30,15 @@ export class UserEmailRepository extends BaseRepository {
   async deleteByUserId(userId: string) {
     return this.withDb('public', (db) =>
       db.delete(userEmails).where(eq(userEmails.userId, userId)).execute(),
+    );
+  }
+
+  async deleteByCompany(companyId: string) {
+    return this.withDb('public', (db) =>
+      db
+        .delete(userEmails)
+        .where(eq(userEmails.companyId, companyId))
+        .execute(),
     );
   }
 }

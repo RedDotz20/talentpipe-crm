@@ -27,14 +27,14 @@ export class JobListingsIndexRepository extends BaseRepository {
     });
   }
 
-  async findOpenByTenant(tenantId: string) {
+  async findOpenByCompany(companyId: string) {
     return this.withDb('public', (db) =>
       db
         .select()
         .from(jobListingsIndex)
         .where(
           and(
-            eq(jobListingsIndex.tenantId, tenantId),
+            eq(jobListingsIndex.companyId, companyId),
             eq(jobListingsIndex.status, 'open'),
           ),
         )
@@ -43,14 +43,14 @@ export class JobListingsIndexRepository extends BaseRepository {
     );
   }
 
-  async findOpenByTenantAndJob(tenantId: string, jobPostingId: string) {
+  async findOpenByCompanyAndJob(companyId: string, jobPostingId: string) {
     return this.withDb('public', async (db) => {
       const rows = await db
         .select()
         .from(jobListingsIndex)
         .where(
           and(
-            eq(jobListingsIndex.tenantId, tenantId),
+            eq(jobListingsIndex.companyId, companyId),
             eq(jobListingsIndex.jobPostingId, jobPostingId),
             eq(jobListingsIndex.status, 'open'),
           ),
@@ -61,14 +61,14 @@ export class JobListingsIndexRepository extends BaseRepository {
     });
   }
 
-  async findById(tenantId: string, jobPostingId: string) {
+  async findById(companyId: string, jobPostingId: string) {
     return this.withDb('public', async (db) => {
       const rows = await db
         .select()
         .from(jobListingsIndex)
         .where(
           and(
-            eq(jobListingsIndex.tenantId, tenantId),
+            eq(jobListingsIndex.companyId, companyId),
             eq(jobListingsIndex.jobPostingId, jobPostingId),
           ),
         )
@@ -78,7 +78,7 @@ export class JobListingsIndexRepository extends BaseRepository {
   }
 
   async upsert(data: {
-    tenantId: string;
+    companyId: string;
     jobPostingId: string;
     title: string;
     description: string;
@@ -92,7 +92,7 @@ export class JobListingsIndexRepository extends BaseRepository {
         .from(jobListingsIndex)
         .where(
           and(
-            eq(jobListingsIndex.tenantId, data.tenantId),
+            eq(jobListingsIndex.companyId, data.companyId),
             eq(jobListingsIndex.jobPostingId, data.jobPostingId),
           ),
         )
@@ -111,7 +111,7 @@ export class JobListingsIndexRepository extends BaseRepository {
           })
           .where(
             and(
-              eq(jobListingsIndex.tenantId, data.tenantId),
+              eq(jobListingsIndex.companyId, data.companyId),
               eq(jobListingsIndex.jobPostingId, data.jobPostingId),
             ),
           )
@@ -129,16 +129,25 @@ export class JobListingsIndexRepository extends BaseRepository {
     });
   }
 
-  async delete(tenantId: string, jobPostingId: string) {
+  async delete(companyId: string, jobPostingId: string) {
     return this.withDb('public', (db) =>
       db
         .delete(jobListingsIndex)
         .where(
           and(
-            eq(jobListingsIndex.tenantId, tenantId),
+            eq(jobListingsIndex.companyId, companyId),
             eq(jobListingsIndex.jobPostingId, jobPostingId),
           ),
         )
+        .execute(),
+    );
+  }
+
+  async deleteByCompany(companyId: string) {
+    return this.withDb('public', (db) =>
+      db
+        .delete(jobListingsIndex)
+        .where(eq(jobListingsIndex.companyId, companyId))
         .execute(),
     );
   }

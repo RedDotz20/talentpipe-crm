@@ -81,6 +81,12 @@ export class UserRepository extends BaseRepository {
     });
   }
 
+  async setAllStatus(status: 'active' | 'suspended', schema = 'current') {
+    return this.withDb(schema, (db) =>
+      db.update(users).set({ status }).execute(),
+    );
+  }
+
   async resetPassword(id: string, passwordHash: string, schema = 'current') {
     return this.withDb(schema, async (db) => {
       const rows = await db

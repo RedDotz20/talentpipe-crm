@@ -20,7 +20,7 @@ export class CandidateApplicationsIndexRepository extends BaseRepository {
 
   async findByJob(
     candidateAccountId: string,
-    tenantId: string,
+    companyId: string,
     jobPostingId: string,
   ) {
     return this.withDb('public', async (db) => {
@@ -33,7 +33,7 @@ export class CandidateApplicationsIndexRepository extends BaseRepository {
               candidateApplicationsIndex.candidateAccountId,
               candidateAccountId,
             ),
-            eq(candidateApplicationsIndex.tenantId, tenantId),
+            eq(candidateApplicationsIndex.companyId, companyId),
             eq(candidateApplicationsIndex.jobPostingId, jobPostingId),
           ),
         )
@@ -89,7 +89,7 @@ export class CandidateApplicationsIndexRepository extends BaseRepository {
 
   async create(data: {
     candidateAccountId: string;
-    tenantId: string;
+    companyId: string;
     jobPostingId: string;
     applicationId: string;
     jobTitle: string;
@@ -106,7 +106,7 @@ export class CandidateApplicationsIndexRepository extends BaseRepository {
     });
   }
 
-  async updateStatus(applicationId: string, tenantId: string, status: string) {
+  async updateStatus(applicationId: string, companyId: string, status: string) {
     return this.withDb('public', async (db) => {
       const rows = await db
         .update(candidateApplicationsIndex)
@@ -114,12 +114,22 @@ export class CandidateApplicationsIndexRepository extends BaseRepository {
         .where(
           and(
             eq(candidateApplicationsIndex.applicationId, applicationId),
-            eq(candidateApplicationsIndex.tenantId, tenantId),
+            eq(candidateApplicationsIndex.companyId, companyId),
           ),
         )
         .returning()
         .execute();
       return rows[0] ?? null;
     });
+  }
+
+  async cancelByCompany(companyId: string) {
+    return this.withDb('public', (db) =>
+      db
+        .update(candidateApplicationsIndex)
+        .set({ status: 'cancelled' })
+        .where(eq(candidateApplicationsIndex.companyId, companyId))
+        .execute(),
+    );
   }
 }
