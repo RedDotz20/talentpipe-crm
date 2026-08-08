@@ -1,8 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { PlatformService } from './platform.service';
-import { TenantRepository } from '../../repositories/tenant.repository';
+import { CompanyRepository } from '../../repositories/company.repository';
 import { UsageRepository } from '../../repositories/usage.repository';
+import { UserRepository } from '../../repositories/user.repository';
 import { AuditService } from '../../common/audit/audit.service';
 
 describe('PlatformService', () => {
@@ -16,6 +17,7 @@ describe('PlatformService', () => {
     countUsers: jest.fn().mockResolvedValue(2),
     countApplications: jest.fn().mockResolvedValue(5),
   };
+  const userRepo = { setAllStatus: jest.fn() };
   const auditService = { log: jest.fn() };
 
   beforeEach(async () => {
@@ -23,8 +25,9 @@ describe('PlatformService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PlatformService,
-        { provide: TenantRepository, useValue: tenantRepo },
+        { provide: CompanyRepository, useValue: tenantRepo },
         { provide: UsageRepository, useValue: usageRepo },
+        { provide: UserRepository, useValue: userRepo },
         { provide: AuditService, useValue: auditService },
       ],
     }).compile();
@@ -38,26 +41,26 @@ describe('PlatformService', () => {
   describe('getTenant', () => {
     it('returns the tenant with usage counts', async () => {
       tenantRepo.findById.mockResolvedValue({ id: 't1', name: 'Acme' });
-      const result = await service.getTenant('t1');
+      const result = await service.getCompany('t1');
       expect(result).toEqual({
         id: 't1',
         name: 'Acme',
         users: 2,
         applications: 5,
       });
-      expect(usageRepo.countUsers).toHaveBeenCalledWith('tenant_t1');
-      expect(usageRepo.countApplications).toHaveBeenCalledWith('tenant_t1');
+      expect(usageRepo.countUsers).toHaveBeenCalledWith('company_t1');
+      expect(usageRepo.countApplications).toHaveBeenCalledWith('company_t1');
     });
 
     it('throws NotFoundException for an unknown tenant', async () => {
       tenantRepo.findById.mockResolvedValue(null);
-      await expect(service.getTenant('nope')).rejects.toThrow(
+      await expect(service.getCompany('nope')).rejects.toThrow(
         NotFoundException,
       );
     });
   });
 
-  describe('setTenantStatus', () => {
+  describe('setCompanyStatus', () => {
     it('suspends and audits with the target tenant id', async () => {
       tenantRepo.findById.mockResolvedValue({
         id: 't1',
@@ -69,10 +72,10 @@ describe('PlatformService', () => {
         id: 't1',
         status: 'suspended',
       });
-      const result = await service.setTenantStatus('t1', 'suspended');
+      const result = await service.setCompanyStatus('t1', 'suspended');
       expect(result.status).toBe('suspended');
       expect(auditService.log).toHaveBeenCalledWith(
-        'tenant.suspend',
+        'company.suspend',
         't1',
         { name: 'Acme', slug: 'acme' },
         't1',
@@ -84,7 +87,7 @@ describe('PlatformService', () => {
         id: 't1',
         status: 'suspended',
       });
-      await expect(service.setTenantStatus('t1', 'suspended')).rejects.toThrow(
+      await expect(service.setCompanyStatus('t1', 'suspended')).rejects.toThrow(
         ConflictException,
       );
     });
@@ -92,8 +95,41 @@ describe('PlatformService', () => {
     it('throws NotFoundException for an unknown tenant', async () => {
       tenantRepo.findById.mockResolvedValue(null);
       await expect(
-        service.setTenantStatus('nope', 'suspended'),
+        service.setCompanyStatus('nope', 'suspended'),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('cascades suspension to every user in the schema', async () => {
+      tenantRepo.findById.mockResolvedValue({
+        id: 't1',
+        name: 'Acme',
+        slug: 'acme',
+        status: 'active',
+      });
+      tenantRepo.updateStatus.mockResolvedValue({
+        id: 't1',
+        status: 'suspended',
+      });
+      await service.setCompanyStatus('t1', 'suspended');
+      expect(userRepo.setAllStatus).toHaveBeenCalledWith(
+        'suspended',
+        'company_t1',
+      );
+    });
+
+    it('cascades reactivation to every user in the schema', async () => {
+      tenantRepo.findById.mockResolvedValue({
+        id: 't1',
+        name: 'Acme',
+        slug: 'acme',
+        status: 'suspended',
+      });
+      tenantRepo.updateStatus.mockResolvedValue({
+        id: 't1',
+        status: 'active',
+      });
+      await service.setCompanyStatus('t1', 'active');
+      expect(userRepo.setAllStatus).toHaveBeenCalledWith('active', 'company_t1');
     });
   });
 
@@ -101,7 +137,7 @@ describe('PlatformService', () => {
     it('sums users and applications across all tenant schemas', async () => {
       tenantRepo.findAll.mockResolvedValue([{ id: 't1' }, { id: 't2' }]);
       const result = await service.getStats();
-      expect(result).toEqual({ tenants: 2, users: 4, applications: 10 });
+      expect(result).toEqual({ companies: 2, users: 4, applications: 10 });
     });
   });
 });

@@ -4,26 +4,28 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { AuditService } from '../../common/audit/audit.service';
-import { TenantRepository } from '../../repositories/tenant.repository';
+import { CompanyRepository } from '../../repositories/company.repository';
+import { UserRepository } from '../../repositories/user.repository';
 import { UsageRepository } from '../../repositories/usage.repository';
 
 @Injectable()
 export class PlatformService {
   constructor(
-    private readonly tenantRepo: TenantRepository,
+    private readonly tenantRepo: CompanyRepository,
     private readonly usageRepo: UsageRepository,
+    private readonly userRepo: UserRepository,
     private readonly auditService: AuditService,
   ) {}
 
-  async listTenants() {
+  async listCompanies() {
     return this.tenantRepo.findAll();
   }
 
-  async getTenant(id: string) {
+  async getCompany(id: string) {
     const tenant = await this.tenantRepo.findById(id);
-    if (!tenant) throw new NotFoundException('Tenant not found');
+    if (!tenant) throw new NotFoundException('Company not found');
 
-    const schema = `tenant_${id}`;
+    const schema = `company_${id}`;
     const [users, applications] = await Promise.all([
       this.usageRepo.countUsers(schema),
       this.usageRepo.countApplications(schema),
@@ -31,9 +33,9 @@ export class PlatformService {
     return { ...tenant, users, applications };
   }
 
-  async setTenantStatus(id: string, status: 'active' | 'suspended') {
+  async setCompanyStatus(id: string, status: 'active' | 'suspended') {
     const tenant = await this.tenantRepo.findById(id);
-    if (!tenant) throw new NotFoundException('Tenant not found');
+    if (!tenant) throw new NotFoundException('Company not found');
     if (tenant.status === status) {
       throw new ConflictException(
         `Tenant is already ${status === 'active' ? 'active' : 'suspended'}`,
@@ -41,8 +43,9 @@ export class PlatformService {
     }
 
     const updated = await this.tenantRepo.updateStatus(id, status);
+    await this.userRepo.setAllStatus(status, `company_${id}`);
     await this.auditService.log(
-      status === 'suspended' ? 'tenant.suspend' : 'tenant.reactivate',
+      status === 'suspended' ? 'company.suspend' : 'company.reactivate',
       id,
       { name: tenant.name, slug: tenant.slug },
       id,
@@ -51,11 +54,11 @@ export class PlatformService {
   }
 
   async getStats() {
-    const tenants = await this.tenantRepo.findAll();
+    const companies = await this.tenantRepo.findAll();
     let totalUsers = 0;
     let totalApplications = 0;
-    for (const tenant of tenants) {
-      const schema = `tenant_${tenant.id}`;
+    for (const tenant of companies) {
+      const schema = `company_${tenant.id}`;
       const [users, applications] = await Promise.all([
         this.usageRepo.countUsers(schema),
         this.usageRepo.countApplications(schema),
@@ -64,7 +67,7 @@ export class PlatformService {
       totalApplications += applications;
     }
     return {
-      tenants: tenants.length,
+      companies: companies.length,
       users: totalUsers,
       applications: totalApplications,
     };
