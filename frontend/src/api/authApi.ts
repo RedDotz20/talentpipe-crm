@@ -12,12 +12,12 @@ export const authApi = {
     phone?: string;
   }) => apiClient.post('/auth/signup', data),
 
-  orgSignup: (data: {
+  companySignup: (data: {
     companyName: string;
     slug: string;
     email: string;
     password: string;
-  }) => apiClient.post('/auth/org/signup', data),
+  }) => apiClient.post('/auth/company/signup', data),
 
   logout: () => apiClient.post('/auth/logout'),
 

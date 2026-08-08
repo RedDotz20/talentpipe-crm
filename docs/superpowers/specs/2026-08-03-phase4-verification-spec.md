@@ -49,14 +49,14 @@ docker compose up -d   # postgres + redis + minio healthy
 
 ## 3. Manual API smoke test
 
-Requires a running backend and a seeded DB. Sign in as seeded org admin and candidate.
+Requires a running backend and a seeded DB. Sign in as seeded company admin and candidate.
 
-### 3.1 Sign in as Org Admin
+### 3.1 Sign in as Company Admin
 ```pwsh
 $body = @{ email = 'admin@acme.com'; password = 'Admin123!' } | ConvertTo-Json
 $r = Invoke-RestMethod -Uri "http://localhost:3000/api/auth/signin" -Method Post -Body $body -ContentType "application/json"
-$orgToken = $r.data.accessToken
-$orgHeaders = @{ Authorization = "Bearer $orgToken" }
+$companyToken = $r.data.accessToken
+$companyHeaders = @{ Authorization = "Bearer $companyToken" }
 ```
 
 **Expect:** `200`, body contains `data.accessToken`.
@@ -88,10 +88,10 @@ curl.exe -s -H "Authorization: Bearer $candToken" "http://localhost:3000/api/can
 ```
 **Expect:** Skills returned with correct names/categories.
 
-### 3.4 Create a Job Posting with Required Skills (Org Admin)
+### 3.4 Create a Job Posting with Required Skills (Company Admin)
 ```pwsh
 # Get skill IDs for React, TypeScript, Kubernetes
-$skills = (Invoke-RestMethod -Uri "http://localhost:3000/api/skills" -Headers $orgHeaders).data
+$skills = (Invoke-RestMethod -Uri "http://localhost:3000/api/skills" -Headers $companyHeaders).data
 $reqIds = ($skills | Where-Object { 'React','TypeScript','Kubernetes' -contains $_.name } | Select-Object -ExpandProperty id) -join ','
 
 $body = @{
@@ -100,7 +100,7 @@ $body = @{
   requiredSkillIds = $reqIds.Split(',')
 } | ConvertTo-Json
 
-$job = Invoke-RestMethod -Uri "http://localhost:3000/api/job-postings" -Method Post -Headers $orgHeaders -ContentType "application/json" -Body $body
+$job = Invoke-RestMethod -Uri "http://localhost:3000/api/job-postings" -Method Post -Headers $companyHeaders -ContentType "application/json" -Body $body
 $jobId = $job.data.id
 ```
 **Expect:** Job created with required skills.
@@ -145,11 +145,11 @@ $pubApp = Invoke-RestMethod -Uri "http://localhost:3000/api/public/acme/jobs/$jo
 # Create test PDF
 cd backend; node -e "const PDFDoc=require('pdfkit');const d=new PDFDocument();const s=require('fs').createWriteStream('../test-resume.pdf');d.pipe(s);d.text('Senior React Developer');d.end();" ; cd ..
 
-# Upload as Org Admin for a candidate
-$cands = (Invoke-RestMethod -Uri "http://localhost:3000/api/candidates" -Headers $orgHeaders).data
+# Upload as Company Admin for a candidate
+$cands = (Invoke-RestMethod -Uri "http://localhost:3000/api/candidates" -Headers $companyHeaders).data
 $candidateId = ($cands | Select-Object -First 1).id
 
-curl.exe -s -X POST -H "Authorization: Bearer $orgToken" `
+curl.exe -s -X POST -H "Authorization: Bearer $companyToken" `
   -F "file=@C:\Users\Carlos\Documents\Projects\talentpipe-crm\test-resume.pdf;type=application/pdf" `
   "http://localhost:3000/api/candidates/$candidateId/resume"
 ```
@@ -157,13 +157,13 @@ curl.exe -s -X POST -H "Authorization: Bearer $orgToken" `
 
 ```pwsh
 # Read back
-curl.exe -s -H "Authorization: Bearer $orgToken" "http://localhost:3000/api/candidates/$candidateId/resume"
+curl.exe -s -H "Authorization: Bearer $companyToken" "http://localhost:3000/api/candidates/$candidateId/resume"
 ```
 **Expect:** Same minimal response.
 
-### 3.9 Org Candidate Profile Includes Skills
+### 3.9 Company Candidate Profile Includes Skills
 ```pwsh
-curl.exe -s -H "Authorization: Bearer $orgToken" "http://localhost:3000/api/candidates/$candidateId"
+curl.exe -s -H "Authorization: Bearer $companyToken" "http://localhost:3000/api/candidates/$candidateId"
 ```
 **Expect:** `data.skills` array populated with candidate's profile skills (React, TypeScript, SQL).
 
@@ -180,7 +180,7 @@ curl.exe -s -H "Authorization: Bearer $orgToken" "http://localhost:3000/api/cand
 ### 3.11 MinIO Console
 Open `http://localhost:9001` (minioadmin / minioadmin). Browse `resumes` bucket.
 
-**Expect:** Object at `tenants/{tenantId}/resumes/{candidateId}/{uuid}.pdf`, matching `fileUrl` from API.
+**Expect:** Object at `companies/{companyId}/resumes/{candidateId}/{uuid}.pdf`, matching `fileUrl` from API.
 
 ---
 
@@ -194,7 +194,7 @@ Open `http://localhost:9001` (minioadmin / minioadmin). Browse `resumes` bucket.
 6. Sign out, sign in as `admin@acme.com` / `Admin123!`.
 7. Go to **Candidates** → open the candidate profile.
 8. Verify: skill badges show React, TypeScript, SQL; resume shows file link only (no parsed text).
-9. Go to **Pipeline** (`/org/pipeline`) → application card shows match score badge `67%` (yellow).
+9. Go to **Pipeline** (`/company/pipeline`) → application card shows match score badge `67%` (yellow).
 10. Reload candidate profile — skills + match scores persist.
 
 ---
@@ -209,11 +209,11 @@ Open `http://localhost:9001` (minioadmin / minioadmin). Browse `resumes` bucket.
 6. Public apply with `skillIds` → correct `matchScore`; without → `0`.
 7. `POST /candidates/:id/resume` stores file in MinIO; returns only `{ id, candidateId, fileUrl, uploadedAt }`.
 8. `GET /candidates/:id/resume` returns same minimal metadata.
-9. `GET /candidates/:id` (org) returns `skills` array from candidate's public profile.
+9. `GET /candidates/:id` (company) returns `skills` array from candidate's public profile.
 10. Pipeline `ApplicationCard` and candidate profile applications table show correct `matchScore` badge.
 11. No `pdf-parse`, `mammoth` in `backend/package.json`; no `parsedText` in DB or API responses.
 12. Error shapes: 400/401/404 with `{ "error": { "code", "message" } }`.
-13. Resume stored in MinIO under tenant-scoped server-generated key.
+13. Resume stored in MinIO under company-scoped server-generated key.
 
 ---
 
@@ -231,6 +231,6 @@ Open `http://localhost:9001` (minioadmin / minioadmin). Browse `resumes` bucket.
 |---------|-------------|
 | `candidate_skills` relation does not exist | Migration not applied. Run `drizzle-kit generate` + apply via psql. |
 | Match score always 0 | Candidate skills not saved, or apply not using profile skills. Check `candidate_skills` table and apply service logic. |
-| `skills` missing from org candidate profile | `CandidatesService.getOne` not joining `candidate_skills` via email. |
+| `skills` missing from company candidate profile | `CandidatesService.getOne` not joining `candidate_skills` via email. |
 | Resume upload returns `parsedText`/`skills` | Old code not removed. Check `ResumesService.upload()` and `get()`. |
 | `pdf-parse` error in logs | Dependency not uninstalled. Run `npm uninstall pdf-parse mammoth`. |

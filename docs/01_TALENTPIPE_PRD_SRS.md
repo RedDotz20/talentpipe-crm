@@ -14,7 +14,7 @@
 
 ## 1. Overview
 
-TalentPipe is a multi-tenant Applicant Tracking System (ATS) that lets recruiting teams at multiple companies each manage their own job postings, candidate pipelines, interviews, and hiring notes from a single platform — with each company's data fully isolated from every other's.
+TalentPipe is a multi-company Applicant Tracking System (ATS) that lets recruiting teams at multiple companies each manage their own job postings, candidate pipelines, interviews, and hiring notes from a single platform — with each company's data fully isolated from every other's.
 
 ## 2. Problem Statement
 
@@ -26,13 +26,13 @@ Small and mid-sized companies without budget for enterprise ATS platforms (Green
 |---|---|
 | A recruiter can move a candidate through the pipeline without leaving the app | Stage change completes in a single interaction (drag-and-drop) |
 | Public job postings are discoverable and applyable without friction | Candidate can go from public job listing through sign-in/signup to submitted application in under 2 minutes |
-| Tenant data is provably isolated | Zero cross-tenant data leakage under test |
+| Company data is provably isolated | Zero cross-company data leakage under test |
 | System protects future public/auth write endpoints | Phase 6 rate limiting can block scripted abuse without affecting public job browsing |
 | Resume screening is faster than manual review | Skill match score is computed and visible within seconds of upload |
 
 ## 4. Target Users / Personas
 
-- **Org Admin** — sets up the company account, manages recruiters, configures pipeline stages and plan settings.
+- **Company Admin** — sets up the company account, manages recruiters, configures pipeline stages and plan settings.
 - **Recruiter** — creates job postings, manages candidates through the pipeline, schedules interviews, leaves notes.
 - **Hiring Manager** — reviews candidates for their open roles, leaves interview feedback, doesn't manage postings.
 - **Interviewer** — sees only interviews they're assigned to, submits feedback forms.
@@ -41,9 +41,9 @@ Small and mid-sized companies without budget for enterprise ATS platforms (Green
 ## 5. Scope
 
 **In scope (v1)**
-- Multi-tenant company accounts with role-based access (Org Admin, Recruiter, Hiring Manager, Interviewer)
+- Multi-company company accounts with role-based access (Company Admin, Recruiter, Hiring Manager, Interviewer)
 - Job posting CRUD with required-skills configuration
-- Public, unauthenticated tenant careers browsing with Candidate-authenticated application submission
+- Public, unauthenticated company careers browsing with Candidate-authenticated application submission
 - Candidate/application records with a configurable pipeline (Kanban-style stage board)
 - Candidate profile resume storage, manual skills, and skill-match scoring against a job posting's required skills
 - Interview scheduling and feedback capture
@@ -63,7 +63,7 @@ Small and mid-sized companies without budget for enterprise ATS platforms (Green
 
 | Priority | Feature |
 |---|---|
-| Must | Tenant signup, auth, RBAC |
+| Must | Company signup, auth, RBAC |
 | Must | Job posting CRUD |
 | Must | Public careers page + apply flow |
 | Must | Candidate/application pipeline with stage transitions |
@@ -73,14 +73,14 @@ Small and mid-sized companies without budget for enterprise ATS platforms (Green
 | Should | Notes on applications |
 | Should | Dashboard usage/analytics caching |
 | Could | Email notifications on stage change |
-| Could | Customizable pipeline stages per tenant |
+| Could | Customizable pipeline stages per company |
 | Won't (v1) | Billing integration, calendar sync |
 
-> **Status:** Milestones 0–9 are implemented: auth/tenancy/RBAC, CRUD, pipeline, candidate profile skills/resume storage, tenant-specific public careers browsing with Candidate-only apply, Redis limiting/cache, BullMQ notifications, interviews + feedback, and admin/platform/CI (M9). See `09_IMPLEMENTATION_GUIDE.md` for exact progress.
+> **Status:** Milestones 0–9 are implemented: auth/tenancy/RBAC, CRUD, pipeline, candidate profile skills/resume storage, company-specific public careers browsing with Candidate-only apply, Redis limiting/cache, BullMQ notifications, interviews + feedback, and admin/platform/CI (M9). See `09_IMPLEMENTATION_GUIDE.md` for exact progress.
 
 ## 7. Representative User Stories
 
-- As an **Org Admin**, I want to invite recruiters to my company account so my team can collaborate on hiring. (Built — `POST /org/users/invite`; the admin sets the initial password, shared out-of-band.)
+- As an **Company Admin**, I want to invite recruiters to my company account so my team can collaborate on hiring. (Built — `POST /company/users/invite`; the admin sets the initial password, shared out-of-band.)
 - As a **Recruiter**, I want to post a job with required skills so the system can score incoming applicants against it.
 - As a **Recruiter**, I want to drag a candidate from "Screening" to "Interview" so the pipeline reflects reality without extra clicks.
 - As a **Hiring Manager**, I want to see interview feedback before making a decision so I'm not relying on verbal summaries.
@@ -96,7 +96,7 @@ Small and mid-sized companies without budget for enterprise ATS platforms (Green
 
 ## 9. Release Plan (Milestones)
 
-1. ✅ Auth, tenants, RBAC — **implemented** (M1)
+1. ✅ Auth, companies, RBAC — **implemented** (M1)
 2. ✅ Job postings + candidates (manual entry) — **implemented** (M2)
 3. ✅ Application pipeline (Kanban) — **implemented** (M3)
 4. ✅ Candidate resume storage + manual skill matching — **implemented** (M4)
@@ -114,13 +114,13 @@ Small and mid-sized companies without budget for enterprise ATS platforms (Green
 ## 1. Introduction
 
 ### 1.1 Purpose
-This SRS defines the functional and non-functional requirements for TalentPipe v1, a multi-tenant recruitment CRM/ATS, to guide implementation and serve as a reference for scoping and testing.
+This SRS defines the functional and non-functional requirements for TalentPipe v1, a multi-company recruitment CRM/ATS, to guide implementation and serve as a reference for scoping and testing.
 
 ### 1.2 Scope
 Covers backend (NestJS API), frontend (React + Mantine), data layer (PostgreSQL, Redis, S3/MinIO), and background processing (BullMQ), as defined in the accompanying architecture document.
 
 ### 1.3 Definitions / Acronyms
-- **Tenant** — a company account; the unit of data isolation
+- **Company** — a company account; the unit of data isolation
 - **ATS** — Applicant Tracking System
 - **RBAC** — Role-Based Access Control
 - **FR / NFR** — Functional Requirement / Non-Functional Requirement
@@ -131,7 +131,7 @@ Covers backend (NestJS API), frontend (React + Mantine), data layer (PostgreSQL,
 TalentPipe is a standalone, self-contained web application (not integrated with any third-party ATS or HR system in v1). It exposes both an authenticated internal API (for recruiters/admins) and a public, unauthenticated API (for the careers page).
 
 ### 2.2 User Classes
-See PRD §4 (Org Admin, Recruiter, Hiring Manager, Interviewer, Candidate). Access is enforced by role at the API layer, and by tenant at the data layer.
+See PRD §4 (Company Admin, Recruiter, Hiring Manager, Interviewer, Candidate). Access is enforced by role at the API layer, and by company at the data layer.
 
 ### 2.3 Operating Environment
 - Backend: NestJS (Node.js runtime), containerized via Docker
@@ -155,34 +155,34 @@ See PRD §4 (Org Admin, Recruiter, Hiring Manager, Interviewer, Candidate). Acce
 
 | ID | Requirement |
 |---|---|
-| FR-1 | The system shall allow a new user to sign up, which creates a new Tenant and an Org Admin user. (✅ `POST /api/auth/org/signup`) |
-| FR-2 | The system shall issue JWT access + refresh tokens on login. (✅ `POST /api/auth/signin`, unified for org users and candidates) |
-| FR-3 | The system shall derive `tenantId` for every authenticated request from the verified JWT, never from client-supplied parameters. (✅ `TenantContextInterceptor`) |
-| FR-4 | The system shall reject any data access attempt where the resource's `tenantId` does not match the authenticated user's `tenantId`. (✅ schema-per-tenant → cross-tenant reference returns 404) |
-| FR-5 | The system shall support role assignment (Org Admin, Recruiter, Hiring Manager, Interviewer) per user within a tenant. (✅ `RolesGuard`, `super_admins` + `users.role`; M9 adds invite/role-change/remove via `POST /org/users/invite` + `PATCH/DELETE /org/users/:userId`) |
+| FR-1 | The system shall allow a new user to sign up, which creates a new Company and an Company Admin user. (✅ `POST /api/auth/company/signup`) |
+| FR-2 | The system shall issue JWT access + refresh tokens on login. (✅ `POST /api/auth/signin`, unified for company users and candidates) |
+| FR-3 | The system shall derive `companyId` for every authenticated request from the verified JWT, never from client-supplied parameters. (✅ `CompanyContextInterceptor`) |
+| FR-4 | The system shall reject any data access attempt where the resource's `companyId` does not match the authenticated user's `companyId`. (✅ schema-per-company → cross-company reference returns 404) |
+| FR-5 | The system shall support role assignment (Company Admin, Recruiter, Hiring Manager, Interviewer) per user within a company. (✅ `RolesGuard`, `super_admins` + `users.role`; M9 adds invite/role-change/remove via `POST /company/users/invite` + `PATCH/DELETE /company/users/:userId`) |
 
 ### 3.1b Candidate Accounts ✅ (implemented early)
 
 | ID | Requirement |
 |---|---|
 | FR-1b | The system shall allow a candidate to create an account (`POST /api/auth/signup`) and sign in via the unified `POST /api/auth/signin`. |
-| FR-2b | The system shall let a candidate browse open jobs across tenants (`GET /api/candidate/jobs` from `job_listings_index`), apply (`POST /api/candidate/jobs/:tenantId/:jobId/apply`), view application history, bookmark jobs, and manage their profile via `/api/candidate/*`. |
+| FR-2b | The system shall let a candidate browse open jobs across companies (`GET /api/candidate/jobs` from `job_listings_index`), apply (`POST /api/candidate/jobs/:companyId/:jobId/apply`), view application history, bookmark jobs, and manage their profile via `/api/candidate/*`. |
 
 ### 3.2 Job Postings
 
 | ID | Requirement |
 |---|---|
-| FR-6 | The system shall allow Recruiters and Org Admins to create, edit, publish, and close job postings. |
+| FR-6 | The system shall allow Recruiters and Company Admins to create, edit, publish, and close job postings. |
 | FR-7 | Each job posting shall support a list of required skills used for match scoring. |
-| FR-8 | Published job postings shall appear on the tenant's public careers page; closed/draft postings shall not. |
+| FR-8 | Published job postings shall appear on the company's public careers page; closed/draft postings shall not. |
 
 ### 3.3 Candidates & Applications
 
 | ID | Requirement |
 |---|---|
 | FR-9 | The public careers page shall allow unauthenticated browsing, but Apply shall require a Candidate account and redirect anonymous visitors to unified sign-in/signup. ✅ M5 |
-| FR-10 | Each application shall be associated with exactly one candidate and one job posting, scoped to a tenant. |
-| FR-11 | The system shall support configurable, ordered pipeline stages per tenant (default: Applied → Screening → Interview → Offer → Hired/Rejected). |
+| FR-10 | Each application shall be associated with exactly one candidate and one job posting, scoped to a company. |
+| FR-11 | The system shall support configurable, ordered pipeline stages per company (default: Applied → Screening → Interview → Offer → Hired/Rejected). |
 | FR-12 | Recruiters and Hiring Managers shall be able to move an application between pipeline stages. |
 | FR-13 | The system shall allow authorized users to attach free-text notes to an application. |
 
@@ -193,7 +193,7 @@ See PRD §4 (Org Admin, Recruiter, Hiring Manager, Interviewer, Candidate). Acce
 | FR-14 | The system shall allow an authenticated Candidate to upload a PDF/DOCX resume to their profile with size/type validation. ✅ M4 |
 | FR-15 | The system shall allow an authenticated Candidate to manually declare skills from the shared taxonomy. ✅ M4 |
 | FR-16 | The system shall compute a match score from the job's required skills and the Candidate's declared skills or per-application override. ✅ M4 |
-| FR-17 | The system shall persist the skills used for an application so the score is explainable in the tenant pipeline. ✅ M4 |
+| FR-17 | The system shall persist the skills used for an application so the score is explainable in the company pipeline. ✅ M4 |
 | FR-18 | The system shall not create candidate, application, or resume records for anonymous visitors. ✅ M5 |
 
 ### 3.5 Interviews
@@ -227,7 +227,7 @@ See PRD §4 (Org Admin, Recruiter, Hiring Manager, Interviewer, Candidate). Acce
 | Performance | NFR-2 | Public careers GET requests shall not perform resume processing; future background processing is reserved for explicitly introduced asynchronous work. |
 | Security | NFR-3 | Passwords shall be stored hashed (bcrypt/argon2), never in plaintext. |
 | Security | NFR-4 | API keys/tokens shall never be logged in plaintext. |
-| Security | NFR-5 | Cross-tenant data access shall be blocked by multiple independent layers: request-scoped tenant context (not client-supplied), schema-per-tenant isolation (`search_path` routing per request, no `tenant_id` columns), and repository-level scoping — and shall be provably blocked by an automated test suite (one isolation test per tenant-scoped table) run in CI as a release gate. See `05_DATA_ISOLATION_STRATEGY.md` for the full specification. |
+| Security | NFR-5 | Cross-company data access shall be blocked by multiple independent layers: request-scoped company context (not client-supplied), schema-per-company isolation (`search_path` routing per request, no `company_id` columns), and repository-level scoping — and shall be provably blocked by an automated test suite (one isolation test per company-scoped table) run in CI as a release gate. See `05_DATA_ISOLATION_STRATEGY.md` for the full specification. |
 | Scalability | NFR-6 | Rate limit counters shall be stored in Redis (not in-process memory) so limits remain correct across multiple API instances. |
 | Reliability | NFR-7 | A failed background job (e.g. resume parse failure) shall be retried a configurable number of times before being marked failed, without crashing the worker process. |
 | Maintainability | NFR-8 | Each domain module shall separate route/controller, service, and data-access layers (controller → service → repository). |
@@ -237,22 +237,22 @@ See PRD §4 (Org Admin, Recruiter, Hiring Manager, Interviewer, Candidate). Acce
 ## 5. External Interface Requirements
 
 ### 5.1 User Interfaces
-- Internal dashboard (authenticated): job postings management, Kanban pipeline board, candidate profiles, interview scheduling, org/user settings
+- Internal dashboard (authenticated): job postings management, Kanban pipeline board, candidate profiles, interview scheduling, company/user settings
 - Candidate portal (authenticated): job search, applications history, bookmarks, profile (✅ implemented)
-- Public careers page (implemented M5): tenant-specific job listing and detail; Apply redirects anonymous visitors to Candidate sign-in/signup
+- Public careers page (implemented M5): company-specific job listing and detail; Apply redirects anonymous visitors to Candidate sign-in/signup
 
 ### 5.2 API Interfaces
 - RESTful JSON API served by the NestJS backend; internal routes require a Bearer JWT, public routes under `/public/*` do not
 - See the accompanying architecture document for the representative endpoint list and module breakdown
 
 ### 5.3 Data Storage Interfaces
-- PostgreSQL for all relational/tenant-scoped entities
+- PostgreSQL for all relational/company-scoped entities
 - Redis for rate-limit counters, cache, and job queue
 - S3-compatible storage for candidate resume files, referenced by metadata on `candidate_accounts`
 
 ## 6. Data Requirements
 
-See the accompanying architecture document (`03_RECRUITMENT_ATS_ARCHITECTURE.md`) for the full entity model (Tenant, User, JobPosting, Candidate, Application, PipelineStage, CandidateAccount, CandidateSkill, Skill, Interview, Note) and multi-tenancy enforcement pattern.
+See the accompanying architecture document (`03_RECRUITMENT_ATS_ARCHITECTURE.md`) for the full entity model (Company, User, JobPosting, Candidate, Application, PipelineStage, CandidateAccount, CandidateSkill, Skill, Interview, Note) and multi-tenancy enforcement pattern.
 
 ## 7. Traceability Note
 

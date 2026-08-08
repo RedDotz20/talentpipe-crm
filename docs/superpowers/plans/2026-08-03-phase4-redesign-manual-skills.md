@@ -4,7 +4,7 @@
 
 **Goal:** Replace automated PDF/DOCX skill extraction with manual candidate skill declaration — candidates set skills in their profile, match score uses self-declared skills vs job required skills, resume becomes pure MinIO storage.
 
-**Architecture:** Add `candidate_skills` table in public schema for cross-tenant candidate skill ownership. New `GET/PUT /candidate/skills` endpoints for profile management. Apply endpoints accept optional `skillIds` override. Resumes module simplified to storage-only. Match score computed from candidate profile skills (or override) via existing `SkillMatchingService`.
+**Architecture:** Add `candidate_skills` table in public schema for cross-company candidate skill ownership. New `GET/PUT /candidate/skills` endpoints for profile management. Apply endpoints accept optional `skillIds` override. Resumes module simplified to storage-only. Match score computed from candidate profile skills (or override) via existing `SkillMatchingService`.
 
 **Tech Stack:** NestJS + Drizzle ORM + PostgreSQL + MinIO (S3) + React + Mantine + TanStack Query + Zod
 
@@ -12,10 +12,10 @@
 
 - All DB access via repositories (no direct Drizzle client outside `repositories/`)
 - Error shape: `{ "error": { "code", "message" } }` with codes `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `RATE_LIMITED`, `INTERNAL_ERROR`
-- Tenant context from JWT only, never from body/params/headers
+- Company context from JWT only, never from body/params/headers
 - Public schema = `candidate_skills`, `skills`, `candidate_accounts`
-- Tenant schema = no `parsedText` on `resumes`
-- `candidate_skills` stored in public schema (cross-tenant, candidate-owned)
+- Company schema = no `parsedText` on `resumes`
+- `candidate_skills` stored in public schema (cross-company, candidate-owned)
 - `pdf-parse` and `mammoth` must be uninstalled from `backend/package.json`
 - Follow existing patterns: module dirs (`backend/src/modules/<name>/`), DTOs in `dto/`, Zod validation pipes, `@Roles()` + `AuthGuard('jwt')`
 
@@ -54,13 +54,13 @@
 
 ### Frontend — Modified Files
 - `frontend/src/features/candidate-portal/applications/ApplyForm.tsx` — prefill/override skills
-- `frontend/src/features/org/candidates/CandidateProfile.tsx` — show skills badges, remove parsedText
+- `frontend/src/features/company/candidates/CandidateProfile.tsx` — show skills badges, remove parsedText
 - `frontend/src/features/candidate-portal/layout.tsx` — add Skills nav link
 - `frontend/src/api/candidateAccountApi.ts` — add skills API functions
 - `frontend/src/api/resumesApi.ts` — simplify (remove parsedText/skills from types)
 
 ### Frontend — Removed Components
-- `frontend/src/features/org/candidates/ResumeUploadInput.tsx` — remove skill badge display (keep dropzone)
+- `frontend/src/features/company/candidates/ResumeUploadInput.tsx` — remove skill badge display (keep dropzone)
 
 ### Docs — Updated
 - `docs/09_IMPLEMENTATION_GUIDE.md` — already updated (Phase 4 section)
@@ -380,7 +380,7 @@ Remove `pdf-parse`, `mammoth`, `SkillMatchingService`, `ApplicationRepository`, 
 `upload(candidateId, file)`:
 1. Validate candidate exists
 2. Assert supported type (PDF/DOCX)
-3. Generate key: `tenants/{tenantId}/resumes/{candidateId}/{uuid}.{ext}`
+3. Generate key: `companies/{companyId}/resumes/{candidateId}/{uuid}.{ext}`
 4. Upload to MinIO via `storage.upload(key, file.buffer, file.mimetype)`
 5. Create resume DB row with `{ candidateId, fileUrl: key }`
 6. Return `this.get(candidateId)`
@@ -443,7 +443,7 @@ In `getOne(id)`:
 6. Fetch skill names from `skillRepo.findAll()` and match
 7. Return `{ ...candidate, resume, skills, applications }`
 
-Note: The `candidates` table in tenant schema has `email`. Use that to look up the `candidate_accounts` row in public schema via `CandidateAccountRepository.findByEmail(email)`.
+Note: The `candidates` table in company schema has `email`. Use that to look up the `candidate_accounts` row in public schema via `CandidateAccountRepository.findByEmail(email)`.
 
 - [ ] **Step 2: Typecheck**
 
@@ -629,10 +629,10 @@ git commit -m "feat(m4): apply forms with skill prefill/override"
 
 ---
 
-### Task 11: Frontend — Update CandidateProfile (org view)
+### Task 11: Frontend — Update CandidateProfile (company view)
 
 **Files:**
-- Modify: `frontend/src/features/org/candidates/CandidateProfile.tsx`
+- Modify: `frontend/src/features/company/candidates/CandidateProfile.tsx`
 
 **Interfaces:**
 - Consumes: `candidate.skills` from API response
@@ -640,7 +640,7 @@ git commit -m "feat(m4): apply forms with skill prefill/override"
 
 - [ ] **Step 1: Update CandidateProfile**
 
-Modify `frontend/src/features/org/candidates/CandidateProfile.tsx`:
+Modify `frontend/src/features/company/candidates/CandidateProfile.tsx`:
 1. Add skill badges section (read-only, like in skills page)
 2. Remove `parsedText` preview
 3. Resume card: show only file link + upload date (no extracted skills)
@@ -653,8 +653,8 @@ Expected: PASS
 - [ ] **Step 3: Commit**
 
 ```bash
-git add frontend/src/features/org/candidates/CandidateProfile.tsx
-git commit -m "feat(m4): org candidate profile shows skills, resume as storage only"
+git add frontend/src/features/company/candidates/CandidateProfile.tsx
+git commit -m "feat(m4): company candidate profile shows skills, resume as storage only"
 ```
 
 ---
@@ -783,9 +783,9 @@ Apply to a job with `skillIds` override → verify matchScore uses override.
 
 Upload resume → verify response has no `parsedText` or `skills`.
 
-- [ ] **Step 6: Verify org profile includes skills**
+- [ ] **Step 6: Verify company profile includes skills**
 
-GET `/candidates/:id` as org admin → verify `skills` array present.
+GET `/candidates/:id` as company admin → verify `skills` array present.
 
 - [ ] **Step 7: Verify negative cases**
 
@@ -817,9 +817,9 @@ Select skills from MultiSelect → Save → verify green toast.
 
 Navigate to job → Apply → verify skills prefilled → submit → verify success.
 
-- [ ] **Step 4: Verify org view**
+- [ ] **Step 4: Verify company view**
 
-Sign in as org admin → open candidate profile → verify skill badges + resume file link only.
+Sign in as company admin → open candidate profile → verify skill badges + resume file link only.
 
 - [ ] **Step 5: Verify pipeline match scores**
 

@@ -2,16 +2,16 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Redesign the candidate profile as the single source of truth — candidates edit name/email/phone/skills/resume in Settings; apply pre-fills from profile; orgs are view-only with UUID-based linking and immutable application snapshots.
+**Goal:** Redesign the candidate profile as the single source of truth — candidates edit name/email/phone/skills/resume in Settings; apply pre-fills from profile; companies are view-only with UUID-based linking and immutable application snapshots.
 
 **Architecture:** 
-- Add `candidate_account_id` UUID FK to tenant `candidates` (replaces email link)
+- Add `candidate_account_id` UUID FK to company `candidates` (replaces email link)
 - Move resume to public `candidate_accounts` (single resume per candidate)
 - Add immutable snapshot columns to `applications` (name, email, phone, applied_skill_ids)
-- Remove org create + org resume upload endpoints
+- Remove company create + company resume upload endpoints
 - Rewrite candidate Settings page as editable form; remove Skills page; fix apply flow
 
-**Tech Stack:** NestJS 11, Drizzle ORM, PostgreSQL schema-per-tenant, MinIO (S3), React 19 + TanStack Router/Query, Mantine 9
+**Tech Stack:** NestJS 11, Drizzle ORM, PostgreSQL schema-per-company, MinIO (S3), React 19 + TanStack Router/Query, Mantine 9
 
 ---
 
@@ -20,7 +20,7 @@
 - **Migration order:** schema.ts → template-schema.sql → migration → seed
 - **No direct Drizzle outside repositories** — all DB via repository classes
 - **Error shape:** `{ "error": { "code": "...", "message": "..." } }` — codes: `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `RATE_LIMITED`, `INTERNAL_ERROR`
-- **Tenant context:** `tenantId` from JWT only; cross-tenant reference → 404
+- **Company context:** `companyId` from JWT only; cross-company reference → 404
 - **Commit tags:** `feat(m4): topic`
 - **All tests must pass before completion** — `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`
 
@@ -33,10 +33,10 @@
 | **Schema** | `backend/src/database/schema.ts` — add columns, drop tables; `backend/drizzle/template-schema.sql` — same; new migration |
 | **Repositories** | `candidate-account.repository.ts` (resume CRUD), `candidate.repository.ts` (UUID link), `application.repository.ts` (snapshot), `candidate-skill.repository.ts` (existing) |
 | **Candidate Module** | `candidate-account.controller.ts` (PUT profile, POST resume, rewritten apply), `candidate-account.service.ts`, new DTOs (`profile-update.dto.ts`, `resume-upload.dto.ts`), `dto/apply.dto.ts` (update) |
-| **Org Module** | `candidates.controller.ts` (remove create/upload), `candidates.service.ts` (read-by-UUID, resume proxy) |
+| **Company Module** | `candidates.controller.ts` (remove create/upload), `candidates.service.ts` (read-by-UUID, resume proxy) |
 | **Resumes Module** | `resumes.service.ts` (candidate key scheme), `resumes.controller.ts` (candidate-only), `storage.service.ts` (candidate-resumes path) |
 | **Frontend Candidate** | `SettingsPage.tsx` (editable form), `JobSearchPage.tsx` (apply modal fix), `_candidate/routes` (remove skills), `candidateApi.ts` (new hooks), `hooks/useProfile.ts`, `hooks/useSkills.ts`, `hooks/useResume.ts`, `types/index.ts` |
-| **Frontend Org** | `CandidateProfile.tsx` (remove ResumeUploadInput), `useCandidates.ts` (remove create/upload hooks), `candidatesApi.ts` |
+| **Frontend Company** | `CandidateProfile.tsx` (remove ResumeUploadInput), `useCandidates.ts` (remove create/upload hooks), `candidatesApi.ts` |
 | **Tests** | Backend service specs for new/changed logic |
 
 ---
@@ -249,12 +249,12 @@ async create(data: {
 - `updateProfile(userId, dto)` → validates email uniqueness, updates candidate_accounts
 - `uploadResume(userId, file)` → stores to MinIO (candidate-resumes/{userId}/...), updates candidate_accounts
 - `removeResume(userId)` → deletes S3 object, clears fields
-- `apply(userId, tenantId, jobId, { phone?, skillIds?, coverLetter? })` → resolves/creates tenant candidate via UUID, snapshots identity + skills, computes matchScore, inserts application + index
+- `apply(userId, companyId, jobId, { phone?, skillIds?, coverLetter? })` → resolves/creates company candidate via UUID, snapshots identity + skills, computes matchScore, inserts application + index
 
 ```typescript
 // Key apply logic changes:
-async apply(candidateAccountId: string, tenantId: string, jobId: string, dto: ApplyJobDto) {
-  const schemaName = `tenant_${tenantId}`;
+async apply(candidateAccountId: string, companyId: string, jobId: string, dto: ApplyJobDto) {
+  const schemaName = `company_${companyId}`;
   
   // 1. Load candidate account (public)
   const account = await this.candidateAccountRepo.findById(candidateAccountId);
@@ -264,7 +264,7 @@ async apply(candidateAccountId: string, tenantId: string, jobId: string, dto: Ap
   const job = await this.jobListingsIndexRepo.findById(jobId, 'public');
   if (!job) throw new NotFoundException('Job not found');
   
-  // 3. Resolve or create tenant candidate by candidate_account_id
+  // 3. Resolve or create company candidate by candidate_account_id
   let candidate = await this.candidateRepo.findByAccountId(candidateAccountId, schemaName);
   if (!candidate) {
     candidate = await this.candidateRepo.createFromAccount(candidateAccountId, {
@@ -273,7 +273,7 @@ async apply(candidateAccountId: string, tenantId: string, jobId: string, dto: Ap
       phone: dto.phone ?? account.phone,
     }, schemaName);
   } else {
-    // Update snapshot fields on tenant candidate (name/email/phone from profile)
+    // Update snapshot fields on company candidate (name/email/phone from profile)
     await this.candidateRepo.update(candidate.id, {
       name: `${account.firstName} ${account.lastName}`,
       email: account.email,
@@ -311,7 +311,7 @@ async apply(candidateAccountId: string, tenantId: string, jobId: string, dto: Ap
   // 9. Index for candidate dashboard
   await this.candidateApplicationsIndexRepo.create({
     candidateAccountId,
-    tenantId,
+    companyId,
     jobPostingId: jobId,
     applicationId: application.id,
     jobTitle: job.title,
@@ -330,7 +330,7 @@ async apply(candidateAccountId: string, tenantId: string, jobId: string, dto: Ap
 
 ---
 
-### Task 6: Org Candidates Module — Remove Create/Upload, Read-Only via UUID
+### Task 6: Company Candidates Module — Remove Create/Upload, Read-Only via UUID
 
 **Files:**
 - Modify: `backend/src/modules/candidates/candidates.controller.ts` (remove POST /candidates, POST /candidates/:candidateId/resume)
@@ -383,10 +383,10 @@ async getOne(id: string) {
 ```typescript
 // In ResumesService.upload:
 async upload(candidateId: string, file: Express.Multer.File) {
-  const tenantId = this.tenantContext.getTenantId(); // 'public' for candidate
-  const key = tenantId === 'public' 
+  const companyId = this.companyContext.getCompanyId(); // 'public' for candidate
+  const key = companyId === 'public' 
     ? `candidate-resumes/${candidateId}/${randomUUID()}.${ext}`
-    : `tenants/${tenantId}/resumes/${candidateId}/${randomUUID()}.${ext}`;
+    : `companies/${companyId}/resumes/${candidateId}/${randomUUID()}.${ext}`;
   
   await this.storage.upload(key, file.buffer, file.mimetype);
   await this.resumeRepo.create({ candidateId, fileUrl: key });
@@ -450,7 +450,7 @@ const handleSave = async () => {
 
 **Apply Modal Fixes:**
 - Prefill from `useProfile()` (firstName, lastName, email read-only, phone, skills)
-- Fix URL: `candidateApi.applyToJob(tenantId, jobId, data)` — include tenantId
+- Fix URL: `candidateApi.applyToJob(companyId, jobId, data)` — include companyId
 - Send `{ phone, skillIds, coverLetter }` (email/name from profile)
 
 ```tsx
@@ -473,18 +473,18 @@ const handleApply = () => {
 
 - [ ] **Step 1: Delete skills route file**
 - [ ] **Step 2: Remove skills from _candidate routes + navbar**
-- [ ] **Step 3: Fix JobSearchPage apply modal** (prefill, tenantId in URL, send snapshot)
-- [ ] **Step 4: Update candidateApi.applyToJob signature** to include tenantId
+- [ ] **Step 3: Fix JobSearchPage apply modal** (prefill, companyId in URL, send snapshot)
+- [ ] **Step 4: Update candidateApi.applyToJob signature** to include companyId
 - [ ] **Step 5: Run frontend typecheck + lint + build**
 - [ ] **Step 6: Commit**
 
 ---
 
-### Task 10: Frontend Org — Read-Only Candidate View
+### Task 10: Frontend Company — Read-Only Candidate View
 
 **Files:**
-- Modify: `frontend/src/features/org/candidates/CandidateProfile.tsx` (remove ResumeUploadInput)
-- Modify: `frontend/src/features/org/candidates/hooks/useCandidates.ts` (remove useCreateCandidate, useUploadResume)
+- Modify: `frontend/src/features/company/candidates/CandidateProfile.tsx` (remove ResumeUploadInput)
+- Modify: `frontend/src/features/company/candidates/hooks/useCandidates.ts` (remove useCreateCandidate, useUploadResume)
 - Test: Manual verification
 
 **CandidateProfile.tsx:**
@@ -513,7 +513,7 @@ cd ../frontend && npm run typecheck && npm run lint && npm run build
 2. Settings → add skills via MultiSelect → see chips → save → verify skills in profile
 3. Settings → upload resume (PDF) → see file link → replace → verify replaced
 4. Dashboard → apply to job → prefill works → phone/skills editable → submit → success
-5. Sign in as org → Candidates → click candidate → read-only profile, resume link, skills, applications
+5. Sign in as company → Candidates → click candidate → read-only profile, resume link, skills, applications
 6. Duplicate apply → "You already applied to this application."
 7. Email change → future applications use new email; past apps show old email (snapshot)
 

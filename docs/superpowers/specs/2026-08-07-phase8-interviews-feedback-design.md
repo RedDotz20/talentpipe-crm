@@ -9,37 +9,37 @@
 Phase 8 of `docs/09_IMPLEMENTATION_GUIDE.md` requires interview scheduling and
 feedback capture. The `interviews` and `interview_feedbacks` tables already
 exist in `schema.ts`, the applied migrations, the template schema, and every
-provisioned tenant — **no schema or migration work is needed**. What is missing
+provisioned company — **no schema or migration work is needed**. What is missing
 is the module, repositories, frontend feature, tests, and docs.
 
 Two structural gaps surfaced during planning:
 
 1. **No way to create Interviewer users.** User management is Phase 9; the seed
-   creates only the OrgAdmin. Phase 8 needs at least one Interviewer account to
+   creates only the CompanyAdmin. Phase 8 needs at least one Interviewer account to
    be demoable. **Decision: extend the seed** with `interviewer@acme.com`
    (role `Interviewer`) and have the e2e release gate create its own
    Interviewer users via raw SQL.
-2. **No tenant user list endpoint.** The scheduler needs an interviewer picker.
-   **Decision: add `GET /org/users`** (OA/R/HM) in a small `OrgUsersController`
+2. **No company user list endpoint.** The scheduler needs an interviewer picker.
+   **Decision: add `GET /company/users`** (OA/R/HM) in a small `CompanyUsersController`
    living in the interviews module — it also serves Phase 9's user management.
 
 ## Scope
 
-- `InterviewRepository` + `InterviewFeedbackRepository` (tenant-scoped).
+- `InterviewRepository` + `InterviewFeedbackRepository` (company-scoped).
 - `InterviewsModule` with 5 endpoints (docs `07` surface): list, detail,
   schedule, reschedule/cancel (PATCH), submit feedback.
 - Server-side Interviewer scoping: `GET /interviews` for the Interviewer role
   is always filtered to `interviewerId = current user` (FR-21), not just
-  UI-hidden. Other roles see all tenant interviews, with an optional
+  UI-hidden. Other roles see all company interviews, with an optional
   `?assignedToMe=true` filter.
-- Scheduling auto-moves the application to the tenant's `Interview` stage by
+- Scheduling auto-moves the application to the company's `Interview` stage by
   reusing `ApplicationsService.updateStage` (inherits candidate-index sync,
   dashboard-cache invalidation, and the Phase 7 stage-change notification).
 - Feedback is 1:1 with the interview: second submission → `409 CONFLICT`;
   submission flips the interview `status` to `completed`.
 - Frontend: interviews list page, scheduler modal, feedback form, live
-  Interviews tab in the application detail drawer, `/org/interviews` route.
-- Seed: `interviewer@acme.com` Interviewer user (new + existing tenants).
+  Interviews tab in the application detail drawer, `/company/interviews` route.
+- Seed: `interviewer@acme.com` Interviewer user (new + existing companies).
 - Unit tests + `backend/test/phase8.e2e-spec.ts` release gate.
 - Docs: mark M8 ✅ across the doc set.
 
@@ -54,7 +54,7 @@ Two structural gaps surfaced during planning:
 
 ## Architecture
 
-### 1. Repositories (tenant-scoped, `withDb('current')`)
+### 1. Repositories (company-scoped, `withDb('current')`)
 
 `backend/src/repositories/interview.repository.ts`:
 
@@ -83,13 +83,13 @@ GET   /interviews/:id          — OA,R,HM,IV  — 403 if IV not the assigned in
 POST  /interviews              — OA,R,HM     — { applicationId, interviewerId, scheduledAt }
 PATCH /interviews/:id          — OA,R,HM     — { scheduledAt?, status? } (scheduled|completed|cancelled)
 POST  /interviews/:id/feedback — IV only     — verifies assignment (403); { rating: 1-5, comments? }
-GET   /org/users               — OA,R,HM     — tenant user list (OrgUsersController)
+GET   /company/users               — OA,R,HM     — company user list (CompanyUsersController)
 ```
 
 Service rules:
 
 - `schedule()`: 404 if application or interviewer user missing → create →
-  find the tenant's `Interview` stage; if the application is not already there,
+  find the company's `Interview` stage; if the application is not already there,
   call `ApplicationsService.updateStage(...)` (requires exporting
   `ApplicationsService` from `ApplicationsModule`).
 - `submitFeedback()`: 404 unknown interview → 403 if caller is not the
@@ -101,23 +101,23 @@ Service rules:
 ### 3. Frontend
 
 - `frontend/src/api/interviewsApi.ts` (list/get/create/update/submitFeedback)
-  + `frontend/src/api/orgUsersApi.ts`; `queryKeys` additions.
-- `frontend/src/features/org/interviews/`:
+  + `frontend/src/api/companyUsersApi.ts`; `queryKeys` additions.
+- `frontend/src/features/company/interviews/`:
   - `InterviewListView.tsx` — table (candidate, job, date, interviewer, status
     badge) with role-aware actions: Interviewer ⇒ Feedback button; OA/R/HM ⇒
     Schedule + Reschedule/Cancel.
   - `InterviewScheduler.tsx` — modal: application select, interviewer select,
     native `datetime-local` input (no new Mantine package).
   - `InterviewFeedbackForm.tsx` — Mantine `Rating` (1–5) + comments.
-- Route `frontend/src/routes/org/interviews.tsx` (nav link already present).
+- Route `frontend/src/routes/company/interviews.tsx` (nav link already present).
 - `ApplicationDetailDrawer` Interviews tab: `ApplicationsService.getOne` now
   attaches `interviews` (via `InterviewRepository.findByApplicationId`),
   matching docs `07`'s "full application detail (notes, interviews)".
 
 ### 4. Seed
 
-`seedOrg` additionally inserts `interviewer@acme.com` (role `Interviewer`) into
-the tenant `users` + `user_emails`, for both new and existing tenants.
+`seedCompany` additionally inserts `interviewer@acme.com` (role `Interviewer`) into
+the company `users` + `user_emails`, for both new and existing companies.
 
 ### 5. Tests
 
@@ -125,7 +125,7 @@ the tenant `users` + `user_emails`, for both new and existing tenants.
   application/interviewer/interview), 403 non-assigned feedback, 409 duplicate
   feedback, status flip.
 - Release gate: `backend/test/phase8.e2e-spec.ts` (pattern of phase7):
-  org signup → post/publish job → candidate signup + apply → insert 2
+  company signup → post/publish job → candidate signup + apply → insert 2
   Interviewer users via SQL → OA schedules → assert application auto-moved to
   Interview stage + candidate index status → assigned IV sees own interview
   only and submits feedback → non-assigned IV gets 403 → OA reschedules →
@@ -135,7 +135,7 @@ the tenant `users` + `user_emails`, for both new and existing tenants.
 
 Mark M8 complete: `09_IMPLEMENTATION_GUIDE.md` (Phase 8 ✅ + deltas),
 `00_PROJECT_INSTRUCTIONS.md` (milestone 8, status legend),
-`07_API_ENDPOINT_DOCUMENTATION.md` (+ `GET /org/users`),
+`07_API_ENDPOINT_DOCUMENTATION.md` (+ `GET /company/users`),
 `08_FRONTEND_COMPONENT_STRUCTURE.md`, `01_TALENTPIPE_PRD_SRS.md`
 (FR-19/20/21), `AGENTS.md` (status + build order).
 

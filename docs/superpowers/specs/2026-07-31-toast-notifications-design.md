@@ -99,7 +99,7 @@ Every 2xx response is wrapped as:
 { "data": <controller return value>, "message": "OK" }
 ```
 
-Default `message` is the literal string `"OK"`. Handlers that want specific copy return an explicit envelope `{ data, message }` themselves; the interceptor detects this by checking that the returned value is a non-null object whose own keys include both `data` and `message` (an `Array`, which lacks `message`, is never detected as an envelope and is therefore wrapped normally), and returns it unchanged. The two relevant handlers in M1.5 — `auth.service.signin` and the `orgSignup` / `candidateSignup` handlers — are updated to return explicit envelopes so their success toasts carry meaningful copy.
+Default `message` is the literal string `"OK"`. Handlers that want specific copy return an explicit envelope `{ data, message }` themselves; the interceptor detects this by checking that the returned value is a non-null object whose own keys include both `data` and `message` (an `Array`, which lacks `message`, is never detected as an envelope and is therefore wrapped normally), and returns it unchanged. The two relevant handlers in M1.5 — `auth.service.signin` and the `companySignup` / `candidateSignup` handlers — are updated to return explicit envelopes so their success toasts carry meaningful copy.
 
 **Error — `backend/src/shared/api-exception.filter.ts`**
 
@@ -322,14 +322,14 @@ Now a 401 with no token (signin attempt) just rejects, leaving the caller to han
 | `backend/src/shared/response.interceptor.ts` | **NEW** — `ResponseInterceptor<T>` |
 | `backend/src/shared/api-exception.filter.ts` | **NEW** — `ApiExceptionFilter` with status→code map |
 | `backend/src/main.ts` | register both globally |
-| `backend/src/modules/auth/auth.service.ts` | update `signin`, `candidateSignup`, `orgSignup` to return explicit envelopes (see "small handler edits" below) |
+| `backend/src/modules/auth/auth.service.ts` | update `signin`, `candidateSignup`, `companySignup` to return explicit envelopes (see "small handler edits" below) |
 | `backend/src/modules/auth/auth.controller.ts` | ensure endpoints return new envelopes unchanged (verify during implementation) |
 
 ### Backend — small handler edits (signin + signups)
 
 | Path | Change |
 |------|--------|
-| `backend/src/modules/auth/auth.service.ts` | `signin()` returns `{ data: { accessToken, refreshToken }, message: 'Signed in' }` instead of bare tokens. `candidateSignup()` returns `{ data: { userId }, message: 'Account created' }`. `orgSignup()` returns `{ data: { tenantId, userId }, message: 'Company created' }`. Each is the canonical shape future handlers should mimic to set their own toast copy. |
+| `backend/src/modules/auth/auth.service.ts` | `signin()` returns `{ data: { accessToken, refreshToken }, message: 'Signed in' }` instead of bare tokens. `candidateSignup()` returns `{ data: { userId }, message: 'Account created' }`. `companySignup()` returns `{ data: { companyId, userId }, message: 'Company created' }`. Each is the canonical shape future handlers should mimic to set their own toast copy. |
 | `backend/src/modules/auth/auth.controller.ts` | Endpoints return the new envelopes unchanged; no extra wrapping needed. (Only required if the service returns are not already passed through — confirm during implementation.) |
 
 ### Frontend — 1 new, 3 edited
@@ -375,7 +375,7 @@ No changes to `api/authApi.ts`, `useAuth.ts`, `SignInPage.tsx`, or any `routes/*
 3. A 401 from any other endpoint while a token is held redirects to `/auth/signin` with no toast.
 4. A 401 from any endpoint without a held token (e.g. bad signin) does not redirect; the caller handles the rejection.
 5. A successful login shows a green Mantine notification top-right within ~200ms of the response, with text "Signed in". The `SignInPage` still navigates to the role-routed destination.
-6. Successful signup (candidate or org) shows a green toast with the backend's `message` ("Account created"). The body text and the toast are the same.
+6. Successful signup (candidate or company) shows a green toast with the backend's `message` ("Account created"). The body text and the toast are the same.
 7. Existing health and logout endpoints still respond with their pre-existing behavior on the success path — `ResponseInterceptor` does not strip arrays (which lack `message` and so are treated as payloads, not envelopes) or interfere with `204 No Content` (controllers returning nothing produce `{ data: null, message: 'OK' }`).
 8. `npm run typecheck` and `npm run lint` are clean on both packages.
 

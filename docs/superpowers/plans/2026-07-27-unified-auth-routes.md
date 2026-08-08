@@ -2,19 +2,19 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Unify all authentication behind `/auth/signin`, restructure frontend routes with role-based dashboards at `/`, `/org/`, and `/admin/` prefixes.
+**Goal:** Unify all authentication behind `/auth/signin`, restructure frontend routes with role-based dashboards at `/`, `/company/`, and `/admin/` prefixes.
 
-**Architecture:** Backend consolidates four auth endpoints into three: `/auth/signin` (unified login), `/auth/signup` (candidate registration), `/auth/org/signup` (tenant registration). Frontend routes move from `/login` → `/auth/signin`, `/candidate/*` → root-level routes, `/dashboard` → `/org/dashboard` for org users, and `/platform/tenants` → `/admin/tenants` for SuperAdmin. Route guards enforce strict role isolation.
+**Architecture:** Backend consolidates four auth endpoints into three: `/auth/signin` (unified login), `/auth/signup` (candidate registration), `/auth/company/signup` (company registration). Frontend routes move from `/login` → `/auth/signin`, `/candidate/*` → root-level routes, `/dashboard` → `/company/dashboard` for company users, and `/platform/companies` → `/admin/companies` for SuperAdmin. Route guards enforce strict role isolation.
 
 **Tech Stack:** NestJS 11, Drizzle ORM, TanStack Router v1 (file-based), React 19, Mantine 9, Zustand 5
 
 ## Global Constraints
 
 - Use TanStack Router file-based routing conventions (dot-separated flat file names)
-- Backend 404 for cross-tenant resource access (not 403)
-- JWT payloads include `role` and optionally `tenantId`
+- Backend 404 for cross-company resource access (not 403)
+- JWT payloads include `role` and optionally `companyId`
 - All route guard logic uses `beforeLoad` in route files
-- No changes to database schema or tenant isolation logic
+- No changes to database schema or company isolation logic
 
 ---
 
@@ -26,7 +26,7 @@
 
 **Interfaces:**
 - Consumes: existing `AuthService` methods (login, signup, candidateSignup, candidateLogin)
-- Produces: `POST /auth/signin` (unified), `POST /auth/signup` (candidate), `POST /auth/org/signup` (tenant)
+- Produces: `POST /auth/signin` (unified), `POST /auth/signup` (candidate), `POST /auth/company/signup` (company)
 
 - [ ] **Step 1: Update auth.controller.ts — restructure endpoints**
 
@@ -48,8 +48,8 @@ import { CandidateSignupDto } from './dto/candidate-auth.dto';
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  @Post('org/signup')
-  async orgSignup(
+  @Post('company/signup')
+  async companySignup(
     @Body()
     dto: {
       companyName: string;
@@ -58,7 +58,7 @@ export class AuthController {
       password: string;
     },
   ) {
-    return this.authService.orgSignup(dto);
+    return this.authService.companySignup(dto);
   }
 
   @Post('signin')
@@ -88,12 +88,12 @@ export class AuthController {
 }
 ```
 
-- [ ] **Step 2: Update auth.service.ts — rename `signup` → `orgSignup`, add unified `signin`**
+- [ ] **Step 2: Update auth.service.ts — rename `signup` → `companySignup`, add unified `signin`**
 
-Change the `signup` method name to `orgSignup`:
+Change the `signup` method name to `companySignup`:
 
 ```typescript
-  async orgSignup(dto: {
+  async companySignup(dto: {
     companyName: string;
     slug: string;
     email: string;
@@ -107,9 +107,9 @@ Add unified `signin` that replaces both `login` and `candidateLogin`:
 
 ```typescript
   async signin(dto: { email: string; password: string }) {
-    // First: try org user login
+    // First: try company user login
     const { db: pubDb, release } = await this.drizzleSchema.forPublic();
-    let emailRecord: { tenantId: string; userId: string } | null = null;
+    let emailRecord: { companyId: string; userId: string } | null = null;
     try {
       const records = await pubDb
         .select()
@@ -124,11 +124,11 @@ Add unified `signin` that replaces both `login` and `candidateLogin`:
     }
 
     if (emailRecord) {
-      // Org user login flow
-      const { db: tenantDb, release: tenantRelease } =
-        await this.drizzleSchema.forSchema(`tenant_${emailRecord.tenantId}`);
+      // Company user login flow
+      const { db: companyDb, release: companyRelease } =
+        await this.drizzleSchema.forSchema(`company_${emailRecord.companyId}`);
       try {
-        const userResult = await tenantDb
+        const userResult = await companyDb
           .select()
           .from(users)
           .where(eq(users.email, dto.email))
@@ -139,9 +139,9 @@ Add unified `signin` that replaces both `login` and `candidateLogin`:
         const valid = await verifyPassword(user.passwordHash, dto.password);
         if (!valid) throw new UnauthorizedException('Invalid credentials');
 
-        return this.generateTokens(user.id, emailRecord.tenantId, user.role);
+        return this.generateTokens(user.id, emailRecord.companyId, user.role);
       } finally {
-        tenantRelease();
+        companyRelease();
       }
     }
 
@@ -169,7 +169,7 @@ Expected: No type/lint errors from the refactored code.
 
 ```bash
 git add backend/src/modules/auth/auth.controller.ts backend/src/modules/auth/auth.service.ts
-git commit -m "feat(auth): unify signin, rename signup -> org/signup"
+git commit -m "feat(auth): unify signin, rename signup -> company/signup"
 ```
 
 ---
@@ -180,10 +180,10 @@ git commit -m "feat(auth): unify signin, rename signup -> org/signup"
 - Modify: `frontend/src/shared/api/useAuth.ts`
 
 **Interfaces:**
-- Consumes: new backend endpoints (`/auth/signin`, `/auth/signup`, `/auth/org/signup`)
-- Produces: store methods `signin()`, `candidateSignup()`, `orgSignup()`
+- Consumes: new backend endpoints (`/auth/signin`, `/auth/signup`, `/auth/company/signup`)
+- Produces: store methods `signin()`, `candidateSignup()`, `companySignup()`
 
-- [ ] **Step 1: Update store — add `signin`, `candidateSignup`, `orgSignup`**
+- [ ] **Step 1: Update store — add `signin`, `candidateSignup`, `companySignup`**
 
 Replace the existing `login` and `signup` methods with new ones:
 
@@ -194,17 +194,17 @@ Replace the existing `login` and `signup` methods with new ones:
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
     localStorage.setItem('userId', payload.sub);
-    if (payload.tenantId) {
-      localStorage.setItem('tenantId', payload.tenantId);
+    if (payload.companyId) {
+      localStorage.setItem('companyId', payload.companyId);
     } else {
-      localStorage.removeItem('tenantId');
+      localStorage.removeItem('companyId');
     }
     localStorage.setItem('role', payload.role);
     set({
       accessToken: data.accessToken,
       refreshToken: data.refreshToken,
       userId: payload.sub,
-      tenantId: payload.tenantId ?? null,
+      companyId: payload.companyId ?? null,
       role: payload.role,
     });
   },
@@ -221,35 +221,35 @@ Replace the existing `login` and `signup` methods with new ones:
     localStorage.setItem('accessToken', res.accessToken);
     localStorage.setItem('refreshToken', res.refreshToken);
     localStorage.setItem('userId', payload.sub);
-    localStorage.removeItem('tenantId');
+    localStorage.removeItem('companyId');
     localStorage.setItem('role', payload.role);
     set({
       accessToken: res.accessToken,
       refreshToken: res.refreshToken,
       userId: payload.sub,
-      tenantId: null,
+      companyId: null,
       role: payload.role,
     });
   },
 
-  orgSignup: async (data: {
+  companySignup: async (data: {
     companyName: string;
     slug: string;
     email: string;
     password: string;
   }) => {
-    const { data: res } = await api.post('/auth/org/signup', data);
+    const { data: res } = await api.post('/auth/company/signup', data);
     const payload = JSON.parse(atob(res.accessToken.split('.')[1]));
     localStorage.setItem('accessToken', res.accessToken);
     localStorage.setItem('refreshToken', res.refreshToken);
     localStorage.setItem('userId', payload.sub);
-    localStorage.setItem('tenantId', payload.tenantId);
+    localStorage.setItem('companyId', payload.companyId);
     localStorage.setItem('role', payload.role);
     set({
       accessToken: res.accessToken,
       refreshToken: res.refreshToken,
       userId: payload.sub,
-      tenantId: payload.tenantId,
+      companyId: payload.companyId,
       role: payload.role,
     });
   },
@@ -266,16 +266,16 @@ Expected: No errors.
 
 ```bash
 git add frontend/src/shared/api/useAuth.ts
-git commit -m "feat(auth): update store with signin/candidateSignup/orgSignup"
+git commit -m "feat(auth): update store with signin/candidateSignup/companySignup"
 ```
 
 ---
 
-### Task 3: Frontend — Create SignInPage and OrgSignupPage components
+### Task 3: Frontend — Create SignInPage and CompanySignupPage components
 
 **Files:**
 - Create: `frontend/src/features/auth/SignInPage.tsx`
-- Create: `frontend/src/features/auth/OrgSignupPage.tsx`
+- Create: `frontend/src/features/auth/CompanySignupPage.tsx`
 - Delete: `frontend/src/features/auth/LoginPage.tsx`
 - Delete: `frontend/src/features/auth/SignupPage.tsx`
 - Delete: `frontend/src/features/candidate/login/LoginPage.tsx`
@@ -305,9 +305,9 @@ export function SignInPage() {
       if (role === 'Candidate') {
         navigate({ to: '/dashboard' });
       } else if (role === 'SuperAdmin') {
-        navigate({ to: '/admin/tenants' });
+        navigate({ to: '/admin/companies' });
       } else {
-        navigate({ to: '/org/dashboard' });
+        navigate({ to: '/company/dashboard' });
       }
     } catch {
       setError('Invalid email or password');
@@ -328,7 +328,7 @@ export function SignInPage() {
           Don't have an account? <Link to="/auth/signup">Sign up as candidate</Link>
         </Text>
         <Text c="dimmed" size="sm" ta="center" mt="xs">
-          <Link to="/auth/org/signup">Create a company account</Link>
+          <Link to="/auth/company/signup">Create a company account</Link>
         </Text>
       </Paper>
     </Container>
@@ -336,7 +336,7 @@ export function SignInPage() {
 }
 ```
 
-- [ ] **Step 2: Create `frontend/src/features/auth/OrgSignupPage.tsx`**
+- [ ] **Step 2: Create `frontend/src/features/auth/CompanySignupPage.tsx`**
 
 ```typescript
 import { useState } from 'react';
@@ -344,10 +344,10 @@ import { useNavigate, Link } from '@tanstack/react-router';
 import { Container, Paper, Title, TextInput, PasswordInput, Button, Text, Alert } from '@mantine/core';
 import { useAuthStore } from '../../shared/api/useAuth';
 
-export function OrgSignupPage() {
+export function CompanySignupPage() {
   const [form, setForm] = useState({ companyName: '', slug: '', email: '', password: '', confirmPassword: '' });
   const [error, setError] = useState('');
-  const orgSignup = useAuthStore((s) => s.orgSignup);
+  const companySignup = useAuthStore((s) => s.companySignup);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -358,7 +358,7 @@ export function OrgSignupPage() {
       return;
     }
     try {
-      await orgSignup({ companyName: form.companyName, slug: form.slug, email: form.email, password: form.password });
+      await companySignup({ companyName: form.companyName, slug: form.slug, email: form.email, password: form.password });
       navigate({ to: '/auth/signin' });
     } catch {
       setError('Signup failed');
@@ -466,9 +466,9 @@ Expected: No errors.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add frontend/src/features/auth/SignInPage.tsx frontend/src/features/auth/OrgSignupPage.tsx frontend/src/features/candidate/signup/SignupPage.tsx
+git add frontend/src/features/auth/SignInPage.tsx frontend/src/features/auth/CompanySignupPage.tsx frontend/src/features/candidate/signup/SignupPage.tsx
 git rm frontend/src/features/auth/LoginPage.tsx frontend/src/features/auth/SignupPage.tsx frontend/src/features/candidate/login/LoginPage.tsx
-git commit -m "feat(auth): create SignInPage, OrgSignupPage, update candidate signup"
+git commit -m "feat(auth): create SignInPage, CompanySignupPage, update candidate signup"
 ```
 
 ---
@@ -478,7 +478,7 @@ git commit -m "feat(auth): create SignInPage, OrgSignupPage, update candidate si
 **Files:**
 - Create: `frontend/src/routes/auth.signin.tsx`
 - Create: `frontend/src/routes/auth.signup.tsx`
-- Create: `frontend/src/routes/auth.org.signup.tsx`
+- Create: `frontend/src/routes/auth.company.signup.tsx`
 - Delete: `frontend/src/routes/login.tsx`
 - Delete: `frontend/src/routes/signup.tsx`
 - Delete: `frontend/src/routes/_candidate.candidate.login.tsx`
@@ -498,9 +498,9 @@ function redirectToDashboard() {
     throw redirect({ to: '/dashboard' });
   }
   if (role === 'SuperAdmin') {
-    throw redirect({ to: '/admin/tenants' });
+    throw redirect({ to: '/admin/companies' });
   }
-  throw redirect({ to: '/org/dashboard' });
+  throw redirect({ to: '/company/dashboard' });
 }
 
 export const Route = createFileRoute('/auth/signin')({
@@ -526,23 +526,23 @@ export const Route = createFileRoute('/auth/signup')({
 });
 ```
 
-- [ ] **Step 3: Create `frontend/src/routes/auth.org.signup.tsx`**
+- [ ] **Step 3: Create `frontend/src/routes/auth.company.signup.tsx`**
 
 ```typescript
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { OrgSignupPage } from '../features/auth/OrgSignupPage';
+import { CompanySignupPage } from '../features/auth/CompanySignupPage';
 import { useAuthStore } from '../shared/api/useAuth';
 
-export const Route = createFileRoute('/auth/org/signup')({
+export const Route = createFileRoute('/auth/company/signup')({
   beforeLoad: () => {
     if (useAuthStore.getState().isAuthenticated()) {
       const { role } = useAuthStore.getState();
       if (role === 'Candidate') throw redirect({ to: '/dashboard' });
-      if (role === 'SuperAdmin') throw redirect({ to: '/admin/tenants' });
-      throw redirect({ to: '/org/dashboard' });
+      if (role === 'SuperAdmin') throw redirect({ to: '/admin/companies' });
+      throw redirect({ to: '/company/dashboard' });
     }
   },
-  component: OrgSignupPage,
+  component: CompanySignupPage,
 });
 ```
 
@@ -562,7 +562,7 @@ Expected: No errors.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add frontend/src/routes/auth.signin.tsx frontend/src/routes/auth.signup.tsx frontend/src/routes/auth.org.signup.tsx
+git add frontend/src/routes/auth.signin.tsx frontend/src/routes/auth.signup.tsx frontend/src/routes/auth.company.signup.tsx
 git rm frontend/src/routes/login.tsx frontend/src/routes/signup.tsx frontend/src/routes/_candidate.candidate.login.tsx frontend/src/routes/_candidate.candidate.signup.tsx
 git commit -m "feat(auth): add auth route files under /auth/"
 ```
@@ -682,52 +682,52 @@ git commit -m "feat(auth): move candidate routes to root level"
 
 ---
 
-### Task 6: Frontend — Move org routes to `/org/` prefix
+### Task 6: Frontend — Move company routes to `/company/` prefix
 
 **Files:**
-- Rename: `frontend/src/routes/_org.tsx` → `frontend/src/routes/org.tsx`
-- Rename: `frontend/src/routes/_org.dashboard.tsx` → `frontend/src/routes/org.dashboard.tsx`
-- Modify: `frontend/src/app/OrgPlatform.tsx`
+- Rename: `frontend/src/routes/_org.tsx` → `frontend/src/routes/company.tsx`
+- Rename: `frontend/src/routes/_org.dashboard.tsx` → `frontend/src/routes/company.dashboard.tsx`
+- Modify: `frontend/src/app/CompanyPlatform.tsx`
 
-- [ ] **Step 1: Rename org route files**
+- [ ] **Step 1: Rename company route files**
 
 ```bash
-git mv frontend/src/routes/_org.tsx frontend/src/routes/org.tsx
-git mv frontend/src/routes/_org.dashboard.tsx frontend/src/routes/org.dashboard.tsx
+git mv frontend/src/routes/_org.tsx frontend/src/routes/company.tsx
+git mv frontend/src/routes/_org.dashboard.tsx frontend/src/routes/company.dashboard.tsx
 ```
 
-- [ ] **Step 2: Update route string in `org.dashboard.tsx`**
+- [ ] **Step 2: Update route string in `company.dashboard.tsx`**
 
 ```typescript
 import { createFileRoute } from '@tanstack/react-router';
 
-export const Route = createFileRoute('/org/dashboard')({
+export const Route = createFileRoute('/company/dashboard')({
   component: () => <div>Dashboard</div>,
 });
 ```
 
-- [ ] **Step 3: Update `org.tsx` import path**
+- [ ] **Step 3: Update `company.tsx` import path**
 
-The file currently imports from `'../app/OrgPlatform'` — update to reflect new relative path if needed. The route string changes from `/_org` to `/org`:
+The file currently imports from `'../app/CompanyPlatform'` — update to reflect new relative path if needed. The route string changes from `/_org` to `/company`:
 
 ```typescript
 import { createFileRoute } from '@tanstack/react-router';
-import { OrgPlatform } from '../app/OrgPlatform';
+import { CompanyPlatform } from '../app/CompanyPlatform';
 
-export const Route = createFileRoute('/org')({
-  component: OrgPlatform,
+export const Route = createFileRoute('/company')({
+  component: CompanyPlatform,
 });
 ```
 
-- [ ] **Step 4: Update OrgPlatform.tsx — add `/org/` prefix to nav links, fix logout**
+- [ ] **Step 4: Update CompanyPlatform.tsx — add `/company/` prefix to nav links, fix logout**
 
 ```typescript
 const navItems = [
-    { label: 'Dashboard', icon: IconDashboard, to: '/org/dashboard' },
-    { label: 'Job Postings', icon: IconBriefcase, to: '/org/job-postings' },
-    { label: 'Candidates', icon: IconUsers, to: '/org/candidates' },
-    { label: 'Pipeline', icon: IconLayoutKanban, to: '/org/pipeline' },
-    { label: 'Interviews', icon: IconCalendarEvent, to: '/org/interviews' },
+    { label: 'Dashboard', icon: IconDashboard, to: '/company/dashboard' },
+    { label: 'Job Postings', icon: IconBriefcase, to: '/company/job-postings' },
+    { label: 'Candidates', icon: IconUsers, to: '/company/candidates' },
+    { label: 'Pipeline', icon: IconLayoutKanban, to: '/company/pipeline' },
+    { label: 'Interviews', icon: IconCalendarEvent, to: '/company/interviews' },
   ];
 ```
 
@@ -747,9 +747,9 @@ Expected: No errors.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add frontend/src/routes/org.tsx frontend/src/routes/org.dashboard.tsx frontend/src/app/OrgPlatform.tsx
+git add frontend/src/routes/company.tsx frontend/src/routes/company.dashboard.tsx frontend/src/app/CompanyPlatform.tsx
 git rm frontend/src/routes/_org.tsx frontend/src/routes/_org.dashboard.tsx
-git commit -m "feat(auth): move org routes to /org/ prefix"
+git commit -m "feat(auth): move company routes to /company/ prefix"
 ```
 
 ---
@@ -758,24 +758,24 @@ git commit -m "feat(auth): move org routes to /org/ prefix"
 
 **Files:**
 - Rename: `frontend/src/routes/_super-admin.tsx` → `frontend/src/routes/admin.tsx`
-- Rename: `frontend/src/routes/_super-admin.platform.tenants.tsx` → `frontend/src/routes/admin.tenants.tsx`
+- Rename: `frontend/src/routes/_super-admin.platform.companies.tsx` → `frontend/src/routes/admin.companies.tsx`
 - Modify: `frontend/src/app/SuperAdminPlatform.tsx`
 
 - [ ] **Step 1: Rename super-admin route files**
 
 ```bash
 git mv frontend/src/routes/_super-admin.tsx frontend/src/routes/admin.tsx
-git mv frontend/src/routes/_super-admin.platform.tenants.tsx frontend/src/routes/admin.tenants.tsx
+git mv frontend/src/routes/_super-admin.platform.companies.tsx frontend/src/routes/admin.companies.tsx
 ```
 
-- [ ] **Step 2: Update route string in `admin.tenants.tsx`**
+- [ ] **Step 2: Update route string in `admin.companies.tsx`**
 
 ```typescript
 import { createFileRoute } from '@tanstack/react-router';
-import { TenantsPage } from '../features/admin/TenantsPage';
+import { CompaniesPage } from '../features/admin/CompaniesPage';
 
-export const Route = createFileRoute('/admin/tenants')({
-  component: TenantsPage,
+export const Route = createFileRoute('/admin/companies')({
+  component: CompaniesPage,
 });
 ```
 
@@ -805,10 +805,10 @@ const handleLogout = () => {
 Change nav link:
 ```typescript
 <NavLink
-  label="Tenants"
+  label="Companies"
   leftSection={<IconBuildingEstate size="1rem" />}
   component={Link}
-  to="/admin/tenants"
+  to="/admin/companies"
 />
 ```
 
@@ -820,8 +820,8 @@ Expected: No errors.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add frontend/src/routes/admin.tsx frontend/src/routes/admin.tenants.tsx frontend/src/app/SuperAdminPlatform.tsx
-git rm frontend/src/routes/_super-admin.tsx frontend/src/routes/_super-admin.platform.tenants.tsx
+git add frontend/src/routes/admin.tsx frontend/src/routes/admin.companies.tsx frontend/src/app/SuperAdminPlatform.tsx
+git rm frontend/src/routes/_super-admin.tsx frontend/src/routes/_super-admin.platform.companies.tsx
 git commit -m "feat(auth): move super-admin routes to /admin/ prefix"
 ```
 
@@ -846,9 +846,9 @@ export const Route = createFileRoute('/')({
       throw redirect({ to: '/dashboard' });
     }
     if (role === 'SuperAdmin') {
-      throw redirect({ to: '/admin/tenants' });
+      throw redirect({ to: '/admin/companies' });
     }
-    throw redirect({ to: '/org/dashboard' });
+    throw redirect({ to: '/company/dashboard' });
   },
 });
 ```
@@ -886,9 +886,9 @@ Change the auth section to reflect new endpoints:
 ```markdown
 | Method | Path | Roles | Description |
 |---|---|---|---|
-| POST | `/auth/signin` | PUBLIC | Unified sign-in — accepts email+password, routes to org or candidate auth based on account type |
+| POST | `/auth/signin` | PUBLIC | Unified sign-in — accepts email+password, routes to company or candidate auth based on account type |
 | POST | `/auth/signup` | PUBLIC | Creates a new candidate account (email, password, name) |
-| POST | `/auth/org/signup` | PUBLIC | Creates a new Tenant + first Org Admin user |
+| POST | `/auth/company/signup` | PUBLIC | Creates a new Company + first Company Admin user |
 | POST | `/auth/refresh` | PUBLIC | Exchanges refresh token for new access token |
 | POST | `/auth/logout` | — | Revokes current refresh token |
 ```

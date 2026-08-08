@@ -15,7 +15,7 @@ The original Phase 4 design extracted text from uploaded PDFs/DOCXs, matched aga
 - `pdf-parse` Buffer pool bug requires runtime workaround
 - Text extraction quality varies wildly (formatting, columns, encoding)
 - Substring matching produces false positives (e.g., "React" matches "reaction")
-- Skills are candidate credentials, not org property — they belong in candidate's cross-tenant profile
+- Skills are candidate credentials, not company property — they belong in candidate's cross-company profile
 
 **Decision:** Remove automated extraction/matching. Candidates manually declare skills in their profile; match score uses self-declared skills vs job required skills. Resume becomes pure storage for recruiter review.
 
@@ -27,8 +27,8 @@ The original Phase 4 design extracted text from uploaded PDFs/DOCXs, matched aga
 
 | Location | Change |
 |----------|--------|
-| **Public schema** | Add `candidate_skills` table (cross-tenant, candidate-owned) |
-| **Tenant schema (template)** | Remove `parsedText` from `resumes`; keep `resume_skills` table but don't auto-populate |
+| **Public schema** | Add `candidate_skills` table (cross-company, candidate-owned) |
+| **Company schema (template)** | Remove `parsedText` from `resumes`; keep `resume_skills` table but don't auto-populate |
 | **Public schema** | `skills` table unchanged (taxonomy source) |
 
 **New table: `candidate_skills` (public schema)**
@@ -57,7 +57,7 @@ CREATE TABLE candidate_skills (
           │                                          │
           ▼                                          ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      TENANT SCHEMA (per org)                    │
+│                      COMPANY SCHEMA (per company)                    │
 │  ┌──────────┐   ┌──────────┐   ┌───────────┐   ┌────────────┐  │
 │  │candidates│   │resumes   │   │applications│   │job_req_   │  │
 │  │          │   │(storage) │   │           │   │skills      │  │
@@ -81,7 +81,7 @@ CREATE TABLE candidate_skills (
 4. Stored in `public.candidate_skills`
 
 **Apply Flow (Public or Authenticated):**
-1. Candidate applies to job (`POST /public/:slug/jobs/:id/apply` or `POST /candidate/jobs/:tenantId/:jobId/apply`)
+1. Candidate applies to job (`POST /public/:slug/jobs/:id/apply` or `POST /candidate/jobs/:companyId/:jobId/apply`)
 2. Body optionally includes `skillIds[]` (override)
 3. If `skillIds` provided → use those
 4. If omitted → fetch candidate's profile skills from `candidate_skills`
@@ -89,8 +89,8 @@ CREATE TABLE candidate_skills (
 6. Create application with `matchScore`
 7. Store applied skills in `candidate_applications_index.skill_ids` (JSON) for history
 
-**Org View:**
-1. Recruiter opens candidate profile → `GET /candidates/:id` (tenant schema)
+**Company View:**
+1. Recruiter opens candidate profile → `GET /candidates/:id` (company schema)
 2. Response includes candidate's skills (fetched from public `candidate_skills` via candidate account email linkage)
 3. Pipeline/ApplicationCard shows `matchScore` from application record
 
@@ -109,9 +109,9 @@ CREATE TABLE candidate_skills (
 
 | Method | Path | Change |
 |--------|------|--------|
-| `POST` | `/public/:tenantSlug/jobs/:id/apply` | Accept optional `skillIds[]`; if omitted, use candidate profile skills (requires candidate auth or email lookup) |
-| `POST` | `/candidate/jobs/:tenantId/:jobId/apply` | Accept optional `skillIds[]`; default to profile skills |
-| `GET` | `/candidates/:id` (org) | Include `skills` array from candidate's public profile |
+| `POST` | `/public/:companySlug/jobs/:id/apply` | Accept optional `skillIds[]`; if omitted, use candidate profile skills (requires candidate auth or email lookup) |
+| `POST` | `/candidate/jobs/:companyId/:jobId/apply` | Accept optional `skillIds[]`; default to profile skills |
+| `GET` | `/candidates/:id` (company) | Include `skills` array from candidate's public profile |
 
 ### 3.3 Removed Endpoints (Resumes Module)
 
@@ -149,7 +149,7 @@ delete(accountId: string, skillId: string): Promise<void>
 - `upload()`: store file in MinIO, create `resumes` row with `fileUrl` only
 - `get()`: return `{ id, candidateId, fileUrl, uploadedAt }`
 
-### 4.5 CandidatesService (Org) Changes
+### 4.5 CandidatesService (Company) Changes
 - `getOne(id)`: join candidate → candidate_account (via email) → candidate_skills
 - Return `{ ..., skills: [{ id, name, category }] }`
 
@@ -168,7 +168,7 @@ delete(accountId: string, skillId: string): Promise<void>
 - Allow add/remove before submit
 - Submit includes `skillIds` in body
 
-### 5.3 CandidateProfile (Org View)
+### 5.3 CandidateProfile (Company View)
 - Shows read-only skill badges from `candidate.skills`
 - Resume card: only file link + upload date (no parsed text, no extracted skills)
 
@@ -207,7 +207,7 @@ delete(accountId: string, skillId: string): Promise<void>
 2. **Apply with Profile Skills:** Authenticated candidate apply without `skillIds` → uses profile skills → correct `matchScore`
 3. **Apply with Override:** Any apply with `skillIds` in body → uses those → correct `matchScore`
 4. **Public Apply without Skills:** Public apply without `skillIds` → `matchScore = 0` (or 400 if skills required)
-5. **Org Candidate Profile:** `GET /candidates/:id` returns `skills` array from candidate's public profile
+5. **Company Candidate Profile:** `GET /candidates/:id` returns `skills` array from candidate's public profile
 6. **Resume Storage Only:** `POST /candidates/:id/resume` stores file in MinIO; `GET` returns only `fileUrl` + `uploadedAt`
 7. **Pipeline Match Score:** `ApplicationCard` and candidate profile applications table show correct `matchScore`
 8. **No Text Extraction:** No `pdf-parse`/`mammoth` in bundle; no `parsedText` in DB or API
@@ -231,7 +231,7 @@ delete(accountId: string, skillId: string): Promise<void>
 - `frontend/src/features/candidate-portal/skills/` (new folder: `SkillsPage.tsx`, hooks)
 - `frontend/src/routes/_candidate/skills.tsx` (new route)
 - `frontend/src/features/candidate-portal/applications/ApplyForm.tsx` — prefill/override skills
-- `frontend/src/features/org/candidates/CandidateProfile.tsx` — show skills, remove parsedText
+- `frontend/src/features/company/candidates/CandidateProfile.tsx` — show skills, remove parsedText
 - `frontend/src/api/candidateAccountApi.ts` — add skills endpoints
 
 ### Config

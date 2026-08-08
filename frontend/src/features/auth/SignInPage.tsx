@@ -31,9 +31,9 @@ export function SignInPage({ returnTo }: SignInPageProps) {
       } else if (currentRole === 'Candidate') {
         await navigate({ to: '/dashboard' });
       } else if (currentRole === 'SuperAdmin') {
-        await navigate({ to: '/admin/tenants' });
+        await navigate({ to: '/admin/companies' });
       } else {
-        await navigate({ to: '/org/dashboard' });
+        await navigate({ to: '/company/dashboard' });
       }
     } catch (err) {
       const message = (err as { response?: { data?: { error?: { message?: string } } } })
@@ -88,7 +88,7 @@ export function SignInPage({ returnTo }: SignInPageProps) {
         </Anchor>
       </Text>
       <Text ta="center" mt="xs">
-        <Anchor href="/auth/org/signup" fw={500}>
+        <Anchor href="/auth/company/signup" fw={500}>
           Create a company account
         </Anchor>
       </Text>

@@ -5,7 +5,7 @@
 The current `frontend/src/` structure has several issues:
 
 1. **Duplicate `candidate/` vs `candidates/`** — both folders exist; `candidate/` has pages, `candidates/` is empty
-2. **Three dashboard platforms scattered** — `OrgPlatform.tsx` in `app/`, `SuperAdminPlatform.tsx` in `app/`, `CandidatePlatform.tsx` in `shared/components/`
+2. **Three dashboard platforms scattered** — `CompanyPlatform.tsx` in `app/`, `SuperAdminPlatform.tsx` in `app/`, `CandidatePlatform.tsx` in `shared/components/`
 3. **Flat feature folders mixed across dashboards** — `dashboard/`, `pipeline/`, `interviews/`, `job-postings/` at root `features/` level, not scoped to which dashboard owns them
 4. **`shared/` adds unnecessary nesting** — contents promoted to root-level `src/` directories
 5. **Flat route files** — 13 files at `routes/` root with dot notation, no directory grouping
@@ -27,7 +27,7 @@ frontend/src/
   hooks/                        # Global shared hooks (auth only — was shared/hooks/auth/)
     auth/
       useSignIn.ts
-      useOrgSignup.ts
+      useCompanySignup.ts
       useCandidateSignup.ts
       useLogout.ts
       useRefreshAuth.ts
@@ -37,8 +37,8 @@ frontend/src/
   utils/                        # Global utilities (was shared/utils/)
 
   features/
-    org/                        # Recruiter dashboard (OrgAdmin/OrgRecruiter/OrgHiringManager)
-      layout.tsx                # moved from app/OrgPlatform.tsx
+    company/                        # Recruiter dashboard (CompanyAdmin/CompanyRecruiter/CompanyHiringManager)
+      layout.tsx                # moved from app/CompanyPlatform.tsx
       dashboard/
       job-postings/
       candidates/               # recruiter-facing candidate management
@@ -74,12 +74,12 @@ frontend/src/
 
     admin/                      # SuperAdmin dashboard
       layout.tsx                # moved from app/SuperAdminPlatform.tsx
-      tenants/
-        TenantsPage.tsx
+      companies/
+        CompaniesPage.tsx
 
     auth/                       # Auth pages (shared across dashboards)
       SignInPage.tsx
-      OrgSignupPage.tsx
+      CompanySignupPage.tsx
 
   app/                          # Bootstrap only (unchanged)
     router.tsx
@@ -97,14 +97,14 @@ frontend/src/
     auth/
       signin.tsx                # was auth.signin.tsx
       signup.tsx                # was auth.signup.tsx
-      org/
-        signup.tsx              # was auth.org.signup.tsx
-    org/
-      __root.tsx                # was org.tsx
-      dashboard.tsx             # was org.dashboard.tsx
+      company/
+        signup.tsx              # was auth.company.signup.tsx
+    company/
+      __root.tsx                # was company.tsx
+      dashboard.tsx             # was company.dashboard.tsx
     admin/
       __root.tsx                # was admin.tsx
-      tenants.tsx               # was admin.tenants.tsx
+      companies.tsx               # was admin.companies.tsx
 
   routeTree.gen.ts              # auto-generated — delete and regenerate
   main.tsx
@@ -115,7 +115,7 @@ frontend/src/
 | Path | Reason |
 |------|--------|
 | `features/candidates/.gitkeep` | Redundant duplicate of `features/candidate/` |
-| `features/dashboard/.gitkeep` | Empty scaffold — will be created under `org/` when M2+ starts |
+| `features/dashboard/.gitkeep` | Empty scaffold — will be created under `company/` when M2+ starts |
 | `features/interviews/.gitkeep` | Same |
 | `features/job-postings/.gitkeep` | Same |
 | `features/pipeline/.gitkeep` | Same |
@@ -123,7 +123,7 @@ frontend/src/
 | `features/public-careers/.gitkeep` | Same |
 | `features/resumes/.gitkeep` | Same |
 | `shared/` (entire dir) | Contents moved to root-level directories |
-| `src/app/OrgPlatform.tsx` | Moved to `features/org/layout.tsx` |
+| `src/app/CompanyPlatform.tsx` | Moved to `features/company/layout.tsx` |
 | `src/app/SuperAdminPlatform.tsx` | Moved to `features/admin/layout.tsx` |
 | Old flat route files | Replaced by directory-based structure |
 
@@ -136,22 +136,22 @@ frontend/src/
 | `index.tsx` | `../shared/api/useAuth` | `../api/useAuth` |
 | `_candidate.tsx` → `_candidate/__root.tsx` | `../shared/components/CandidatePlatform` | `../features/candidate-portal/layout` |
 | `_candidate.tsx` → `_candidate/__root.tsx` | `../shared/api/useAuth` | `../api/useAuth` |
-| `org.tsx` → `org/__root.tsx` | `../app/OrgPlatform` | `../features/org/layout` |
-| `org.tsx` → `org/__root.tsx` | `../shared/api/useAuth` | `../api/useAuth` |
+| `company.tsx` → `company/__root.tsx` | `../app/CompanyPlatform` | `../features/company/layout` |
+| `company.tsx` → `company/__root.tsx` | `../shared/api/useAuth` | `../api/useAuth` |
 | `admin.tsx` → `admin/__root.tsx` | `../app/SuperAdminPlatform` | `../features/admin/layout` |
 | `admin.tsx` → `admin/__root.tsx` | `../shared/api/useAuth` | `../api/useAuth` |
 | `auth.signin.tsx` → `auth/signin.tsx` | `../features/auth/SignInPage` | `../features/auth/SignInPage` (unchanged) |
 | `auth.signin.tsx` → `auth/signin.tsx` | `../shared/api/useAuth` | `../api/useAuth` |
 | `auth.signup.tsx` → `auth/signup.tsx` | `../features/candidate/signup/SignupPage` | `../features/candidate-portal/signup/SignupPage` |
 | `auth.signup.tsx` → `auth/signup.tsx` | `../shared/api/useAuth` | `../api/useAuth` |
-| `auth.org.signup.tsx` → `auth/org/signup.tsx` | `../features/auth/OrgSignupPage` | `../features/auth/OrgSignupPage` (unchanged) |
-| `auth.org.signup.tsx` → `auth/org/signup.tsx` | `../shared/api/useAuth` | `../api/useAuth` |
+| `auth.company.signup.tsx` → `auth/company/signup.tsx` | `../features/auth/CompanySignupPage` | `../features/auth/CompanySignupPage` (unchanged) |
+| `auth.company.signup.tsx` → `auth/company/signup.tsx` | `../shared/api/useAuth` | `../api/useAuth` |
 | `_candidate.dashboard.tsx` → `_candidate/dashboard.tsx` | `../features/candidate/dashboard/JobSearchPage` | `../features/candidate-portal/dashboard/JobSearchPage` |
 | `_candidate.applications.tsx` → `_candidate/applications.tsx` | `../features/candidate/applications/ApplicationsPage` | `../features/candidate-portal/applications/ApplicationsPage` |
 | `_candidate.bookmarks.tsx` → `_candidate/bookmarks.tsx` | `../features/candidate/bookmarks/BookmarksPage` | `../features/candidate-portal/bookmarks/BookmarksPage` |
 | `_candidate.settings.tsx` → `_candidate/settings.tsx` | `../features/candidate/settings/SettingsPage` | `../features/candidate-portal/settings/SettingsPage` |
-| `admin.tenants.tsx` → `admin/tenants.tsx` | `../features/admin/TenantsPage` | `../features/admin/TenantsPage` (unchanged) |
-| `org.dashboard.tsx` → `org/dashboard.tsx` | (inline component) | (inline component, unchanged) |
+| `admin.companies.tsx` → `admin/companies.tsx` | `../features/admin/CompaniesPage` | `../features/admin/CompaniesPage` (unchanged) |
+| `company.dashboard.tsx` → `company/dashboard.tsx` | (inline component) | (inline component, unchanged) |
 
 ### Feature pages (5 files)
 
@@ -167,7 +167,7 @@ frontend/src/
 
 | Principle | Application |
 |-----------|-------------|
-| **SRP** | Each feature folder owns one domain. `org/` doesn't know about `candidate-portal/`. |
+| **SRP** | Each feature folder owns one domain. `company/` doesn't know about `candidate-portal/`. |
 | **OCP** | New dashboards = new folder under `features/`, zero existing modifications. |
 | **LSP** | All three platform layouts follow the same contract (AppShell + Outlet + nav). |
 | **ISP** | Candidate hooks live in `candidate-portal/` — global consumers aren't forced to import them. |

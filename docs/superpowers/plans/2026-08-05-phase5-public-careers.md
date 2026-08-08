@@ -2,20 +2,20 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add tenant-specific public careers browsing while requiring authenticated Candidate accounts for every application.
+**Goal:** Add company-specific public careers browsing while requiring authenticated Candidate accounts for every application.
 
-**Architecture:** Add a read-only `PublicCareersModule` backed by the public `job_listings_index`, with explicit tenant-schema reads for open-job details and required skills. Add public TanStack Router pages that use the existing candidate application flow; anonymous Apply actions go through unified sign-in/signup and return to the original careers detail route. Redis, anonymous apply, and rate limiting remain out of scope until Phase 6.
+**Architecture:** Add a read-only `PublicCareersModule` backed by the public `job_listings_index`, with explicit company-schema reads for open-job details and required skills. Add public TanStack Router pages that use the existing candidate application flow; anonymous Apply actions go through unified sign-in/signup and return to the original careers detail route. Redis, anonymous apply, and rate limiting remain out of scope until Phase 6.
 
-**Tech Stack:** NestJS 11, Drizzle ORM, PostgreSQL schema-per-tenant routing, Zod, React 19, Mantine 9, TanStack Query 5, TanStack Router 1, Zustand 5, Vite 8.
+**Tech Stack:** NestJS 11, Drizzle ORM, PostgreSQL schema-per-company routing, Zod, React 19, Mantine 9, TanStack Query 5, TanStack Router 1, Zustand 5, Vite 8.
 
 ## Global Constraints
 
-- Public browsing uses tenant-specific routes: `/api/public/:tenantSlug/jobs` and `/api/public/:tenantSlug/jobs/:id`.
+- Public browsing uses company-specific routes: `/api/public/:companySlug/jobs` and `/api/public/:companySlug/jobs/:id`.
 - There is no anonymous application endpoint, multipart public upload, honeypot, or public rate limiter in Phase 5.
-- Applications use only `POST /api/candidate/jobs/:tenantId/:jobId/apply` and require JWT role `Candidate`.
+- Applications use only `POST /api/candidate/jobs/:companyId/:jobId/apply` and require JWT role `Candidate`.
 - Public jobs include only `job_listings_index` rows with `status = 'open'`; draft and closed jobs return `404` on detail.
 - All database access goes through repositories; no Drizzle client is used directly by controllers or services.
-- Tenant identity for public reads comes from the server-side slug lookup; internal candidate writes continue using verified JWT context and repository validation.
+- Company identity for public reads comes from the server-side slug lookup; internal candidate writes continue using verified JWT context and repository validation.
 - Do not stage or commit the existing uncommitted Phase 4 files unless a task explicitly modifies one of them.
 - Every task must preserve the standard `{ data, message }` success envelope and `{ error: { code, message } }` error envelope.
 
@@ -25,11 +25,11 @@
 
 - Create `backend/src/modules/public-careers/public-careers.module.ts`: module wiring.
 - Create `backend/src/modules/public-careers/public-careers.controller.ts`: unauthenticated GET routes.
-- Create `backend/src/modules/public-careers/public-careers.service.ts`: tenant/job visibility and public response orchestration.
+- Create `backend/src/modules/public-careers/public-careers.service.ts`: company/job visibility and public response orchestration.
 - Create `backend/src/modules/public-careers/public-careers.service.spec.ts`: service behavior tests.
-- Modify `backend/src/repositories/job-listings-index.repository.ts`: tenant-scoped open listing lookups.
+- Modify `backend/src/repositories/job-listings-index.repository.ts`: company-scoped open listing lookups.
 - Modify `backend/src/repositories/job-posting.repository.ts`: explicit-schema job lookup.
-- Modify `backend/src/repositories/tenant.repository.ts`: remove deleted Phase 4 resume tables from new-tenant provisioning.
+- Modify `backend/src/repositories/company.repository.ts`: remove deleted Phase 4 resume tables from new-company provisioning.
 - Modify `backend/src/app.module.ts`: register `PublicCareersModule`.
 - Add controller/integration coverage under the public-careers module or `backend/test/` using the repository’s existing Jest conventions.
 
@@ -37,11 +37,11 @@
 
 - Create `frontend/src/features/public-careers/api/publicCareersApi.ts`: public careers HTTP functions and response types.
 - Create `frontend/src/features/public-careers/hooks/usePublicCareers.ts`: listing/detail TanStack Query hooks.
-- Create `frontend/src/features/public-careers/JobListingPage.tsx`: tenant job list.
+- Create `frontend/src/features/public-careers/JobListingPage.tsx`: company job list.
 - Create `frontend/src/features/public-careers/JobDetailPage.tsx`: public job detail and Apply state.
 - Create `frontend/src/features/candidate-portal/applications/CandidateApplyModal.tsx`: reusable authenticated candidate apply form extracted from the candidate dashboard flow.
-- Create `frontend/src/routes/careers/$tenantSlug/jobs.tsx`: public listing route.
-- Create `frontend/src/routes/careers/$tenantSlug/jobs/$jobId.tsx`: public detail route.
+- Create `frontend/src/routes/careers/$companySlug/jobs.tsx`: public listing route.
+- Create `frontend/src/routes/careers/$companySlug/jobs/$jobId.tsx`: public detail route.
 - Modify `frontend/src/api/queryKeys.ts`: public careers query keys.
 - Modify `frontend/src/features/candidate-portal/dashboard/JobSearchPage.tsx`: use the reusable apply modal without changing candidate API behavior.
 - Modify `frontend/src/features/auth/SignInPage.tsx`: consume safe `returnTo` and preserve existing role redirects otherwise.
@@ -54,33 +54,33 @@
 
 ---
 
-### Task 1: Align Tenant Provisioning With Phase 4 Storage Redesign
+### Task 1: Align Company Provisioning With Phase 4 Storage Redesign
 
 **Files:**
-- Modify: `backend/src/repositories/tenant.repository.ts:6-18`
+- Modify: `backend/src/repositories/company.repository.ts:6-18`
 - Inspect: `backend/drizzle/template-schema.sql`
-- Test/verify: `backend/src/repositories/tenant.repository.ts`, backend typecheck/build
+- Test/verify: `backend/src/repositories/company.repository.ts`, backend typecheck/build
 
 **Interfaces:**
-- Consumes: current `TenantRepository.provisionSchema(tenantId)` and the template schema created by `backend/drizzle/template-schema.sql`.
-- Produces: new tenant provisioning that clones exactly the current tenant tables: `users`, `job_postings`, `candidates`, `pipeline_stages`, `applications`, `job_required_skills`, `interviews`, `interview_feedbacks`, and `notes`.
+- Consumes: current `CompanyRepository.provisionSchema(companyId)` and the template schema created by `backend/drizzle/template-schema.sql`.
+- Produces: new company provisioning that clones exactly the current company tables: `users`, `job_postings`, `candidates`, `pipeline_stages`, `applications`, `job_required_skills`, `interviews`, `interview_feedbacks`, and `notes`.
 
 - [ ] **Step 1: Confirm the mismatch**
 
 Run:
 
 ```powershell
-rg 'resumes|resume_skills' backend/src/repositories/tenant.repository.ts backend/drizzle/template-schema.sql backend/src/database/schema.ts
+rg 'resumes|resume_skills' backend/src/repositories/company.repository.ts backend/drizzle/template-schema.sql backend/src/database/schema.ts
 ```
 
-Expected: `template-schema.sql` and `schema.ts` no longer define the deleted tenant tables, while `TENANT_TABLES` still references them.
+Expected: `template-schema.sql` and `schema.ts` no longer define the deleted company tables, while `COMPANY_TABLES` still references them.
 
 - [ ] **Step 2: Remove deleted tables from provisioning**
 
-Change `TENANT_TABLES` to:
+Change `COMPANY_TABLES` to:
 
 ```ts
-const TENANT_TABLES = [
+const COMPANY_TABLES = [
   'users',
   'job_postings',
   'candidates',
@@ -100,7 +100,7 @@ Do not reintroduce `resumes` or `resume_skills`.
 Run:
 
 ```powershell
-rg 'resumes|resume_skills' backend/src/repositories/tenant.repository.ts backend/drizzle/template-schema.sql
+rg 'resumes|resume_skills' backend/src/repositories/company.repository.ts backend/drizzle/template-schema.sql
 cd backend; npm run typecheck
 ```
 
@@ -109,13 +109,13 @@ Expected: the first command has no output and typecheck passes.
 - [ ] **Step 4: Commit only this fix**
 
 ```powershell
-git add backend/src/repositories/tenant.repository.ts
-git commit -m "fix(m4): align tenant provisioning with resume redesign"
+git add backend/src/repositories/company.repository.ts
+git commit -m "fix(m4): align company provisioning with resume redesign"
 ```
 
 ---
 
-### Task 2: Add Tenant-Scoped Public Index Repository Operations
+### Task 2: Add Company-Scoped Public Index Repository Operations
 
 **Files:**
 - Modify: `backend/src/repositories/job-listings-index.repository.ts`
@@ -125,27 +125,27 @@ git commit -m "fix(m4): align tenant provisioning with resume redesign"
 **Interfaces:**
 - Consumes: existing `JobListingsIndexRepository.findById`, `upsert`, `delete`, and `JobPostingRepository.getRequiredSkillIds(jobPostingId, schema)`.
 - Produces:
-  - `JobListingsIndexRepository.findOpenByTenant(tenantId: string)` returning indexed open rows for one tenant.
-  - `JobListingsIndexRepository.findOpenByTenantAndJob(tenantId: string, jobPostingId: string)` returning one row or `null`.
-  - `JobPostingRepository.findById(id: string, schema = 'current')` so public detail can read a tenant schema explicitly.
+  - `JobListingsIndexRepository.findOpenByCompany(companyId: string)` returning indexed open rows for one company.
+  - `JobListingsIndexRepository.findOpenByCompanyAndJob(companyId: string, jobPostingId: string)` returning one row or `null`.
+  - `JobPostingRepository.findById(id: string, schema = 'current')` so public detail can read a company schema explicitly.
 
 - [ ] **Step 1: Add the repository behavior tests through the service contract**
 
-In the service test created in Task 3, mock these exact methods and assert the service calls them with the resolved tenant ID and `tenant_<id>` schema. The test must fail until these methods exist.
+In the service test created in Task 3, mock these exact methods and assert the service calls them with the resolved company ID and `company_<id>` schema. The test must fail until these methods exist.
 
-- [ ] **Step 2: Implement tenant-filtered index methods**
+- [ ] **Step 2: Implement company-filtered index methods**
 
 Use `withDb('public', ...)`, `and`, `eq`, and `desc`:
 
 ```ts
-async findOpenByTenant(tenantId: string) {
+async findOpenByCompany(companyId: string) {
   return this.withDb('public', (db) =>
     db
       .select()
       .from(jobListingsIndex)
       .where(
         and(
-          eq(jobListingsIndex.tenantId, tenantId),
+          eq(jobListingsIndex.companyId, companyId),
           eq(jobListingsIndex.status, 'open'),
         ),
       )
@@ -154,14 +154,14 @@ async findOpenByTenant(tenantId: string) {
   );
 }
 
-async findOpenByTenantAndJob(tenantId: string, jobPostingId: string) {
+async findOpenByCompanyAndJob(companyId: string, jobPostingId: string) {
   return this.withDb('public', async (db) => {
     const rows = await db
       .select()
       .from(jobListingsIndex)
       .where(
         and(
-          eq(jobListingsIndex.tenantId, tenantId),
+          eq(jobListingsIndex.companyId, companyId),
           eq(jobListingsIndex.jobPostingId, jobPostingId),
           eq(jobListingsIndex.status, 'open'),
         ),
@@ -203,7 +203,7 @@ Expected: PASS.
 
 ```powershell
 git add backend/src/repositories/job-listings-index.repository.ts backend/src/repositories/job-posting.repository.ts
-git commit -m "feat(m5): add tenant-scoped public job lookups"
+git commit -m "feat(m5): add company-scoped public job lookups"
 ```
 
 ---
@@ -218,22 +218,22 @@ git commit -m "feat(m5): add tenant-scoped public job lookups"
 - Modify: `backend/src/app.module.ts:4-31`
 
 **Interfaces:**
-- Consumes: `TenantRepository.findBySlug`, `JobListingsIndexRepository.findOpenByTenant`, `JobListingsIndexRepository.findOpenByTenantAndJob`, `JobPostingRepository.findById`, `JobPostingRepository.getRequiredSkillIds`, and `SkillRepository.findByIds`.
+- Consumes: `CompanyRepository.findBySlug`, `JobListingsIndexRepository.findOpenByCompany`, `JobListingsIndexRepository.findOpenByCompanyAndJob`, `JobPostingRepository.findById`, `JobPostingRepository.getRequiredSkillIds`, and `SkillRepository.findByIds`.
 - Produces:
-  - `PublicCareersService.list(tenantSlug: string)` returning public open listing rows.
-  - `PublicCareersService.getOne(tenantSlug: string, jobId: string)` returning an open detail with `requiredSkills`.
-  - `GET /api/public/:tenantSlug/jobs` and `GET /api/public/:tenantSlug/jobs/:id` without JWT guards.
+  - `PublicCareersService.list(companySlug: string)` returning public open listing rows.
+  - `PublicCareersService.getOne(companySlug: string, jobId: string)` returning an open detail with `requiredSkills`.
+  - `GET /api/public/:companySlug/jobs` and `GET /api/public/:companySlug/jobs/:id` without JWT guards.
 
 - [ ] **Step 1: Write failing service tests**
 
 Create mocks for the four repositories and cover the following exact behaviors:
 
 ```ts
-it('lists only the requested tenant open jobs', async () => {
-  tenantRepo.findBySlug.mockResolvedValue({ id: 'tenant-a', slug: 'acme', name: 'Acme' });
-  indexRepo.findOpenByTenant.mockResolvedValue([{
+it('lists only the requested company open jobs', async () => {
+  companyRepo.findBySlug.mockResolvedValue({ id: 'company-a', slug: 'acme', name: 'Acme' });
+  indexRepo.findOpenByCompany.mockResolvedValue([{
     jobPostingId: 'job-a',
-    tenantId: 'tenant-a',
+    companyId: 'company-a',
     companySlug: 'acme',
     companyName: 'Acme',
     title: 'Engineer',
@@ -242,20 +242,20 @@ it('lists only the requested tenant open jobs', async () => {
   }]);
 
   await expect(service.list('acme')).resolves.toEqual([
-    expect.objectContaining({ id: 'job-a', tenantId: 'tenant-a', title: 'Engineer' }),
+    expect.objectContaining({ id: 'job-a', companyId: 'company-a', title: 'Engineer' }),
   ]);
-  expect(indexRepo.findOpenByTenant).toHaveBeenCalledWith('tenant-a');
+  expect(indexRepo.findOpenByCompany).toHaveBeenCalledWith('company-a');
 });
 
-it('throws NotFoundException for an unknown tenant', async () => {
-  tenantRepo.findBySlug.mockResolvedValue(null);
+it('throws NotFoundException for an unknown company', async () => {
+  companyRepo.findBySlug.mockResolvedValue(null);
   await expect(service.list('missing')).rejects.toThrow(NotFoundException);
 });
 
 it('returns open detail with required skill metadata', async () => {
-  tenantRepo.findBySlug.mockResolvedValue({ id: 'tenant-a', slug: 'acme', name: 'Acme' });
-  indexRepo.findOpenByTenantAndJob.mockResolvedValue({
-    tenantId: 'tenant-a',
+  companyRepo.findBySlug.mockResolvedValue({ id: 'company-a', slug: 'acme', name: 'Acme' });
+  indexRepo.findOpenByCompanyAndJob.mockResolvedValue({
+    companyId: 'company-a',
     jobPostingId: 'job-a',
     title: 'Engineer',
     description: 'Build things',
@@ -270,30 +270,30 @@ it('returns open detail with required skill metadata', async () => {
   await expect(service.getOne('acme', 'job-a')).resolves.toEqual(
     expect.objectContaining({
       id: 'job-a',
-      tenantId: 'tenant-a',
+      companyId: 'company-a',
       requiredSkills: [{ id: 'skill-a', name: 'React', category: 'Frontend' }],
     }),
   );
-  expect(jobPostingRepo.findById).toHaveBeenCalledWith('job-a', 'tenant_tenant-a');
-  expect(jobPostingRepo.getRequiredSkillIds).toHaveBeenCalledWith('job-a', 'tenant_tenant-a');
+  expect(jobPostingRepo.findById).toHaveBeenCalledWith('job-a', 'company_company-a');
+  expect(jobPostingRepo.getRequiredSkillIds).toHaveBeenCalledWith('job-a', 'company_company-a');
 });
 
 it('throws when the open index entry is missing', async () => {
-  tenantRepo.findBySlug.mockResolvedValue({ id: 'tenant-a', slug: 'acme' });
-  indexRepo.findOpenByTenantAndJob.mockResolvedValue(null);
+  companyRepo.findBySlug.mockResolvedValue({ id: 'company-a', slug: 'acme' });
+  indexRepo.findOpenByCompanyAndJob.mockResolvedValue(null);
   await expect(service.getOne('acme', 'job-a')).rejects.toThrow(NotFoundException);
 });
 
 it('throws when the source posting is draft', async () => {
-  tenantRepo.findBySlug.mockResolvedValue({ id: 'tenant-a', slug: 'acme' });
-  indexRepo.findOpenByTenantAndJob.mockResolvedValue({ jobPostingId: 'job-a', status: 'open' });
+  companyRepo.findBySlug.mockResolvedValue({ id: 'company-a', slug: 'acme' });
+  indexRepo.findOpenByCompanyAndJob.mockResolvedValue({ jobPostingId: 'job-a', status: 'open' });
   jobPostingRepo.findById.mockResolvedValue({ id: 'job-a', status: 'draft' });
   await expect(service.getOne('acme', 'job-a')).rejects.toThrow(NotFoundException);
 });
 
 it('throws when the source posting is closed', async () => {
-  tenantRepo.findBySlug.mockResolvedValue({ id: 'tenant-a', slug: 'acme' });
-  indexRepo.findOpenByTenantAndJob.mockResolvedValue({ jobPostingId: 'job-a', status: 'open' });
+  companyRepo.findBySlug.mockResolvedValue({ id: 'company-a', slug: 'acme' });
+  indexRepo.findOpenByCompanyAndJob.mockResolvedValue({ jobPostingId: 'job-a', status: 'open' });
   jobPostingRepo.findById.mockResolvedValue({ id: 'job-a', status: 'closed' });
   await expect(service.getOne('acme', 'job-a')).rejects.toThrow(NotFoundException);
 });
@@ -314,14 +314,14 @@ Expected: FAIL because the module/service files and methods do not exist yet.
 Implement the following behavior:
 
 ```ts
-async list(tenantSlug: string) {
-  const tenant = await this.tenantRepo.findBySlug(tenantSlug);
-  if (!tenant) throw new NotFoundException('Tenant not found');
-  const rows = await this.indexRepo.findOpenByTenant(tenant.id);
+async list(companySlug: string) {
+  const company = await this.companyRepo.findBySlug(companySlug);
+  if (!company) throw new NotFoundException('Company not found');
+  const rows = await this.indexRepo.findOpenByCompany(company.id);
   return rows.map((row) => ({
     id: row.jobPostingId,
-    tenantId: tenant.id,
-    tenantSlug: tenant.slug,
+    companyId: company.id,
+    companySlug: company.slug,
     companyName: row.companyName,
     title: row.title,
     description: row.description,
@@ -330,14 +330,14 @@ async list(tenantSlug: string) {
   }));
 }
 
-async getOne(tenantSlug: string, jobId: string) {
-  const tenant = await this.tenantRepo.findBySlug(tenantSlug);
-  if (!tenant) throw new NotFoundException('Job posting not found');
+async getOne(companySlug: string, jobId: string) {
+  const company = await this.companyRepo.findBySlug(companySlug);
+  if (!company) throw new NotFoundException('Job posting not found');
 
-  const indexed = await this.indexRepo.findOpenByTenantAndJob(tenant.id, jobId);
+  const indexed = await this.indexRepo.findOpenByCompanyAndJob(company.id, jobId);
   if (!indexed) throw new NotFoundException('Job posting not found');
 
-  const schema = `tenant_${tenant.id}`;
+  const schema = `company_${company.id}`;
   const posting = await this.jobPostingRepo.findById(jobId, schema);
   if (!posting || posting.status !== 'open') {
     throw new NotFoundException('Job posting not found');
@@ -347,8 +347,8 @@ async getOne(tenantSlug: string, jobId: string) {
   const requiredSkills = await this.skillRepo.findByIds(requiredSkillIds);
   return {
     id: indexed.jobPostingId,
-    tenantId: tenant.id,
-    tenantSlug: tenant.slug,
+    companyId: company.id,
+    companySlug: company.slug,
     companyName: indexed.companyName,
     title: indexed.title,
     description: indexed.description,
@@ -364,18 +364,18 @@ Use explicit return types if the repository’s inferred Drizzle types make the 
 - [ ] **Step 4: Implement controller and module wiring**
 
 ```ts
-@Controller('public/:tenantSlug/jobs')
+@Controller('public/:companySlug/jobs')
 export class PublicCareersController {
   constructor(private readonly service: PublicCareersService) {}
 
   @Get()
-  list(@Param('tenantSlug') tenantSlug: string) {
-    return this.service.list(tenantSlug);
+  list(@Param('companySlug') companySlug: string) {
+    return this.service.list(companySlug);
   }
 
   @Get(':id')
-  getOne(@Param('tenantSlug') tenantSlug: string, @Param('id') id: string) {
-    return this.service.getOne(tenantSlug, id);
+  getOne(@Param('companySlug') companySlug: string, @Param('id') id: string) {
+    return this.service.getOne(companySlug, id);
   }
 }
 ```
@@ -407,16 +407,16 @@ git commit -m "feat(m5): add public careers read API"
 - Create: `frontend/src/features/public-careers/api/publicCareersApi.ts`
 - Create: `frontend/src/features/public-careers/hooks/usePublicCareers.ts`
 - Modify: `frontend/src/api/queryKeys.ts:1-29`
-- Create: `frontend/src/routes/careers/$tenantSlug/jobs.tsx`
-- Create: `frontend/src/routes/careers/$tenantSlug/jobs/$jobId.tsx`
+- Create: `frontend/src/routes/careers/$companySlug/jobs.tsx`
+- Create: `frontend/src/routes/careers/$companySlug/jobs/$jobId.tsx`
 
 **Interfaces:**
 - Consumes: backend GET endpoints from Task 3 and the existing `apiClient`/`ApiEnvelope` pattern.
 - Produces:
-  - `PublicJobListing` with `id`, `tenantId`, `tenantSlug`, `companyName`, `title`, `description`, `createdAt`, and `updatedAt`.
+  - `PublicJobListing` with `id`, `companyId`, `companySlug`, `companyName`, `title`, `description`, `createdAt`, and `updatedAt`.
   - `PublicJobDetail` extending the listing shape with `requiredSkills: PublicSkill[]`.
-  - `publicCareersApi.getJobs(tenantSlug: string)` and `publicCareersApi.getJob(tenantSlug: string, jobId: string)`.
-  - `usePublicJobs(tenantSlug)` and `usePublicJob(tenantSlug, jobId)`.
+  - `publicCareersApi.getJobs(companySlug: string)` and `publicCareersApi.getJob(companySlug: string, jobId: string)`.
+  - `usePublicJobs(companySlug)` and `usePublicJob(companySlug, jobId)`.
 
 - [ ] **Step 1: Add query keys and API functions**
 
@@ -424,8 +424,8 @@ Add this query-key shape:
 
 ```ts
 publicCareers: {
-  jobs: (tenantSlug: string) => ['public-careers', 'jobs', tenantSlug],
-  job: (tenantSlug: string, jobId: string) => ['public-careers', 'jobs', tenantSlug, jobId],
+  jobs: (companySlug: string) => ['public-careers', 'jobs', companySlug],
+  job: (companySlug: string, jobId: string) => ['public-careers', 'jobs', companySlug, jobId],
 },
 ```
 
@@ -435,12 +435,12 @@ Unwrap the standard API response exactly as `candidateApi` does:
 const unwrap = <T>(body: ApiEnvelope<T>): T => body.data;
 
 export const publicCareersApi = {
-  async getJobs(tenantSlug: string): Promise<PublicJobListing[]> {
-    const { data } = await apiClient.get(`/public/${tenantSlug}/jobs`);
+  async getJobs(companySlug: string): Promise<PublicJobListing[]> {
+    const { data } = await apiClient.get(`/public/${companySlug}/jobs`);
     return unwrap(data as ApiEnvelope<PublicJobListing[]>);
   },
-  async getJob(tenantSlug: string, jobId: string): Promise<PublicJobDetail> {
-    const { data } = await apiClient.get(`/public/${tenantSlug}/jobs/${jobId}`);
+  async getJob(companySlug: string, jobId: string): Promise<PublicJobDetail> {
+    const { data } = await apiClient.get(`/public/${companySlug}/jobs/${jobId}`);
     return unwrap(data as ApiEnvelope<PublicJobDetail>);
   },
 };
@@ -448,15 +448,15 @@ export const publicCareersApi = {
 
 - [ ] **Step 2: Add query hooks**
 
-Use `useQuery` with `enabled: Boolean(tenantSlug)` and the exact public query keys. Do not attach auth requirements to these hooks.
+Use `useQuery` with `enabled: Boolean(companySlug)` and the exact public query keys. Do not attach auth requirements to these hooks.
 
 - [ ] **Step 3: Implement the listing page and route**
 
-The route reads `tenantSlug` from `Route.useParams()` and renders `JobListingPage`. The page must render loading, error, empty, and loaded states; each job links to `/careers/$tenantSlug/jobs/$jobId`.
+The route reads `companySlug` from `Route.useParams()` and renders `JobListingPage`. The page must render loading, error, empty, and loaded states; each job links to `/careers/$companySlug/jobs/$jobId`.
 
 - [ ] **Step 4: Implement the detail page and route shell**
 
-The route reads `tenantSlug` and `jobId` from `Route.useParams()` and renders `JobDetailPage`. The page must render loading, error, and not-found states, then display title, company, description, required skill badges, and an Apply action supplied by Task 5.
+The route reads `companySlug` and `jobId` from `Route.useParams()` and renders `JobDetailPage`. The page must render loading, error, and not-found states, then display title, company, description, required skill badges, and an Apply action supplied by Task 5.
 
 - [ ] **Step 5: Regenerate/check TanStack route output**
 
@@ -491,7 +491,7 @@ git commit -m "feat(m5): add public careers pages"
 **Interfaces:**
 - Consumes: existing `useApply`, `useProfile`, `useAllSkills`, `ApplyData`, `useAuthStore`, and candidate API.
 - Produces:
-  - Reusable `CandidateApplyModal` props: `{ opened: boolean; onClose: () => void; job: { id: string; tenantId: string; title: string; companyName: string } }`.
+  - Reusable `CandidateApplyModal` props: `{ opened: boolean; onClose: () => void; job: { id: string; companyId: string; title: string; companyName: string } }`.
   - `isSafeCareerReturnTo(value: unknown): value is string` and `getCareerReturnTo(value: unknown): string | null` behavior local to auth navigation or a focused utility.
   - Sign-in/signup redirects to the safe return route after successful Candidate auth.
 
@@ -499,7 +499,7 @@ git commit -m "feat(m5): add public careers pages"
 
 Move the modal state/form currently in `JobSearchPage` into `CandidateApplyModal`. Preserve these existing behaviors: phone prefill from profile, profile skills prefill, optional skill override, cover letter, success state, error state, and `useApply` submission payload `{ phone, coverLetter, skillIds }`.
 
-The modal must use the job’s `tenantId` and `id` props when calling `useApply`.
+The modal must use the job’s `companyId` and `id` props when calling `useApply`.
 
 - [ ] **Step 2: Update the candidate dashboard to use the shared modal**
 
@@ -512,7 +512,7 @@ In `JobDetailPage`:
 ```ts
 const { isAuthenticated, role } = useAuthStore();
 
-const returnTo = `/careers/${tenantSlug}/jobs/${jobId}`;
+const returnTo = `/careers/${companySlug}/jobs/${jobId}`;
 if (!isAuthenticated()) {
   navigate({ to: '/auth/signin', search: { returnTo } });
 } else if (role === 'Candidate') {
@@ -522,7 +522,7 @@ if (!isAuthenticated()) {
 }
 ```
 
-Pass the detail’s `id`, `tenantId`, `title`, and `companyName` to `CandidateApplyModal`. Do not call `candidateApi.applyToJob` for anonymous or non-Candidate users.
+Pass the detail’s `id`, `companyId`, `title`, and `companyName` to `CandidateApplyModal`. Do not call `candidateApi.applyToJob` for anonymous or non-Candidate users.
 
 - [ ] **Step 4: Add safe search validation to auth routes**
 
@@ -542,7 +542,7 @@ if (safeReturnTo) {
 }
 ```
 
-For the candidate signup link from sign-in, pass the same safe search value to `/auth/signup`. For the sign-in link from candidate signup, pass it back to `/auth/signin`. Existing org/superadmin redirects remain unchanged when no safe return path exists. `window.location.assign` is safe here because `safeReturnTo` has already been restricted to a same-origin `/careers/...` path and avoids forcing a dynamic string through TanStack Router's route union.
+For the candidate signup link from sign-in, pass the same safe search value to `/auth/signup`. For the sign-in link from candidate signup, pass it back to `/auth/signin`. Existing company/superadmin redirects remain unchanged when no safe return path exists. `window.location.assign` is safe here because `safeReturnTo` has already been restricted to a same-origin `/careers/...` path and avoids forcing a dynamic string through TanStack Router's route union.
 
 - [ ] **Step 6: Verify frontend behavior statically**
 
@@ -579,7 +579,7 @@ git commit -m "feat(m5): require candidate account for public apply"
 
 **Interfaces:**
 - Consumes: implemented Phase 4 working-tree behavior and Phase 5 endpoints/routes from Tasks 1-5.
-- Produces: documentation that does not describe anonymous apply, resume parsing, tenant `resumes` tables, or Phase 5 Redis work.
+- Produces: documentation that does not describe anonymous apply, resume parsing, company `resumes` tables, or Phase 5 Redis work.
 
 - [ ] **Step 1: Update Phase 4 implementation facts**
 
@@ -588,7 +588,7 @@ Every affected document must describe these current facts consistently:
 - Candidate skills live in public `candidate_skills` and are manually declared.
 - Match score uses profile skills or application override.
 - Resumes are storage-only and attached to candidate profile metadata in `candidate_accounts`.
-- Tenant `resumes` and `resume_skills` tables are removed from the current schema/template.
+- Company `resumes` and `resume_skills` tables are removed from the current schema/template.
 - Applications store candidate snapshot fields and applied skill IDs where implemented.
 - Candidate application index status is synchronized on stage changes.
 - Job listings index is synchronized on publish/close/delete.
@@ -598,9 +598,9 @@ Every affected document must describe these current facts consistently:
 Replace stale anonymous-apply requirements with:
 
 ```text
-GET /api/public/:tenantSlug/jobs       public open-job listing
-GET /api/public/:tenantSlug/jobs/:id   public open-job detail
-POST /api/candidate/jobs/:tenantId/:jobId/apply  Candidate-only application write
+GET /api/public/:companySlug/jobs       public open-job listing
+GET /api/public/:companySlug/jobs/:id   public open-job detail
+POST /api/candidate/jobs/:companyId/:jobId/apply  Candidate-only application write
 ```
 
 State that anonymous visitors are redirected to unified sign-in, candidate signup is available there, and the original careers detail path is restored after authentication.
@@ -611,12 +611,12 @@ Phase 5 documentation must not claim an implemented Redis provider or public app
 
 - [ ] **Step 4: Update bootstrap and migration guidance**
 
-Document the current migration `backend/drizzle/20260804101500_candidate_profile_redesign/migration.sql`, the template’s nine current tenant tables, and the requirement to apply schema changes before provisioning new tenants. Remove instructions that expect tenant `resumes` or `resume_skills` tables.
+Document the current migration `backend/drizzle/20260804101500_candidate_profile_redesign/migration.sql`, the template’s nine current company tables, and the requirement to apply schema changes before provisioning new companies. Remove instructions that expect company `resumes` or `resume_skills` tables.
 
 - [ ] **Step 5: Search for stale statements**
 
 ```powershell
-rg -n "anonymous.*apply|apply.*anonymous|parsedText|extractText|extractSkills|resume_skills|tenant.*resumes|Phase 5.*Redis|rate limit.*public apply" docs --glob "*.md"
+rg -n "anonymous.*apply|apply.*anonymous|parsedText|extractText|extractSkills|resume_skills|company.*resumes|Phase 5.*Redis|rate limit.*public apply" docs --glob "*.md"
 ```
 
 Review every match. Retain historical design context only when it is clearly labeled as superseded; canonical status and implementation instructions must describe the current behavior.
@@ -663,13 +663,13 @@ Expected: all commands pass.
 
 - [ ] **Step 3: Run targeted public API checks when local infrastructure is available**
 
-With PostgreSQL, template schema, seeded tenant, and backend running:
+With PostgreSQL, template schema, seeded company, and backend running:
 
 ```powershell
 curl http://localhost:3000/api/public/acme/jobs
 curl http://localhost:3000/api/public/acme/jobs/<open-job-id>
 curl http://localhost:3000/api/public/acme/jobs/<draft-job-id>
-curl -X POST http://localhost:3000/api/candidate/jobs/<tenant-id>/<open-job-id>/apply -H "Content-Type: application/json" -d "{}"
+curl -X POST http://localhost:3000/api/candidate/jobs/<company-id>/<open-job-id>/apply -H "Content-Type: application/json" -d "{}"
 ```
 
 Expected: public listing/detail return the standard success envelope; draft detail returns `404`; candidate apply without JWT returns `401`.

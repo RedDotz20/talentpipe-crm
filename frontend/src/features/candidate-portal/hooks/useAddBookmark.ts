@@ -6,8 +6,8 @@ export function useAddBookmark() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ tenantId, jobPostingId }: { tenantId: string; jobPostingId: string }) =>
-      candidateApi.addBookmark(tenantId, jobPostingId),
+    mutationFn: ({ companyId, jobPostingId }: { companyId: string; jobPostingId: string }) =>
+      candidateApi.addBookmark(companyId, jobPostingId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.candidate.bookmarks() });
     },

@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "TalentPipe CRM API",
-    "description": "Multi-tenant ATS — schema-per-tenant applicant tracking system.\n\n**Auth:** Bearer JWT in `Authorization` header for internal endpoints.\n**Base URL:** http://localhost:3000/api\n\n**Variables to set:**\n- `base_url`: http://localhost:3000/api\n- `access_token`: auto-set from signin/signup/refresh responses\n- `refresh_token`: auto-set from signin/signup/refresh responses\n- `candidate_access_token` / `candidate_refresh_token`: auto-set from candidate signin/signup\n- `tenantId`, `jobPostingId`, `candidateId`, `applicationId`, `bookmarkId`: auto-captured from list/create responses where possible\n\nCross-tenant convention: resource exists-but-other-tenant → `404 Not Found` (never 403).\nError shape: `{ \"error\": { \"code\": \"...\", \"message\": \"...\" } }`\n\nRoles: SA = SuperAdmin, OA = Org Admin, R = Recruiter, HM = Hiring Manager, C = Candidate\n\nEndpoints implemented (M1 + job board):\n- Auth: org signup, signin, candidate signup, refresh, logout\n- Candidate job board: list jobs, job detail, apply, applications, bookmarks, profile\n- Internal: candidates CRUD, job-postings CRUD + publish/close, skills search",
+    "description": "Multi-company ATS — schema-per-company applicant tracking system.\n\n**Auth:** Bearer JWT in `Authorization` header for internal endpoints.\n**Base URL:** http://localhost:3000/api\n\n**Variables to set:**\n- `base_url`: http://localhost:3000/api\n- `access_token`: auto-set from signin/signup/refresh responses\n- `refresh_token`: auto-set from signin/signup/refresh responses\n- `candidate_access_token` / `candidate_refresh_token`: auto-set from candidate signin/signup\n- `companyId`, `jobPostingId`, `candidateId`, `applicationId`, `bookmarkId`: auto-captured from list/create responses where possible\n\nCross-company convention: resource exists-but-other-company → `404 Not Found` (never 403).\nError shape: `{ \"error\": { \"code\": \"...\", \"message\": \"...\" } }`\n\nRoles: SA = SuperAdmin, OA = Company Admin, R = Recruiter, HM = Hiring Manager, C = Candidate\n\nEndpoints implemented (M1 + job board):\n- Auth: company signup, signin, candidate signup, refresh, logout\n- Candidate job board: list jobs, job detail, apply, applications, bookmarks, profile\n- Internal: candidates CRUD, job-postings CRUD + publish/close, skills search",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "talentpipe"
   },
@@ -32,7 +32,7 @@
       "type": "string"
     },
     {
-      "key": "tenantId",
+      "key": "companyId",
       "value": "",
       "type": "string"
     },
@@ -62,12 +62,12 @@
       "type": "string"
     },
     {
-      "key": "orgEmail",
+      "key": "companyEmail",
       "value": "admin@acme.com",
       "type": "string"
     },
     {
-      "key": "orgPassword",
+      "key": "companyPassword",
       "value": "SecureP@ss1",
       "type": "string"
     },
@@ -119,13 +119,13 @@
       "name": "Auth",
       "item": [
         {
-          "name": "POST /auth/org/signup — Create company (OrgAdmin)",
+          "name": "POST /auth/company/signup — Create company (CompanyAdmin)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test('Org signup successful', () => {",
+                  "pm.test('Company signup successful', () => {",
                   "  pm.response.to.have.status(201);",
                   "  const json = pm.response.json();",
                   "  pm.collectionVariables.set('access_token', json.data.accessToken);",
@@ -146,18 +146,18 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"companyName\": \"Acme Corp\",\n  \"slug\": \"acme\",\n  \"email\": \"{{orgEmail}}\",\n  \"password\": \"{{orgPassword}}\"\n}",
+              "raw": "{\n  \"companyName\": \"Acme Corp\",\n  \"slug\": \"acme\",\n  \"email\": \"{{companyEmail}}\",\n  \"password\": \"{{companyPassword}}\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
-              "raw": "{{base_url}}/auth/org/signup",
+              "raw": "{{base_url}}/auth/company/signup",
               "host": ["{{base_url}}"],
-              "path": ["auth", "org", "signup"]
+              "path": ["auth", "company", "signup"]
             }
           }
         },
         {
-          "name": "POST /auth/signin — Sign in (OrgAdmin/Recruiter/HM/Candidate/SA)",
+          "name": "POST /auth/signin — Sign in (CompanyAdmin/Recruiter/HM/Candidate/SA)",
           "event": [
             {
               "listen": "test",
@@ -184,7 +184,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{orgEmail}}\",\n  \"password\": \"{{orgPassword}}\"\n}",
+              "raw": "{\n  \"email\": \"{{companyEmail}}\",\n  \"password\": \"{{companyPassword}}\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -569,7 +569,7 @@
           }
         },
         {
-          "name": "DELETE /job-postings/:id — Delete posting (OrgAdmin only)",
+          "name": "DELETE /job-postings/:id — Delete posting (CompanyAdmin only)",
           "request": {
             "method": "DELETE",
             "header": [
@@ -600,8 +600,8 @@
                   "pm.test('Jobs listed', () => {",
                   "  pm.response.to.have.status(200);",
                   "  const json = pm.response.json();",
-                  "  if (json.length > 0 && json[0].tenantId) {",
-                  "    pm.collectionVariables.set('tenantId', json[0].tenantId);",
+                  "  if (json.length > 0 && json[0].companyId) {",
+                  "    pm.collectionVariables.set('companyId', json[0].companyId);",
                   "    pm.collectionVariables.set('jobPostingId', json[0].jobPostingId);",
                   "  }",
                   "});"
@@ -624,19 +624,19 @@
           }
         },
         {
-          "name": "GET /candidate/jobs/:tenantId/:jobId — Job detail (public)",
+          "name": "GET /candidate/jobs/:companyId/:jobId — Job detail (public)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/candidate/jobs/{{tenantId}}/{{jobPostingId}}",
+              "raw": "{{base_url}}/candidate/jobs/{{companyId}}/{{jobPostingId}}",
               "host": ["{{base_url}}"],
-              "path": ["candidate", "jobs", "{{tenantId}}", "{{jobPostingId}}"]
+              "path": ["candidate", "jobs", "{{companyId}}", "{{jobPostingId}}"]
             }
           }
         },
         {
-          "name": "POST /candidate/jobs/:tenantId/:jobId/apply — Apply to job",
+          "name": "POST /candidate/jobs/:companyId/:jobId/apply — Apply to job",
           "event": [
             {
               "listen": "test",
@@ -670,9 +670,9 @@
               "options": { "raw": { "language": "json" } }
             },
             "url": {
-              "raw": "{{base_url}}/candidate/jobs/{{tenantId}}/{{jobPostingId}}/apply",
+              "raw": "{{base_url}}/candidate/jobs/{{companyId}}/{{jobPostingId}}/apply",
               "host": ["{{base_url}}"],
-              "path": ["candidate", "jobs", "{{tenantId}}", "{{jobPostingId}}", "apply"]
+              "path": ["candidate", "jobs", "{{companyId}}", "{{jobPostingId}}", "apply"]
             }
           }
         },
@@ -724,7 +724,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"jobPostingId\": \"{{jobPostingId}}\"\n}",
+              "raw": "{\n  \"companyId\": \"{{companyId}}\",\n  \"jobPostingId\": \"{{jobPostingId}}\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {

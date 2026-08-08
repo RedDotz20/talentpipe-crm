@@ -37,7 +37,7 @@ export function JobSearchPage() {
             component={Link}
             to="/jobs/$jobId"
             params={{ jobId: job.id }}
-            search={{ tenantId: job.tenantId }}
+            search={{ companyId: job.companyId }}
           >
             View details
           </Button>

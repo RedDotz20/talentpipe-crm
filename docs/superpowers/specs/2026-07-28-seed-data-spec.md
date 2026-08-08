@@ -1,11 +1,11 @@
-# Seed Data — SuperAdmin, Sample Org & Candidate
+# Seed Data — SuperAdmin, Sample Company & Candidate
 
 ## Overview
 
 Create a standalone seed script (`backend/scripts/seed.ts`) that populates the database with three default accounts:
 
 - **SuperAdmin** — platform-level admin (new `super_admins` table, public schema)
-- **OrgAdmin** — sample tenant with default pipeline stages (replicates org signup flow)
+- **CompanyAdmin** — sample company with default pipeline stages (replicates company signup flow)
 - **Candidate** — global candidate account (inserts into existing `candidate_accounts` table)
 
 ## What Needs to Change
@@ -22,9 +22,9 @@ Add a `super_admins` table to the **public schema** with the same shape as `cand
 | `name` | `varchar(100)` | nullable |
 | `created_at` | `timestamp` | NOT NULL, default `now()` |
 
-No foreign keys to tenant tables.
+No foreign keys to company tables.
 
-The template schema (used to clone per-tenant tables on signup) does **not** need this table — SuperAdmin is platform-level, not tenant-scoped.
+The template schema (used to clone per-company tables on signup) does **not** need this table — SuperAdmin is platform-level, not company-scoped.
 
 ### 2. Seed Script — `backend/scripts/seed.ts`
 
@@ -39,13 +39,13 @@ A standalone script (not a NestJS module) that:
    - Table: `public.super_admins`
    - Values: `email = 'superadmin@talentpipe.com'`, `password = 'SuperAdmin123!'`, `name = 'Super Admin'`
 
-   **b. Org Tenant + OrgAdmin**
+   **b. Company Company + CompanyAdmin**
    - Replicates the signup logic from `AuthService.signup()`:
-     1. Generate tenant UUID
-     2. Insert into `public.tenants` (name: `'Acme Corp'`, slug: `'acme-corp'`)
-     3. `CREATE SCHEMA "tenant_<id>"`
+     1. Generate company UUID
+     2. Insert into `public.companies` (name: `'Acme Corp'`, slug: `'acme-corp'`)
+     3. `CREATE SCHEMA "company_<id>"`
      4. Clone template tables (`CREATE TABLE ... LIKE template."<table>" INCLUDING ALL`)
-     5. Insert OrgAdmin user into tenant's `users` table (email: `'admin@acme.com'`, role: `'OrgAdmin'`, password: `'Admin123!'`)
+     5. Insert CompanyAdmin user into company's `users` table (email: `'admin@acme.com'`, role: `'CompanyAdmin'`, password: `'Admin123!'`)
      6. Insert 6 default pipeline stages
      7. Insert into `public.user_emails` for login lookup
      8. Create a refresh token entry so the admin can log in immediately
@@ -75,7 +75,7 @@ Inline defaults in the script. If the file grows complex later, extract to `back
 | Account | Email | Password | Extra |
 |---------|-------|----------|-------|
 | SuperAdmin | `superadmin@talentpipe.com` | `SuperAdmin123!` | name: `Super Admin` |
-| Org Admin | `admin@acme.com` | `Admin123!` | company: `Acme Corp`, slug: `acme-corp` |
+| Company Admin | `admin@acme.com` | `Admin123!` | company: `Acme Corp`, slug: `acme-corp` |
 | Candidate | `candidate@test.com` | `Candidate123!` | first: `Jane`, last: `Doe` |
 
 ## Script Behavior

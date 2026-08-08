@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Give SuperAdmin full cross-tenant control (account CRUD, per-user suspend, application stage moves, interview reschedule/cancel), seed all five internal roles, and give candidates a real job detail page plus a manageable applications page with withdraw.
+**Goal:** Give SuperAdmin full cross-company control (account CRUD, per-user suspend, application stage moves, interview reschedule/cancel), seed all five internal roles, and give candidates a real job detail page plus a manageable applications page with withdraw.
 
-**Architecture:** No new repos — the existing repositories already accept an explicit schema parameter (`UserRepository.findAll('tenant_<id>')`, `ApplicationRepository.findAll({}, 'tenant_<id>')`, …), so two new platform services orchestrate them against explicit schemas (the sanctioned M9 cross-schema pattern). One migration adds `users.status`. The candidate detail page reuses a shared `JobDetailsView` extracted from the public careers page.
+**Architecture:** No new repos — the existing repositories already accept an explicit schema parameter (`UserRepository.findAll('company_<id>')`, `ApplicationRepository.findAll({}, 'company_<id>')`, …), so two new platform services orchestrate them against explicit schemas (the sanctioned M9 cross-schema pattern). One migration adds `users.status`. The candidate detail page reuses a shared `JobDetailsView` extracted from the public careers page.
 
 **Tech Stack:** NestJS 11, Drizzle ORM (pg), Zod 4 DTOs, Jest (unit + supertest e2e), React 19 + Mantine 9 + TanStack Router/Query.
 
@@ -25,7 +25,7 @@ Create `backend/drizzle/20260808090000_platform_user_suspend/migration.sql`:
 ```sql
 -- Per-user suspension for platform management
 -- Adds a status column to the master users table (public), the signup template,
--- and all already-provisioned tenant schemas (same shape as scheduled_at_timezone).
+-- and all already-provisioned company schemas (same shape as scheduled_at_timezone).
 
 ALTER TABLE public.users
   ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'active';
@@ -37,7 +37,7 @@ BEGIN
   FOR schema_name IN
     SELECT nspname
     FROM pg_namespace
-    WHERE nspname = 'template' OR nspname LIKE 'tenant_%'
+    WHERE nspname = 'template' OR nspname LIKE 'company_%'
   LOOP
     EXECUTE format(
       'ALTER TABLE %I.users ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT %L',
@@ -56,7 +56,7 @@ export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
   email: varchar('email', { length: 255 }).notNull().unique(),
   passwordHash: varchar('password_hash', { length: 255 }).notNull(),
-  role: varchar('role', { length: 50 }).default('OrgAdmin').notNull(),
+  role: varchar('role', { length: 50 }).default('CompanyAdmin').notNull(),
   status: varchar('status', { length: 20 }).default('active').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
@@ -75,11 +75,11 @@ Expected: `ALTER TABLE` + `DO` output, no errors.
 - [ ] **Step 4: Verify in all schema groups**
 
 ```sh
-docker compose exec -T postgres psql -U devuser -d talentpipe -c "SELECT nspname FROM pg_namespace WHERE nspname LIKE 'tenant_%' OR nspname = 'template'"
+docker compose exec -T postgres psql -U devuser -d talentpipe -c "SELECT nspname FROM pg_namespace WHERE nspname LIKE 'company_%' OR nspname = 'template'"
 docker compose exec -T postgres psql -U devuser -d talentpipe -c "SELECT count(*) FROM information_schema.columns WHERE table_name='users' AND column_name='status'"
 ```
 
-Expected: second query returns a count ≥ 2 (public + template), and every tenant schema has the column (query information_schema per schema via the migration itself; the count covers public+template).
+Expected: second query returns a count ≥ 2 (public + template), and every company schema has the column (query information_schema per schema via the migration itself; the count covers public+template).
 
 - [ ] **Step 5: Typecheck + commit**
 
@@ -104,17 +104,17 @@ Insert after `seedInterviewer` (after line 164):
 
 ```ts
 async function seedHiringManager(client: any): Promise<void> {
-  const tenant = await client.query(
-    `SELECT id FROM public.tenants WHERE slug = $1`,
+  const company = await client.query(
+    `SELECT id FROM public.companies WHERE slug = $1`,
     ['acme-corp'],
   );
-  if (tenant.rows.length === 0) {
-    console.log('[SKIP] Hiring Manager: no Acme tenant found');
+  if (company.rows.length === 0) {
+    console.log('[SKIP] Hiring Manager: no Acme company found');
     return;
   }
-  const tenantId = tenant.rows[0].id;
+  const companyId = company.rows[0].id;
   const existing = await client.query(
-    `SELECT id FROM "tenant_${tenantId}"."users" WHERE email = $1`,
+    `SELECT id FROM "company_${companyId}"."users" WHERE email = $1`,
     ['hiring.manager@acme.com'],
   );
   if (existing.rows.length > 0) {
@@ -124,30 +124,30 @@ async function seedHiringManager(client: any): Promise<void> {
   const userId = randomUUID();
   const passwordHash = await hash('HiringManager123!');
   await client.query(
-    `INSERT INTO "tenant_${tenantId}"."users" (id, email, password_hash, role)
+    `INSERT INTO "company_${companyId}"."users" (id, email, password_hash, role)
      VALUES ($1, $2, $3, 'HiringManager')`,
     [userId, 'hiring.manager@acme.com', passwordHash],
   );
   await client.query(
-    `INSERT INTO public.user_emails (id, email, tenant_id, user_id)
+    `INSERT INTO public.user_emails (id, email, company_id, user_id)
      VALUES ($1, $2, $3, $4)`,
-    [randomUUID(), 'hiring.manager@acme.com', tenantId, userId],
+    [randomUUID(), 'hiring.manager@acme.com', companyId, userId],
   );
   console.log('[OK] Hiring Manager created: hiring.manager@acme.com');
 }
 
 async function seedRecruiter(client: any): Promise<void> {
-  const tenant = await client.query(
-    `SELECT id FROM public.tenants WHERE slug = $1`,
+  const company = await client.query(
+    `SELECT id FROM public.companies WHERE slug = $1`,
     ['acme-corp'],
   );
-  if (tenant.rows.length === 0) {
-    console.log('[SKIP] Recruiter: no Acme tenant found');
+  if (company.rows.length === 0) {
+    console.log('[SKIP] Recruiter: no Acme company found');
     return;
   }
-  const tenantId = tenant.rows[0].id;
+  const companyId = company.rows[0].id;
   const existing = await client.query(
-    `SELECT id FROM "tenant_${tenantId}"."users" WHERE email = $1`,
+    `SELECT id FROM "company_${companyId}"."users" WHERE email = $1`,
     ['recruiter@acme.com'],
   );
   if (existing.rows.length > 0) {
@@ -157,14 +157,14 @@ async function seedRecruiter(client: any): Promise<void> {
   const userId = randomUUID();
   const passwordHash = await hash('Recruiter123!');
   await client.query(
-    `INSERT INTO "tenant_${tenantId}"."users" (id, email, password_hash, role)
+    `INSERT INTO "company_${companyId}"."users" (id, email, password_hash, role)
      VALUES ($1, $2, $3, 'Recruiter')`,
     [userId, 'recruiter@acme.com', passwordHash],
   );
   await client.query(
-    `INSERT INTO public.user_emails (id, email, tenant_id, user_id)
+    `INSERT INTO public.user_emails (id, email, company_id, user_id)
      VALUES ($1, $2, $3, $4)`,
-    [randomUUID(), 'recruiter@acme.com', tenantId, userId],
+    [randomUUID(), 'recruiter@acme.com', companyId, userId],
   );
   console.log('[OK] Recruiter created: recruiter@acme.com');
 }
@@ -340,21 +340,21 @@ Expected: typecheck and lint pass.
 
 - [ ] **Step 1: Write the failing unit tests**
 
-In `backend/src/modules/auth/auth.service.spec.ts`, in the signin describe block, add after the tenant-suspended test (around line 129):
+In `backend/src/modules/auth/auth.service.spec.ts`, in the signin describe block, add after the company-suspended test (around line 129):
 
 ```ts
     it('throws ForbiddenException when the user is suspended', async () => {
       userEmailRepo.findByEmail.mockResolvedValue({
-        tenantId: 'tenant-a',
+        companyId: 'company-a',
       });
       userRepo.findByEmail.mockResolvedValue({
         id: 'user-a',
         passwordHash: 'hash',
-        role: 'OrgAdmin',
+        role: 'CompanyAdmin',
         status: 'suspended',
       });
       (verifyPassword as jest.Mock).mockResolvedValue(true);
-      tenantRepo.findById.mockResolvedValue({ id: 'tenant-a', status: 'active' });
+      companyRepo.findById.mockResolvedValue({ id: 'company-a', status: 'active' });
 
       await expect(
         service.signin({ email: 'a@b.com', password: 'password' }),
@@ -362,9 +362,9 @@ In `backend/src/modules/auth/auth.service.spec.ts`, in the signin describe block
     });
 ```
 
-Check the existing spec's mock structure first and match it (the spec already mocks `tenantRepo` and `verifyPassword`). If `userRepo.findByEmail` mock needs `status`, set it as above.
+Check the existing spec's mock structure first and match it (the spec already mocks `companyRepo` and `verifyPassword`). If `userRepo.findByEmail` mock needs `status`, set it as above.
 
-In `backend/src/modules/auth/services/token.service.spec.ts`, in the rotation describe block, add after the suspended-tenant test (around line 129):
+In `backend/src/modules/auth/services/token.service.spec.ts`, in the rotation describe block, add after the suspended-company test (around line 129):
 
 ```ts
     it('rejects rotation for a suspended user', async () => {
@@ -375,10 +375,10 @@ In `backend/src/modules/auth/services/token.service.spec.ts`, in the rotation de
       jest.spyOn(argon2, 'verify').mockResolvedValue(true);
       (jwtService.verify as jest.Mock).mockReturnValue({
         sub: 'user-a',
-        tenantId: 'tenant-a',
-        role: 'OrgAdmin',
+        companyId: 'company-a',
+        role: 'CompanyAdmin',
       });
-      tenantRepo.findById.mockResolvedValue({ id: 'tenant-a', status: 'active' });
+      companyRepo.findById.mockResolvedValue({ id: 'company-a', status: 'active' });
       userRepo.findById.mockResolvedValue({
         id: 'user-a',
         status: 'suspended',
@@ -402,7 +402,7 @@ Expected: both new tests FAIL (no user-status check exists yet).
 
 - [ ] **Step 3: Implement the checks**
 
-In `backend/src/modules/auth/auth.service.ts`, in `signin`, after the tenant check (after line 57):
+In `backend/src/modules/auth/auth.service.ts`, in `signin`, after the company check (after line 57):
 
 ```ts
       if (user.status === 'suspended') {
@@ -411,13 +411,13 @@ In `backend/src/modules/auth/auth.service.ts`, in `signin`, after the tenant che
 ```
 
 In `backend/src/modules/auth/services/token.service.ts`:
-1. Add `UserRepository` to the constructor (import from `../../../repositories/user.repository`), alongside `TenantRepository`.
-2. In `rotate`, inside the existing `if (payload.tenantId)` block, after the tenant check:
+1. Add `UserRepository` to the constructor (import from `../../../repositories/user.repository`), alongside `CompanyRepository`.
+2. In `rotate`, inside the existing `if (payload.companyId)` block, after the company check:
 
 ```ts
       const user = await this.userRepo.findById(
         payload.sub,
-        `tenant_${payload.tenantId}`,
+        `company_${payload.companyId}`,
       );
       if (user?.status === 'suspended') {
         throw new UnauthorizedException('This account is suspended');
@@ -444,11 +444,11 @@ Expected: typecheck + lint pass.
 
 ---
 
-### Task 5: Platform accounts — tenant users + candidates backend
+### Task 5: Platform accounts — company users + candidates backend
 
 **Files:**
-- Create: `backend/src/modules/platform/dto/create-tenant-user.dto.ts`
-- Create: `backend/src/modules/platform/dto/update-tenant-user.dto.ts`
+- Create: `backend/src/modules/platform/dto/create-company-user.dto.ts`
+- Create: `backend/src/modules/platform/dto/update-company-user.dto.ts`
 - Create: `backend/src/modules/platform/dto/create-candidate.dto.ts`
 - Create: `backend/src/modules/platform/dto/update-candidate.dto.ts`
 - Create: `backend/src/modules/platform/platform-accounts.service.ts`
@@ -458,13 +458,13 @@ Expected: typecheck + lint pass.
 
 - [ ] **Step 1: Write DTOs**
 
-Create `backend/src/modules/platform/dto/create-tenant-user.dto.ts`:
+Create `backend/src/modules/platform/dto/create-company-user.dto.ts`:
 
 ```ts
 import { z } from 'zod';
-import { INTERNAL_USER_ROLES } from '../../org/dto/invite-user.dto';
+import { INTERNAL_USER_ROLES } from '../../company/dto/invite-user.dto';
 
-export const CreateTenantUserSchema = z.object({
+export const CreateCompanyUserSchema = z.object({
   email: z.string().email('Invalid email').max(255),
   role: z.enum(INTERNAL_USER_ROLES, { message: 'Invalid role' }),
   password: z
@@ -473,16 +473,16 @@ export const CreateTenantUserSchema = z.object({
     .max(128),
 });
 
-export type CreateTenantUserDto = z.infer<typeof CreateTenantUserSchema>;
+export type CreateCompanyUserDto = z.infer<typeof CreateCompanyUserSchema>;
 ```
 
-Create `backend/src/modules/platform/dto/update-tenant-user.dto.ts`:
+Create `backend/src/modules/platform/dto/update-company-user.dto.ts`:
 
 ```ts
 import { z } from 'zod';
-import { INTERNAL_USER_ROLES } from '../../org/dto/invite-user.dto';
+import { INTERNAL_USER_ROLES } from '../../company/dto/invite-user.dto';
 
-export const UpdateTenantUserSchema = z
+export const UpdateCompanyUserSchema = z
   .object({
     role: z.enum(INTERNAL_USER_ROLES, { message: 'Invalid role' }).optional(),
     password: z
@@ -496,7 +496,7 @@ export const UpdateTenantUserSchema = z
     { message: 'At least one of role or password is required' },
   );
 
-export type UpdateTenantUserDto = z.infer<typeof UpdateTenantUserSchema>;
+export type UpdateCompanyUserDto = z.infer<typeof UpdateCompanyUserSchema>;
 ```
 
 Create `backend/src/modules/platform/dto/create-candidate.dto.ts`:
@@ -561,9 +561,9 @@ const auditService = { log: jest.fn() };
 const makeService = (overrides: Record<string, unknown> = {}) =>
   new PlatformAccountsService(
     {
-      findById: jest.fn().mockResolvedValue({ id: 'tenant-a', status: 'active' }),
+      findById: jest.fn().mockResolvedValue({ id: 'company-a', status: 'active' }),
       findAll: jest.fn().mockResolvedValue([]),
-      ...(overrides.tenantRepo as object),
+      ...(overrides.companyRepo as object),
     } as never,
     {
       findAll: jest.fn().mockResolvedValue([]),
@@ -595,26 +595,26 @@ const makeService = (overrides: Record<string, unknown> = {}) =>
 describe('PlatformAccountsService', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('lists tenant users through the explicit schema', async () => {
-    const userRepo = { findAll: jest.fn().mockResolvedValue([{ id: 'u1', role: 'OrgAdmin' }]) };
+  it('lists company users through the explicit schema', async () => {
+    const userRepo = { findAll: jest.fn().mockResolvedValue([{ id: 'u1', role: 'CompanyAdmin' }]) };
     const service = makeService({ userRepo });
-    await expect(service.listTenantUsers('tenant-a')).resolves.toEqual([
-      { id: 'u1', role: 'OrgAdmin' },
+    await expect(service.listCompanyUsers('company-a')).resolves.toEqual([
+      { id: 'u1', role: 'CompanyAdmin' },
     ]);
-    expect(userRepo.findAll).toHaveBeenCalledWith('tenant_tenant-a');
+    expect(userRepo.findAll).toHaveBeenCalledWith('company_company-a');
   });
 
-  it('404s when the tenant is missing', async () => {
-    const tenantRepo = { findById: jest.fn().mockResolvedValue(null) };
-    const service = makeService({ tenantRepo });
-    await expect(service.listTenantUsers('nope')).rejects.toThrow(NotFoundException);
+  it('404s when the company is missing', async () => {
+    const companyRepo = { findById: jest.fn().mockResolvedValue(null) };
+    const service = makeService({ companyRepo });
+    await expect(service.listCompanyUsers('nope')).rejects.toThrow(NotFoundException);
   });
 
   it('409s when creating a user whose email already exists', async () => {
     const userEmailRepo = { findByEmail: jest.fn().mockResolvedValue({ email: 'x@y.com' }) };
     const service = makeService({ userEmailRepo });
     await expect(
-      service.createTenantUser('tenant-a', {
+      service.createCompanyUser('company-a', {
         email: 'x@y.com',
         role: 'Recruiter',
         password: 'Password123!',
@@ -622,13 +622,13 @@ describe('PlatformAccountsService', () => {
     ).rejects.toThrow(ConflictException);
   });
 
-  it('creates a tenant user and its email bridge', async () => {
+  it('creates a company user and its email bridge', async () => {
     const userEmailRepo = { findByEmail: jest.fn().mockResolvedValue(null), create: jest.fn() };
     const userRepo = {
       create: jest.fn().mockResolvedValue({ id: 'u1', email: 'r@acme.com', role: 'Recruiter' }),
     };
     const service = makeService({ userRepo, userEmailRepo });
-    const result = await service.createTenantUser('tenant-a', {
+    const result = await service.createCompanyUser('company-a', {
       email: 'r@acme.com',
       role: 'Recruiter',
       password: 'Password123!',
@@ -636,10 +636,10 @@ describe('PlatformAccountsService', () => {
     expect(result.id).toBe('u1');
     expect(userRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({ role: 'Recruiter' }),
-      'tenant_tenant-a',
+      'company_company-a',
     );
     expect(userEmailRepo.create).toHaveBeenCalledWith(
-      expect.objectContaining({ tenantId: 'tenant-a' }),
+      expect.objectContaining({ companyId: 'company-a' }),
     );
   });
 
@@ -650,7 +650,7 @@ describe('PlatformAccountsService', () => {
     };
     const service = makeService({ userRepo });
     await expect(
-      service.setTenantUserStatus('tenant-a', 'u1', 'suspended'),
+      service.setCompanyUserStatus('company-a', 'u1', 'suspended'),
     ).rejects.toThrow(ConflictException);
   });
 
@@ -661,13 +661,13 @@ describe('PlatformAccountsService', () => {
     };
     const refreshTokenRepo = { deleteByUser: jest.fn() };
     const service = makeService({ userRepo, refreshTokenRepo });
-    await service.setTenantUserStatus('tenant-a', 'u1', 'suspended');
-    expect(userRepo.updateStatus).toHaveBeenCalledWith('u1', 'suspended', 'tenant_tenant-a');
+    await service.setCompanyUserStatus('company-a', 'u1', 'suspended');
+    expect(userRepo.updateStatus).toHaveBeenCalledWith('u1', 'suspended', 'company_company-a');
     expect(refreshTokenRepo.deleteByUser).toHaveBeenCalledWith('u1');
     expect(auditService.log).toHaveBeenCalled();
   });
 
-  it('removes a tenant user and cleans up bridges', async () => {
+  it('removes a company user and cleans up bridges', async () => {
     const userRepo = {
       findById: jest.fn().mockResolvedValue({ id: 'u1', email: 'r@acme.com' }),
       remove: jest.fn(),
@@ -676,8 +676,8 @@ describe('PlatformAccountsService', () => {
     const refreshTokenRepo = { deleteByUser: jest.fn() };
     const interviewRepo = { deleteByInterviewer: jest.fn() };
     const service = makeService({ userRepo, userEmailRepo, refreshTokenRepo, interviewRepo });
-    await service.removeTenantUser('tenant-a', 'u1');
-    expect(interviewRepo.deleteByInterviewer).toHaveBeenCalledWith('u1', 'tenant_tenant-a');
+    await service.removeCompanyUser('company-a', 'u1');
+    expect(interviewRepo.deleteByInterviewer).toHaveBeenCalledWith('u1', 'company_company-a');
     expect(userEmailRepo.deleteByUserId).toHaveBeenCalledWith('u1');
   });
 
@@ -694,7 +694,7 @@ describe('PlatformAccountsService', () => {
     };
     const candidateIndexRepo = {
       findByCandidate: jest.fn().mockResolvedValue([
-        { id: 'idx1', applicationId: 'app1', tenantId: 'tenant-a' },
+        { id: 'idx1', applicationId: 'app1', companyId: 'company-a' },
       ]),
       deleteById: jest.fn(),
     };
@@ -703,12 +703,12 @@ describe('PlatformAccountsService', () => {
       delete: jest.fn(),
     };
     const applicationRepo = { delete: jest.fn() };
-    const tenantRepo = { findAll: jest.fn().mockResolvedValue([{ id: 'tenant-a' }]) };
-    const service = makeService({ candidateAccountRepo, candidateIndexRepo, candidateRepo, applicationRepo, tenantRepo });
+    const companyRepo = { findAll: jest.fn().mockResolvedValue([{ id: 'company-a' }]) };
+    const service = makeService({ candidateAccountRepo, candidateIndexRepo, candidateRepo, applicationRepo, companyRepo });
     await service.removeCandidate('c1');
-    expect(applicationRepo.delete).toHaveBeenCalledWith('app1', 'tenant_tenant-a');
+    expect(applicationRepo.delete).toHaveBeenCalledWith('app1', 'company_company-a');
     expect(candidateIndexRepo.deleteById).toHaveBeenCalledWith('idx1');
-    expect(candidateRepo.delete).toHaveBeenCalledWith('tc1', 'tenant_tenant-a');
+    expect(candidateRepo.delete).toHaveBeenCalledWith('tc1', 'company_company-a');
   });
 });
 ```
@@ -737,7 +737,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { hashPassword } from '../../common/password';
 import { AuditService } from '../../common/audit/audit.service';
-import { TenantRepository } from '../../repositories/tenant.repository';
+import { CompanyRepository } from '../../repositories/company.repository';
 import { UserRepository } from '../../repositories/user.repository';
 import { UserEmailRepository } from '../../repositories/user-email.repository';
 import { RefreshTokenRepository } from '../../repositories/refresh-token.repository';
@@ -746,15 +746,15 @@ import { CandidateAccountRepository } from '../../repositories/candidate-account
 import { CandidateRepository } from '../../repositories/candidate.repository';
 import { CandidateApplicationsIndexRepository } from '../../repositories/candidate-applications-index.repository';
 import { ApplicationRepository } from '../../repositories/application.repository';
-import { CreateTenantUserDto } from './dto/create-tenant-user.dto';
-import { UpdateTenantUserDto } from './dto/update-tenant-user.dto';
+import { CreateCompanyUserDto } from './dto/create-company-user.dto';
+import { UpdateCompanyUserDto } from './dto/update-company-user.dto';
 import { CreateCandidateDto } from './dto/create-candidate.dto';
 import { UpdateCandidateDto } from './dto/update-candidate.dto';
 
 @Injectable()
 export class PlatformAccountsService {
   constructor(
-    private readonly tenantRepo: TenantRepository,
+    private readonly companyRepo: CompanyRepository,
     private readonly userRepo: UserRepository,
     private readonly userEmailRepo: UserEmailRepository,
     private readonly refreshTokenRepo: RefreshTokenRepository,
@@ -766,23 +766,23 @@ export class PlatformAccountsService {
     private readonly auditService: AuditService,
   ) {}
 
-  private schemaOf(tenantId: string): string {
-    return `tenant_${tenantId}`;
+  private schemaOf(companyId: string): string {
+    return `company_${companyId}`;
   }
 
-  private async requireTenant(tenantId: string) {
-    const tenant = await this.tenantRepo.findById(tenantId);
-    if (!tenant) throw new NotFoundException('Tenant not found');
-    return tenant;
+  private async requireCompany(companyId: string) {
+    const company = await this.companyRepo.findById(companyId);
+    if (!company) throw new NotFoundException('Company not found');
+    return company;
   }
 
-  async listTenantUsers(tenantId: string) {
-    await this.requireTenant(tenantId);
-    return this.userRepo.findAll(this.schemaOf(tenantId));
+  async listCompanyUsers(companyId: string) {
+    await this.requireCompany(companyId);
+    return this.userRepo.findAll(this.schemaOf(companyId));
   }
 
-  async createTenantUser(tenantId: string, dto: CreateTenantUserDto) {
-    await this.requireTenant(tenantId);
+  async createCompanyUser(companyId: string, dto: CreateCompanyUserDto) {
+    await this.requireCompany(companyId);
     const existing = await this.userEmailRepo.findByEmail(dto.email);
     if (existing) {
       throw new ConflictException('A user with this email already exists');
@@ -791,19 +791,19 @@ export class PlatformAccountsService {
     const id = randomUUID();
     await this.userRepo.create(
       { id, email: dto.email, passwordHash, role: dto.role },
-      this.schemaOf(tenantId),
+      this.schemaOf(companyId),
     );
     await this.userEmailRepo.create({
       email: dto.email,
-      tenantId,
+      companyId,
       userId: id,
     });
-    await this.auditService.log('platform.user.create', id, { email: dto.email, role: dto.role }, tenantId);
+    await this.auditService.log('platform.user.create', id, { email: dto.email, role: dto.role }, companyId);
     return { id, email: dto.email, role: dto.role };
   }
 
-  async updateTenantUser(tenantId: string, userId: string, dto: UpdateTenantUserDto) {
-    const schema = this.schemaOf(tenantId);
+  async updateCompanyUser(companyId: string, userId: string, dto: UpdateCompanyUserDto) {
+    const schema = this.schemaOf(companyId);
     const user = await this.userRepo.findById(userId, schema);
     if (!user) throw new NotFoundException('User not found');
     const updates: { role?: string; passwordHash?: string } = {};
@@ -818,16 +818,16 @@ export class PlatformAccountsService {
       await this.userRepo.resetPassword(userId, updates.passwordHash, schema);
     }
     await this.refreshTokenRepo.deleteByUser(userId);
-    await this.auditService.log('platform.user.update', userId, dto as unknown as Record<string, unknown>, tenantId);
+    await this.auditService.log('platform.user.update', userId, dto as unknown as Record<string, unknown>, companyId);
     return { id: userId, email: user.email, role: updates.role ?? user.role };
   }
 
-  async setTenantUserStatus(
-    tenantId: string,
+  async setCompanyUserStatus(
+    companyId: string,
     userId: string,
     status: 'active' | 'suspended',
   ) {
-    const schema = this.schemaOf(tenantId);
+    const schema = this.schemaOf(companyId);
     const user = await this.userRepo.findById(userId, schema);
     if (!user) throw new NotFoundException('User not found');
     if (user.status === status) {
@@ -843,20 +843,20 @@ export class PlatformAccountsService {
       status === 'suspended' ? 'platform.user.suspend' : 'platform.user.reactivate',
       userId,
       { email: user.email },
-      tenantId,
+      companyId,
     );
     return updated;
   }
 
-  async removeTenantUser(tenantId: string, userId: string) {
-    const schema = this.schemaOf(tenantId);
+  async removeCompanyUser(companyId: string, userId: string) {
+    const schema = this.schemaOf(companyId);
     const user = await this.userRepo.findById(userId, schema);
     if (!user) throw new NotFoundException('User not found');
     await this.interviewRepo.deleteByInterviewer(userId, schema);
     await this.userRepo.remove(userId, schema);
     await this.userEmailRepo.deleteByUserId(userId);
     await this.refreshTokenRepo.deleteByUser(userId);
-    await this.auditService.log('platform.user.remove', userId, { email: user.email }, tenantId);
+    await this.auditService.log('platform.user.remove', userId, { email: user.email }, companyId);
     return { id: userId };
   }
 
@@ -868,8 +868,8 @@ export class PlatformAccountsService {
     const email = dto.email.trim().toLowerCase();
     const existing = await this.candidateAccountRepo.findByEmail(email);
     if (existing) throw new ConflictException('Email already in use');
-    const orgOwner = await this.userEmailRepo.findByEmail(email);
-    if (orgOwner) throw new ConflictException('Email already in use');
+    const companyOwner = await this.userEmailRepo.findByEmail(email);
+    if (companyOwner) throw new ConflictException('Email already in use');
     const passwordHash = await hashPassword(dto.password);
     const account = await this.candidateAccountRepo.create({
       email,
@@ -897,8 +897,8 @@ export class PlatformAccountsService {
       if (existing && existing.id !== id) {
         throw new ConflictException('Email already in use');
       }
-      const orgOwner = await this.userEmailRepo.findByEmail(dto.email);
-      if (orgOwner) throw new ConflictException('Email already in use');
+      const companyOwner = await this.userEmailRepo.findByEmail(dto.email);
+      if (companyOwner) throw new ConflictException('Email already in use');
     }
     const data: { firstName?: string; lastName?: string; email?: string; phone?: string | null } = {
       firstName: dto.firstName,
@@ -917,16 +917,16 @@ export class PlatformAccountsService {
   async removeCandidate(id: string) {
     const account = await this.candidateAccountRepo.findById(id);
     if (!account) throw new NotFoundException('Candidate not found');
-    const tenants = await this.tenantRepo.findAll();
+    const companies = await this.companyRepo.findAll();
     const indexed = await this.candidateIndexRepo.findByCandidate(id);
     for (const row of indexed) {
-      await this.applicationRepo.delete(row.applicationId, this.schemaOf(row.tenantId));
+      await this.applicationRepo.delete(row.applicationId, this.schemaOf(row.companyId));
       await this.candidateIndexRepo.deleteById(row.id);
     }
-    for (const tenant of tenants) {
-      const candidate = await this.candidateRepo.findByAccountId(id, this.schemaOf(tenant.id));
+    for (const company of companies) {
+      const candidate = await this.candidateRepo.findByAccountId(id, this.schemaOf(company.id));
       if (candidate) {
-        await this.candidateRepo.delete(candidate.id, this.schemaOf(tenant.id));
+        await this.candidateRepo.delete(candidate.id, this.schemaOf(company.id));
       }
     }
     await this.candidateAccountRepo.remove(id);
@@ -966,8 +966,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PlatformAccountsService } from './platform-accounts.service';
-import { CreateTenantUserSchema, CreateTenantUserDto } from './dto/create-tenant-user.dto';
-import { UpdateTenantUserSchema, UpdateTenantUserDto } from './dto/update-tenant-user.dto';
+import { CreateCompanyUserSchema, CreateCompanyUserDto } from './dto/create-company-user.dto';
+import { UpdateCompanyUserSchema, UpdateCompanyUserDto } from './dto/update-company-user.dto';
 import { CreateCandidateSchema, CreateCandidateDto } from './dto/create-candidate.dto';
 import { UpdateCandidateSchema, UpdateCandidateDto } from './dto/update-candidate.dto';
 
@@ -977,50 +977,50 @@ import { UpdateCandidateSchema, UpdateCandidateDto } from './dto/update-candidat
 export class PlatformAccountsController {
   constructor(private readonly accountsService: PlatformAccountsService) {}
 
-  @Get('tenants/:id/users')
-  listTenantUsers(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.accountsService.listTenantUsers(id);
+  @Get('companies/:id/users')
+  listCompanyUsers(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.accountsService.listCompanyUsers(id);
   }
 
-  @Post('tenants/:id/users')
-  createTenantUser(
+  @Post('companies/:id/users')
+  createCompanyUser(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body(new ZodValidationPipe(CreateTenantUserSchema)) body: CreateTenantUserDto,
+    @Body(new ZodValidationPipe(CreateCompanyUserSchema)) body: CreateCompanyUserDto,
   ) {
-    return this.accountsService.createTenantUser(id, body);
+    return this.accountsService.createCompanyUser(id, body);
   }
 
-  @Patch('tenants/:id/users/:userId')
-  updateTenantUser(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Param('userId', new ParseUUIDPipe()) userId: string,
-    @Body(new ZodValidationPipe(UpdateTenantUserSchema)) body: UpdateTenantUserDto,
-  ) {
-    return this.accountsService.updateTenantUser(id, userId, body);
-  }
-
-  @Patch('tenants/:id/users/:userId/suspend')
-  suspendTenantUser(
+  @Patch('companies/:id/users/:userId')
+  updateCompanyUser(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('userId', new ParseUUIDPipe()) userId: string,
+    @Body(new ZodValidationPipe(UpdateCompanyUserSchema)) body: UpdateCompanyUserDto,
   ) {
-    return this.accountsService.setTenantUserStatus(id, userId, 'suspended');
+    return this.accountsService.updateCompanyUser(id, userId, body);
   }
 
-  @Patch('tenants/:id/users/:userId/reactivate')
-  reactivateTenantUser(
+  @Patch('companies/:id/users/:userId/suspend')
+  suspendCompanyUser(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('userId', new ParseUUIDPipe()) userId: string,
   ) {
-    return this.accountsService.setTenantUserStatus(id, userId, 'active');
+    return this.accountsService.setCompanyUserStatus(id, userId, 'suspended');
   }
 
-  @Delete('tenants/:id/users/:userId')
-  removeTenantUser(
+  @Patch('companies/:id/users/:userId/reactivate')
+  reactivateCompanyUser(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('userId', new ParseUUIDPipe()) userId: string,
   ) {
-    return this.accountsService.removeTenantUser(id, userId);
+    return this.accountsService.setCompanyUserStatus(id, userId, 'active');
+  }
+
+  @Delete('companies/:id/users/:userId')
+  removeCompanyUser(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+  ) {
+    return this.accountsService.removeCompanyUser(id, userId);
   }
 
   @Get('candidates')
@@ -1140,14 +1140,14 @@ import { NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { PlatformDataService } from './platform-data.service';
 
 const auditService = { log: jest.fn() };
-const cacheService = { invalidateTenantDashboard: jest.fn() };
+const cacheService = { invalidateCompanyDashboard: jest.fn() };
 
 const makeService = (overrides: Record<string, unknown> = {}) =>
   new PlatformDataService(
     {
-      findAll: jest.fn().mockResolvedValue([{ id: 'tenant-a', name: 'Acme' }]),
-      findById: jest.fn().mockResolvedValue({ id: 'tenant-a', name: 'Acme' }),
-      ...(overrides.tenantRepo as object),
+      findAll: jest.fn().mockResolvedValue([{ id: 'company-a', name: 'Acme' }]),
+      findById: jest.fn().mockResolvedValue({ id: 'company-a', name: 'Acme' }),
+      ...(overrides.companyRepo as object),
     } as never,
     {
       findAll: jest.fn().mockResolvedValue([]),
@@ -1158,7 +1158,7 @@ const makeService = (overrides: Record<string, unknown> = {}) =>
     } as never,
     { findById: jest.fn(), findAll: jest.fn() } as never,
     {
-      findByApplication: jest.fn().mockResolvedValue({ id: 'idx1', tenantId: 'tenant-a' }),
+      findByApplication: jest.fn().mockResolvedValue({ id: 'idx1', companyId: 'company-a' }),
       updateStatus: jest.fn().mockResolvedValue({ id: 'idx1' }),
       ...(overrides.candidateIndexRepo as object),
     } as never,
@@ -1170,21 +1170,21 @@ const makeService = (overrides: Record<string, unknown> = {}) =>
 describe('PlatformDataService', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('lists applications tagged with the tenant name', async () => {
+  it('lists applications tagged with the company name', async () => {
     const applicationRepo = {
       findAll: jest.fn().mockResolvedValue([{ id: 'app1', stageName: 'Screening' }]),
     };
     const service = makeService({ applicationRepo });
     const result = await service.listApplications({});
-    expect(result).toEqual([{ id: 'app1', stageName: 'Screening', tenantName: 'Acme' }]);
-    expect(applicationRepo.findAll).toHaveBeenCalledWith(undefined, 'tenant_tenant-a');
+    expect(result).toEqual([{ id: 'app1', stageName: 'Screening', companyName: 'Acme' }]);
+    expect(applicationRepo.findAll).toHaveBeenCalledWith(undefined, 'company_company-a');
   });
 
-  it('filters applications by tenant id', async () => {
+  it('filters applications by company id', async () => {
     const applicationRepo = { findAll: jest.fn().mockResolvedValue([]) };
     const service = makeService({ applicationRepo });
-    await service.listApplications({ tenantId: 'tenant-a' });
-    expect(applicationRepo.findAll).toHaveBeenCalledWith(undefined, 'tenant_tenant-a');
+    await service.listApplications({ companyId: 'company-a' });
+    expect(applicationRepo.findAll).toHaveBeenCalledWith(undefined, 'company_company-a');
   });
 
   it('filters applications by status after the fetch', async () => {
@@ -1217,13 +1217,13 @@ describe('PlatformDataService', () => {
       findById: jest.fn().mockResolvedValue({ id: 's2', name: 'Interview' }),
     };
     const candidateIndexRepo = {
-      findByApplication: jest.fn().mockResolvedValue({ id: 'idx1', tenantId: 'tenant-a' }),
+      findByApplication: jest.fn().mockResolvedValue({ id: 'idx1', companyId: 'company-a' }),
       updateStatus: jest.fn().mockResolvedValue({ id: 'idx1' }),
     };
     const service = makeService({ applicationRepo, pipelineStageRepo, candidateIndexRepo });
     await service.moveApplicationStage('app1', { stageId: 's2' });
-    expect(applicationRepo.updateStage).toHaveBeenCalledWith('app1', 's2', 'tenant_tenant-a');
-    expect(candidateIndexRepo.updateStatus).toHaveBeenCalledWith('app1', 'tenant-a', 'Interview');
+    expect(applicationRepo.updateStage).toHaveBeenCalledWith('app1', 's2', 'company_company-a');
+    expect(candidateIndexRepo.updateStatus).toHaveBeenCalledWith('app1', 'company-a', 'Interview');
   });
 
   it('rolls back and 503s when the index sync fails', async () => {
@@ -1235,7 +1235,7 @@ describe('PlatformDataService', () => {
       findById: jest.fn().mockResolvedValue({ id: 's2', name: 'Interview' }),
     };
     const candidateIndexRepo = {
-      findByApplication: jest.fn().mockResolvedValue({ id: 'idx1', tenantId: 'tenant-a' }),
+      findByApplication: jest.fn().mockResolvedValue({ id: 'idx1', companyId: 'company-a' }),
       updateStatus: jest.fn().mockResolvedValue(null),
     };
     const service = makeService({ applicationRepo, pipelineStageRepo, candidateIndexRepo });
@@ -1244,16 +1244,16 @@ describe('PlatformDataService', () => {
     );
   });
 
-  it('lists interviews tagged with the tenant name', async () => {
+  it('lists interviews tagged with the company name', async () => {
     const interviewRepo = {
       findAll: jest.fn().mockResolvedValue([{ id: 'iv1', status: 'scheduled' }]),
     };
     const service = makeService({ interviewRepo: interviewRepo as never });
     const result = await service.listInterviews({});
-    expect(result).toEqual([{ id: 'iv1', status: 'scheduled', tenantName: 'Acme' }]);
+    expect(result).toEqual([{ id: 'iv1', status: 'scheduled', companyName: 'Acme' }]);
   });
 
-  it('reschedules an interview in the tenant that owns it', async () => {
+  it('reschedules an interview in the company that owns it', async () => {
     const interviewRepo = {
       findAll: jest.fn().mockResolvedValue([]),
       findById: jest.fn().mockResolvedValueOnce(null).mockResolvedValueOnce({
@@ -1267,11 +1267,11 @@ describe('PlatformDataService', () => {
     expect(interviewRepo.update).toHaveBeenCalledWith(
       'iv1',
       { status: 'cancelled' },
-      'tenant_tenant-a',
+      'company_company-a',
     );
   });
 
-  it('404s when an interview exists in no tenant', async () => {
+  it('404s when an interview exists in no company', async () => {
     const interviewRepo = {
       findAll: jest.fn().mockResolvedValue([]),
       findById: jest.fn().mockResolvedValue(null),
@@ -1305,7 +1305,7 @@ import {
 } from '@nestjs/common';
 import { AuditService } from '../../common/audit/audit.service';
 import { CacheService } from '../../common/cache/cache.service';
-import { TenantRepository } from '../../repositories/tenant.repository';
+import { CompanyRepository } from '../../repositories/company.repository';
 import { ApplicationRepository } from '../../repositories/application.repository';
 import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
 import { CandidateApplicationsIndexRepository } from '../../repositories/candidate-applications-index.repository';
@@ -1314,14 +1314,14 @@ import { MoveApplicationStageDto } from './dto/move-application-stage.dto';
 import { RescheduleInterviewDto } from './dto/reschedule-interview.dto';
 
 interface PlatformFilters {
-  tenantId?: string;
+  companyId?: string;
   status?: string;
 }
 
 @Injectable()
 export class PlatformDataService {
   constructor(
-    private readonly tenantRepo: TenantRepository,
+    private readonly companyRepo: CompanyRepository,
     private readonly applicationRepo: ApplicationRepository,
     private readonly pipelineStageRepo: PipelineStageRepository,
     private readonly candidateIndexRepo: CandidateApplicationsIndexRepository,
@@ -1330,20 +1330,20 @@ export class PlatformDataService {
     private readonly cacheService: CacheService,
   ) {}
 
-  private schemaOf(tenantId: string): string {
-    return `tenant_${tenantId}`;
+  private schemaOf(companyId: string): string {
+    return `company_${companyId}`;
   }
 
   async listApplications(filters: PlatformFilters) {
-    const tenants = await this.tenantRepo.findAll();
-    const target = filters.tenantId
-      ? tenants.filter((t) => t.id === filters.tenantId)
-      : tenants;
-    const rows: Array<Record<string, unknown> & { tenantName: string }> = [];
-    for (const tenant of target) {
-      const apps = await this.applicationRepo.findAll(undefined, this.schemaOf(tenant.id));
+    const companies = await this.companyRepo.findAll();
+    const target = filters.companyId
+      ? companies.filter((t) => t.id === filters.companyId)
+      : companies;
+    const rows: Array<Record<string, unknown> & { companyName: string }> = [];
+    for (const company of target) {
+      const apps = await this.applicationRepo.findAll(undefined, this.schemaOf(company.id));
       for (const app of apps) {
-        rows.push({ ...app, tenantName: tenant.name, tenantId: tenant.id });
+        rows.push({ ...app, companyName: company.name, companyId: company.id });
       }
     }
     if (filters.status) {
@@ -1358,7 +1358,7 @@ export class PlatformDataService {
   ) {
     const indexed = await this.candidateIndexRepo.findByApplication(applicationId);
     if (!indexed) throw new NotFoundException('Application not found');
-    const schema = this.schemaOf(indexed.tenantId);
+    const schema = this.schemaOf(indexed.companyId);
 
     const application = await this.applicationRepo.findById(applicationId, schema);
     if (!application) throw new NotFoundException('Application not found');
@@ -1370,7 +1370,7 @@ export class PlatformDataService {
 
     const indexRow = await this.candidateIndexRepo.updateStatus(
       applicationId,
-      indexed.tenantId,
+      indexed.companyId,
       stage.name,
     );
     if (application.candidateAccountId && !indexRow) {
@@ -1384,26 +1384,26 @@ export class PlatformDataService {
         'Candidate application status could not be synchronized',
       );
     }
-    await this.cacheService.invalidateTenantDashboard(indexed.tenantId);
+    await this.cacheService.invalidateCompanyDashboard(indexed.companyId);
     await this.auditService.log(
       'platform.application.stage_move',
       applicationId,
       { fromStage: application.currentStageId, toStage: stage.name },
-      indexed.tenantId,
+      indexed.companyId,
     );
     return this.applicationRepo.findById(applicationId, schema);
   }
 
   async listInterviews(filters: PlatformFilters) {
-    const tenants = await this.tenantRepo.findAll();
-    const target = filters.tenantId
-      ? tenants.filter((t) => t.id === filters.tenantId)
-      : tenants;
-    const rows: Array<Record<string, unknown> & { tenantName: string }> = [];
-    for (const tenant of target) {
-      const interviews = await this.interviewRepo.findAll(undefined, this.schemaOf(tenant.id));
+    const companies = await this.companyRepo.findAll();
+    const target = filters.companyId
+      ? companies.filter((t) => t.id === filters.companyId)
+      : companies;
+    const rows: Array<Record<string, unknown> & { companyName: string }> = [];
+    for (const company of target) {
+      const interviews = await this.interviewRepo.findAll(undefined, this.schemaOf(company.id));
       for (const interview of interviews) {
-        rows.push({ ...interview, tenantName: tenant.name, tenantId: tenant.id });
+        rows.push({ ...interview, companyName: company.name, companyId: company.id });
       }
     }
     if (filters.status) {
@@ -1416,9 +1416,9 @@ export class PlatformDataService {
     interviewId: string,
     dto: RescheduleInterviewDto,
   ) {
-    const tenants = await this.tenantRepo.findAll();
-    for (const tenant of tenants) {
-      const schema = this.schemaOf(tenant.id);
+    const companies = await this.companyRepo.findAll();
+    for (const company of companies) {
+      const schema = this.schemaOf(company.id);
       const interview = await this.interviewRepo.findById(interviewId, schema);
       if (interview) {
         const data: { scheduledAt?: Date; status?: string } = {};
@@ -1431,7 +1431,7 @@ export class PlatformDataService {
           'platform.interview.update',
           interviewId,
           dto as unknown as Record<string, unknown>,
-          tenant.id,
+          company.id,
         );
         return updated;
       }
@@ -1477,11 +1477,11 @@ export class PlatformDataController {
 
   @Get('applications')
   listApplications(
-    @Query('tenantId') tenantId?: string,
+    @Query('companyId') companyId?: string,
     @Query('status') status?: string,
   ) {
     return this.dataService.listApplications({
-      tenantId: tenantId || undefined,
+      companyId: companyId || undefined,
       status: status || undefined,
     });
   }
@@ -1497,11 +1497,11 @@ export class PlatformDataController {
 
   @Get('interviews')
   listInterviews(
-    @Query('tenantId') tenantId?: string,
+    @Query('companyId') companyId?: string,
     @Query('status') status?: string,
   ) {
     return this.dataService.listInterviews({
-      tenantId: tenantId || undefined,
+      companyId: companyId || undefined,
       status: status || undefined,
     });
   }
@@ -1570,10 +1570,10 @@ In `backend/src/modules/candidate-account/candidate-account.service.ts`, add aft
       );
     if (!indexed) throw new NotFoundException('Application not found');
 
-    const schemaName = `tenant_${indexed.tenantId}`;
+    const schemaName = `company_${indexed.companyId}`;
     await this.applicationRepo.delete(indexed.applicationId, schemaName);
     await this.candidateApplicationsIndexRepo.deleteById(indexed.id);
-    await this.cacheService.invalidateTenantDashboard(indexed.tenantId);
+    await this.cacheService.invalidateCompanyDashboard(indexed.companyId);
     return { applicationId };
   }
 ```
@@ -1587,7 +1587,7 @@ In `backend/src/modules/candidate-account/candidate-account.controller.ts`, afte
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
   async withdrawApplication(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @CurrentUser() user: TenantContext,
+    @CurrentUser() user: CompanyContext,
   ) {
     return this.candidateAccountService.withdraw(user.userId, id);
   }
@@ -1641,8 +1641,8 @@ export interface PlatformCandidate {
 
 export interface PlatformApplication {
   id: string;
-  tenantId: string;
-  tenantName: string;
+  companyId: string;
+  companyName: string;
   candidateName: string;
   candidateEmail: string;
   jobTitle: string;
@@ -1653,8 +1653,8 @@ export interface PlatformApplication {
 
 export interface PlatformInterview {
   id: string;
-  tenantId: string;
-  tenantName: string;
+  companyId: string;
+  companyName: string;
   candidateName: string;
   jobTitle: string;
   interviewerEmail: string;
@@ -1666,37 +1666,37 @@ export interface PlatformInterview {
 Add methods to the `platformApi` object:
 
 ```ts
-  listTenantUsers: async (tenantId: string): Promise<PlatformUser[]> => {
-    const { data } = await apiClient.get(`/platform/tenants/${tenantId}/users`);
+  listCompanyUsers: async (companyId: string): Promise<PlatformUser[]> => {
+    const { data } = await apiClient.get(`/platform/companies/${companyId}/users`);
     return unwrap(data as ApiEnvelope<PlatformUser[]>);
   },
-  createTenantUser: async (
-    tenantId: string,
+  createCompanyUser: async (
+    companyId: string,
     body: { email: string; role: string; password: string },
   ): Promise<ApiEnvelope<PlatformUser>> => {
-    const { data } = await apiClient.post(`/platform/tenants/${tenantId}/users`, body);
+    const { data } = await apiClient.post(`/platform/companies/${companyId}/users`, body);
     return data as ApiEnvelope<PlatformUser>;
   },
-  updateTenantUser: async (
-    tenantId: string,
+  updateCompanyUser: async (
+    companyId: string,
     userId: string,
     body: { role?: string; password?: string },
   ): Promise<ApiEnvelope<PlatformUser>> => {
-    const { data } = await apiClient.patch(`/platform/tenants/${tenantId}/users/${userId}`, body);
+    const { data } = await apiClient.patch(`/platform/companies/${companyId}/users/${userId}`, body);
     return data as ApiEnvelope<PlatformUser>;
   },
-  setTenantUserStatus: async (
-    tenantId: string,
+  setCompanyUserStatus: async (
+    companyId: string,
     userId: string,
     status: 'active' | 'suspended',
   ): Promise<ApiEnvelope<PlatformUser>> => {
     const { data } = await apiClient.patch(
-      `/platform/tenants/${tenantId}/users/${userId}/${status === 'suspended' ? 'suspend' : 'reactivate'}`,
+      `/platform/companies/${companyId}/users/${userId}/${status === 'suspended' ? 'suspend' : 'reactivate'}`,
     );
     return data as ApiEnvelope<PlatformUser>;
   },
-  removeTenantUser: async (tenantId: string, userId: string): Promise<ApiEnvelope<{ id: string }>> => {
-    const { data } = await apiClient.delete(`/platform/tenants/${tenantId}/users/${userId}`);
+  removeCompanyUser: async (companyId: string, userId: string): Promise<ApiEnvelope<{ id: string }>> => {
+    const { data } = await apiClient.delete(`/platform/companies/${companyId}/users/${userId}`);
     return data as ApiEnvelope<{ id: string }>;
   },
   listCandidates: async (): Promise<PlatformCandidate[]> => {
@@ -1720,7 +1720,7 @@ Add methods to the `platformApi` object:
     const { data } = await apiClient.delete(`/platform/candidates/${id}`);
     return data as ApiEnvelope<{ id: string }>;
   },
-  listApplications: async (filters?: { tenantId?: string; status?: string }): Promise<PlatformApplication[]> => {
+  listApplications: async (filters?: { companyId?: string; status?: string }): Promise<PlatformApplication[]> => {
     const { data } = await apiClient.get('/platform/applications', { params: filters });
     return unwrap(data as ApiEnvelope<PlatformApplication[]>);
   },
@@ -1731,7 +1731,7 @@ Add methods to the `platformApi` object:
     const { data } = await apiClient.patch(`/platform/applications/${id}/stage`, { stageId });
     return data as ApiEnvelope<PlatformApplication>;
   },
-  listInterviews: async (filters?: { tenantId?: string; status?: string }): Promise<PlatformInterview[]> => {
+  listInterviews: async (filters?: { companyId?: string; status?: string }): Promise<PlatformInterview[]> => {
     const { data } = await apiClient.get('/platform/interviews', { params: filters });
     return unwrap(data as ApiEnvelope<PlatformInterview[]>);
   },
@@ -1750,16 +1750,16 @@ In `frontend/src/api/queryKeys.ts`, extend the `platform` block:
 
 ```ts
   platform: {
-    tenants: () => ['platform', 'tenants'],
-    tenant: (id: string) => ['platform', 'tenants', id],
-    tenantUsers: (tenantId: string) => ['platform', 'tenants', tenantId, 'users'],
+    companies: () => ['platform', 'companies'],
+    company: (id: string) => ['platform', 'companies', id],
+    companyUsers: (companyId: string) => ['platform', 'companies', companyId, 'users'],
     candidates: () => ['platform', 'candidates'],
-    applications: (filters?: { tenantId?: string; status?: string }) => [
+    applications: (filters?: { companyId?: string; status?: string }) => [
       'platform',
       'applications',
       filters,
     ],
-    interviews: (filters?: { tenantId?: string; status?: string }) => [
+    interviews: (filters?: { companyId?: string; status?: string }) => [
       'platform',
       'interviews',
       filters,
@@ -1773,11 +1773,11 @@ In `frontend/src/api/queryKeys.ts`, extend the `platform` block:
 Append to `frontend/src/features/admin/hooks/usePlatform.ts`:
 
 ```ts
-export function useTenantUsers(tenantId: string) {
+export function useCompanyUsers(companyId: string) {
   return useQuery({
-    queryKey: queryKeys.platform.tenantUsers(tenantId),
-    queryFn: () => platformApi.listTenantUsers(tenantId),
-    enabled: !!tenantId,
+    queryKey: queryKeys.platform.companyUsers(companyId),
+    queryFn: () => platformApi.listCompanyUsers(companyId),
+    enabled: !!companyId,
   });
 }
 
@@ -1788,59 +1788,59 @@ export function usePlatformCandidates() {
   });
 }
 
-export function usePlatformApplications(filters?: { tenantId?: string; status?: string }) {
+export function usePlatformApplications(filters?: { companyId?: string; status?: string }) {
   return useQuery({
     queryKey: queryKeys.platform.applications(filters),
     queryFn: () => platformApi.listApplications(filters),
   });
 }
 
-export function usePlatformInterviews(filters?: { tenantId?: string; status?: string }) {
+export function usePlatformInterviews(filters?: { companyId?: string; status?: string }) {
   return useQuery({
     queryKey: queryKeys.platform.interviews(filters),
     queryFn: () => platformApi.listInterviews(filters),
   });
 }
 
-export function useCreateTenantUser(tenantId: string) {
+export function useCreateCompanyUser(companyId: string) {
   const queryClient = useQueryClient();
   return useApiMutation({
     mutationFn: (body: { email: string; role: string; password: string }) =>
-      platformApi.createTenantUser(tenantId, body),
+      platformApi.createCompanyUser(companyId, body),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.platform.tenantUsers(tenantId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.companyUsers(companyId) });
     },
   });
 }
 
-export function useUpdateTenantUser(tenantId: string) {
+export function useUpdateCompanyUser(companyId: string) {
   const queryClient = useQueryClient();
   return useApiMutation({
     mutationFn: ({ userId, body }: { userId: string; body: { role?: string; password?: string } }) =>
-      platformApi.updateTenantUser(tenantId, userId, body),
+      platformApi.updateCompanyUser(companyId, userId, body),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.platform.tenantUsers(tenantId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.companyUsers(companyId) });
     },
   });
 }
 
-export function useSetTenantUserStatus(tenantId: string) {
+export function useSetCompanyUserStatus(companyId: string) {
   const queryClient = useQueryClient();
   return useApiMutation({
     mutationFn: ({ userId, status }: { userId: string; status: 'active' | 'suspended' }) =>
-      platformApi.setTenantUserStatus(tenantId, userId, status),
+      platformApi.setCompanyUserStatus(companyId, userId, status),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.platform.tenantUsers(tenantId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.companyUsers(companyId) });
     },
   });
 }
 
-export function useRemoveTenantUser(tenantId: string) {
+export function useRemoveCompanyUser(companyId: string) {
   const queryClient = useQueryClient();
   return useApiMutation({
-    mutationFn: (userId: string) => platformApi.removeTenantUser(tenantId, userId),
+    mutationFn: (userId: string) => platformApi.removeCompanyUser(companyId, userId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.platform.tenantUsers(tenantId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.companyUsers(companyId) });
     },
   });
 }
@@ -1917,17 +1917,17 @@ git commit -m "feat(m11): admin platform API layer and hooks"
 
 ---
 
-### Task 9: Admin frontend — tenant detail tabs + candidates page
+### Task 9: Admin frontend — company detail tabs + candidates page
 
 **Files:**
-- Modify: `frontend/src/features/admin/TenantDetailPage.tsx`
+- Modify: `frontend/src/features/admin/CompanyDetailPage.tsx`
 - Create: `frontend/src/features/admin/CandidatesPage.tsx`
 - Modify: `frontend/src/features/admin/layout.tsx`
 - Create: `frontend/src/routes/admin/candidates.tsx`
 
-- [ ] **Step 1: Rewrite `TenantDetailPage` with tabs**
+- [ ] **Step 1: Rewrite `CompanyDetailPage` with tabs**
 
-Replace the contents of `frontend/src/features/admin/TenantDetailPage.tsx`:
+Replace the contents of `frontend/src/features/admin/CompanyDetailPage.tsx`:
 
 ```tsx
 import { useState } from 'react';
@@ -1953,28 +1953,28 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { useNavigate } from '@tanstack/react-router';
 import {
-  useCreateTenantUser,
+  useCreateCompanyUser,
   useMoveApplicationStage,
   usePlatformApplications,
   usePlatformInterviews,
-  useRemoveTenantUser,
+  useRemoveCompanyUser,
   useRescheduleInterview,
-  useSetTenantStatus,
-  useSetTenantUserStatus,
-  useTenantDetail,
-  useTenantUsers,
-  useUpdateTenantUser,
+  useSetCompanyStatus,
+  useSetCompanyUserStatus,
+  useCompanyDetail,
+  useCompanyUsers,
+  useUpdateCompanyUser,
 } from './hooks/usePlatform';
 
-const INTERNAL_ROLES = ['OrgAdmin', 'Recruiter', 'HiringManager', 'Interviewer'];
+const INTERNAL_ROLES = ['CompanyAdmin', 'Recruiter', 'HiringManager', 'Interviewer'];
 
-export function TenantDetailPage({ tenantId }: { tenantId: string }) {
+export function CompanyDetailPage({ companyId }: { companyId: string }) {
   const navigate = useNavigate();
-  const { data: tenant, isLoading, error } = useTenantDetail(tenantId);
-  const setStatus = useSetTenantStatus();
-  const { data: users = [], isLoading: usersLoading } = useTenantUsers(tenantId);
-  const { data: applications = [] } = usePlatformApplications({ tenantId });
-  const { data: interviews = [] } = usePlatformInterviews({ tenantId });
+  const { data: company, isLoading, error } = useCompanyDetail(companyId);
+  const setStatus = useSetCompanyStatus();
+  const { data: users = [], isLoading: usersLoading } = useCompanyUsers(companyId);
+  const { data: applications = [] } = usePlatformApplications({ companyId });
+  const { data: interviews = [] } = usePlatformInterviews({ companyId });
 
   const [createOpened, { open: openCreate, close: closeCreate }] = useDisclosure(false);
   const [resetUserId, setResetUserId] = useState<string | null>(null);
@@ -1984,19 +1984,19 @@ export function TenantDetailPage({ tenantId }: { tenantId: string }) {
   const [stageFor, setStageFor] = useState<{ id: string; stageId: string } | null>(null);
   const [rescheduleFor, setRescheduleFor] = useState<{ id: string; scheduledAt: string } | null>(null);
 
-  const createUser = useCreateTenantUser(tenantId);
-  const updateUser = useUpdateTenantUser(tenantId);
-  const setUserStatus = useSetTenantUserStatus(tenantId);
-  const removeUser = useRemoveTenantUser(tenantId);
+  const createUser = useCreateCompanyUser(companyId);
+  const updateUser = useUpdateCompanyUser(companyId);
+  const setUserStatus = useSetCompanyUserStatus(companyId);
+  const removeUser = useRemoveCompanyUser(companyId);
   const moveStage = useMoveApplicationStage();
   const reschedule = useRescheduleInterview();
 
   if (isLoading) return <Loader />;
-  if (error || !tenant) {
-    return <Alert color="red">Tenant not found.</Alert>;
+  if (error || !company) {
+    return <Alert color="red">Company not found.</Alert>;
   }
 
-  const isSuspended = tenant.status === 'suspended';
+  const isSuspended = company.status === 'suspended';
 
   const handleCreateUser = () => {
     createUser.mutate(
@@ -2017,23 +2017,23 @@ export function TenantDetailPage({ tenantId }: { tenantId: string }) {
   return (
     <Stack>
       <Group justify="space-between">
-        <Title order={3}>{tenant.name}</Title>
+        <Title order={3}>{company.name}</Title>
         <Badge variant="light" color={isSuspended ? 'red' : 'green'}>
-          {tenant.status}
+          {company.status}
         </Badge>
       </Group>
 
       <Card withBorder>
         <Stack gap="xs">
           <Text size="sm">
-            Slug: <b>{tenant.slug}</b>
+            Slug: <b>{company.slug}</b>
           </Text>
           <SimpleGrid cols={2}>
             <Text size="sm">
-              Users: <b>{tenant.users}</b>
+              Users: <b>{company.users}</b>
             </Text>
             <Text size="sm">
-              Applications: <b>{tenant.applications}</b>
+              Applications: <b>{company.applications}</b>
             </Text>
           </SimpleGrid>
         </Stack>
@@ -2045,14 +2045,14 @@ export function TenantDetailPage({ tenantId }: { tenantId: string }) {
           loading={setStatus.isPending}
           onClick={() =>
             setStatus.mutate(
-              { id: tenant.id, status: isSuspended ? 'active' : 'suspended' },
-              { onSuccess: () => navigate({ to: '/admin/tenants' }) },
+              { id: company.id, status: isSuspended ? 'active' : 'suspended' },
+              { onSuccess: () => navigate({ to: '/admin/companies' }) },
             )
           }
         >
           {isSuspended ? 'Reactivate' : 'Suspend'}
         </Button>
-        <Button variant="light" onClick={() => navigate({ to: '/admin/tenants' })}>
+        <Button variant="light" onClick={() => navigate({ to: '/admin/companies' })}>
           Back
         </Button>
       </Group>
@@ -2147,7 +2147,7 @@ export function TenantDetailPage({ tenantId }: { tenantId: string }) {
 
         <Tabs.Panel value="applications" pt="md">
           {applications.length === 0 ? (
-            <Text c="dimmed">No applications in this tenant.</Text>
+            <Text c="dimmed">No applications in this company.</Text>
           ) : (
             <Table striped highlightOnHover withTableBorder>
               <Table.Thead>
@@ -2190,7 +2190,7 @@ export function TenantDetailPage({ tenantId }: { tenantId: string }) {
 
         <Tabs.Panel value="interviews" pt="md">
           {interviews.length === 0 ? (
-            <Text c="dimmed">No interviews in this tenant.</Text>
+            <Text c="dimmed">No interviews in this company.</Text>
           ) : (
             <Table striped highlightOnHover withTableBorder>
               <Table.Thead>
@@ -2294,7 +2294,7 @@ export function TenantDetailPage({ tenantId }: { tenantId: string }) {
         title="Remove user"
       >
         <Stack>
-          <Text>Remove this user from the tenant? This cannot be undone.</Text>
+          <Text>Remove this user from the company? This cannot be undone.</Text>
           <Group justify="flex-end">
             <Button variant="light" onClick={() => setRemoveUserId(null)}>
               Cancel
@@ -2319,13 +2319,13 @@ export function TenantDetailPage({ tenantId }: { tenantId: string }) {
       >
         <Stack>
           <TextInput
-            label="Stage name (from tenant pipeline)"
+            label="Stage name (from company pipeline)"
             placeholder="Screening"
             value={stageFor?.stageId ?? ''}
             onChange={(e) => setStageFor((s) => (s ? { ...s, stageId: e.currentTarget.value } : s))}
           />
           <Text size="xs" c="dimmed">
-            Enter the exact stage name used by this tenant (e.g. Screening, Interview, Offer).
+            Enter the exact stage name used by this company (e.g. Screening, Interview, Offer).
           </Text>
           <Button
             loading={moveStage.isPending}
@@ -2378,25 +2378,25 @@ export function TenantDetailPage({ tenantId }: { tenantId: string }) {
 }
 ```
 
-Note: `moveApplicationStage` expects a `stageId` (UUID), not a stage name. To keep the UI honest, add a backend `GET /platform/tenants/:id/pipeline-stages` endpoint (below, Step 2) and swap the stage modal to a `Select` fed by that endpoint. The TextInput above is a stopgap for the first build; replace it with the Select in Step 2.
+Note: `moveApplicationStage` expects a `stageId` (UUID), not a stage name. To keep the UI honest, add a backend `GET /platform/companies/:id/pipeline-stages` endpoint (below, Step 2) and swap the stage modal to a `Select` fed by that endpoint. The TextInput above is a stopgap for the first build; replace it with the Select in Step 2.
 
 - [ ] **Step 2: Add pipeline-stages endpoint for the stage picker**
 
 In `backend/src/modules/platform/platform-accounts.controller.ts`, add:
 
 ```ts
-  @Get('tenants/:id/pipeline-stages')
-  listTenantStages(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.accountsService.listTenantStages(id);
+  @Get('companies/:id/pipeline-stages')
+  listCompanyStages(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.accountsService.listCompanyStages(id);
   }
 ```
 
 In `PlatformAccountsService`, add:
 
 ```ts
-  async listTenantStages(tenantId: string) {
-    await this.requireTenant(tenantId);
-    return this.pipelineStageRepo.findAll(this.schemaOf(tenantId));
+  async listCompanyStages(companyId: string) {
+    await this.requireCompany(companyId);
+    return this.pipelineStageRepo.findAll(this.schemaOf(companyId));
   }
 ```
 
@@ -2408,12 +2408,12 @@ Backend register + verify:
 cd backend && npm run typecheck && npm test -- platform-accounts.service.spec
 ```
 
-Then in the frontend `TenantDetailPage`, replace the stage TextInput modal with:
+Then in the frontend `CompanyDetailPage`, replace the stage TextInput modal with:
 
 ```tsx
 import { usePlatformStages } from './hooks/usePlatform';
 // inside component:
-const { data: stages = [] } = usePlatformStages(tenantId);
+const { data: stages = [] } = usePlatformStages(companyId);
 // replace the TextInput inside the stage modal with:
 <Select
   label="Stage"
@@ -2436,8 +2436,8 @@ export interface PlatformStage {
 with method:
 
 ```ts
-  listTenantStages: async (tenantId: string): Promise<PlatformStage[]> => {
-    const { data } = await apiClient.get(`/platform/tenants/${tenantId}/pipeline-stages`);
+  listCompanyStages: async (companyId: string): Promise<PlatformStage[]> => {
+    const { data } = await apiClient.get(`/platform/companies/${companyId}/pipeline-stages`);
     return unwrap(data as ApiEnvelope<PlatformStage[]>);
   },
 ```
@@ -2445,17 +2445,17 @@ with method:
 and to `queryKeys`:
 
 ```ts
-    tenantStages: (tenantId: string) => ['platform', 'tenants', tenantId, 'stages'],
+    companyStages: (companyId: string) => ['platform', 'companies', companyId, 'stages'],
 ```
 
 and the hook:
 
 ```ts
-export function usePlatformStages(tenantId: string) {
+export function usePlatformStages(companyId: string) {
   return useQuery({
-    queryKey: queryKeys.platform.tenantStages(tenantId),
-    queryFn: () => platformApi.listTenantStages(tenantId),
-    enabled: !!tenantId,
+    queryKey: queryKeys.platform.companyStages(companyId),
+    queryFn: () => platformApi.listCompanyStages(companyId),
+    enabled: !!companyId,
   });
 }
 ```
@@ -2690,7 +2690,7 @@ export const Route = createFileRoute('/admin/candidates')({
 });
 ```
 
-In `frontend/src/features/admin/layout.tsx`, add a nav link. Update the imports to include `IconUser` from `@tabler/icons-react` and add after the Tenants `NavLink`:
+In `frontend/src/features/admin/layout.tsx`, add a nav link. Update the imports to include `IconUser` from `@tabler/icons-react` and add after the Companies `NavLink`:
 
 ```tsx
         <NavLink
@@ -2711,7 +2711,7 @@ Expected: clean. (The route tree regenerates automatically via the file-based ro
 
 ```sh
 git add frontend/src/features/admin frontend/src/routes/admin/candidates.tsx
-git commit -m "feat(m11): admin tenant tabs and candidates page"
+git commit -m "feat(m11): admin company tabs and candidates page"
 ```
 
 ---
@@ -2810,7 +2810,7 @@ In `frontend/src/features/public-careers/JobDetailPage.tsx`, replace the `Card` 
         <JobDetailsView
           job={job}
           backLink={
-            <Link to="/careers/$tenantSlug/jobs" params={{ tenantSlug }}>
+            <Link to="/careers/$companySlug/jobs" params={{ companySlug }}>
               Back to open positions
             </Link>
           }
@@ -2851,19 +2851,19 @@ import type { NormalizedCandidateJob } from '@/features/candidate-portal/api/can
 
 export const Route = createFileRoute('/_candidate/jobs/$jobId')({
   validateSearch: (search: Record<string, unknown>) => ({
-    tenantId: typeof search.tenantId === 'string' ? search.tenantId : '',
+    companyId: typeof search.companyId === 'string' ? search.companyId : '',
   }),
   component: CandidateJobDetailRoute,
 });
 
 function CandidateJobDetailRoute() {
   const { jobId } = Route.useParams();
-  const { tenantId } = Route.useSearch();
+  const { companyId } = Route.useSearch();
   const { role } = useAuthStore();
-  const { data: job, isLoading, error } = useJobDetail(tenantId, jobId);
+  const { data: job, isLoading, error } = useJobDetail(companyId, jobId);
   const [applyOpened, setApplyOpened] = useState(false);
 
-  if (isLoading || !tenantId) {
+  if (isLoading || !companyId) {
     return (
       <Container size="md" py="xl">
         <Group justify="center">
@@ -2929,7 +2929,7 @@ and replace the card body:
               component={Link}
               to="/_candidate/jobs/$jobId"
               params={{ jobId: job.id }}
-              search={{ tenantId: job.tenantId }}
+              search={{ companyId: job.companyId }}
             >
               View details
             </Button>
@@ -2969,7 +2969,7 @@ git commit -m "feat(m11): candidate job detail page with shared details view"
 
 - [ ] **Step 1: Extend the candidate API + types**
 
-In `frontend/src/features/candidate-portal/types/index.ts`, add `tenantId` and `jobPostingId` to `Application`:
+In `frontend/src/features/candidate-portal/types/index.ts`, add `companyId` and `jobPostingId` to `Application`:
 
 ```ts
 export interface Application {
@@ -2979,7 +2979,7 @@ export interface Application {
   companyName: string;
   status: string;
   appliedAt: string;
-  tenantId: string;
+  companyId: string;
   jobPostingId: string;
 }
 ```
@@ -3094,7 +3094,7 @@ export function ApplicationsPage() {
         <Link
           to="/_candidate/jobs/$jobId"
           params={{ jobId: app.jobPostingId }}
-          search={{ tenantId: app.tenantId }}
+          search={{ companyId: app.companyId }}
         >
           {app.jobTitle}
         </Link>
@@ -3211,7 +3211,7 @@ export function ApplicationsPage() {
                   companyName: applicationDetail.data.companyName,
                   status: applicationDetail.data.status,
                   appliedAt: applicationDetail.data.appliedAt,
-                  tenantId: applicationDetail.data.tenantId,
+                  companyId: applicationDetail.data.companyId,
                   jobPostingId: '',
                 });
                 openConfirm();
@@ -3285,18 +3285,18 @@ git commit -m "feat(m11): applications page with job links, timeline, and withdr
 
 - [ ] **Step 1: Write the release-gate spec**
 
-Mirror the setup of `backend/test/phase9.e2e-spec.ts` (its `verifyInfrastructure`, `signinAs`-style helpers, `afterAll` cleanup of created tenants/users/refresh rows). Create `backend/test/phase11.e2e-spec.ts` with at least these scenarios:
+Mirror the setup of `backend/test/phase9.e2e-spec.ts` (its `verifyInfrastructure`, `signinAs`-style helpers, `afterAll` cleanup of created companies/users/refresh rows). Create `backend/test/phase11.e2e-spec.ts` with at least these scenarios:
 
-1. **Platform 403s:** every `/platform/*` route (the new ones: tenant users list/create/update/suspend/reactivate/remove, candidates CRUD, applications list/stage, interviews list/reschedule) returns 403 for an OrgAdmin and for a Candidate token.
-2. **Tenant user lifecycle:** SuperAdmin creates a user in the seeded Acme tenant → that user signs in (200) → role change to `Interviewer` → old refresh token rejected (401) → password reset → old password fails (401), new password signs in (200) → delete → sign-in fails (401).
+1. **Platform 403s:** every `/platform/*` route (the new ones: company users list/create/update/suspend/reactivate/remove, candidates CRUD, applications list/stage, interviews list/reschedule) returns 403 for an CompanyAdmin and for a Candidate token.
+2. **Company user lifecycle:** SuperAdmin creates a user in the seeded Acme company → that user signs in (200) → role change to `Interviewer` → old refresh token rejected (401) → password reset → old password fails (401), new password signs in (200) → delete → sign-in fails (401).
 3. **User suspension:** create a user → suspend → sign-in 403 + refresh 401 → double-suspend 409 → reactivate → sign-in 200 → double-reactivate 409.
 4. **Candidate lifecycle:** create a candidate via `/platform/candidates` → signs in as Candidate → update name → delete → sign-in fails (401).
-5. **Cross-tenant applications:** GET `/platform/applications` returns rows; PATCH `/platform/applications/:id/stage` with a valid stage of that tenant moves the stage (verify via GET detail + candidate index row status via a direct `candidate_applications_index` query).
+5. **Cross-company applications:** GET `/platform/applications` returns rows; PATCH `/platform/applications/:id/stage` with a valid stage of that company moves the stage (verify via GET detail + candidate index row status via a direct `candidate_applications_index` query).
 6. **Interviews:** GET `/platform/interviews` lists; PATCH `/platform/interviews/:id` `{ status: 'cancelled' }` flips status; PATCH with `{ scheduledAt }` changes the datetime (verify via DB).
 7. **Withdraw:** candidate applies to a job → withdraw → application row gone from `applications` and `candidate_applications_index`; withdrawing a foreign application → 404; non-candidate token → 403.
 8. **Audit rows:** after the above, `audit_logs` contains `platform.user.create`, `platform.user.suspend`, `platform.application.stage_move`, etc.
 
-Use the same helpers (`decodeClaims`, `assertEnvelope`, cleanup in `afterAll`) as phase9, adapted to the new routes. The phase9 spec creates its own tenant via `/auth/org/signup` for isolation; do the same here (create a fresh tenant, add a job + pipeline stages via the tenant API if needed, or reuse the seeded Acme tenant for read-only listings and create a fresh tenant for mutations).
+Use the same helpers (`decodeClaims`, `assertEnvelope`, cleanup in `afterAll`) as phase9, adapted to the new routes. The phase9 spec creates its own company via `/auth/company/signup` for isolation; do the same here (create a fresh company, add a job + pipeline stages via the company API if needed, or reuse the seeded Acme company for read-only listings and create a fresh company for mutations).
 
 - [ ] **Step 2: Run the full e2e suite**
 
@@ -3330,20 +3330,20 @@ git commit -m "test(m11): e2e release gate for platform control and candidate UX
 In `docs/07_API_ENDPOINT_DOCUMENTATION.md` add the M11 rows (SuperAdmin column, matching the spec):
 
 ```
-GET    /platform/tenants/:id/users                     SA  list tenant users
-POST   /platform/tenants/:id/users                     SA  create tenant user (email/role/password)
-PATCH  /platform/tenants/:id/users/:userId             SA  change role / reset password
-PATCH  /platform/tenants/:id/users/:userId/suspend     SA  suspend user
-PATCH  /platform/tenants/:id/users/:userId/reactivate  SA  reactivate user
-DELETE /platform/tenants/:id/users/:userId             SA  remove user
-GET    /platform/tenants/:id/pipeline-stages           SA  list tenant stages (stage picker)
+GET    /platform/companies/:id/users                     SA  list company users
+POST   /platform/companies/:id/users                     SA  create company user (email/role/password)
+PATCH  /platform/companies/:id/users/:userId             SA  change role / reset password
+PATCH  /platform/companies/:id/users/:userId/suspend     SA  suspend user
+PATCH  /platform/companies/:id/users/:userId/reactivate  SA  reactivate user
+DELETE /platform/companies/:id/users/:userId             SA  remove user
+GET    /platform/companies/:id/pipeline-stages           SA  list company stages (stage picker)
 GET    /platform/candidates                            SA  list candidates
 POST   /platform/candidates                            SA  create candidate
 PATCH  /platform/candidates/:id                        SA  update candidate
 DELETE /platform/candidates/:id                        SA  delete candidate (cascades)
-GET    /platform/applications?tenantId=&status=        SA  list applications across tenants
+GET    /platform/applications?companyId=&status=        SA  list applications across companies
 PATCH  /platform/applications/:id/stage                SA  move stage + sync candidate index
-GET    /platform/interviews?tenantId=&status=          SA  list interviews across tenants
+GET    /platform/interviews?companyId=&status=          SA  list interviews across companies
 PATCH  /platform/interviews/:id                        SA  reschedule / cancel
 DELETE /candidate/applications/:id                     C   withdraw application
 ```
@@ -3352,8 +3352,8 @@ Mirror the same rows in `docs/00_PROJECT_INSTRUCTIONS.md` §5, update the status
 
 - [ ] **Step 2: Update role + frontend docs**
 
-- `docs/06_ROLE_INTERACTIONS.md`: in the SuperAdmin section, add "account CRUD across tenants (users by role + candidates), per-user suspend/reactivate, cross-tenant application stage moves, interview reschedule/cancel".
-- `docs/08_FRONTEND_COMPONENT_STRUCTURE.md`: add `admin/` CandidatesPage + TenantDetailPage tabs, `candidate-portal/jobs/JobDetailsView`, `_candidate/jobs/$jobId` route, applications withdraw.
+- `docs/06_ROLE_INTERACTIONS.md`: in the SuperAdmin section, add "account CRUD across companies (users by role + candidates), per-user suspend/reactivate, cross-company application stage moves, interview reschedule/cancel".
+- `docs/08_FRONTEND_COMPONENT_STRUCTURE.md`: add `admin/` CandidatesPage + CompanyDetailPage tabs, `candidate-portal/jobs/JobDetailsView`, `_candidate/jobs/$jobId` route, applications withdraw.
 
 - [ ] **Step 3: Update `AGENTS.md`**
 
@@ -3379,7 +3379,7 @@ cd frontend && npm run lint && npm run build
 ```
 
 - [ ] All five seeded roles can sign in.
-- [ ] SuperAdmin can CRUD tenant users + candidates, suspend/reactivate users, move application stages, reschedule/cancel interviews; non-SuperAdmin gets 403 everywhere.
+- [ ] SuperAdmin can CRUD company users + candidates, suspend/reactivate users, move application stages, reschedule/cancel interviews; non-SuperAdmin gets 403 everywhere.
 - [ ] A suspended user cannot sign in or rotate a refresh token; reactivation restores sign-in.
 - [ ] Candidate job cards link to a detail page; job detail renders description + skills + apply.
 - [ ] Applications page links to the job, shows a progress timeline, and withdraw removes the application + index row.

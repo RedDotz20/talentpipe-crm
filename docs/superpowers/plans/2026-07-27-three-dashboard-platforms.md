@@ -4,28 +4,28 @@
 
 **Goal:** Restructure frontend routing into three role-based platform layouts with proper auth guards and naming.
 
-**Architecture:** Rename existing layouts (`AppShell` → `OrgPlatform`, `CandidateShell` → `CandidatePlatform`), create new `SuperAdminPlatform` layout, restructure `router.tsx` to nest routes under the correct platform with `beforeLoad` guards checking `role` from auth store.
+**Architecture:** Rename existing layouts (`AppShell` → `CompanyPlatform`, `CandidateShell` → `CandidatePlatform`), create new `SuperAdminPlatform` layout, restructure `router.tsx` to nest routes under the correct platform with `beforeLoad` guards checking `role` from auth store.
 
 **Tech Stack:** React 19, Mantine 9, TanStack Router 1, Zustand 5
 
 ---
 
-### Task 1: Rename AppShell → OrgPlatform
+### Task 1: Rename AppShell → CompanyPlatform
 
 **Files:**
-- Rename: `frontend/src/app/AppShell.tsx` → `frontend/src/app/OrgPlatform.tsx`
-- Update: `frontend/src/app/OrgPlatform.tsx` (rename export + Mantine import alias)
+- Rename: `frontend/src/app/AppShell.tsx` → `frontend/src/app/CompanyPlatform.tsx`
+- Update: `frontend/src/app/CompanyPlatform.tsx` (rename export + Mantine import alias)
 - Update: `frontend/src/app/router.tsx:4` (update import)
 
 - [ ] **Step 1: Rename the file**
 
 ```bash
-cd frontend/src/app && Move-Item -LiteralPath "AppShell.tsx" -Destination "OrgPlatform.tsx"
+cd frontend/src/app && Move-Item -LiteralPath "AppShell.tsx" -Destination "CompanyPlatform.tsx"
 ```
 
 - [ ] **Step 2: Update component name and import alias**
 
-In `frontend/src/app/OrgPlatform.tsx`, change:
+In `frontend/src/app/CompanyPlatform.tsx`, change:
 ```tsx
 import { AppShell as MantineShell, Group, Text, Button, NavLink } from '@mantine/core';
 ...
@@ -36,7 +36,7 @@ To:
 ```tsx
 import { AppShell as MantineShell, Group, Text, Button, NavLink } from '@mantine/core';
 ...
-export function OrgPlatform() {
+export function CompanyPlatform() {
 ```
 
 - [ ] **Step 3: Update import in router.tsx**
@@ -47,7 +47,7 @@ import { AppShell } from './AppShell';
 ```
 To:
 ```tsx
-import { OrgPlatform } from './OrgPlatform';
+import { CompanyPlatform } from './CompanyPlatform';
 ```
 
 - [ ] **Step 4: Update rootRoute reference**
@@ -58,7 +58,7 @@ component: AppShell,
 ```
 To:
 ```tsx
-component: OrgPlatform,
+component: CompanyPlatform,
 ```
 
 - [ ] **Step 5: Verify build**
@@ -71,8 +71,8 @@ Expected: Build succeeds with no errors (only chunk size warning).
 - [ ] **Step 6: Commit**
 
 ```bash
-git add frontend/src/app/AppShell.tsx frontend/src/app/OrgPlatform.tsx frontend/src/app/router.tsx
-git commit -m "feat(frontend): rename AppShell to OrgPlatform"
+git add frontend/src/app/AppShell.tsx frontend/src/app/CompanyPlatform.tsx frontend/src/app/router.tsx
+git commit -m "feat(frontend): rename AppShell to CompanyPlatform"
 ```
 
 ---
@@ -179,10 +179,10 @@ export function SuperAdminPlatform() {
 
       <MantineShell.Navbar p="xs">
         <NavLink
-          label="Tenants"
+          label="Companies"
           leftSection={<IconBuildingEstate size="1rem" />}
           component={Link}
-          to="/platform/tenants"
+          to="/platform/companies"
         />
       </MantineShell.Navbar>
 
@@ -210,13 +210,13 @@ git commit -m "feat(frontend): create SuperAdminPlatform layout"
 
 ---
 
-### Task 4: Create TenantsPage placeholder
+### Task 4: Create CompaniesPage placeholder
 
 **Files:**
 - Remove: `frontend/src/features/admin/.gitkeep`
-- Create: `frontend/src/features/admin/TenantsPage.tsx`
+- Create: `frontend/src/features/admin/CompaniesPage.tsx`
 
-- [ ] **Step 1: Remove .gitkeep and create TenantsPage.tsx**
+- [ ] **Step 1: Remove .gitkeep and create CompaniesPage.tsx**
 
 ```bash
 Remove-Item -LiteralPath "frontend/src/features/admin/.gitkeep"
@@ -225,10 +225,10 @@ Remove-Item -LiteralPath "frontend/src/features/admin/.gitkeep"
 ```tsx
 import { Container, Title } from '@mantine/core';
 
-export function TenantsPage() {
+export function CompaniesPage() {
   return (
     <Container>
-      <Title>Tenants</Title>
+      <Title>Companies</Title>
     </Container>
   );
 }
@@ -244,8 +244,8 @@ Expected: Build succeeds with no errors.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add frontend/src/features/admin/.gitkeep frontend/src/features/admin/TenantsPage.tsx
-git commit -m "feat(frontend): add TenantsPage placeholder"
+git add frontend/src/features/admin/.gitkeep frontend/src/features/admin/CompaniesPage.tsx
+git commit -m "feat(frontend): add CompaniesPage placeholder"
 ```
 
 ---
@@ -263,7 +263,7 @@ Replace the entire file content with the restructured route tree:
 import { createRouter, Route, RootRoute, redirect } from '@tanstack/react-router';
 import { LoginPage } from '../features/auth/LoginPage';
 import { SignupPage } from '../features/auth/SignupPage';
-import { OrgPlatform } from './OrgPlatform';
+import { CompanyPlatform } from './CompanyPlatform';
 import { SuperAdminPlatform } from './SuperAdminPlatform';
 import { CandidatePlatform } from '../shared/components/CandidatePlatform';
 import { CandidateLoginPage } from '../features/candidate/login/LoginPage';
@@ -272,7 +272,7 @@ import { JobSearchPage } from '../features/candidate/dashboard/JobSearchPage';
 import { ApplicationsPage } from '../features/candidate/applications/ApplicationsPage';
 import { BookmarksPage } from '../features/candidate/bookmarks/BookmarksPage';
 import { SettingsPage } from '../features/candidate/settings/SettingsPage';
-import { TenantsPage } from '../features/admin/TenantsPage';
+import { CompaniesPage } from '../features/admin/CompaniesPage';
 import { useAuthStore } from '../shared/api/useAuth';
 
 import { Link } from '@tanstack/react-router';
@@ -285,7 +285,7 @@ function redirectToDashboard() {
     throw redirect({ to: '/candidate/dashboard' });
   }
   if (role === 'SuperAdmin') {
-    throw redirect({ to: '/platform/tenants' });
+    throw redirect({ to: '/platform/companies' });
   }
   throw redirect({ to: '/dashboard' });
 }
@@ -314,21 +314,21 @@ const signupRoute = new Route({
   component: SignupPage,
 });
 
-// ── Org Platform (OrgAdmin, Recruiter, HiringManager, Interviewer) ──
+// ── Company Platform (CompanyAdmin, Recruiter, HiringManager, Interviewer) ──
 
-const orgLayoutRoute = new Route({
+const companyLayoutRoute = new Route({
   getParentRoute: () => rootRoute,
-  id: 'org',
-  component: OrgPlatform,
+  id: 'company',
+  component: CompanyPlatform,
 });
 
-const orgDashboardRoute = new Route({
-  getParentRoute: () => orgLayoutRoute,
+const companyDashboardRoute = new Route({
+  getParentRoute: () => companyLayoutRoute,
   path: '/dashboard',
   component: () => <div>Dashboard</div>,
 });
 
-// TODO: add /job-postings, /candidates, /pipeline, /interviews as children of orgLayoutRoute
+// TODO: add /job-postings, /candidates, /pipeline, /interviews as children of companyLayoutRoute
 // when those features are built
 
 // ── SuperAdmin Platform ──
@@ -339,10 +339,10 @@ const superAdminLayoutRoute = new Route({
   component: SuperAdminPlatform,
 });
 
-const tenantsRoute = new Route({
+const companiesRoute = new Route({
   getParentRoute: () => superAdminLayoutRoute,
-  path: '/platform/tenants',
-  component: TenantsPage,
+  path: '/platform/companies',
+  component: CompaniesPage,
 });
 
 // ── Candidate Platform ──
@@ -401,8 +401,8 @@ const candidateSettingsRoute = new Route({
 
 const routeTree = rootRoute.addChildren([
   loginRoute, signupRoute,
-  orgLayoutRoute.addChildren([orgDashboardRoute]),
-  superAdminLayoutRoute.addChildren([tenantsRoute]),
+  companyLayoutRoute.addChildren([companyDashboardRoute]),
+  superAdminLayoutRoute.addChildren([companiesRoute]),
   candidateLayoutRoute.addChildren([
     candidateLoginRoute, candidateSignupRoute, candidateDashboardRoute,
     candidateApplicationsRoute, candidateBookmarksRoute, candidateSettingsRoute,

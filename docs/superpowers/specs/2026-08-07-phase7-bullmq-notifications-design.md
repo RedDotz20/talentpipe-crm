@@ -57,7 +57,7 @@ untouched.
 |---|---|
 | `src/queues/queues.ts` | Dedicated BullMQ connection, `notificationQueue` (`Queue('notifications')` with `defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 2000 }, removeOnComplete: 100, removeOnFail: 100 }`), `STAGE_CHANGE_JOB` constant, payload type |
 | `src/queues/queues.module.ts` | Provides `NOTIFICATION_QUEUE` token + `NotificationWorkerService`; `onModuleDestroy` closes worker → queue → connection (mirrors `RedisModule`) |
-| `src/repositories/audit-log.repository.ts` | `create({ tenantId, userId, action, resourceId?, metadata? })` via `withDb('public', ...)`; registered in `RepositoriesModule` |
+| `src/repositories/audit-log.repository.ts` | `create({ companyId, userId, action, resourceId?, metadata? })` via `withDb('public', ...)`; registered in `RepositoriesModule` |
 | `src/workers/notification.worker.service.ts` | Nest-managed worker: `onModuleInit` creates `new Worker('notifications', processor, { connection, concurrency: 1 })`; processor calls internal `deliver(payload)` → audit row + log. The future email swap point |
 
 ### 3. Producer — `ApplicationsService.updateStage`
@@ -67,7 +67,7 @@ After index sync + dashboard cache invalidation:
 ```ts
 try {
   await this.notificationQueue.add(STAGE_CHANGE_JOB, {
-    tenantId,
+    companyId,
     actorUserId: getCurrentUser().userId, // AsyncLocalStorage — no signature change
     applicationId: id,
     jobPostingId: application.jobPostingId,
@@ -80,7 +80,7 @@ try {
 }
 ```
 
-Payload is self-contained — the worker needs no tenant DB access, only
+Payload is self-contained — the worker needs no company DB access, only
 `public.audit_logs`.
 
 ### 4. Deviation from the guide
@@ -97,11 +97,11 @@ unchanged.
   resolves. Small spec for the worker's `process` method (mock
   AuditLogRepository + fake job).
 - **E2E release gate:** `backend/test/phase7.e2e-spec.ts` following the
-  `phase5b-phase6` scaffold (tenant → candidate → open job → apply → PATCH
+  `phase5b-phase6` scaffold (company → candidate → open job → apply → PATCH
   stage), then poll `public.audit_logs` (≤5s) for
   `action='notification.stage_change' AND resource_id=<applicationId>`.
-  Cleanup: delete audit rows for created tenants, `bull:notifications:*` Redis
-  keys, plus the existing tenant/candidate cleanup.
+  Cleanup: delete audit rows for created companies, `bull:notifications:*` Redis
+  keys, plus the existing company/candidate cleanup.
 
 ## Verification
 

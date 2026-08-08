@@ -32,10 +32,10 @@ export const candidateApi = {
   },
 
   getJobDetail: async (
-    tenantId: string,
+    companyId: string,
     jobId: string,
   ): Promise<NormalizedCandidateJob> => {
-    const { data } = await apiClient.get(`/candidate/jobs/${tenantId}/${jobId}`);
+    const { data } = await apiClient.get(`/candidate/jobs/${companyId}/${jobId}`);
     return normalizeJob(unwrap(data as ApiEnvelope<CandidateJobRow>));
   },
 
@@ -53,8 +53,8 @@ export const candidateApi = {
     await apiClient.delete(`/candidate/applications/${applicationId}`);
   },
 
-  applyToJob: async (tenantId: string, jobId: string, applicationData: ApplyData): Promise<{ applicationId: string }> => {
-    const { data } = await apiClient.post(`/candidate/jobs/${tenantId}/${jobId}/apply`, applicationData);
+  applyToJob: async (companyId: string, jobId: string, applicationData: ApplyData): Promise<{ applicationId: string }> => {
+    const { data } = await apiClient.post(`/candidate/jobs/${companyId}/${jobId}/apply`, applicationData);
     return unwrap(data as ApiEnvelope<{ applicationId: string }>);
   },
 
@@ -63,8 +63,8 @@ export const candidateApi = {
     return unwrap(data as ApiEnvelope<Bookmark[]>);
   },
 
-  addBookmark: async (tenantId: string, jobPostingId: string): Promise<Bookmark> => {
-    const { data } = await apiClient.post('/candidate/bookmarks', { tenantId, jobPostingId });
+  addBookmark: async (companyId: string, jobPostingId: string): Promise<Bookmark> => {
+    const { data } = await apiClient.post('/candidate/bookmarks', { companyId, jobPostingId });
     return unwrap(data as ApiEnvelope<Bookmark>);
   },
 

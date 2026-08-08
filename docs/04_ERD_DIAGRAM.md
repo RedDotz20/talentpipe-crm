@@ -8,10 +8,10 @@ Mermaid ERD syntax below — paste into any Mermaid-compatible viewer (GitHub ma
 
 ```mermaid
 erDiagram
-  TENANT ||--o{ USER : employs
-  TENANT ||--o{ JOB_POSTING : owns
-  TENANT ||--o{ CANDIDATE : receives
-  TENANT ||--o{ PIPELINE_STAGE : defines
+  COMPANY ||--o{ USER : employs
+  COMPANY ||--o{ JOB_POSTING : owns
+  COMPANY ||--o{ CANDIDATE : receives
+  COMPANY ||--o{ PIPELINE_STAGE : defines
 
   JOB_POSTING ||--o{ APPLICATION : receives
   CANDIDATE ||--o{ APPLICATION : submits
@@ -29,15 +29,15 @@ erDiagram
 
   CANDIDATE_ACCOUNT ||--o{ CANDIDATE_APPLICATIONS_INDEX : tracks
   CANDIDATE_ACCOUNT ||--o{ CANDIDATE_BOOKMARK : saves
-  TENANT ||--o{ JOB_LISTINGS_INDEX : indexed_in
+  COMPANY ||--o{ JOB_LISTINGS_INDEX : indexed_in
   JOB_POSTING ||--o| JOB_LISTINGS_INDEX : indexed_as
 
-  TENANT ||--o{ USER_EMAIL : resolves
+  COMPANY ||--o{ USER_EMAIL : resolves
   USER ||--o| USER_EMAIL : has
   USER ||--o{ REFRESH_TOKEN : issues
   CANDIDATE_ACCOUNT ||--o{ REFRESH_TOKEN : issues
 
-  TENANT {
+  COMPANY {
     uuid id PK
     string name
     string slug "used in public careers URL"
@@ -69,7 +69,7 @@ erDiagram
   USER_EMAIL {
     uuid id PK
     string email "unique, login lookup"
-    uuid tenantId FK
+    uuid companyId FK
     uuid userId FK
     datetime createdAt
   }
@@ -77,7 +77,7 @@ erDiagram
   REFRESH_TOKEN {
     uuid id PK
     uuid userId FK
-    uuid tenantId "nil uuid 00000000-... for SuperAdmin/Candidate"
+    uuid companyId "nil uuid 00000000-... for SuperAdmin/Candidate"
     string tokenHash "hashed at rest"
     datetime expiresAt
     datetime createdAt
@@ -87,7 +87,7 @@ erDiagram
     uuid id PK
     string email
     string passwordHash
-    string role "SuperAdmin | OrgAdmin | Recruiter | HiringManager | Interviewer"
+    string role "SuperAdmin | CompanyAdmin | Recruiter | HiringManager | Interviewer"
     datetime createdAt
   }
 
@@ -163,7 +163,7 @@ erDiagram
   CANDIDATE_APPLICATIONS_INDEX {
     uuid id PK
     uuid candidateAccountId FK
-    string tenantId
+    string companyId
     uuid jobPostingId
     uuid applicationId
     string status
@@ -173,14 +173,14 @@ erDiagram
   CANDIDATE_BOOKMARK {
     uuid id PK
     uuid candidateAccountId FK
-    string tenantId
+    string companyId
     uuid jobPostingId
     datetime createdAt
   }
 
   JOB_LISTINGS_INDEX {
     uuid id PK
-    string tenantId
+    string companyId
     uuid jobPostingId FK
     string title
     text description
@@ -194,29 +194,29 @@ erDiagram
 
 ## Notes on Key Design Decisions
 
-**`USER` has no `tenantId` column.** Role membership (OrgAdmin, Recruiter, etc.) is implicitly scoped by which schema the user's row exists in. `USER_EMAIL` (public schema, `email` unique) is the login lookup index: it maps an email → `tenantId` + `userId` so `POST /auth/signin` knows which tenant schema to check. SuperAdmin users live in `public.super_admins` and are authorized purely by role, not by tenant schema membership — this is the one deliberate exception, and it should be the only one. Guard SuperAdmin routes by role check alone.
+**`USER` has no `companyId` column.** Role membership (CompanyAdmin, Recruiter, etc.) is implicitly scoped by which schema the user's row exists in. `USER_EMAIL` (public schema, `email` unique) is the login lookup index: it maps an email → `companyId` + `userId` so `POST /auth/signin` knows which company schema to check. SuperAdmin users live in `public.super_admins` and are authorized purely by role, not by company schema membership — this is the one deliberate exception, and it should be the only one. Guard SuperAdmin routes by role check alone.
 
-**`SKILL` lives in the `public` schema** (shared across all tenants). It's a shared taxonomy across the whole platform (e.g. "React", "SQL", "Project Management") so skill matching and search work consistently. Tenant-specific custom skills are a reasonable v2 addition but add complexity — start with a shared list.
+**`SKILL` lives in the `public` schema** (shared across all companies). It's a shared taxonomy across the whole platform (e.g. "React", "SQL", "Project Management") so skill matching and search work consistently. Company-specific custom skills are a reasonable v2 addition but add complexity — start with a shared list.
 
-**Join tables** (not drawn above for brevity, but required in the actual schema): `job_required_skills` (jobPostingId, skillId) and `candidate_skills` (candidateAccountId, skillId) implement the many-to-many relationships shown as `}o--o{` above. Resume files are storage-only objects referenced by metadata on `candidate_accounts`; there is no current tenant `resumes` or `resume_skills` table.
+**Join tables** (not drawn above for brevity, but required in the actual schema): `job_required_skills` (jobPostingId, skillId) and `candidate_skills` (candidateAccountId, skillId) implement the many-to-many relationships shown as `}o--o{` above. Resume files are storage-only objects referenced by metadata on `candidate_accounts`; there is no current company `resumes` or `resume_skills` table.
 
 **`APPLICATION.matchScore`** is denormalized (computed once at application time using candidate's self-declared skills from `public.candidate_skills` or per-application override, vs job's required skills from `job_required_skills`) and stored, not calculated on every read — recompute it via a background job if the job posting's required skills change after applications already exist.
 
-**No table carries `tenantId`** — isolation is provided by the PostgreSQL schema boundary, not by a column. Each tenant's tables live in their own schema (e.g. `tenant_abc123.job_postings`). The `SKILL` table lives in the `public` schema as a shared taxonomy. When implementing, write an automated test that asserts a query in Tenant A's schema cannot reach Tenant B's schema.
+**No table carries `companyId`** — isolation is provided by the PostgreSQL schema boundary, not by a column. Each company's tables live in their own schema (e.g. `company_abc123.job_postings`). The `SKILL` table lives in the `public` schema as a shared taxonomy. When implementing, write an automated test that asserts a query in Company A's schema cannot reach Company B's schema.
 
-**`CANDIDATE_ACCOUNT` lives in the `public` schema** while per-tenant tables like `candidates`, `applications`, and `job_postings` remain schema-scoped. Cross-schema index tables (`JOB_LISTINGS_INDEX`, `CANDIDATE_APPLICATIONS_INDEX`, `CANDIDATE_BOOKMARK`) act as a bridge, populated by application-level writes (repo methods on the respective repository), enabling the candidate dashboard to query across tenants without breaking schema isolation. This avoids querying every tenant schema at runtime while keeping source-of-truth data protected inside tenant boundaries.
+**`CANDIDATE_ACCOUNT` lives in the `public` schema** while per-company tables like `candidates`, `applications`, and `job_postings` remain schema-scoped. Cross-schema index tables (`JOB_LISTINGS_INDEX`, `CANDIDATE_APPLICATIONS_INDEX`, `CANDIDATE_BOOKMARK`) act as a bridge, populated by application-level writes (repo methods on the respective repository), enabling the candidate dashboard to query across companies without breaking schema isolation. This avoids querying every company schema at runtime while keeping source-of-truth data protected inside company boundaries.
 
 ## Isolation Is Enforced at the Schema Level, Not Just in App Code
 
-Each tenant's data lives in its own PostgreSQL schema. This provides physical namespace isolation — tables in schema A are invisible to queries in schema B. No composite FKs or `tenant_id` columns are needed. 
+Each company's data lives in its own PostgreSQL schema. This provides physical namespace isolation — tables in schema A are invisible to queries in schema B. No composite FKs or `company_id` columns are needed. 
 
-When provisioning a new tenant, the system creates a schema and clones the table structure from a template:
+When provisioning a new company, the system creates a schema and clones the table structure from a template:
 ```sql
-CREATE SCHEMA tenant_abc123;
-CREATE TABLE tenant_abc123.job_postings (LIKE template.job_postings INCLUDING ALL);
--- repeat for all tenant-scoped tables
+CREATE SCHEMA company_abc123;
+CREATE TABLE company_abc123.job_postings (LIKE template.job_postings INCLUDING ALL);
+-- repeat for all company-scoped tables
 ```
 
-All queries for that tenant then run with `SET search_path TO tenant_abc123, public` — PostgreSQL automatically resolves unqualified table names to the tenant's schema.
+All queries for that company then run with `SET search_path TO company_abc123, public` — PostgreSQL automatically resolves unqualified table names to the company's schema.
 
 See `05_DATA_ISOLATION_STRATEGY.md` for the full defense-in-depth approach this schema decision is part of.

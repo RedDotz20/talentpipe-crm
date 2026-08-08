@@ -28,7 +28,7 @@ export function SuperAdminPlatform() {
   };
 
   const navItems = [
-    { label: 'Tenants', icon: IconBuildingEstate, to: '/admin/tenants' },
+    { label: 'Tenants', icon: IconBuildingEstate, to: '/admin/companies' },
     { label: 'Candidates', icon: IconUsers, to: '/admin/candidates' },
   ];
 

@@ -2,22 +2,22 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the org pipeline Kanban board end-to-end — applications list/detail, drag-and-drop stage moves with optimistic updates, notes, and OrgAdmin stage management (NestJS backend + React/Mantine frontend).
+**Goal:** Build the company pipeline Kanban board end-to-end — applications list/detail, drag-and-drop stage moves with optimistic updates, notes, and CompanyAdmin stage management (NestJS backend + React/Mantine frontend).
 
-**Architecture:** New `ApplicationsModule` (`backend/src/modules/applications/`) exposing `GET/PATCH /applications`, `PATCH /applications/:id/stage`, `POST/GET /applications/:id/notes`, and a new `PipelineStagesModule` (`backend/src/modules/pipeline-stages/`) exposing `GET/POST/PATCH/DELETE /org/pipeline-stages`. DB access via extended `ApplicationRepository` (joined rows), extended `PipelineStageRepository` (full CRUD + reference count), and new `NoteRepository`. Stage moves also sync the public `candidate_applications_index.status` (guide §5b.5). Frontend renders a dnd-kit board under `frontend/src/features/org/pipeline/` at route `/org/pipeline`, with optimistic `useUpdateStage`.
+**Architecture:** New `ApplicationsModule` (`backend/src/modules/applications/`) exposing `GET/PATCH /applications`, `PATCH /applications/:id/stage`, `POST/GET /applications/:id/notes`, and a new `PipelineStagesModule` (`backend/src/modules/pipeline-stages/`) exposing `GET/POST/PATCH/DELETE /company/pipeline-stages`. DB access via extended `ApplicationRepository` (joined rows), extended `PipelineStageRepository` (full CRUD + reference count), and new `NoteRepository`. Stage moves also sync the public `candidate_applications_index.status` (guide §5b.5). Frontend renders a dnd-kit board under `frontend/src/features/company/pipeline/` at route `/company/pipeline`, with optimistic `useUpdateStage`.
 
-**Tech Stack:** NestJS 11 + Drizzle ORM + PostgreSQL (schema-per-tenant), Zod 4, React 19 + Mantine 9 + TanStack Query 5 + TanStack Router 1 + dnd-kit.
+**Tech Stack:** NestJS 11 + Drizzle ORM + PostgreSQL (schema-per-company), Zod 4, React 19 + Mantine 9 + TanStack Query 5 + TanStack Router 1 + dnd-kit.
 
 ## Global Constraints
 
 - Error shape `{ "error": { "code", "message" } }`; success envelope `{ "data": ..., "message": "OK" }` (ResponseInterceptor wraps 2xx).
-- All tenant-scoped DB access via repositories extending `BaseRepository` with `withDb('current', ...)`; public via `withDb('public', ...)`. No direct Drizzle outside `repositories/`.
-- Roles: `OrgAdmin`, `Recruiter`, `HiringManager`, `Interviewer`, `SuperAdmin`, `Candidate`. Global `RolesGuard` + route-level `@UseGuards(AuthGuard('jwt'))`.
-- Applications endpoints: `OrgAdmin`/`Recruiter`/`HiringManager`. Pipeline-stages write endpoints: `OrgAdmin` only. Pipeline-stages GET: any internal role (incl. `Interviewer`).
-- `PATCH /applications/:id/stage` body `{ stageId }`; must 404 when the application or stage is missing (cross-tenant → 404, never 403). After update, sync `candidate_applications_index.status` to the new stage name (no-op when no index row exists).
-- `DELETE /org/pipeline-stages/:id` → `ConflictException` (409) when any application references the stage.
+- All company-scoped DB access via repositories extending `BaseRepository` with `withDb('current', ...)`; public via `withDb('public', ...)`. No direct Drizzle outside `repositories/`.
+- Roles: `CompanyAdmin`, `Recruiter`, `HiringManager`, `Interviewer`, `SuperAdmin`, `Candidate`. Global `RolesGuard` + route-level `@UseGuards(AuthGuard('jwt'))`.
+- Applications endpoints: `CompanyAdmin`/`Recruiter`/`HiringManager`. Pipeline-stages write endpoints: `CompanyAdmin` only. Pipeline-stages GET: any internal role (incl. `Interviewer`).
+- `PATCH /applications/:id/stage` body `{ stageId }`; must 404 when the application or stage is missing (cross-company → 404, never 403). After update, sync `candidate_applications_index.status` to the new stage name (no-op when no index row exists).
+- `DELETE /company/pipeline-stages/:id` → `ConflictException` (409) when any application references the stage.
 - Notes: `POST /applications/:id/notes` body `{ content }`, author from `@CurrentUser()`.
-- `@CurrentUser()` → `TenantContext { tenantId, userId, role }`.
+- `@CurrentUser()` → `CompanyContext { companyId, userId, role }`.
 - Frontend mutations use `useApiMutation` (auto-toasts; `silent: true` for drag/reorder mutations). Queries use TanStack Query under the feature folder.
 - Backend unit tests follow the repo-mock pattern (`Test.createTestingModule`). Lint: backend ESLint, frontend oxlint. Typecheck: `npm run typecheck` both. Backend tests: `npm test`. Frontend build: `npm run build` (regenerates `routeTree.gen.ts`).
 - Commits tagged `feat(m3): ...`.
@@ -346,7 +346,7 @@ import { ApplicationRepository } from '../../repositories/application.repository
 import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
 import { NoteRepository } from '../../repositories/note.repository';
 import { CandidateApplicationsIndexRepository } from '../../repositories/candidate-applications-index.repository';
-import { TenantContext } from '../../common/context/tenant-context';
+import { CompanyContext } from '../../common/context/company-context';
 import { UpdateStageDto } from './dto/update-stage.dto';
 import { CreateNoteDto } from './dto/create-note.dto';
 
@@ -380,7 +380,7 @@ export class ApplicationsService {
     return this.getOne(id);
   }
 
-  async addNote(user: TenantContext, id: string, dto: CreateNoteDto) {
+  async addNote(user: CompanyContext, id: string, dto: CreateNoteDto) {
     const application = await this.applicationRepo.findById(id);
     if (!application) throw new NotFoundException('Application not found');
     return this.noteRepo.create({
@@ -412,13 +412,13 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { TenantContext } from '../../common/context/tenant-context';
+import { CompanyContext } from '../../common/context/company-context';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { ApplicationsService } from './applications.service';
 import { UpdateStageSchema, UpdateStageDto } from './dto/update-stage.dto';
 import { CreateNoteSchema, CreateNoteDto } from './dto/create-note.dto';
 
-const VIEW_ROLES = ['OrgAdmin', 'Recruiter', 'HiringManager'];
+const VIEW_ROLES = ['CompanyAdmin', 'Recruiter', 'HiringManager'];
 
 @Controller('applications')
 export class ApplicationsController {
@@ -457,7 +457,7 @@ export class ApplicationsController {
   addNote(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(CreateNoteSchema)) dto: CreateNoteDto,
-    @CurrentUser() user: TenantContext,
+    @CurrentUser() user: CompanyContext,
   ) {
     return this.applicationsService.addNote(user, id, dto);
   }
@@ -593,7 +593,7 @@ describe('ApplicationsService', () => {
     noteRepo.create.mockResolvedValue({ id: 'n1' });
     await expect(
       service.addNote(
-        { tenantId: 't1', userId: 'u1', role: 'OrgAdmin' },
+        { companyId: 't1', userId: 'u1', role: 'CompanyAdmin' },
         'a1',
         { content: 'Phone screen scheduled' },
       ),
@@ -642,10 +642,10 @@ git commit -m "feat(m3): applications module with stage moves, notes, index sync
 - Produces:
   - `PipelineStagesService` — `list()`; `create(dto)` (order = current count); `update(id, dto)`; `remove(id)` (409 when referenced, 404 when missing).
   - Endpoints:
-    - `GET /org/pipeline-stages` — internal roles
-    - `POST /org/pipeline-stages` — OA
-    - `PATCH /org/pipeline-stages/:id` — OA
-    - `DELETE /org/pipeline-stages/:id` — OA
+    - `GET /company/pipeline-stages` — internal roles
+    - `POST /company/pipeline-stages` — OA
+    - `PATCH /company/pipeline-stages/:id` — OA
+    - `DELETE /company/pipeline-stages/:id` — OA
 
 - [ ] **Step 1: DTOs**
 
@@ -742,9 +742,9 @@ import {
   UpdatePipelineStageDto,
 } from './dto/update-pipeline-stage.dto';
 
-const INTERNAL_ROLES = ['OrgAdmin', 'Recruiter', 'HiringManager', 'Interviewer'];
+const INTERNAL_ROLES = ['CompanyAdmin', 'Recruiter', 'HiringManager', 'Interviewer'];
 
-@Controller('org/pipeline-stages')
+@Controller('company/pipeline-stages')
 export class PipelineStagesController {
   constructor(private readonly pipelineStagesService: PipelineStagesService) {}
 
@@ -757,7 +757,7 @@ export class PipelineStagesController {
 
   @Post()
   @UseGuards(AuthGuard('jwt'))
-  @Roles('OrgAdmin')
+  @Roles('CompanyAdmin')
   create(
     @Body(new ZodValidationPipe(CreatePipelineStageSchema))
     dto: CreatePipelineStageDto,
@@ -767,7 +767,7 @@ export class PipelineStagesController {
 
   @Patch(':id')
   @UseGuards(AuthGuard('jwt'))
-  @Roles('OrgAdmin')
+  @Roles('CompanyAdmin')
   update(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdatePipelineStageSchema))
@@ -778,7 +778,7 @@ export class PipelineStagesController {
 
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'))
-  @Roles('OrgAdmin')
+  @Roles('CompanyAdmin')
   remove(@Param('id') id: string) {
     return this.pipelineStagesService.remove(id);
   }
@@ -903,7 +903,7 @@ git commit -m "feat(m3): pipeline-stages CRUD module with reference-safe delete"
 - Create: `frontend/src/api/applicationsApi.ts`
 - Create: `frontend/src/api/pipelineStagesApi.ts`
 - Modify: `frontend/src/api/queryKeys.ts`
-- Create: `frontend/src/features/org/pipeline/hooks/usePipeline.ts`
+- Create: `frontend/src/features/company/pipeline/hooks/usePipeline.ts`
 
 **Interfaces:**
 - Consumes: `apiClient` (`@/api/client`), `ApiEnvelope` (`@/hooks/useApiMutation`), `queryKeys`, `useApiMutation`.
@@ -998,41 +998,41 @@ const unwrap = <T>(body: ApiEnvelope<T>): T => body.data;
 
 export const pipelineStagesApi = {
   list: async (): Promise<PipelineStage[]> => {
-    const { data } = await apiClient.get('/org/pipeline-stages');
+    const { data } = await apiClient.get('/company/pipeline-stages');
     return unwrap(data as ApiEnvelope<PipelineStage[]>);
   },
   create: async (name: string): Promise<ApiEnvelope<PipelineStage>> => {
-    const { data } = await apiClient.post('/org/pipeline-stages', { name });
+    const { data } = await apiClient.post('/company/pipeline-stages', { name });
     return data as ApiEnvelope<PipelineStage>;
   },
   update: async (
     id: string,
     input: { name?: string; order?: number },
   ): Promise<ApiEnvelope<PipelineStage>> => {
-    const { data } = await apiClient.patch(`/org/pipeline-stages/${id}`, input);
+    const { data } = await apiClient.patch(`/company/pipeline-stages/${id}`, input);
     return data as ApiEnvelope<PipelineStage>;
   },
   remove: async (id: string): Promise<ApiEnvelope<{ id: string }>> => {
-    const { data } = await apiClient.delete(`/org/pipeline-stages/${id}`);
+    const { data } = await apiClient.delete(`/company/pipeline-stages/${id}`);
     return data as ApiEnvelope<{ id: string }>;
   },
 };
 ```
 
-- [ ] **Step 3: Extend `queryKeys.ts`** — add to the `org` group:
+- [ ] **Step 3: Extend `queryKeys.ts`** — add to the `company` group:
 
 ```ts
 applications: (filters?: { jobPostingId?: string; stageId?: string }) => [
-  'org',
+  'company',
   'applications',
   filters,
 ],
-application: (id: string) => ['org', 'applications', id],
-notes: (applicationId: string) => ['org', 'applications', applicationId, 'notes'],
-pipelineStages: () => ['org', 'pipeline-stages'],
+application: (id: string) => ['company', 'applications', id],
+notes: (applicationId: string) => ['company', 'applications', applicationId, 'notes'],
+pipelineStages: () => ['company', 'pipeline-stages'],
 ```
 
-- [ ] **Step 4: `features/org/pipeline/hooks/usePipeline.ts`**
+- [ ] **Step 4: `features/company/pipeline/hooks/usePipeline.ts`**
 
 ```ts
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -1048,14 +1048,14 @@ export interface ApplicationFiltersInput {
 
 export function useApplications(filters?: ApplicationFiltersInput) {
   return useQuery({
-    queryKey: queryKeys.org.applications(filters),
+    queryKey: queryKeys.company.applications(filters),
     queryFn: () => applicationsApi.list(filters),
   });
 }
 
 export function useApplication(id: string) {
   return useQuery({
-    queryKey: queryKeys.org.application(id),
+    queryKey: queryKeys.company.application(id),
     queryFn: () => applicationsApi.get(id),
     enabled: !!id,
   });
@@ -1063,7 +1063,7 @@ export function useApplication(id: string) {
 
 export function useUpdateStage() {
   const queryClient = useQueryClient();
-  const key = queryKeys.org.applications();
+  const key = queryKeys.company.applications();
   return useApiMutation<
     Application,
     { applicationId: string; stageId: string },
@@ -1098,7 +1098,7 @@ export function useUpdateStage() {
 
 export function useNotes(applicationId: string) {
   return useQuery({
-    queryKey: queryKeys.org.notes(applicationId),
+    queryKey: queryKeys.company.notes(applicationId),
     queryFn: () => applicationsApi.listNotes(applicationId),
     enabled: !!applicationId,
   });
@@ -1111,15 +1111,15 @@ export function useAddNote(applicationId: string) {
       applicationsApi.createNote(applicationId, content),
     successMessage: 'Note added',
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.org.notes(applicationId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.org.application(applicationId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.company.notes(applicationId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.company.application(applicationId) });
     },
   });
 }
 
 export function usePipelineStages() {
   return useQuery({
-    queryKey: queryKeys.org.pipelineStages(),
+    queryKey: queryKeys.company.pipelineStages(),
     queryFn: () => pipelineStagesApi.list(),
   });
 }
@@ -1130,7 +1130,7 @@ export function useCreateStage() {
     mutationFn: (name: string) => pipelineStagesApi.create(name),
     successMessage: 'Stage created',
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.org.pipelineStages() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.company.pipelineStages() });
     },
   });
 }
@@ -1147,7 +1147,7 @@ export function useUpdateStageConfig() {
     }) => pipelineStagesApi.update(id, input),
     successMessage: 'Stage updated',
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.org.pipelineStages() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.company.pipelineStages() });
     },
   });
 }
@@ -1158,7 +1158,7 @@ export function useDeleteStage() {
     mutationFn: pipelineStagesApi.remove,
     successMessage: 'Stage deleted',
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.org.pipelineStages() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.company.pipelineStages() });
     },
   });
 }
@@ -1170,7 +1170,7 @@ export function useReorderStages() {
       Promise.all(stages.map(({ id, order }) => pipelineStagesApi.update(id, { order }))),
     silent: true,
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.org.pipelineStages() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.company.pipelineStages() });
     },
   });
 }
@@ -1181,7 +1181,7 @@ export function useReorderStages() {
 - [ ] **Step 6: Commit**
 
 ```bash
-git add frontend/src/api frontend/src/features/org/pipeline/hooks
+git add frontend/src/api frontend/src/features/company/pipeline/hooks
 git commit -m "feat(m3): applications and pipeline-stages API clients, query keys, hooks"
 ```
 
@@ -1190,11 +1190,11 @@ git commit -m "feat(m3): applications and pipeline-stages API clients, query key
 ## Task 5: Frontend board components
 
 **Files:**
-- Create: `frontend/src/features/org/pipeline/PipelineBoard.tsx`
-- Create: `frontend/src/features/org/pipeline/PipelineColumn.tsx`
-- Create: `frontend/src/features/org/pipeline/ApplicationCard.tsx`
-- Create: `frontend/src/features/org/pipeline/ApplicationDetailDrawer.tsx`
-- Create: `frontend/src/features/org/pipeline/StageEditor.tsx`
+- Create: `frontend/src/features/company/pipeline/PipelineBoard.tsx`
+- Create: `frontend/src/features/company/pipeline/PipelineColumn.tsx`
+- Create: `frontend/src/features/company/pipeline/ApplicationCard.tsx`
+- Create: `frontend/src/features/company/pipeline/ApplicationDetailDrawer.tsx`
+- Create: `frontend/src/features/company/pipeline/StageEditor.tsx`
 
 **Interfaces:**
 - Consumes: Task 4 hooks + api types; `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`; Mantine primitives; `useAuthStore` (role).
@@ -1670,7 +1670,7 @@ export function StageEditor() {
 - [ ] **Step 7: Commit**
 
 ```bash
-git add frontend/src/features/org/pipeline
+git add frontend/src/features/company/pipeline
 git commit -m "feat(m3): pipeline board, application drawer, stage editor"
 ```
 
@@ -1679,24 +1679,24 @@ git commit -m "feat(m3): pipeline board, application drawer, stage editor"
 ## Task 6: Pipeline route + verify
 
 **Files:**
-- Create: `frontend/src/routes/org/pipeline.tsx`
+- Create: `frontend/src/routes/company/pipeline.tsx`
 - Modify: `frontend/src/routeTree.gen.ts` (regenerated via `npm run build`)
 
 **Interfaces:**
 - Consumes: `PipelineBoard`, `StageEditor`, `useAuthStore` (role), `useDisclosure` (`@mantine/hooks`).
-- Produces: routable `/org/pipeline` page (parent `/org` already gated in `routes/org.tsx` `beforeLoad`).
+- Produces: routable `/company/pipeline` page (parent `/company` already gated in `routes/company.tsx` `beforeLoad`).
 
-- [ ] **Step 1: `routes/org/pipeline.tsx`**
+- [ ] **Step 1: `routes/company/pipeline.tsx`**
 
 ```tsx
 import { createFileRoute } from '@tanstack/react-router';
 import { useDisclosure } from '@mantine/hooks';
 import { Button, Group, Modal, Title } from '@mantine/core';
 import { useAuthStore } from '../../api/useAuth';
-import { PipelineBoard } from '../../features/org/pipeline/PipelineBoard';
-import { StageEditor } from '../../features/org/pipeline/StageEditor';
+import { PipelineBoard } from '../../features/company/pipeline/PipelineBoard';
+import { StageEditor } from '../../features/company/pipeline/StageEditor';
 
-export const Route = createFileRoute('/org/pipeline')({
+export const Route = createFileRoute('/company/pipeline')({
   component: PipelinePage,
 });
 
@@ -1708,7 +1708,7 @@ function PipelinePage() {
     <>
       <Group justify="space-between" mb="md">
         <Title order={2}>Pipeline</Title>
-        {role === 'OrgAdmin' && (
+        {role === 'CompanyAdmin' && (
           <Button variant="outline" onClick={open}>
             Manage Stages
           </Button>
@@ -1728,7 +1728,7 @@ function PipelinePage() {
 - [ ] **Step 3: Commit**
 
 ```bash
-git add frontend/src/routes/org/pipeline.tsx frontend/src/routeTree.gen.ts
+git add frontend/src/routes/company/pipeline.tsx frontend/src/routeTree.gen.ts
 git commit -m "feat(m3): pipeline kanban route"
 ```
 
@@ -1739,9 +1739,9 @@ git commit -m "feat(m3): pipeline kanban route"
 1. Start stack: `docker compose up -d`; ensure backend on `:3000`, frontend on `:5173` (see `docs/00b_LOCAL_DEV_BOOTSTRAP.md`).
 2. Seed data: `cd backend && npm run seed`.
 3. Create an application to see on the board: sign in as `candidate@test.com` / `Candidate123!` on `/auth/signin`, browse jobs, apply. (Or sign in as `admin@acme.com` / `Admin123!` and create candidates; the candidate apply flow creates the application + first-stage assignment.)
-4. As `admin@acme.com`: open `/org/pipeline` → cards appear grouped by stage. Drag a card to another column → PATCH fires, optimistic move, then server confirms.
+4. As `admin@acme.com`: open `/company/pipeline` → cards appear grouped by stage. Drag a card to another column → PATCH fires, optimistic move, then server confirms.
 5. Click a card → drawer shows candidate/job/match + Notes tab; add a note.
-6. OrgAdmin: "Manage Stages" → rename, add, drag-reorder, delete (delete blocked when stage has applications → toast error).
+6. CompanyAdmin: "Manage Stages" → rename, add, drag-reorder, delete (delete blocked when stage has applications → toast error).
 7. Backend spot checks:
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:3000/api/auth/signin -H "Content-Type: application/json" \
@@ -1751,5 +1751,5 @@ curl -X PATCH http://localhost:3000/api/applications/<id>/stage -H "Authorizatio
   -H "Content-Type: application/json" -d '{"stageId":"<uuid>"}'
 curl -X POST http://localhost:3000/api/applications/<id>/notes -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" -d '{"content":"Phone screen scheduled"}'
-curl http://localhost:3000/api/org/pipeline-stages -H "Authorization: Bearer $TOKEN"
+curl http://localhost:3000/api/company/pipeline-stages -H "Authorization: Bearer $TOKEN"
 ```

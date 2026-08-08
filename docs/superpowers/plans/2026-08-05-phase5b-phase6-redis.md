@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Harden the existing Phase 5b candidate account/dashboard implementation and add Redis-backed login limiting plus a tenant-scoped cached organization dashboard summary.
+**Goal:** Harden the existing Phase 5b candidate account/dashboard implementation and add Redis-backed login limiting plus a company-scoped cached company dashboard summary.
 
-**Architecture:** Preserve the existing NestJS controller -> service -> repository layering and PostgreSQL schema-per-tenant isolation. Candidate cross-tenant discovery continues through public index tables and explicit tenant repository calls, while internal dashboard queries use the current tenant context only. Redis is isolated behind a provider, low-level service, and application-facing cache service; Redis failures do not make authentication or dashboard reads unavailable.
+**Architecture:** Preserve the existing NestJS controller -> service -> repository layering and PostgreSQL schema-per-company isolation. Candidate cross-company discovery continues through public index tables and explicit company repository calls, while internal dashboard queries use the current company context only. Redis is isolated behind a provider, low-level service, and application-facing cache service; Redis failures do not make authentication or dashboard reads unavailable.
 
 **Tech Stack:** NestJS 11, TypeScript, Drizzle ORM rc4, PostgreSQL 16, Redis 7, `ioredis`, Jest 30, React 19, Mantine 9, TanStack Query 5, TanStack Router, Vite 8.
 
@@ -13,11 +13,11 @@
 - Use `feat/phase5b-phase6-redis`; do not modify `dev` during implementation.
 - Keep the Phase 4 baseline commit `d80dc9e` separate from this work.
 - All database access must remain in repositories; services and controllers must not use Drizzle directly.
-- Candidate route `tenantId` is allowed only for validated public-index discovery/apply operations; it must not alter internal tenant context.
-- Internal organization tenant identity must come only from the verified JWT and `AsyncLocalStorage` context.
-- Candidate cross-tenant or missing resources return `404 NOT_FOUND`, never a tenant-mismatch error.
+- Candidate route `companyId` is allowed only for validated public-index discovery/apply operations; it must not alter internal company context.
+- Internal company identity must come only from the verified JWT and `AsyncLocalStorage` context.
+- Candidate cross-company or missing resources return `404 NOT_FOUND`, never a company-mismatch error.
 - Login limiting applies only to `POST /auth/signin`: five attempts per normalized email/IP key per 900 seconds.
-- Dashboard cache key is `tenant:{tenantId}:dashboard:summary:v1` with a 60-second TTL.
+- Dashboard cache key is `company:{companyId}:dashboard:summary:v1` with a 60-second TTL.
 - Redis cache and limiter failures fail open and are logged; PostgreSQL remains the dashboard fallback.
 - Do not add anonymous apply, public-write rate limiting, BullMQ, or unrelated refactors.
 - Follow existing response envelopes: success `{ data, message }`; errors `{ error: { code, message } }`.
@@ -32,11 +32,11 @@
 - Modify `backend/src/modules/candidate-account/candidate-account.controller.ts` for candidate guards and application detail routing.
 - Modify `backend/src/modules/candidate-account/candidate-account.service.ts` for open-job checks, application detail ownership, skill validation, and coordinated index writes.
 - Modify `backend/src/modules/candidate-account/dto/apply.dto.ts` to bound the documented cover-letter input.
-- Modify `backend/src/repositories/candidate-applications-index.repository.ts` for ownership/detail lookup and tenant-scoped status updates.
+- Modify `backend/src/repositories/candidate-applications-index.repository.ts` for ownership/detail lookup and company-scoped status updates.
 - Modify `backend/src/repositories/application.repository.ts` for cover-letter persistence, candidate-safe detail reads, and compensating application deletion.
 - Modify `backend/src/database/schema.ts` and `backend/drizzle/template-schema.sql` for the application cover letter and unique application-index constraint.
 - Create the Drizzle-generated migration for the Phase 5b integrity changes under `backend/drizzle/`.
-- Modify `backend/src/modules/applications/applications.service.ts` and its spec for tenant-aware index status synchronization and dashboard invalidation integration.
+- Modify `backend/src/modules/applications/applications.service.ts` and its spec for company-aware index status synchronization and dashboard invalidation integration.
 - Modify `backend/src/modules/candidates/candidates.service.ts` and its spec for dashboard invalidation after manual candidate creation.
 - Modify `backend/src/modules/job-postings/job-postings.service.ts` and its spec for dashboard invalidation after posting writes.
 - Modify `backend/src/modules/pipeline-stages/pipeline-stages.service.ts` and its spec for dashboard invalidation after stage writes.
@@ -56,7 +56,7 @@
 
 ### Dashboard
 
-- Create `backend/src/repositories/dashboard.repository.ts` for current-tenant aggregate queries.
+- Create `backend/src/repositories/dashboard.repository.ts` for current-company aggregate queries.
 - Modify `backend/src/repositories/repositories.module.ts` to export `DashboardRepository`.
 - Create `backend/src/modules/dashboard/dashboard.module.ts`.
 - Create `backend/src/modules/dashboard/dashboard.controller.ts`.
@@ -70,9 +70,9 @@
 - Modify `frontend/src/features/candidate-portal/applications/ApplicationsPage.tsx` for application detail consumption.
 - Modify `frontend/src/api/queryKeys.ts` for the dashboard key.
 - Create `frontend/src/api/dashboardApi.ts`.
-- Create `frontend/src/features/org/dashboard/hooks/useDashboardSummary.ts`.
-- Create `frontend/src/features/org/dashboard/OrgDashboardPage.tsx`.
-- Modify `frontend/src/routes/org/dashboard.tsx` to render the dashboard page.
+- Create `frontend/src/features/company/dashboard/hooks/useDashboardSummary.ts`.
+- Create `frontend/src/features/company/dashboard/CompanyDashboardPage.tsx`.
+- Modify `frontend/src/routes/company/dashboard.tsx` to render the dashboard page.
 - Modify `docs/09_IMPLEMENTATION_GUIDE.md` to mark the verified Phase 5b/6 work and record any final contract changes.
 
 ---
@@ -87,16 +87,16 @@
 - Test: `backend/src/common/guards/candidate-auth.guard.spec.ts` (create if absent)
 
 **Interfaces:**
-- Consumes: `AuthGuard('jwt')`, `CandidateAuthGuard`, `JobListingsIndexRepository.findOpenByTenantAndJob(tenantId, jobPostingId)`.
+- Consumes: `AuthGuard('jwt')`, `CandidateAuthGuard`, `JobListingsIndexRepository.findOpenByCompanyAndJob(companyId, jobPostingId)`.
 - Produces: Candidate job list/detail routes that reject unauthenticated users and candidate detail that returns only open indexed jobs.
 
 - [ ] **Step 1: Add failing service tests for closed and draft candidate jobs.**
 
-Add cases to `candidate-account.service.spec.ts` that configure `jobListingsIndexRepo.findOpenByTenantAndJob` to return `null` for a closed or draft row and assert `service.getJobDetail('t1', 'j1')` rejects with `NotFoundException`. Add a case asserting an open row is returned.
+Add cases to `candidate-account.service.spec.ts` that configure `jobListingsIndexRepo.findOpenByCompanyAndJob` to return `null` for a closed or draft row and assert `service.getJobDetail('t1', 'j1')` rejects with `NotFoundException`. Add a case asserting an open row is returned.
 
 ```ts
 it('hides non-open jobs from candidate detail', async () => {
-  jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue(null);
+  jobListingsIndexRepo.findOpenByCompanyAndJob.mockResolvedValue(null);
 
   await expect(service.getJobDetail('t1', 'j1')).rejects.toThrow(
     NotFoundException,
@@ -119,14 +119,14 @@ Expected: FAIL because `getJobDetail` currently uses `findById` without requirin
 Use the existing repository method:
 
 ```ts
-async findOpenByTenantAndJob(tenantId: string, jobPostingId: string) {
+async findOpenByCompanyAndJob(companyId: string, jobPostingId: string) {
   return this.withDb('public', async (db) => {
     const rows = await db
       .select()
       .from(jobListingsIndex)
       .where(
         and(
-          eq(jobListingsIndex.tenantId, tenantId),
+          eq(jobListingsIndex.companyId, companyId),
           eq(jobListingsIndex.jobPostingId, jobPostingId),
           eq(jobListingsIndex.status, 'open'),
         ),
@@ -138,11 +138,11 @@ async findOpenByTenantAndJob(tenantId: string, jobPostingId: string) {
 }
 ```
 
-Change `getJobDetail` to call `findOpenByTenantAndJob` and throw `NotFoundException('Job posting not found')` for `null`. Use the same open lookup in bookmark creation and apply rather than relying on a possibly stale non-open index row.
+Change `getJobDetail` to call `findOpenByCompanyAndJob` and throw `NotFoundException('Job posting not found')` for `null`. Use the same open lookup in bookmark creation and apply rather than relying on a possibly stale non-open index row.
 
 - [ ] **Step 4: Add guards to candidate job list and detail routes.**
 
-Apply both guards to `GET /candidate/jobs` and `GET /candidate/jobs/:tenantId/:jobId`:
+Apply both guards to `GET /candidate/jobs` and `GET /candidate/jobs/:companyId/:jobId`:
 
 ```ts
 @Get('jobs')
@@ -174,7 +174,7 @@ git commit -m "fix(m5b): enforce candidate job visibility boundary"
 ## Task 2: Complete Candidate Application Integrity and Detail
 
 **Files:**
-- Modify: `backend/src/database/schema.ts:281-326` and tenant `applications` definition
+- Modify: `backend/src/database/schema.ts:281-326` and company `applications` definition
 - Modify: `backend/drizzle/template-schema.sql:7`
 - Create: generated migration under `backend/drizzle/` from `npx drizzle-kit generate`
 - Modify: `backend/src/modules/candidate-account/dto/apply.dto.ts`
@@ -186,7 +186,7 @@ git commit -m "fix(m5b): enforce candidate job visibility boundary"
 - Test: `backend/src/repositories/candidate-applications-index.repository.spec.ts` (create if absent)
 
 **Interfaces:**
-- Consumes: Open indexed job lookup and explicit tenant repository calls.
+- Consumes: Open indexed job lookup and explicit company repository calls.
 - Produces: `GET /candidate/applications/:id`, validated application overrides, persisted cover letters, candidate ownership checks, and a database-enforced duplicate boundary.
 
 - [ ] **Step 1: Add failing unit tests for ownership, skill validation, and cover-letter propagation.**
@@ -203,8 +203,8 @@ it('rejects an application detail not owned by the candidate', async () => {
 });
 
 it('rejects unknown override skills before creating an application', async () => {
-  jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue({
-    tenantId: 't1',
+  jobListingsIndexRepo.findOpenByCompanyAndJob.mockResolvedValue({
+    companyId: 't1',
     jobPostingId: 'j1',
     status: 'open',
     title: 'Engineer',
@@ -240,7 +240,7 @@ Expected: FAIL because the detail method, ownership lookup, skill validation, an
 
 - [ ] **Step 3: Extend the schema and migration inputs.**
 
-Add the tenant application column:
+Add the company application column:
 
 ```ts
 coverLetter: text('cover_letter'),
@@ -255,7 +255,7 @@ uniqueCandidateApplication: uniqueIndex(
   'unique_candidate_application',
 ).on(
   table.candidateAccountId,
-  table.tenantId,
+  table.companyId,
   table.jobPostingId,
 ),
 ```
@@ -268,9 +268,9 @@ Generate the migration:
 cd backend && npx drizzle-kit generate
 ```
 
-Inspect the generated SQL. It must add `cover_letter` to every existing `tenant_%` applications table and `template.applications`, and add the unique public index. Apply it through the local bootstrap procedure before integration tests.
+Inspect the generated SQL. It must add `cover_letter` to every existing `company_%` applications table and `template.applications`, and add the unique public index. Apply it through the local bootstrap procedure before integration tests.
 
-- [ ] **Step 4: Add index ownership and tenant-scoped status methods.**
+- [ ] **Step 4: Add index ownership and company-scoped status methods.**
 
 Add these repository methods:
 
@@ -292,7 +292,7 @@ async findByCandidateAndApplication(candidateAccountId: string, applicationId: s
   });
 }
 
-async updateStatus(applicationId: string, tenantId: string, status: string) {
+async updateStatus(applicationId: string, companyId: string, status: string) {
   return this.withDb('public', async (db) => {
     const rows = await db
       .update(candidateApplicationsIndex)
@@ -300,7 +300,7 @@ async updateStatus(applicationId: string, tenantId: string, status: string) {
       .where(
         and(
           eq(candidateApplicationsIndex.applicationId, applicationId),
-          eq(candidateApplicationsIndex.tenantId, tenantId),
+          eq(candidateApplicationsIndex.companyId, companyId),
         ),
       )
       .returning()
@@ -334,15 +334,15 @@ export const ApplyJobSchema = z.object({
 
 In `CandidateAccountService.apply`:
 
-1. Resolve the job with `findOpenByTenantAndJob`.
+1. Resolve the job with `findOpenByCompanyAndJob`.
 2. Resolve the candidate account.
-3. Check `findByJob(candidateAccountId, tenantId, jobPostingId)`.
+3. Check `findByJob(candidateAccountId, companyId, jobPostingId)`.
 4. Choose `dto.skillIds` or profile skills.
 5. Deduplicate the chosen IDs and call `skillRepo.findByIds`.
 6. Throw `BadRequestException('One or more skill IDs are invalid')` unless every ID exists.
-7. Create the tenant candidate/application with `coverLetter` and the computed score.
+7. Create the company candidate/application with `coverLetter` and the computed score.
 8. Create the public application index row.
-9. If the index insert fails after the tenant application is created, delete the created tenant application and rethrow.
+9. If the index insert fails after the company application is created, delete the created company application and rethrow.
 
 Add:
 
@@ -356,7 +356,7 @@ async getApplicationDetail(candidateAccountId: string, applicationId: string) {
 
   const application = await this.applicationRepo.findByIdForCandidate(
     applicationId,
-    `tenant_${indexed.tenantId}`,
+    `company_${indexed.companyId}`,
   );
   if (!application) throw new NotFoundException('Application not found');
 
@@ -405,7 +405,7 @@ git commit -m "feat(m5b): harden candidate applications and ownership"
 
 **Interfaces:**
 - Consumes: `ConfigService.getOrThrow<string>('REDIS_URL')`.
-- Produces: `RedisService.incrementWithWindow`, `RedisService.get`, `RedisService.set`, `RedisService.del`, `RedisService.invalidate`, `CacheService.get`, `CacheService.set`, and `CacheService.invalidateTenantDashboard`.
+- Produces: `RedisService.incrementWithWindow`, `RedisService.get`, `RedisService.set`, `RedisService.del`, `RedisService.invalidate`, `CacheService.get`, `CacheService.set`, and `CacheService.invalidateCompanyDashboard`.
 
 - [ ] **Step 1: Install the Redis client.**
 
@@ -492,11 +492,11 @@ invalidate(pattern: string): Promise<void>;
 
 - [ ] **Step 6: Implement JSON cache operations.**
 
-Create the shared dashboard key helper before implementing the tenant-specific cache method:
+Create the shared dashboard key helper before implementing the company-specific cache method:
 
 ```ts
-export const dashboardSummaryKey = (tenantId: string) =>
-  `tenant:${tenantId}:dashboard:summary:v1`;
+export const dashboardSummaryKey = (companyId: string) =>
+  `company:${companyId}:dashboard:summary:v1`;
 ```
 
 Use these signatures:
@@ -505,10 +505,10 @@ Use these signatures:
 get<T>(key: string): Promise<T | null>;
 set<T>(key: string, value: T, ttlSeconds: number): Promise<void>;
 invalidate(pattern: string): Promise<void>;
-invalidateTenantDashboard(tenantId: string): Promise<void>;
+invalidateCompanyDashboard(companyId: string): Promise<void>;
 ```
 
-Serialize with `JSON.stringify` and parse with `JSON.parse`. On get/set/invalidate failure, log with Nest `Logger` and return the fallback behavior. `invalidateTenantDashboard` calls `del(dashboardSummaryKey(tenantId))`.
+Serialize with `JSON.stringify` and parse with `JSON.parse`. On get/set/invalidate failure, log with Nest `Logger` and return the fallback behavior. `invalidateCompanyDashboard` calls `del(dashboardSummaryKey(companyId))`.
 
 - [ ] **Step 7: Run tests and commit the Redis foundation.**
 
@@ -627,7 +627,7 @@ git commit -m "feat(m6): rate limit unified sign in"
 
 ---
 
-## Task 5: Add the Tenant Dashboard Summary API
+## Task 5: Add the Company Dashboard Summary API
 
 **Files:**
 - Create: `backend/src/repositories/dashboard.repository.ts`
@@ -640,7 +640,7 @@ git commit -m "feat(m6): rate limit unified sign in"
 - Test: `backend/src/repositories/dashboard.repository.spec.ts` (create if absent)
 
 **Interfaces:**
-- Consumes: `CacheService.get<DashboardSummary>`, `CacheService.set`, `getTenantId()`, and `DashboardRepository.findSummary()`.
+- Consumes: `CacheService.get<DashboardSummary>`, `CacheService.set`, `getCompanyId()`, and `DashboardRepository.findSummary()`.
 - Produces: `GET /api/dashboard/summary` with the approved summary contract and internal-role protection.
 
 - [ ] **Step 1: Write the dashboard service tests.**
@@ -666,9 +666,9 @@ Test cache miss, cache hit, and cache fallback:
 it('queries and caches on a miss', async () => {
   cache.get.mockResolvedValue(null);
   repository.findSummary.mockResolvedValue(summary);
-  await expect(runInTenant(() => service.getSummary())).resolves.toEqual(summary);
+  await expect(runInCompany(() => service.getSummary())).resolves.toEqual(summary);
   expect(cache.set).toHaveBeenCalledWith(
-    'tenant:t1:dashboard:summary:v1',
+    'company:t1:dashboard:summary:v1',
     summary,
     60,
   );
@@ -676,14 +676,14 @@ it('queries and caches on a miss', async () => {
 
 it('returns a cache hit without querying the repository', async () => {
   cache.get.mockResolvedValue(summary);
-  await expect(runInTenant(() => service.getSummary())).resolves.toEqual(summary);
+  await expect(runInCompany(() => service.getSummary())).resolves.toEqual(summary);
   expect(repository.findSummary).not.toHaveBeenCalled();
 });
 
 it('falls back to the repository when the cache returns no value', async () => {
   cache.get.mockResolvedValue(null);
   repository.findSummary.mockResolvedValue(summary);
-  await expect(runInTenant(() => service.getSummary())).resolves.toEqual(summary);
+  await expect(runInCompany(() => service.getSummary())).resolves.toEqual(summary);
 });
 ```
 
@@ -744,7 +744,7 @@ return {
 
 Map database count strings to numbers if the configured pg driver returns strings.
 
-The repository must not accept a tenant ID. The schema is resolved by `BaseRepository` from the current `AsyncLocalStorage` context.
+The repository must not accept a company ID. The schema is resolved by `BaseRepository` from the current `AsyncLocalStorage` context.
 
 - [ ] **Step 4: Implement the dashboard service.**
 
@@ -754,8 +754,8 @@ Add:
 const SUMMARY_TTL_SECONDS = 60;
 
 async getSummary(): Promise<DashboardSummary> {
-  const tenantId = getTenantId();
-  const key = dashboardSummaryKey(tenantId);
+  const companyId = getCompanyId();
+  const key = dashboardSummaryKey(companyId);
   const cached = await this.cache.get<DashboardSummary>(key);
   if (cached) return cached;
 
@@ -773,7 +773,7 @@ Use the existing internal role list:
 
 ```ts
 const INTERNAL_ROLES = [
-  'OrgAdmin',
+  'CompanyAdmin',
   'Recruiter',
   'HiringManager',
   'Interviewer',
@@ -807,12 +807,12 @@ Expected: PASS and no type errors. Commit:
 
 ```text
 git add backend/src/repositories/dashboard.repository.ts backend/src/repositories/repositories.module.ts backend/src/modules/dashboard backend/src/app.module.ts
-git commit -m "feat(m6): add cached tenant dashboard summary api"
+git commit -m "feat(m6): add cached company dashboard summary api"
 ```
 
 ---
 
-## Task 6: Synchronize Existing Tenant Writes with the Dashboard Cache Contract
+## Task 6: Synchronize Existing Company Writes with the Dashboard Cache Contract
 
 **Files:**
 - Modify: `backend/src/modules/job-postings/job-postings.service.ts`
@@ -822,17 +822,17 @@ git commit -m "feat(m6): add cached tenant dashboard summary api"
 - Modify: corresponding module files and service specs
 
 **Interfaces:**
-- Consumes: `CacheService.invalidateTenantDashboard(tenantId)` from Task 3.
-- Produces: Explicit invalidation calls after successful writes, with current tenant IDs obtained from `getTenantId()` or the authenticated context.
+- Consumes: `CacheService.invalidateCompanyDashboard(companyId)` from Task 3.
+- Produces: Explicit invalidation calls after successful writes, with current company IDs obtained from `getCompanyId()` or the authenticated context.
 
-Keep the helper free of request context so candidate apply can invalidate the explicitly selected tenant while internal services use `getTenantId()`.
+Keep the helper free of request context so candidate apply can invalidate the explicitly selected company while internal services use `getCompanyId()`.
 
 - [ ] **Step 1: Add failing invalidation assertions to existing service specs.**
 
-Import `CacheModule` in each affected feature module and inject a `CacheService` mock with `invalidateTenantDashboard: jest.fn()` into each service test. Add assertions after successful writes:
+Import `CacheModule` in each affected feature module and inject a `CacheService` mock with `invalidateCompanyDashboard: jest.fn()` into each service test. Add assertions after successful writes:
 
 ```ts
-expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
+expect(cacheService.invalidateCompanyDashboard).toHaveBeenCalledWith('t1');
 ```
 
 Cover job posting publish/close/delete, application stage update, manual candidate creation, candidate apply, and pipeline stage create/update/delete.
@@ -842,18 +842,18 @@ Cover job posting publish/close/delete, application stage update, manual candida
 Call invalidation after the database/index write has succeeded. Do not invalidate before validation or after a failed write. Use:
 
 ```ts
-await this.cacheService.invalidateTenantDashboard(getTenantId());
+await this.cacheService.invalidateCompanyDashboard(getCompanyId());
 ```
 
-for current-tenant services, and:
+for current-company services, and:
 
 ```ts
-await this.cacheService.invalidateTenantDashboard(tenantId);
+await this.cacheService.invalidateCompanyDashboard(companyId);
 ```
 
-for candidate apply, where `tenantId` is the already validated open-job target.
+for candidate apply, where `companyId` is the already validated open-job target.
 
-For dashboard cache failures, `CacheService.invalidateTenantDashboard` must swallow/log the Redis error so the business mutation still succeeds.
+For dashboard cache failures, `CacheService.invalidateCompanyDashboard` must swallow/log the Redis error so the business mutation still succeeds.
 
 - [ ] **Step 3: Run focused service tests.**
 
@@ -867,12 +867,12 @@ Expected: PASS with invalidation assertions. Commit:
 
 ```text
 git add backend/src/modules/job-postings backend/src/modules/applications backend/src/modules/candidates backend/src/modules/pipeline-stages backend/src/modules/candidate-account
-git commit -m "feat(m6): invalidate tenant dashboard after writes"
+git commit -m "feat(m6): invalidate company dashboard after writes"
 ```
 
 ---
 
-## Task 7: Complete Candidate and Organization Frontend Consumption
+## Task 7: Complete Candidate and Company Frontend Consumption
 
 **Files:**
 - Modify: `frontend/src/features/candidate-portal/types/index.ts`
@@ -880,13 +880,13 @@ git commit -m "feat(m6): invalidate tenant dashboard after writes"
 - Modify: `frontend/src/features/candidate-portal/applications/ApplicationsPage.tsx`
 - Modify: `frontend/src/api/queryKeys.ts`
 - Create: `frontend/src/api/dashboardApi.ts`
-- Create: `frontend/src/features/org/dashboard/hooks/useDashboardSummary.ts`
-- Create: `frontend/src/features/org/dashboard/OrgDashboardPage.tsx`
-- Modify: `frontend/src/routes/org/dashboard.tsx`
+- Create: `frontend/src/features/company/dashboard/hooks/useDashboardSummary.ts`
+- Create: `frontend/src/features/company/dashboard/CompanyDashboardPage.tsx`
+- Modify: `frontend/src/routes/company/dashboard.tsx`
 
 **Interfaces:**
 - Consumes: `GET /candidate/applications/:id`, `GET /dashboard/summary`, and the existing `ApiEnvelope<T>` type.
-- Produces: Candidate application detail rendering and a functional `/org/dashboard` page.
+- Produces: Candidate application detail rendering and a functional `/company/dashboard` page.
 
 - [ ] **Step 1: Align candidate frontend types and API methods.**
 
@@ -906,7 +906,7 @@ export interface Profile {
 }
 
 export interface CandidateApplicationDetail extends Application {
-  tenantId: string;
+  companyId: string;
   applicationId: string;
   matchScore: number | null;
   appliedSkillIds: string[] | null;
@@ -956,21 +956,21 @@ export const dashboardApi = {
 Add:
 
 ```ts
-dashboardSummary: () => ['org', 'dashboard', 'summary'],
+dashboardSummary: () => ['company', 'dashboard', 'summary'],
 ```
 
-to `queryKeys.org`, then create `useDashboardSummary` using `useQuery` and the new query key.
+to `queryKeys.company`, then create `useDashboardSummary` using `useQuery` and the new query key.
 
 - [ ] **Step 4: Replace the dashboard placeholder.**
 
-Create `OrgDashboardPage.tsx` with:
+Create `CompanyDashboardPage.tsx` with:
 
 - A loading state using `Loader`.
 - An error state using `Alert color="red"`.
 - Three summary cards for applications, candidates, and open jobs.
 - A stage-count table or list using `applicationsByStage`.
 
-Keep layout responsive with Mantine `SimpleGrid`, `Card`, `Stack`, and `Table`. Render the existing `/org/dashboard` route component as `<OrgDashboardPage />`.
+Keep layout responsive with Mantine `SimpleGrid`, `Card`, `Stack`, and `Table`. Render the existing `/company/dashboard` route component as `<CompanyDashboardPage />`.
 
 - [ ] **Step 5: Run frontend verification and commit.**
 
@@ -984,8 +984,8 @@ cd frontend && npm run lint
 Expected: PASS. Commit:
 
 ```text
-git add frontend/src/api frontend/src/features/candidate-portal frontend/src/features/org/dashboard frontend/src/routes/org/dashboard.tsx
-git commit -m "feat(m6): add candidate detail and organization dashboard ui"
+git add frontend/src/api frontend/src/features/candidate-portal frontend/src/features/company/dashboard frontend/src/routes/company/dashboard.tsx
+git commit -m "feat(m6): add candidate detail and company dashboard ui"
 ```
 
 ---
@@ -1004,20 +1004,20 @@ git commit -m "feat(m6): add candidate detail and organization dashboard ui"
 
 - [ ] **Step 1: Add an e2e test bootstrap that fails clearly when infrastructure is unavailable.**
 
-Use the existing Jest e2e configuration. The test setup must use `DATABASE_URL` and `REDIS_URL` from the environment, create uniquely named test tenants, and clean created rows/schemas in `afterAll`. Do not hard-code production or seed credentials into the test file. If PostgreSQL or Redis cannot be reached, fail in `beforeAll` with an error naming the missing service; do not silently skip the release-gate tests.
+Use the existing Jest e2e configuration. The test setup must use `DATABASE_URL` and `REDIS_URL` from the environment, create uniquely named test companies, and clean created rows/schemas in `afterAll`. Do not hard-code production or seed credentials into the test file. If PostgreSQL or Redis cannot be reached, fail in `beforeAll` with an error naming the missing service; do not silently skip the release-gate tests.
 
-- [ ] **Step 2: Add the candidate cross-tenant flow test.**
+- [ ] **Step 2: Add the candidate cross-company flow test.**
 
 The test must:
 
-1. Create or locate two tenants with open jobs.
+1. Create or locate two companies with open jobs.
 2. Sign up one candidate.
 3. Fetch candidate jobs and assert only open index rows are returned.
-4. Apply to Tenant A's job and assert a successful application ID.
+4. Apply to Company A's job and assert a successful application ID.
 5. Apply again and assert `409`.
 6. Request the application detail as the owner and assert success.
 7. Request the same detail using a different candidate token and assert `404`.
-8. Move the application stage as an organization user and assert candidate history status changes.
+8. Move the application stage as an company user and assert candidate history status changes.
 
 - [ ] **Step 3: Add the login limiter e2e test.**
 
@@ -1031,7 +1031,7 @@ Use a unique normalized email per test so rate-limit keys do not affect one anot
 
 - [ ] **Step 4: Add dashboard cache/isolation e2e coverage.**
 
-Authenticate organization users in Tenant A and Tenant B. Assert each receives its own counts. Call Tenant A twice and verify the second request is served from Redis by checking the repository spy in an application-level test or inspecting the Redis key in an integration test. Create/update a Tenant A application and assert the Tenant A key is invalidated while Tenant B's key remains available.
+Authenticate company users in Company A and Company B. Assert each receives its own counts. Call Company A twice and verify the second request is served from Redis by checking the repository spy in an application-level test or inspecting the Redis key in an integration test. Create/update a Company A application and assert the Company A key is invalidated while Company B's key remains available.
 
 - [ ] **Step 5: Update milestone documentation.**
 
@@ -1040,7 +1040,7 @@ Update Phase 5b and Phase 6 in `docs/09_IMPLEMENTATION_GUIDE.md` to reflect the 
 - Candidate routes are authenticated, with public careers remaining read-only.
 - The missing candidate application-detail route now exists.
 - Login limiter is sign-in-only with five attempts per 15 minutes.
-- `GET /dashboard/summary` and its 60-second tenant cache exist.
+- `GET /dashboard/summary` and its 60-second company cache exist.
 - Anonymous apply and BullMQ remain out of scope.
 
 - [ ] **Step 6: Run the complete verification suite.**
@@ -1080,5 +1080,5 @@ Confirm every changed file belongs to Phase 5b/6, then merge the branch into `de
 
 - **Spec coverage:** Phase 5b route guards, open-job enforcement, application detail, duplicate constraint, skill validation, cover-letter persistence, index synchronization, frontend response alignment, Redis provider, cache fallback, login limiter, dashboard API, invalidation, frontend dashboard, tests, and merge gates each have explicit tasks.
 - **Placeholder scan:** No `TBD`, `TODO`, or unspecified implementation step is required. Generated migration output is explicitly created by the repository's existing `drizzle-kit generate` workflow and must be inspected before application.
-- **Type consistency:** `DashboardSummary`, `CacheService`, `RedisService`, `dashboardSummaryKey`, and candidate application detail signatures are defined before their consumers. The plan uses the existing `ApiEnvelope<T>`, `getTenantId()`, `withDb('current', ...)`, and guard patterns.
+- **Type consistency:** `DashboardSummary`, `CacheService`, `RedisService`, `dashboardSummaryKey`, and candidate application detail signatures are defined before their consumers. The plan uses the existing `ApiEnvelope<T>`, `getCompanyId()`, `withDb('current', ...)`, and guard patterns.
 - **Scope check:** Phase 5b audit and Phase 6 Redis/cache are intentionally delivered as one branch because dashboard invalidation crosses the existing candidate, job, application, candidate, and pipeline services. BullMQ and anonymous public writes remain explicitly excluded.

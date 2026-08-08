@@ -13,11 +13,11 @@ import { Link } from '@tanstack/react-router';
 import { usePublicJobs } from './hooks/usePublicCareers';
 
 interface JobListingPageProps {
-  tenantSlug: string;
+  companySlug: string;
 }
 
-export function JobListingPage({ tenantSlug }: JobListingPageProps) {
-  const { data: jobs = [], isLoading, error } = usePublicJobs(tenantSlug);
+export function JobListingPage({ companySlug }: JobListingPageProps) {
+  const { data: jobs = [], isLoading, error } = usePublicJobs(companySlug);
 
   if (isLoading) {
     return (
@@ -66,8 +66,8 @@ export function JobListingPage({ tenantSlug }: JobListingPageProps) {
                 </Group>
                 <Text lineClamp={3}>{job.description ?? 'No description provided.'}</Text>
                 <Link
-                  to="/careers/$tenantSlug/jobs/$jobId"
-                  params={{ tenantSlug, jobId: job.id }}
+                  to="/careers/$companySlug/jobs/$jobId"
+                  params={{ companySlug, jobId: job.id }}
                 >
                   View job details
                 </Link>

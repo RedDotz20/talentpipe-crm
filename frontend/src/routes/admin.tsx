@@ -10,7 +10,7 @@ export const Route = createFileRoute('/admin')({
     const { role } = useAuthStore.getState();
     if (role !== 'SuperAdmin') {
       if (role === 'Candidate') throw redirect({ to: '/dashboard' });
-      throw redirect({ to: '/org/dashboard' });
+      throw redirect({ to: '/company/dashboard' });
     }
   },
   component: SuperAdminPlatform,

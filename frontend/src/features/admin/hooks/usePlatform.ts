@@ -3,10 +3,10 @@ import { platformApi } from '@/api/platformApi';
 import { queryKeys } from '@/api/queryKeys';
 import { useApiMutation } from '@/hooks/useApiMutation';
 
-export function usePlatformTenants() {
+export function usePlatformCompanies() {
   return useQuery({
-    queryKey: queryKeys.platform.tenants(),
-    queryFn: platformApi.listTenants,
+    queryKey: queryKeys.platform.companies(),
+    queryFn: platformApi.listCompanies,
   });
 }
 
@@ -17,15 +17,15 @@ export function usePlatformStats() {
   });
 }
 
-export function useTenantDetail(id: string) {
+export function useCompanyDetail(id: string) {
   return useQuery({
-    queryKey: queryKeys.platform.tenant(id),
-    queryFn: () => platformApi.getTenant(id),
+    queryKey: queryKeys.platform.company(id),
+    queryFn: () => platformApi.getCompany(id),
     enabled: !!id,
   });
 }
 
-export function useSetTenantStatus() {
+export function useSetCompanyStatus() {
   const queryClient = useQueryClient();
   return useApiMutation<
     { id: string; status: string },
@@ -33,25 +33,25 @@ export function useSetTenantStatus() {
   >({
     mutationFn: ({ id, status }) => platformApi.setStatus(id, status),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.platform.tenants() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.companies() });
       queryClient.invalidateQueries({ queryKey: queryKeys.platform.stats() });
     },
   });
 }
 
-export function useTenantUsers(tenantId: string) {
+export function useCompanyUsers(companyId: string) {
   return useQuery({
-    queryKey: queryKeys.platform.tenantUsers(tenantId),
-    queryFn: () => platformApi.listTenantUsers(tenantId),
-    enabled: !!tenantId,
+    queryKey: queryKeys.platform.companyUsers(companyId),
+    queryFn: () => platformApi.listCompanyUsers(companyId),
+    enabled: !!companyId,
   });
 }
 
-export function usePlatformStages(tenantId: string) {
+export function usePlatformStages(companyId: string) {
   return useQuery({
-    queryKey: queryKeys.platform.tenantStages(tenantId),
-    queryFn: () => platformApi.listTenantStages(tenantId),
-    enabled: !!tenantId,
+    queryKey: queryKeys.platform.companyStages(companyId),
+    queryFn: () => platformApi.listCompanyStages(companyId),
+    enabled: !!companyId,
   });
 }
 
@@ -62,59 +62,59 @@ export function usePlatformCandidates() {
   });
 }
 
-export function usePlatformApplications(filters?: { tenantId?: string; status?: string }) {
+export function usePlatformApplications(filters?: { companyId?: string; status?: string }) {
   return useQuery({
     queryKey: queryKeys.platform.applications(filters),
     queryFn: () => platformApi.listApplications(filters),
   });
 }
 
-export function usePlatformInterviews(filters?: { tenantId?: string; status?: string }) {
+export function usePlatformInterviews(filters?: { companyId?: string; status?: string }) {
   return useQuery({
     queryKey: queryKeys.platform.interviews(filters),
     queryFn: () => platformApi.listInterviews(filters),
   });
 }
 
-export function useCreateTenantUser(tenantId: string) {
+export function useCreateCompanyUser(companyId: string) {
   const queryClient = useQueryClient();
   return useApiMutation({
     mutationFn: (body: { email: string; role: string; password: string }) =>
-      platformApi.createTenantUser(tenantId, body),
+      platformApi.createCompanyUser(companyId, body),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.platform.tenantUsers(tenantId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.companyUsers(companyId) });
     },
   });
 }
 
-export function useUpdateTenantUser(tenantId: string) {
+export function useUpdateCompanyUser(companyId: string) {
   const queryClient = useQueryClient();
   return useApiMutation({
     mutationFn: ({ userId, body }: { userId: string; body: { role?: string; password?: string } }) =>
-      platformApi.updateTenantUser(tenantId, userId, body),
+      platformApi.updateCompanyUser(companyId, userId, body),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.platform.tenantUsers(tenantId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.companyUsers(companyId) });
     },
   });
 }
 
-export function useSetTenantUserStatus(tenantId: string) {
+export function useSetCompanyUserStatus(companyId: string) {
   const queryClient = useQueryClient();
   return useApiMutation({
     mutationFn: ({ userId, status }: { userId: string; status: 'active' | 'suspended' }) =>
-      platformApi.setTenantUserStatus(tenantId, userId, status),
+      platformApi.setCompanyUserStatus(companyId, userId, status),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.platform.tenantUsers(tenantId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.companyUsers(companyId) });
     },
   });
 }
 
-export function useRemoveTenantUser(tenantId: string) {
+export function useRemoveCompanyUser(companyId: string) {
   const queryClient = useQueryClient();
   return useApiMutation({
-    mutationFn: (userId: string) => platformApi.removeTenantUser(tenantId, userId),
+    mutationFn: (userId: string) => platformApi.removeCompanyUser(companyId, userId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.platform.tenantUsers(tenantId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.companyUsers(companyId) });
     },
   });
 }

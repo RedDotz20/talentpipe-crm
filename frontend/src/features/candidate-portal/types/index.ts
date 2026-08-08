@@ -1,8 +1,8 @@
 export interface Job {
   id: string;
-  /** Canonical tenant job-posting identifier; public index rows also expose an id. */
+  /** Canonical company job-posting identifier; public index rows also expose an id. */
   jobPostingId?: string;
-  tenantId: string;
+  companyId: string;
   title: string;
   companyName: string;
   description?: string;
@@ -17,7 +17,7 @@ export interface Application {
   companyName: string;
   status: string;
   appliedAt: string;
-  tenantId: string;
+  companyId: string;
   jobPostingId: string;
 }
 

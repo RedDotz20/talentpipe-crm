@@ -5,14 +5,14 @@
 
 ## Objective
 
-Implement multi-tenant auth with schema-per-tenant isolation, JWT-based sessions, role-based access control, and a basic frontend auth shell.
+Implement multi-company auth with schema-per-company isolation, JWT-based sessions, role-based access control, and a basic frontend auth shell.
 
 ## Deviations from Implementation Guide
 
 | Guide Step | Adaptation |
 |------------|------------|
-| 1.1 (schema) | Added `userEmails` table (public) — global email → (tenantId, userId) lookup for O(1) login. Added `refreshTokens` table (public) — DB-backed refresh tokens for revocable sessions. |
-| 1.8 (login) | Login no longer iterates schemas. Instead: query `userEmails` → get tenantId → set search_path → verify password. |
+| 1.1 (schema) | Added `userEmails` table (public) — global email → (companyId, userId) lookup for O(1) login. Added `refreshTokens` table (public) — DB-backed refresh tokens for revocable sessions. |
+| 1.8 (login) | Login no longer iterates schemas. Instead: query `userEmails` → get companyId → set search_path → verify password. |
 | 1.8 (refresh) | Refresh token is stored as a hashed value in `refreshTokens` table, not a stateless JWT. Expiry tracked server-side. |
 
 ## Architecture
@@ -21,19 +21,19 @@ Implement multi-tenant auth with schema-per-tenant isolation, JWT-based sessions
 
 | Table | Columns | Purpose |
 |-------|---------|---------|
-| `tenants` | id (uuid pk), name (varchar 255), slug (varchar 100, unique), plan (varchar 50, default 'free'), createdAt (timestamp) | Company registration |
+| `companies` | id (uuid pk), name (varchar 255), slug (varchar 100, unique), plan (varchar 50, default 'free'), createdAt (timestamp) | Company registration |
 | `skills` | id (uuid pk), name (varchar 255, unique), category (varchar 100) | Skill taxonomy (seeded in Phase 2) |
-| `auditLogs` | id (uuid pk), tenantId (varchar 36), userId (varchar 36), action (varchar 100), resourceId (varchar 36), metadata (text), createdAt (timestamp) | Cross-tenant audit trail |
-| `userEmails` | id (uuid pk), email (varchar 255, unique), tenantId (uuid), userId (uuid) | **New** — O(1) login lookup |
-| `refreshTokens` | id (uuid pk), userId (uuid), tenantId (uuid), tokenHash (varchar 255), expiresAt (timestamp), createdAt (timestamp) | **New** — DB-backed refresh tokens |
+| `auditLogs` | id (uuid pk), companyId (varchar 36), userId (varchar 36), action (varchar 100), resourceId (varchar 36), metadata (text), createdAt (timestamp) | Cross-company audit trail |
+| `userEmails` | id (uuid pk), email (varchar 255, unique), companyId (uuid), userId (uuid) | **New** — O(1) login lookup |
+| `refreshTokens` | id (uuid pk), userId (uuid), companyId (uuid), tokenHash (varchar 255), expiresAt (timestamp), createdAt (timestamp) | **New** — DB-backed refresh tokens |
 
-Indexes: `tenants.slug` unique, `skills.name` unique, `userEmails.email` unique, `auditLogs(tenantId, action)`, `refreshTokens(userId)`.
+Indexes: `companies.slug` unique, `skills.name` unique, `userEmails.email` unique, `auditLogs(companyId, action)`, `refreshTokens(userId)`.
 
-### Data Model — Per-Tenant Schema (created per signup)
+### Data Model — Per-Company Schema (created per signup)
 
-All tables in `tenant_{id}` schema, no `tenant_id` columns:
+All tables in `company_{id}` schema, no `company_id` columns:
 
-- `users` — id, email (unique), passwordHash, role (varchar 50, default 'OrgAdmin'), createdAt
+- `users` — id, email (unique), passwordHash, role (varchar 50, default 'CompanyAdmin'), createdAt
 - `jobPostings` — id, title, description, status (default 'draft'), createdByUserId (FK), createdAt
 - `candidates` — id, name, email, phone, createdAt
 - `pipelineStages` — id, name, order
@@ -47,28 +47,28 @@ All tables in `tenant_{id}` schema, no `tenant_id` columns:
 
 ### Tenancy Layer
 
-1. **AsyncLocalStorage** (`tenant-context.ts`): Holds `{ tenantId: string, userId: string, role: string }` per request. Provides `getTenantId()`, `getSchema()`, `getCurrentUser()` accessors.
+1. **AsyncLocalStorage** (`company-context.ts`): Holds `{ companyId: string, userId: string, role: string }` per request. Provides `getCompanyId()`, `getSchema()`, `getCurrentUser()` accessors.
 
-2. **TenantContextInterceptor** (`tenant-context.interceptor.ts`): Global NestJS interceptor. Extracts `request.user` (set by Passport JWT strategy), runs the request handler inside `asyncStorage.run(context, ...)`.
+2. **CompanyContextInterceptor** (`company-context.interceptor.ts`): Global NestJS interceptor. Extracts `request.user` (set by Passport JWT strategy), runs the request handler inside `asyncStorage.run(context, ...)`.
 
-3. **DrizzleSchemaService** (`drizzle-schema.service.ts`): Injects the Drizzle client. `forCurrentTenant()` executes `SET search_path TO {schema_name}, public` before each query. `forPublic()` executes `SET search_path TO public`.
+3. **DrizzleSchemaService** (`drizzle-schema.service.ts`): Injects the Drizzle client. `forCurrentCompany()` executes `SET search_path TO {schema_name}, public` before each query. `forPublic()` executes `SET search_path TO public`.
 
 ### Auth Flow
 
 **Signup** (`POST /auth/signup`):
-1. Validate slug uniqueness via `tenantRepository.findBySlug()`
-2. Insert tenant into `public.tenants`
-3. Execute raw SQL: `CREATE SCHEMA tenant_{id}` + clone tables from `template` schema
+1. Validate slug uniqueness via `companyRepository.findBySlug()`
+2. Insert company into `public.companies`
+3. Execute raw SQL: `CREATE SCHEMA company_{id}` + clone tables from `template` schema
 4. Hash password via argon2
-5. Insert OrgAdmin user into `tenant_{id}.users`
+5. Insert CompanyAdmin user into `company_{id}.users`
 6. Insert default pipeline stages (Applied, Screening, Interview, Offer, Hired, Rejected)
-7. Insert row into `public.userEmails` (email → tenantId + userId)
+7. Insert row into `public.userEmails` (email → companyId + userId)
 8. Generate JWT access token (15m) + refresh token (7d), store hashed refresh in `public.refreshTokens`
 9. Return `{ accessToken, refreshToken }`
 
 **Login** (`POST /auth/login`):
-1. Look up email in `public.userEmails` → get tenantId + userId
-2. Set search_path to `tenant_{tenantId}`
+1. Look up email in `public.userEmails` → get companyId + userId
+2. Set search_path to `company_{companyId}`
 3. Fetch full user row, verify password via argon2
 4. Generate new access + refresh tokens, store hashed refresh
 5. Return `{ accessToken, refreshToken }`
@@ -83,13 +83,13 @@ All tables in `tenant_{id}` schema, no `tenant_id` columns:
 ### RBAC
 
 - **RolesGuard** (`roles.guard.ts`): NestJS guard. Reads `@Roles(...)` metadata from reflector. Compares against `request.user.role`. Returns 403 if not authorized.
-- **@Roles decorator** (`roles.decorator.ts`): `@Roles('OrgAdmin', 'Recruiter')` sets metadata.
-- Roles: SuperAdmin (platform), OrgAdmin (tenant), Recruiter, HiringManager, Interviewer, Candidate.
+- **@Roles decorator** (`roles.decorator.ts`): `@Roles('CompanyAdmin', 'Recruiter')` sets metadata.
+- Roles: SuperAdmin (platform), CompanyAdmin (company), Recruiter, HiringManager, Interviewer, Candidate.
 
 ### Repositories
 
-- **TenantRepository**: `findBySlug(slug)`, `findById(id)`, `create(data)` — all use `forPublic()`
-- **UserRepository**: `findByEmail(email)`, `findById(id)`, `create(data)` — all use `forCurrentTenant()`
+- **CompanyRepository**: `findBySlug(slug)`, `findById(id)`, `create(data)` — all use `forPublic()`
+- **UserRepository**: `findByEmail(email)`, `findById(id)`, `create(data)` — all use `forCurrentCompany()`
 - **RefreshTokenRepository**: `create(data)`, `findByUserId(userId)`, `deleteByUserId(userId)` — uses `forPublic()`
 
 ### Endpoints
@@ -101,12 +101,12 @@ All tables in `tenant_{id}` schema, no `tenant_id` columns:
 | POST | `/auth/refresh` | No | — | `{ refreshToken }` |
 | GET | `/health` | No | — | — |
 
-JWT payload: `{ sub: userId, tenantId, role }`.
+JWT payload: `{ sub: userId, companyId, role }`.
 
 ### App Wiring
 
 `AppModule` imports: `ConfigModule`, `AuthModule`, `HealthController`.  
-Global providers: `APP_INTERCEPTOR` → `TenantContextInterceptor`, `APP_GUARD` → `RolesGuard`.
+Global providers: `APP_INTERCEPTOR` → `CompanyContextInterceptor`, `APP_GUARD` → `RolesGuard`.
 
 ### Frontend Auth
 
@@ -122,7 +122,7 @@ Global providers: `APP_INTERCEPTOR` → `TenantContextInterceptor`, `APP_GUARD` 
 
 ## Template Schema Creation
 
-After `drizzle-kit migrate` creates public tables, connect to postgres and run SQL to clone all tenant-scoped tables into a `template` schema. This is a one-time manual step (or added to a migration script).
+After `drizzle-kit migrate` creates public tables, connect to postgres and run SQL to clone all company-scoped tables into a `template` schema. This is a one-time manual step (or added to a migration script).
 
 ## Verification
 

@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build schema-per-tenant auth with JWT access + DB-backed refresh tokens, RBAC, and frontend auth shell.
+**Goal:** Build schema-per-company auth with JWT access + DB-backed refresh tokens, RBAC, and frontend auth shell.
 
-**Architecture:** Single shared pg Pool. Each request gets a dedicated client with `SET search_path` to isolate tenant data. `userEmails` table in public schema enables O(1) login lookups. Refresh tokens stored hashed in public `refreshTokens` for revocability.
+**Architecture:** Single shared pg Pool. Each request gets a dedicated client with `SET search_path` to isolate company data. `userEmails` table in public schema enables O(1) login lookups. Refresh tokens stored hashed in public `refreshTokens` for revocability.
 
 **Tech Stack:** NestJS, Drizzle ORM, PostgreSQL, Passport JWT, Argon2, React, Mantine, TanStack Router, Zustand
 
@@ -23,7 +23,7 @@ import { sql } from 'drizzle-orm';
 
 // ── Public Schema Tables ──
 
-export const tenants = pgTable('tenants', {
+export const companies = pgTable('companies', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: varchar('name', { length: 255 }).notNull(),
   slug: varchar('slug', { length: 100 }).notNull().unique(),
@@ -39,27 +39,27 @@ export const skills = pgTable('skills', {
 
 export const auditLogs = pgTable('audit_logs', {
   id: uuid('id').defaultRandom().primaryKey(),
-  tenantId: varchar('tenant_id', { length: 36 }).notNull(),
+  companyId: varchar('company_id', { length: 36 }).notNull(),
   userId: varchar('user_id', { length: 36 }).notNull(),
   action: varchar('action', { length: 100 }).notNull(),
   resourceId: varchar('resource_id', { length: 36 }),
   metadata: text('metadata'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => ({
-  tenantActionIdx: index('idx_audit_logs_tenant_action').on(table.tenantId, table.action),
+  companyActionIdx: index('idx_audit_logs_company_action').on(table.companyId, table.action),
 }));
 
 export const userEmails = pgTable('user_emails', {
   id: uuid('id').defaultRandom().primaryKey(),
   email: varchar('email', { length: 255 }).notNull().unique(),
-  tenantId: uuid('tenant_id').notNull(),
+  companyId: uuid('company_id').notNull(),
   userId: uuid('user_id').notNull(),
 });
 
 export const refreshTokens = pgTable('refresh_tokens', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('user_id').notNull(),
-  tenantId: uuid('tenant_id').notNull(),
+  companyId: uuid('company_id').notNull(),
   tokenHash: varchar('token_hash', { length: 255 }).notNull(),
   expiresAt: timestamp('expires_at').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -67,13 +67,13 @@ export const refreshTokens = pgTable('refresh_tokens', {
   userIdx: index('idx_refresh_tokens_user').on(table.userId),
 }));
 
-// ── Tenant Schema Tables (recreated per tenant) ──
+// ── Company Schema Tables (recreated per company) ──
 
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
   email: varchar('email', { length: 255 }).notNull().unique(),
   passwordHash: varchar('password_hash', { length: 255 }).notNull(),
-  role: varchar('role', { length: 50 }).default('OrgAdmin').notNull(),
+  role: varchar('role', { length: 50 }).default('CompanyAdmin').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -236,7 +236,7 @@ import { Injectable, Inject } from '@nestjs/common';
 import { Pool, PoolClient } from 'pg';
 import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DRIZZLE_PROVIDER } from './drizzle.provider';
-import { getSchema } from '../interceptors/tenant-context';
+import { getSchema } from '../interceptors/company-context';
 import * as schema from './schema';
 
 export type DrizzleDB = NodePgDatabase<typeof schema>;
@@ -245,7 +245,7 @@ export type DrizzleDB = NodePgDatabase<typeof schema>;
 export class DrizzleSchemaService {
   constructor(@Inject(DRIZZLE_PROVIDER) private pool: Pool) {}
 
-  async forCurrentTenant(): Promise<{ db: DrizzleDB; release: () => void }> {
+  async forCurrentCompany(): Promise<{ db: DrizzleDB; release: () => void }> {
     const schemaName = getSchema();
     const client = await this.pool.connect();
     await client.query(`SET search_path TO ${schemaName}, public`);
@@ -278,58 +278,58 @@ git commit -m "phase1: drizzle provider + schema routing service"
 
 ---
 
-### Task 3: Tenant Context (AsyncLocalStorage)
+### Task 3: Company Context (AsyncLocalStorage)
 
 **Files:**
-- Create: `backend/src/interceptors/tenant-context.ts`
-- Create: `backend/src/interceptors/tenant-context.interceptor.ts`
+- Create: `backend/src/interceptors/company-context.ts`
+- Create: `backend/src/interceptors/company-context.interceptor.ts`
 
-- [ ] **Step 1: Create tenant context utilities**
+- [ ] **Step 1: Create company context utilities**
 
 ```typescript
 import { AsyncLocalStorage } from 'async_hooks';
 
-export interface TenantContext {
-  tenantId: string;
+export interface CompanyContext {
+  companyId: string;
   userId: string;
   role: string;
 }
 
-export const asyncStorage = new AsyncLocalStorage<TenantContext>();
+export const asyncStorage = new AsyncLocalStorage<CompanyContext>();
 
-export function getTenantId(): string {
+export function getCompanyId(): string {
   const ctx = asyncStorage.getStore();
-  if (!ctx) throw new Error('No tenant context');
-  return ctx.tenantId;
+  if (!ctx) throw new Error('No company context');
+  return ctx.companyId;
 }
 
 export function getSchema(): string {
-  return `tenant_${getTenantId()}`;
+  return `company_${getCompanyId()}`;
 }
 
-export function getCurrentUser(): TenantContext {
+export function getCurrentUser(): CompanyContext {
   const ctx = asyncStorage.getStore();
-  if (!ctx) throw new Error('No tenant context');
+  if (!ctx) throw new Error('No company context');
   return ctx;
 }
 ```
 
-- [ ] **Step 2: Create tenant context interceptor**
+- [ ] **Step 2: Create company context interceptor**
 
 ```typescript
 import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
 import { Observable } from 'rxjs';
-import { asyncStorage, TenantContext } from './tenant-context';
+import { asyncStorage, CompanyContext } from './company-context';
 
 @Injectable()
-export class TenantContextInterceptor implements NestInterceptor {
+export class CompanyContextInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest();
-    const user = request.user as TenantContext | undefined;
+    const user = request.user as CompanyContext | undefined;
 
-    const ctx: TenantContext = user
-      ? { tenantId: user.tenantId, userId: user.userId, role: user.role }
-      : { tenantId: 'public', userId: '', role: 'anonymous' };
+    const ctx: CompanyContext = user
+      ? { companyId: user.companyId, userId: user.userId, role: user.role }
+      : { companyId: 'public', userId: '', role: 'anonymous' };
 
     return new Observable((subscriber) => {
       asyncStorage.run(ctx, () => {
@@ -347,8 +347,8 @@ export class TenantContextInterceptor implements NestInterceptor {
 - [ ] **Step 3: Commit**
 
 ```bash
-git add backend/src/interceptors/tenant-context.ts backend/src/interceptors/tenant-context.interceptor.ts
-git commit -m "phase1: tenant context + interceptor"
+git add backend/src/interceptors/company-context.ts backend/src/interceptors/company-context.interceptor.ts
+git commit -m "phase1: company context + interceptor"
 ```
 
 ---
@@ -357,7 +357,7 @@ git commit -m "phase1: tenant context + interceptor"
 
 **Files:**
 - Create: `backend/src/shared/password.ts`
-- Create: `backend/src/repositories/tenant.repository.ts`
+- Create: `backend/src/repositories/company.repository.ts`
 - Create: `backend/src/repositories/user.repository.ts`
 
 - [ ] **Step 1: Create password utility**
@@ -374,22 +374,22 @@ export async function verifyPassword(hash: string, password: string): Promise<bo
 }
 ```
 
-- [ ] **Step 2: Create tenant repository**
+- [ ] **Step 2: Create company repository**
 
 ```typescript
 import { Injectable } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { DrizzleSchemaService } from '../database/drizzle-schema.service';
-import { tenants } from '../database/schema';
+import { companies } from '../database/schema';
 
 @Injectable()
-export class TenantRepository {
+export class CompanyRepository {
   constructor(private drizzleSchema: DrizzleSchemaService) {}
 
   async findBySlug(slug: string) {
     const { db, release } = await this.drizzleSchema.forPublic();
     try {
-      return db.select().from(tenants).where(eq(tenants.slug, slug)).execute();
+      return db.select().from(companies).where(eq(companies.slug, slug)).execute();
     } finally {
       release();
     }
@@ -398,7 +398,7 @@ export class TenantRepository {
   async findById(id: string) {
     const { db, release } = await this.drizzleSchema.forPublic();
     try {
-      return db.select().from(tenants).where(eq(tenants.id, id)).execute();
+      return db.select().from(companies).where(eq(companies.id, id)).execute();
     } finally {
       release();
     }
@@ -407,7 +407,7 @@ export class TenantRepository {
   async create(data: { name: string; slug: string }) {
     const { db, release } = await this.drizzleSchema.forPublic();
     try {
-      return db.insert(tenants).values(data).returning().execute();
+      return db.insert(companies).values(data).returning().execute();
     } finally {
       release();
     }
@@ -428,7 +428,7 @@ export class UserRepository {
   constructor(private drizzleSchema: DrizzleSchemaService) {}
 
   async findByEmail(email: string) {
-    const { db, release } = await this.drizzleSchema.forCurrentTenant();
+    const { db, release } = await this.drizzleSchema.forCurrentCompany();
     try {
       return db.select().from(users).where(eq(users.email, email)).execute();
     } finally {
@@ -437,7 +437,7 @@ export class UserRepository {
   }
 
   async findById(id: string) {
-    const { db, release } = await this.drizzleSchema.forCurrentTenant();
+    const { db, release } = await this.drizzleSchema.forCurrentCompany();
     try {
       return db.select().from(users).where(eq(users.id, id)).execute();
     } finally {
@@ -446,7 +446,7 @@ export class UserRepository {
   }
 
   async create(data: { email: string; passwordHash: string; role: string }) {
-    const { db, release } = await this.drizzleSchema.forCurrentTenant();
+    const { db, release } = await this.drizzleSchema.forCurrentCompany();
     try {
       return db.insert(users).values(data).returning().execute();
     } finally {
@@ -460,7 +460,7 @@ export class UserRepository {
 
 ```bash
 git add backend/src/shared/password.ts backend/src/repositories/
-git commit -m "phase1: password utility + tenant + user repositories"
+git commit -m "phase1: password utility + company + user repositories"
 ```
 
 ---
@@ -538,8 +538,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string; tenantId: string; role: string }) {
-    return { userId: payload.sub, tenantId: payload.tenantId, role: payload.role };
+  async validate(payload: { sub: string; companyId: string; role: string }) {
+    return { userId: payload.sub, companyId: payload.companyId, role: payload.role };
   }
 }
 ```
@@ -552,9 +552,9 @@ import { JwtService } from '@nestjs/jwt';
 import { randomUUID } from 'crypto';
 import { hashPassword, verifyPassword } from '../../shared/password';
 import { DrizzleSchemaService } from '../../database/drizzle-schema.service';
-import { TenantRepository } from '../../repositories/tenant.repository';
+import { CompanyRepository } from '../../repositories/company.repository';
 import { UserRepository } from '../../repositories/user.repository';
-import { userEmails, refreshTokens, tenants, users, pipelineStages } from '../../database/schema';
+import { userEmails, refreshTokens, companies, users, pipelineStages } from '../../database/schema';
 import { eq } from 'drizzle-orm';
 import * as argon2 from 'argon2';
 
@@ -563,28 +563,28 @@ export class AuthService {
   constructor(
     private jwtService: JwtService,
     private drizzleSchema: DrizzleSchemaService,
-    private tenantRepo: TenantRepository,
+    private companyRepo: CompanyRepository,
     private userRepo: UserRepository,
   ) {}
 
   async signup(dto: { companyName: string; slug: string; email: string; password: string }) {
-    const existing = await this.tenantRepo.findBySlug(dto.slug);
+    const existing = await this.companyRepo.findBySlug(dto.slug);
     if (existing.length > 0) throw new ConflictException('Slug already taken');
 
-    const tenantId = randomUUID();
+    const companyId = randomUUID();
     const { db: pubDb, release: pubRelease } = await this.drizzleSchema.forPublic();
     try {
-      await pubDb.insert(tenants).values({ id: tenantId, name: dto.companyName, slug: dto.slug }).execute();
+      await pubDb.insert(companies).values({ id: companyId, name: dto.companyName, slug: dto.slug }).execute();
     } finally {
       pubRelease();
     }
 
     const { db: schemaDb, release: schemaRelease } = await this.drizzleSchema.forPublic();
     try {
-      await schemaDb.execute(`CREATE SCHEMA IF NOT EXISTS "tenant_${tenantId}"`);
+      await schemaDb.execute(`CREATE SCHEMA IF NOT EXISTS "company_${companyId}"`);
       const tables = ['users', 'job_postings', 'candidates', 'pipeline_stages', 'applications', 'resumes', 'resume_skills', 'job_required_skills', 'interviews', 'interview_feedbacks', 'notes'];
       for (const table of tables) {
-        await schemaDb.execute(`CREATE TABLE IF NOT EXISTS "tenant_${tenantId}"."${table}" (LIKE template."${table}" INCLUDING ALL)`);
+        await schemaDb.execute(`CREATE TABLE IF NOT EXISTS "company_${companyId}"."${table}" (LIKE template."${table}" INCLUDING ALL)`);
       }
     } finally {
       schemaRelease();
@@ -593,9 +593,9 @@ export class AuthService {
     const passwordHash = await hashPassword(dto.password);
     const userId = randomUUID();
 
-    const { db, release } = await this.drizzleSchema.forSchema(`tenant_${tenantId}`);
+    const { db, release } = await this.drizzleSchema.forSchema(`company_${companyId}`);
     try {
-      await db.insert(users).values({ id: userId, email: dto.email, passwordHash, role: 'OrgAdmin' }).execute();
+      await db.insert(users).values({ id: userId, email: dto.email, passwordHash, role: 'CompanyAdmin' }).execute();
 
       const defaultStages = ['Applied', 'Screening', 'Interview', 'Offer', 'Hired', 'Rejected'];
       for (let i = 0; i < defaultStages.length; i++) {
@@ -607,17 +607,17 @@ export class AuthService {
 
     const { db: pubDb2, release: pubRelease2 } = await this.drizzleSchema.forPublic();
     try {
-      await pubDb2.insert(userEmails).values({ email: dto.email, tenantId, userId }).execute();
+      await pubDb2.insert(userEmails).values({ email: dto.email, companyId, userId }).execute();
     } finally {
       pubRelease2();
     }
 
-    return this.generateTokens(userId, tenantId, 'OrgAdmin');
+    return this.generateTokens(userId, companyId, 'CompanyAdmin');
   }
 
   async login(dto: { email: string; password: string }) {
     const { db: pubDb, release } = await this.drizzleSchema.forPublic();
-    let emailRecord: { tenantId: string; userId: string } | undefined;
+    let emailRecord: { companyId: string; userId: string } | undefined;
     try {
       const records = await pubDb.select().from(userEmails).where(eq(userEmails.email, dto.email)).execute();
       if (records.length === 0) throw new UnauthorizedException('Invalid credentials');
@@ -633,11 +633,11 @@ export class AuthService {
     const valid = await verifyPassword(user.passwordHash, dto.password);
     if (!valid) throw new UnauthorizedException('Invalid credentials');
 
-    return this.generateTokens(user.id, emailRecord.tenantId, user.role);
+    return this.generateTokens(user.id, emailRecord.companyId, user.role);
   }
 
   async refresh(dto: { refreshToken: string }) {
-    let payload: { sub: string; tenantId: string; role: string };
+    let payload: { sub: string; companyId: string; role: string };
     try {
       payload = this.jwtService.verify(dto.refreshToken, { secret: process.env.JWT_REFRESH_SECRET! });
     } catch {
@@ -663,21 +663,21 @@ export class AuthService {
       const tokenMatches = await argon2.verify(stored.tokenHash, dto.refreshToken);
       if (!tokenMatches) throw new UnauthorizedException('Invalid refresh token');
 
-      return this.generateTokens(payload.sub, payload.tenantId, payload.role);
+      return this.generateTokens(payload.sub, payload.companyId, payload.role);
     } finally {
       release();
     }
   }
 
-  private async generateTokens(userId: string, tenantId: string, role: string) {
+  private async generateTokens(userId: string, companyId: string, role: string) {
     const accessToken = this.jwtService.sign(
-      { sub: userId, tenantId, role },
+      { sub: userId, companyId, role },
       { expiresIn: '15m' },
     );
 
     const rawRefresh = randomUUID();
     const refreshToken = this.jwtService.sign(
-      { sub: userId, tenantId, role },
+      { sub: userId, companyId, role },
       { secret: process.env.JWT_REFRESH_SECRET!, expiresIn: '7d' },
     );
 
@@ -687,7 +687,7 @@ export class AuthService {
     try {
       await db.delete(refreshTokens).where(eq(refreshTokens.userId, userId)).execute();
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      await db.insert(refreshTokens).values({ userId, tenantId, tokenHash, expiresAt }).execute();
+      await db.insert(refreshTokens).values({ userId, companyId, tokenHash, expiresAt }).execute();
     } finally {
       release();
     }
@@ -738,7 +738,7 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { DrizzleSchemaService } from '../../database/drizzle-schema.service';
 import { drizzleProvider } from '../../database/drizzle.provider';
-import { TenantRepository } from '../../repositories/tenant.repository';
+import { CompanyRepository } from '../../repositories/company.repository';
 import { UserRepository } from '../../repositories/user.repository';
 
 @Module({
@@ -753,7 +753,7 @@ import { UserRepository } from '../../repositories/user.repository';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, DrizzleSchemaService, drizzleProvider, TenantRepository, UserRepository],
+  providers: [AuthService, JwtStrategy, DrizzleSchemaService, drizzleProvider, CompanyRepository, UserRepository],
   exports: [JwtStrategy, PassportModule],
 })
 export class AuthModule {}
@@ -797,14 +797,14 @@ import { APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthController } from './modules/health/health.controller';
-import { TenantContextInterceptor } from './interceptors/tenant-context.interceptor';
+import { CompanyContextInterceptor } from './interceptors/company-context.interceptor';
 import { RolesGuard } from './shared/roles.guard';
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true }), AuthModule],
   controllers: [HealthController],
   providers: [
-    { provide: APP_INTERCEPTOR, useClass: TenantContextInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: CompanyContextInterceptor },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
@@ -897,7 +897,7 @@ interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
   userId: string | null;
-  tenantId: string | null;
+  companyId: string | null;
   role: string | null;
   login: (email: string, password: string) => Promise<void>;
   signup: (data: { companyName: string; slug: string; email: string; password: string }) => Promise<void>;
@@ -912,7 +912,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   accessToken: localStorage.getItem('accessToken'),
   refreshToken: localStorage.getItem('refreshToken'),
   userId: localStorage.getItem('userId'),
-  tenantId: localStorage.getItem('tenantId'),
+  companyId: localStorage.getItem('companyId'),
   role: localStorage.getItem('role'),
 
   login: async (email, password) => {
@@ -927,9 +927,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
     localStorage.setItem('userId', payload.sub);
-    localStorage.setItem('tenantId', payload.tenantId);
+    localStorage.setItem('companyId', payload.companyId);
     localStorage.setItem('role', payload.role);
-    set({ accessToken: data.accessToken, refreshToken: data.refreshToken, userId: payload.sub, tenantId: payload.tenantId, role: payload.role });
+    set({ accessToken: data.accessToken, refreshToken: data.refreshToken, userId: payload.sub, companyId: payload.companyId, role: payload.role });
   },
 
   signup: async (data) => {
@@ -945,9 +945,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('userId');
-    localStorage.removeItem('tenantId');
+    localStorage.removeItem('companyId');
     localStorage.removeItem('role');
-    set({ accessToken: null, refreshToken: null, userId: null, tenantId: null, role: null });
+    set({ accessToken: null, refreshToken: null, userId: null, companyId: null, role: null });
   },
 
   refreshAuth: async () => {
@@ -1320,5 +1320,5 @@ Open `http://localhost:5173` — should see login page. Navigate to `/signup` �
 
 ```bash
 git add -A
-git commit -m "phase1: auth, schema-per-tenant, RBAC — backend + frontend"
+git commit -m "phase1: auth, schema-per-company, RBAC — backend + frontend"
 ```

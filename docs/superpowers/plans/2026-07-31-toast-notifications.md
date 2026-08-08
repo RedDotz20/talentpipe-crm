@@ -4,7 +4,7 @@
 
 **Goal:** Ship the foundation for user-facing toast notifications across the app. Backend response/error envelopes become canonical (`{ data, message }` and `{ error: { code, message } }`); frontend mounts Mantine's `<Notifications>` provider and gains a `useApiMutation` hook that auto-toasts every mutation. M2+ features inherit toasting for free.
 
-**Architecture:** Two new backend files (`response.interceptor.ts`, `api-exception.filter.ts`) registered globally in `main.ts`. They normalize every NestJS 2xx into `{ data, message }` and every thrown error into `{ error: { code, message } }`, matching the contract already documented in `AGENTS.md`, `docs/00_PROJECT_INSTRUCTIONS.md`, and `docs/00b_LOCAL_DEV_BOOTSTRAP.md`. The `signin`, `candidateSignup`, and `orgSignup` handlers return explicit envelopes so their success toasts have meaningful copy from day one. On the frontend, `useApiMutation` wraps `@tanstack/react-query`'s `useMutation` and toasts on success/failure, suppressing noise on 401s (the axios client already redirects on token-present 401s).
+**Architecture:** Two new backend files (`response.interceptor.ts`, `api-exception.filter.ts`) registered globally in `main.ts`. They normalize every NestJS 2xx into `{ data, message }` and every thrown error into `{ error: { code, message } }`, matching the contract already documented in `AGENTS.md`, `docs/00_PROJECT_INSTRUCTIONS.md`, and `docs/00b_LOCAL_DEV_BOOTSTRAP.md`. The `signin`, `candidateSignup`, and `companySignup` handlers return explicit envelopes so their success toasts have meaningful copy from day one. On the frontend, `useApiMutation` wraps `@tanstack/react-query`'s `useMutation` and toasts on success/failure, suppressing noise on 401s (the axios client already redirects on token-present 401s).
 
 **Tech Stack:** NestJS 11, RxJS, `@tanstack/react-query@5.101`, `@mantine/notifications@9.4.2`, axios 1.x, Jest (backend), Vitest/Jest pattern (frontend — none configured yet, manual verification only).
 
@@ -422,7 +422,7 @@ git commit -m "feat(be): register response interceptor + exception filter global
 
 ---
 
-### Task 4: Backend — wrap `signin`, `candidateSignup`, `orgSignup` returns in explicit envelopes
+### Task 4: Backend — wrap `signin`, `candidateSignup`, `companySignup` returns in explicit envelopes
 
 **Files:**
 - Modify: `backend/src/modules/auth/auth.service.ts`
@@ -430,7 +430,7 @@ git commit -m "feat(be): register response interceptor + exception filter global
 **Interfaces:**
 - `authService.signin(dto)` returns `{ data: { accessToken, refreshToken }, message: 'Signed in' }` (was: `{ accessToken, refreshToken }`)
 - `authService.candidateSignup(dto)` returns `{ data: { candidateAccountId }, message: 'Account created' }` (was: `{ accessToken, refreshToken }` — note callers don't currently use these tokens directly, see step 4)
-- `authService.orgSignup(dto)` returns `{ data: { tenantId, userId }, message: 'Company created' }` (was: bare tokens + tenantId)
+- `authService.companySignup(dto)` returns `{ data: { companyId, userId }, message: 'Company created' }` (was: bare tokens + companyId)
 
 **Pre-step:** Read `auth.service.ts` end-to-end. Confirmed: callers in auth.controller pass service return values straight through; no callers in `frontend/src/api/authApi.ts` touch the *bare* shape — they only read `accessToken` and `refreshToken` from the signin response. After M1.5, those reads shift to `data.accessToken`/`data.refreshToken` (handled in Task 7).
 
@@ -439,7 +439,7 @@ git commit -m "feat(be): register response interceptor + exception filter global
 In `backend/src/modules/auth/auth.service.ts`, change the three return points inside `signin()`. Find each `return this.generateTokens(...)` / `return this.generateSuperAdminTokens(...)` / `return this.generateCandidateTokens(...)` (lines ~165, ~188, ~197) and replace with:
 
 ```typescript
-      const tokens = await this.generateTokens(user.id, emailRecord.tenantId, user.role);
+      const tokens = await this.generateTokens(user.id, emailRecord.companyId, user.role);
       return { data: tokens, message: 'Signed in' };
 ```
 
@@ -453,12 +453,12 @@ In `backend/src/modules/auth/auth.service.ts`, change the three return points in
 
 Important: keep `await` where appropriate so the return type stays explicit. Verify by reading the function top-to-bottom after the edit.
 
-- [ ] **Step 2: Update `orgSignup()` return**
+- [ ] **Step 2: Update `companySignup()` return**
 
-Find `return this.generateTokens(userId, tenantId, 'OrgAdmin');` at the end of `orgSignup()` (line ~129) and replace with:
+Find `return this.generateTokens(userId, companyId, 'CompanyAdmin');` at the end of `companySignup()` (line ~129) and replace with:
 
 ```typescript
-    const tokens = await this.generateTokens(userId, tenantId, 'OrgAdmin');
+    const tokens = await this.generateTokens(userId, companyId, 'CompanyAdmin');
     return { data: tokens, message: 'Company created' };
 ```
 
@@ -515,7 +515,7 @@ cd backend && Get-Content test/app.e2e-spec.ts   # PowerShell
 
 (the file likely already imports `AppModule` and boots the app — keep that setup.)
 
-From `docs/00b_LOCAL_DEV_BOOTSTRAP.md` (lines around 162), the seed creates 3 sample accounts. Pick the **org admin** credential for the happy-path test. If unsure, use a generic placeholder; the test will skip if login fails and the engineer can update once the seed accounts are known.
+From `docs/00b_LOCAL_DEV_BOOTSTRAP.md` (lines around 162), the seed creates 3 sample accounts. Pick the **company admin** credential for the happy-path test. If unsure, use a generic placeholder; the test will skip if login fails and the engineer can update once the seed accounts are known.
 
 - [ ] **Step 2: Add two new test cases**
 

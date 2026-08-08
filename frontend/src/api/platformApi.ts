@@ -1,7 +1,7 @@
 import { apiClient } from './client';
 import type { ApiEnvelope } from '@/hooks/useApiMutation';
 
-export interface PlatformTenant {
+export interface PlatformCompany {
   id: string;
   name: string;
   slug: string;
@@ -10,13 +10,13 @@ export interface PlatformTenant {
   createdAt: string;
 }
 
-export interface TenantDetail extends PlatformTenant {
+export interface CompanyDetail extends PlatformCompany {
   users: number;
   applications: number;
 }
 
 export interface PlatformStats {
-  tenants: number;
+  companies: number;
   users: number;
   applications: number;
 }
@@ -40,8 +40,8 @@ export interface PlatformCandidate {
 
 export interface PlatformApplication {
   id: string;
-  tenantId: string;
-  tenantName: string;
+  companyId: string;
+  companyName: string;
   candidateName: string;
   candidateEmail: string;
   jobTitle: string;
@@ -52,8 +52,8 @@ export interface PlatformApplication {
 
 export interface PlatformInterview {
   id: string;
-  tenantId: string;
-  tenantName: string;
+  companyId: string;
+  companyName: string;
   candidateName: string;
   jobTitle: string;
   interviewerEmail: string;
@@ -70,58 +70,58 @@ export interface PlatformStage {
 const unwrap = <T>(body: ApiEnvelope<T>): T => body.data;
 
 export const platformApi = {
-  listTenants: async (): Promise<PlatformTenant[]> => {
-    const { data } = await apiClient.get('/platform/tenants');
-    return unwrap(data as ApiEnvelope<PlatformTenant[]>);
+  listCompanies: async (): Promise<PlatformCompany[]> => {
+    const { data } = await apiClient.get('/platform/companies');
+    return unwrap(data as ApiEnvelope<PlatformCompany[]>);
   },
-  getTenant: async (id: string): Promise<TenantDetail> => {
-    const { data } = await apiClient.get(`/platform/tenants/${id}`);
-    return unwrap(data as ApiEnvelope<TenantDetail>);
+  getCompany: async (id: string): Promise<CompanyDetail> => {
+    const { data } = await apiClient.get(`/platform/companies/${id}`);
+    return unwrap(data as ApiEnvelope<CompanyDetail>);
   },
   setStatus: async (
     id: string,
     status: 'active' | 'suspended',
-  ): Promise<ApiEnvelope<PlatformTenant>> => {
+  ): Promise<ApiEnvelope<PlatformCompany>> => {
     const { data } = await apiClient.patch(
-      `/platform/tenants/${id}/${status === 'suspended' ? 'suspend' : 'reactivate'}`,
+      `/platform/companies/${id}/${status === 'suspended' ? 'suspend' : 'reactivate'}`,
     );
-    return data as ApiEnvelope<PlatformTenant>;
+    return data as ApiEnvelope<PlatformCompany>;
   },
   getStats: async (): Promise<PlatformStats> => {
     const { data } = await apiClient.get('/platform/stats');
     return unwrap(data as ApiEnvelope<PlatformStats>);
   },
-  listTenantUsers: async (tenantId: string): Promise<PlatformUser[]> => {
-    const { data } = await apiClient.get(`/platform/tenants/${tenantId}/users`);
+  listCompanyUsers: async (companyId: string): Promise<PlatformUser[]> => {
+    const { data } = await apiClient.get(`/platform/companies/${companyId}/users`);
     return unwrap(data as ApiEnvelope<PlatformUser[]>);
   },
-  createTenantUser: async (
-    tenantId: string,
+  createCompanyUser: async (
+    companyId: string,
     body: { email: string; role: string; password: string },
   ): Promise<ApiEnvelope<{ id: string; email: string; role: string }>> => {
-    const { data } = await apiClient.post(`/platform/tenants/${tenantId}/users`, body);
+    const { data } = await apiClient.post(`/platform/companies/${companyId}/users`, body);
     return data as ApiEnvelope<{ id: string; email: string; role: string }>;
   },
-  updateTenantUser: async (
-    tenantId: string,
+  updateCompanyUser: async (
+    companyId: string,
     userId: string,
     body: { role?: string; password?: string },
   ): Promise<ApiEnvelope<{ id: string; email: string; role: string }>> => {
-    const { data } = await apiClient.patch(`/platform/tenants/${tenantId}/users/${userId}`, body);
+    const { data } = await apiClient.patch(`/platform/companies/${companyId}/users/${userId}`, body);
     return data as ApiEnvelope<{ id: string; email: string; role: string }>;
   },
-  setTenantUserStatus: async (
-    tenantId: string,
+  setCompanyUserStatus: async (
+    companyId: string,
     userId: string,
     status: 'active' | 'suspended',
   ): Promise<ApiEnvelope<{ id: string; email: string; role: string; status: string }>> => {
     const { data } = await apiClient.patch(
-      `/platform/tenants/${tenantId}/users/${userId}/${status === 'suspended' ? 'suspend' : 'reactivate'}`,
+      `/platform/companies/${companyId}/users/${userId}/${status === 'suspended' ? 'suspend' : 'reactivate'}`,
     );
     return data as ApiEnvelope<{ id: string; email: string; role: string; status: string }>;
   },
-  removeTenantUser: async (tenantId: string, userId: string): Promise<ApiEnvelope<{ id: string }>> => {
-    const { data } = await apiClient.delete(`/platform/tenants/${tenantId}/users/${userId}`);
+  removeCompanyUser: async (companyId: string, userId: string): Promise<ApiEnvelope<{ id: string }>> => {
+    const { data } = await apiClient.delete(`/platform/companies/${companyId}/users/${userId}`);
     return data as ApiEnvelope<{ id: string }>;
   },
   listCandidates: async (): Promise<PlatformCandidate[]> => {
@@ -145,18 +145,18 @@ export const platformApi = {
     const { data } = await apiClient.delete(`/platform/candidates/${id}`);
     return data as ApiEnvelope<{ id: string }>;
   },
-  listApplications: async (filters?: { tenantId?: string; status?: string }): Promise<PlatformApplication[]> => {
+  listApplications: async (filters?: { companyId?: string; status?: string }): Promise<PlatformApplication[]> => {
     const { data } = await apiClient.get('/platform/applications', { params: filters });
     return unwrap(data as ApiEnvelope<PlatformApplication[]>);
   },
   moveApplicationStage: async (
     id: string,
     stageId: string,
-  ): Promise<ApiEnvelope<Omit<PlatformApplication, 'tenantId' | 'tenantName'>>> => {
+  ): Promise<ApiEnvelope<Omit<PlatformApplication, 'companyId' | 'companyName'>>> => {
     const { data } = await apiClient.patch(`/platform/applications/${id}/stage`, { stageId });
-    return data as ApiEnvelope<Omit<PlatformApplication, 'tenantId' | 'tenantName'>>;
+    return data as ApiEnvelope<Omit<PlatformApplication, 'companyId' | 'companyName'>>;
   },
-  listInterviews: async (filters?: { tenantId?: string; status?: string }): Promise<PlatformInterview[]> => {
+  listInterviews: async (filters?: { companyId?: string; status?: string }): Promise<PlatformInterview[]> => {
     const { data } = await apiClient.get('/platform/interviews', { params: filters });
     return unwrap(data as ApiEnvelope<PlatformInterview[]>);
   },
@@ -167,8 +167,8 @@ export const platformApi = {
     const { data } = await apiClient.patch(`/platform/interviews/${id}`, body);
     return data as ApiEnvelope<{ id: string; applicationId: string; interviewerId: string; scheduledAt: string; status: string }>;
   },
-  listTenantStages: async (tenantId: string): Promise<PlatformStage[]> => {
-    const { data } = await apiClient.get(`/platform/tenants/${tenantId}/pipeline-stages`);
+  listCompanyStages: async (companyId: string): Promise<PlatformStage[]> => {
+    const { data } = await apiClient.get(`/platform/companies/${companyId}/pipeline-stages`);
     return unwrap(data as ApiEnvelope<PlatformStage[]>);
   },
 };

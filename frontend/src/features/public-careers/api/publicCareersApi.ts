@@ -9,8 +9,8 @@ export interface PublicSkill {
 
 export interface PublicJobListing {
   id: string;
-  tenantId: string;
-  tenantSlug: string;
+  companyId: string;
+  companySlug: string;
   companyName: string;
   title: string;
   description: string | null;
@@ -25,19 +25,19 @@ export interface PublicJobDetail extends PublicJobListing {
 const unwrap = <T>(body: ApiEnvelope<T>): T => body.data;
 
 export const publicCareersApi = {
-  async getJobs(tenantSlug: string): Promise<PublicJobListing[]> {
+  async getJobs(companySlug: string): Promise<PublicJobListing[]> {
     const { data } = await apiClient.get(
-      `/public/${encodeURIComponent(tenantSlug)}/jobs`,
+      `/public/${encodeURIComponent(companySlug)}/jobs`,
     );
     return unwrap(data as ApiEnvelope<PublicJobListing[]>);
   },
 
   async getJob(
-    tenantSlug: string,
+    companySlug: string,
     jobId: string,
   ): Promise<PublicJobDetail> {
     const { data } = await apiClient.get(
-      `/public/${encodeURIComponent(tenantSlug)}/jobs/${encodeURIComponent(jobId)}`,
+      `/public/${encodeURIComponent(companySlug)}/jobs/${encodeURIComponent(jobId)}`,
     );
     return unwrap(data as ApiEnvelope<PublicJobDetail>);
   },

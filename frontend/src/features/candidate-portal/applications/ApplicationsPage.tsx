@@ -81,7 +81,7 @@ export function ApplicationsPage() {
         <Link
           to="/jobs/$jobId"
           params={{ jobId: app.jobPostingId }}
-          search={{ tenantId: app.tenantId }}
+          search={{ companyId: app.companyId }}
         >
           {app.jobTitle}
         </Link>

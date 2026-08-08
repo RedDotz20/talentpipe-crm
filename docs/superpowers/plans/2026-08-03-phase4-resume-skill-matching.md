@@ -6,17 +6,17 @@
 
 **Architecture:** New `StorageModule` (`backend/src/common/storage/`) wraps an `@aws-sdk/client-s3` `S3Client` pointed at the local MinIO container (`MINIO_ENDPOINT`, `forcePathStyle: true`) — the same client works against real S3 in prod via env swap. New `ResumesModule` (`backend/src/modules/resumes/`) exposes `GET/POST /candidates/:candidateId/resume`; upload validates type+size, writes the buffer to MinIO under a server-generated key, creates the `resumes` DB row, extracts text (pdf-parse/mammoth), extracts skills via substring match against the public `skills` taxonomy, persists `resume_skills`, then recomputes `applications.match_score` for every application of that candidate against each job's required skills. New `SkillMatchingModule` (`backend/src/modules/skill-matching/`) provides the pure `computeScore` function. `CandidatesService.getOne` is enriched to return `{ ...candidate, resume, applications }`. Frontend adds `@mantine/dropzone`, a `resumesApi` + hooks, `ResumeUploadInput`, `MatchScoreBadge`, and surfaces both in `CandidateProfile`.
 
-**Tech Stack:** NestJS 11 + Drizzle ORM + PostgreSQL (schema-per-tenant) + Zod 4, `@aws-sdk/client-s3` + MinIO, `pdf-parse` + `mammoth`, React 19 + Mantine 9 + TanStack Query 5 + TanStack Router 1.
+**Tech Stack:** NestJS 11 + Drizzle ORM + PostgreSQL (schema-per-company) + Zod 4, `@aws-sdk/client-s3` + MinIO, `pdf-parse` + `mammoth`, React 19 + Mantine 9 + TanStack Query 5 + TanStack Router 1.
 
 ## Global Constraints
 
 - Error shape `{ "error": { "code", "message" } }`; success envelope `{ "data": ..., "message": "OK" }` (ResponseInterceptor wraps 2xx).
-- All tenant-scoped DB access via repositories extending `BaseRepository` with `withDb('current', ...)`; public via `withDb('public', ...)`. No direct Drizzle outside `repositories/`.
-- Roles: `OrgAdmin` (OA), `Recruiter` (R), `HiringManager` (HM). Resume GET: OA/R/HM. Resume POST: OA/R. Global `RolesGuard` + route-level `@UseGuards(AuthGuard('jwt'))`.
-- MinIO object keys: `tenants/{tenantId}/resumes/{candidateId}/{uuid}.{ext}` — **server-generated only**, never client-supplied.
+- All company-scoped DB access via repositories extending `BaseRepository` with `withDb('current', ...)`; public via `withDb('public', ...)`. No direct Drizzle outside `repositories/`.
+- Roles: `CompanyAdmin` (OA), `Recruiter` (R), `HiringManager` (HM). Resume GET: OA/R/HM. Resume POST: OA/R. Global `RolesGuard` + route-level `@UseGuards(AuthGuard('jwt'))`.
+- MinIO object keys: `companies/{companyId}/resumes/{candidateId}/{uuid}.{ext}` — **server-generated only**, never client-supplied.
 - Upload constraints: mimetype must be `application/pdf` or `application/vnd.openxmlformats-officedocument.wordprocessingml.document`; multer limit 10MB; reject otherwise with `BadRequestException` (400).
 - `matchScore` recompute: for each of the candidate's applications, score = `computeScore(jobRequiredSkillIds, extractedSkillIds)` where `computeScore = required.length === 0 ? 0 : matched / required.length`. Persisted via `applications.match_score` (`updateMatchScore`).
-- `@CurrentUser()` → `TenantContext { tenantId, userId, role }`; `getTenantId()` from ALS for object keys.
+- `@CurrentUser()` → `CompanyContext { companyId, userId, role }`; `getCompanyId()` from ALS for object keys.
 - Frontend mutations use `useApiMutation` (auto-toasts). Queries use TanStack Query under the feature folder.
 - Backend unit tests follow the repo-mock pattern (`Test.createTestingModule`). Test files named `*.spec.ts` (Jest `testRegex`). Lint: backend ESLint, frontend oxlint. Typecheck: `npm run typecheck` both. Backend tests: `npm test`. Frontend build: `npm run build`.
 - Commits tagged `feat(m4): ...`.
@@ -419,7 +419,7 @@ git commit -m "feat(m4): skill matching service with unit tests"
 - Modify: `backend/src/app.module.ts`
 
 **Interfaces:**
-- Consumes: `ResumeRepository`, `CandidateRepository`, `SkillRepository`, `ApplicationRepository`, `JobPostingRepository` (via `RepositoriesModule`), `StorageService` (via `StorageModule`), `SkillMatchingService` (via `SkillMatchingModule`), `getTenantId()` from `common/context/tenant-context`, `randomUUID()` from `node:crypto`, `pdf-parse`, `mammoth`.
+- Consumes: `ResumeRepository`, `CandidateRepository`, `SkillRepository`, `ApplicationRepository`, `JobPostingRepository` (via `RepositoriesModule`), `StorageService` (via `StorageModule`), `SkillMatchingService` (via `SkillMatchingModule`), `getCompanyId()` from `common/context/company-context`, `randomUUID()` from `node:crypto`, `pdf-parse`, `mammoth`.
 - Produces:
   - `ResumesService.get(candidateId)` → `{ ...resumeRow, skills }` or 404 when no resume.
   - `ResumesService.upload(candidateId, file: Express.Multer.File)` → the enriched resume record; validates candidate exists (404), mimetype (400), 10MB (multer), uploads to MinIO, creates row, extracts text + skills, persists skills, recomputes matchScore for all the candidate's applications.
@@ -438,7 +438,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import * as pdfParse from 'pdf-parse';
 import * as mammoth from 'mammoth';
-import { getTenantId } from '../../common/context/tenant-context';
+import { getCompanyId } from '../../common/context/company-context';
 import { ResumeRepository } from '../../repositories/resume.repository';
 import { CandidateRepository } from '../../repositories/candidate.repository';
 import { SkillRepository } from '../../repositories/skill.repository';
@@ -476,7 +476,7 @@ export class ResumesService {
     this.assertSupportedType(file.mimetype);
 
     const ext = file.mimetype === PDF_MIME ? 'pdf' : 'docx';
-    const key = `tenants/${getTenantId()}/resumes/${candidateId}/${randomUUID()}.${ext}`;
+    const key = `companies/${getCompanyId()}/resumes/${candidateId}/${randomUUID()}.${ext}`;
     await this.storage.upload(key, file.buffer, file.mimetype);
 
     const resume = await this.resumeRepo.create({ candidateId, fileUrl: key });
@@ -553,8 +553,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ResumesService } from './resumes.service';
 
-const VIEW_ROLES = ['OrgAdmin', 'Recruiter', 'HiringManager'];
-const EDIT_ROLES = ['OrgAdmin', 'Recruiter'];
+const VIEW_ROLES = ['CompanyAdmin', 'Recruiter', 'HiringManager'];
+const EDIT_ROLES = ['CompanyAdmin', 'Recruiter'];
 
 @Controller('candidates')
 export class ResumesController {
@@ -611,7 +611,7 @@ export class ResumesModule {}
 ```ts
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { asyncStorage } from '../../common/context/tenant-context';
+import { asyncStorage } from '../../common/context/company-context';
 import { ResumesService } from './resumes.service';
 import { ResumeRepository } from '../../repositories/resume.repository';
 import { CandidateRepository } from '../../repositories/candidate.repository';
@@ -622,7 +622,7 @@ import { StorageService } from '../../common/storage/storage.service';
 import { SkillMatchingService } from '../skill-matching/skill-matching.service';
 
 const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
-  asyncStorage.run({ tenantId: 't1', userId: 'u1', role: 'OrgAdmin' }, fn);
+  asyncStorage.run({ companyId: 't1', userId: 'u1', role: 'CompanyAdmin' }, fn);
 
 const PDF_FILE = {
   buffer: Buffer.from('%PDF-test'),
@@ -730,7 +730,7 @@ describe('ResumesService', () => {
     const result = await runInContext(() => service.upload('c1', PDF_FILE));
 
     expect(storage.upload).toHaveBeenCalledWith(
-      expect.stringMatching(/^tenants\/t1\/resumes\/c1\/.+\.pdf$/),
+      expect.stringMatching(/^companies\/t1\/resumes\/c1\/.+\.pdf$/),
       PDF_FILE.buffer,
       'application/pdf',
     );
@@ -836,14 +836,14 @@ git commit -m "feat(m4): candidate profile includes resume and applications"
 - Modify: `frontend/package.json` (via npm install)
 - Create: `frontend/src/api/resumesApi.ts`
 - Modify: `frontend/src/api/queryKeys.ts`
-- Create: `frontend/src/features/org/candidates/hooks/useResume.ts`
+- Create: `frontend/src/features/company/candidates/hooks/useResume.ts`
 
 **Interfaces:**
 - Consumes: `apiClient` (`@/api/client`), `ApiEnvelope` (`@/hooks/useApiMutation`), `queryKeys`, `useApiMutation`.
 - Produces:
   - `Resume { id, candidateId, fileUrl: string | null, parsedText: string | null, uploadedAt: string, skills: Skill[] }`.
   - `resumesApi.get(candidateId): Promise<Resume>`; `resumesApi.upload(candidateId, file: File): Promise<Resume>` (FormData).
-  - `queryKeys.org.resume(candidateId)`.
+  - `queryKeys.company.resume(candidateId)`.
   - Hooks: `useResume(candidateId)`, `useUploadResume(candidateId)`.
 
 - [ ] **Step 1: Install `@mantine/dropzone`**
@@ -887,13 +887,13 @@ export const resumesApi = {
 };
 ```
 
-- [ ] **Step 3: `queryKeys.ts`** — add to `org` group:
+- [ ] **Step 3: `queryKeys.ts`** — add to `company` group:
 
 ```ts
-resume: (candidateId: string) => ['org', 'candidates', candidateId, 'resume'],
+resume: (candidateId: string) => ['company', 'candidates', candidateId, 'resume'],
 ```
 
-- [ ] **Step 4: `features/org/candidates/hooks/useResume.ts`**
+- [ ] **Step 4: `features/company/candidates/hooks/useResume.ts`**
 
 ```ts
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -903,7 +903,7 @@ import { useApiMutation } from '@/hooks/useApiMutation';
 
 export function useResume(candidateId: string) {
   return useQuery({
-    queryKey: queryKeys.org.resume(candidateId),
+    queryKey: queryKeys.company.resume(candidateId),
     queryFn: () => resumesApi.get(candidateId),
     enabled: !!candidateId,
     retry: false,
@@ -916,8 +916,8 @@ export function useUploadResume(candidateId: string) {
     mutationFn: (file: File) => resumesApi.upload(candidateId, file),
     successMessage: 'Resume uploaded and analyzed',
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.org.resume(candidateId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.org.candidate(candidateId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.company.resume(candidateId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.company.candidate(candidateId) });
     },
   });
 }
@@ -928,7 +928,7 @@ export function useUploadResume(candidateId: string) {
 - [ ] **Step 6: Commit**
 
 ```bash
-git add frontend/src/api frontend/src/features/org/candidates/hooks frontend/package.json
+git add frontend/src/api frontend/src/features/company/candidates/hooks frontend/package.json
 git commit -m "feat(m4): resumes API client, query keys, hooks"
 ```
 
@@ -937,10 +937,10 @@ git commit -m "feat(m4): resumes API client, query keys, hooks"
 ## Task 7: Frontend components
 
 **Files:**
-- Create: `frontend/src/features/org/candidates/MatchScoreBadge.tsx`
-- Create: `frontend/src/features/org/candidates/ResumeUploadInput.tsx`
-- Modify: `frontend/src/features/org/candidates/CandidateProfile.tsx`
-- Modify: `frontend/src/features/org/pipeline/ApplicationCard.tsx` (reuse `MatchScoreBadge`)
+- Create: `frontend/src/features/company/candidates/MatchScoreBadge.tsx`
+- Create: `frontend/src/features/company/candidates/ResumeUploadInput.tsx`
+- Modify: `frontend/src/features/company/candidates/CandidateProfile.tsx`
+- Modify: `frontend/src/features/company/pipeline/ApplicationCard.tsx` (reuse `MatchScoreBadge`)
 
 **Interfaces:**
 - Consumes: Task 6 hooks, `@mantine/dropzone`, Mantine primitives.
@@ -1020,7 +1020,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add frontend/src/features/org/candidates frontend/src/features/org/pipeline frontend/src/api/candidatesApi.ts
+git add frontend/src/features/company/candidates frontend/src/features/company/pipeline frontend/src/api/candidatesApi.ts
 git commit -m "feat(m4): resume upload input, match score badge, candidate profile integration"
 ```
 
@@ -1030,4 +1030,4 @@ git commit -m "feat(m4): resume upload input, match score badge, candidate profi
 
 - [ ] **Step 1: Backend** — `cd backend && npm run typecheck && npm test && npm run lint`. Expected: all pass.
 - [ ] **Step 2: Frontend** — `cd frontend && npm run typecheck && npm run lint && npm run build`. Expected: all pass.
-- [ ] **Step 3: Manual smoke** — ensure `docker compose up -d` (postgres/redis/minio). Start backend + frontend. Sign in as `admin@acme.com` / `Admin123!`. Open a candidate profile, upload a PDF/DOCX resume, verify the resume metadata + extracted skills appear and the candidate's applications show a match score in `/org/pipeline`. Check the `resumes` bucket in the MinIO console (`http://localhost:9001`, minioadmin/minioadmin) contains `tenants/{tenantId}/resumes/{candidateId}/...`.
+- [ ] **Step 3: Manual smoke** — ensure `docker compose up -d` (postgres/redis/minio). Start backend + frontend. Sign in as `admin@acme.com` / `Admin123!`. Open a candidate profile, upload a PDF/DOCX resume, verify the resume metadata + extracted skills appear and the candidate's applications show a match score in `/company/pipeline`. Check the `resumes` bucket in the MinIO console (`http://localhost:9001`, minioadmin/minioadmin) contains `companies/{companyId}/resumes/{candidateId}/...`.

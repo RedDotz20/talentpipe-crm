@@ -7,18 +7,18 @@ import { CandidateApplyModal } from '@/features/candidate-portal/applications/Ca
 
 export const Route = createFileRoute('/_candidate/jobs/$jobId')({
   validateSearch: (search: Record<string, unknown>) => ({
-    tenantId: typeof search.tenantId === 'string' ? search.tenantId : '',
+    companyId: typeof search.companyId === 'string' ? search.companyId : '',
   }),
   component: CandidateJobDetailRoute,
 });
 
 function CandidateJobDetailRoute() {
   const { jobId } = Route.useParams();
-  const { tenantId } = Route.useSearch();
-  const { data: job, isLoading, error } = useJobDetail(tenantId, jobId);
+  const { companyId } = Route.useSearch();
+  const { data: job, isLoading, error } = useJobDetail(companyId, jobId);
   const [applyOpened, setApplyOpened] = useState(false);
 
-  if (!tenantId) {
+  if (!companyId) {
     return (
       <Container size="md" py="xl">
         <Alert color="red" title="Job not found">

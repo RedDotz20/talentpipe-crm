@@ -6,22 +6,22 @@
 
 ## Context
 
-Phase 5b candidate accounts and the candidate portal were implemented early alongside the Phase 1 restructure. The current system already includes candidate authentication, cross-tenant job discovery, authenticated apply, application history, bookmarks, profile editing, declared skills, and storage-only resume handling.
+Phase 5b candidate accounts and the candidate portal were implemented early alongside the Phase 1 restructure. The current system already includes candidate authentication, cross-company job discovery, authenticated apply, application history, bookmarks, profile editing, declared skills, and storage-only resume handling.
 
 The current `dev` branch also contained uncommitted Phase 4 candidate-profile changes. Those changes are committed separately as `d80dc9e` (`feat(m4): candidate profile resume and manual skills`) before this branch is created. The generated `backend/tsconfig.tsbuildinfo` is preserved outside the branch and is not part of the Phase 4 commit.
 
 This work therefore audits and completes the existing Phase 5b behavior instead of rebuilding it, then adds the selected Phase 6 Redis capabilities:
 
 - Login rate limiting on `POST /auth/signin`.
-- A tenant-scoped organization dashboard summary cached for 60 seconds.
+- A company-scoped company dashboard summary cached for 60 seconds.
 
 ## Goals
 
-- Preserve the existing schema-per-tenant architecture and repository-only database access.
-- Close Phase 5b authorization, data-integrity, API-contract, and cross-tenant consistency gaps.
-- Ensure candidate discovery and application operations can reference a selected tenant only through validated public index records.
+- Preserve the existing schema-per-company architecture and repository-only database access.
+- Close Phase 5b authorization, data-integrity, API-contract, and cross-company consistency gaps.
+- Ensure candidate discovery and application operations can reference a selected company only through validated public index records.
 - Add Redis without coupling core authentication or dashboard availability to Redis uptime.
-- Provide a useful organization dashboard summary with explicit tenant cache namespacing.
+- Provide a useful company dashboard summary with explicit company cache namespacing.
 - Verify the result with unit, integration, build, lint, and manual API checks before merging to `dev`.
 
 ## Non-Goals
@@ -37,9 +37,9 @@ This work therefore audits and completes the existing Phase 5b behavior instead 
 ### Backend
 
 - NestJS controller -> service -> repository layering.
-- PostgreSQL schema-per-tenant routing through `AsyncLocalStorage` and `search_path`.
+- PostgreSQL schema-per-company routing through `AsyncLocalStorage` and `search_path`.
 - Public candidate tables for accounts, skills, bookmarks, applications index, and job listings index.
-- Tenant tables for candidates, job postings, applications, stages, notes, and related ATS data.
+- Company tables for candidates, job postings, applications, stages, notes, and related ATS data.
 - `CandidateAccountModule` currently owns `/candidate/*` endpoints.
 - Public careers remains unauthenticated and read-only.
 - No Redis provider, cache service, or rate limiter currently exists.
@@ -48,7 +48,7 @@ This work therefore audits and completes the existing Phase 5b behavior instead 
 
 - React, Mantine, TanStack Query, TanStack Router, and Zustand.
 - Candidate routes use the `_candidate` layout and role guard.
-- `/org/dashboard` currently renders a placeholder.
+- `/company/dashboard` currently renders a placeholder.
 - Existing query keys, API client, and `useApiMutation` patterns will be reused.
 
 ### Existing Phase 5b surfaces
@@ -57,8 +57,8 @@ This work therefore audits and completes the existing Phase 5b behavior instead 
 POST /auth/signup
 POST /auth/signin
 GET  /candidate/jobs
-GET  /candidate/jobs/:tenantId/:jobId
-POST /candidate/jobs/:tenantId/:jobId/apply
+GET  /candidate/jobs/:companyId/:jobId
+POST /candidate/jobs/:companyId/:jobId/apply
 GET  /candidate/applications
 POST /candidate/bookmarks
 DELETE /candidate/bookmarks/:id
@@ -73,26 +73,26 @@ PUT  /candidate/skills
 
 ## Phase 5b Audit and Completion
 
-### Authorization and tenant boundaries
+### Authorization and company boundaries
 
 Every `/candidate/*` route, including job list and job detail, will use both `AuthGuard('jwt')` and `CandidateAuthGuard`.
 
-The `tenantId` in candidate job URLs is an intentional cross-tenant discovery exception. It is not used to change the request tenant context. Candidate services will:
+The `companyId` in candidate job URLs is an intentional cross-company discovery exception. It is not used to change the request company context. Candidate services will:
 
-1. Query `public.job_listings_index` using the supplied tenant and job IDs.
+1. Query `public.job_listings_index` using the supplied company and job IDs.
 2. Require the indexed record to be `open` for candidate detail, bookmarks, and apply.
-3. Use the resolved tenant only for explicit repository operations against `tenant_<id>`.
-4. Never accept a tenant ID for internal organization routes or merge it into the JWT tenant context.
+3. Use the resolved company only for explicit repository operations against `company_<id>`.
+4. Never accept a company ID for internal company routes or merge it into the JWT company context.
 
-The missing `GET /candidate/applications/:id` endpoint will be added. It will first find an application-index row owned by the authenticated candidate, then read the corresponding application from the explicit tenant schema. A candidate will receive candidate-safe fields only and will not receive internal recruiter notes or unrelated tenant data.
+The missing `GET /candidate/applications/:id` endpoint will be added. It will first find an application-index row owned by the authenticated candidate, then read the corresponding application from the explicit company schema. A candidate will receive candidate-safe fields only and will not receive internal recruiter notes or unrelated company data.
 
 ### Data integrity and API contracts
 
-- Add a unique database constraint for `(candidate_account_id, tenant_id, job_posting_id)` in `candidate_applications_index` so concurrent apply requests cannot create duplicates.
+- Add a unique database constraint for `(candidate_account_id, company_id, job_posting_id)` in `candidate_applications_index` so concurrent apply requests cannot create duplicates.
 - Validate application skill overrides against `public.skills` and deduplicate IDs. If no override is supplied, use the candidate's declared profile skills.
-- Include `tenantId` when updating application-index status rows so synchronization is explicitly tenant-scoped.
-- Persist the documented `coverLetter` field in the tenant application record rather than accepting and discarding it. Update the Drizzle schema, template schema, migration, repository, apply flow, and candidate detail response together.
-- Keep tenant application writes and public index writes coordinated with idempotency checks and compensating cleanup on a failed second write. A future outbox or distributed transaction is outside this milestone.
+- Include `companyId` when updating application-index status rows so synchronization is explicitly company-scoped.
+- Persist the documented `coverLetter` field in the company application record rather than accepting and discarding it. Update the Drizzle schema, template schema, migration, repository, apply flow, and candidate detail response together.
+- Keep company application writes and public index writes coordinated with idempotency checks and compensating cleanup on a failed second write. A future outbox or distributed transaction is outside this milestone.
 - Preserve the current behavior that resume files are storage-only and candidate skills are manually declared.
 
 ### Frontend alignment
@@ -111,10 +111,10 @@ The audit must cover:
 - Duplicate application rejection under normal and concurrent request conditions.
 - Invalid skill override rejection and profile-skill fallback.
 - Candidate ownership enforcement for application detail.
-- Application status synchronization from tenant stage changes to the public application index.
-- Cross-tenant application-detail access returning `404`.
+- Application status synchronization from company stage changes to the public application index.
+- Cross-company application-detail access returning `404`.
 - Profile and resume response shape consistency.
-- A candidate flow spanning at least two tenants.
+- A candidate flow spanning at least two companies.
 
 ## Phase 6 Redis Architecture
 
@@ -145,11 +145,11 @@ Apply a guard only to `POST /auth/signin`.
 - Use an atomic increment plus first-write expiration so concurrent requests cannot bypass the threshold.
 - Reject requests beyond the threshold with HTTP `429`, a `Retry-After` header, and the existing normalized error envelope with code `RATE_LIMITED`.
 
-The guard counts sign-in attempts before authentication. It does not reveal whether the email belongs to an organization, candidate, or SuperAdmin account.
+The guard counts sign-in attempts before authentication. It does not reveal whether the email belongs to a company, candidate, or SuperAdmin account.
 
-### Organization dashboard summary
+### Company dashboard summary
 
-Add a tenant-scoped `DashboardModule` and `GET /dashboard/summary` endpoint for internal organization roles. The service will use the current tenant context and will not accept a tenant ID from the request.
+Add a company-scoped `DashboardModule` and `GET /dashboard/summary` endpoint for internal company roles. The service will use the current company context and will not accept a company ID from the request.
 
 The response contract is:
 
@@ -164,17 +164,17 @@ The response contract is:
 }
 ```
 
-The aggregate query will live in a repository and will run against the current tenant schema. It will not query another tenant schema or read public candidate indexes for organization metrics.
+The aggregate query will live in a repository and will run against the current company schema. It will not query another company schema or read public candidate indexes for company metrics.
 
 Cache behavior:
 
-- Key: `tenant:{tenantId}:dashboard:summary:v1`.
+- Key: `company:{companyId}:dashboard:summary:v1`.
 - TTL: 60 seconds.
 - Cache hit: return the decoded summary without querying PostgreSQL.
 - Cache miss: query the repository, store the result, and return it.
 - Cache failure: query PostgreSQL and return the result.
 
-Invalidate the affected tenant's summary key after:
+Invalidate the affected company's summary key after:
 
 - Job posting create, update, publish, close, or delete.
 - Manual candidate creation.
@@ -182,18 +182,18 @@ Invalidate the affected tenant's summary key after:
 - Application stage changes.
 - Pipeline stage create, update, or delete.
 
-Invalidation will use the exact tenant key for the dashboard. The generic cache invalidation method will use Redis `SCAN`, not the blocking `KEYS` command.
+Invalidation will use the exact company key for the dashboard. The generic cache invalidation method will use Redis `SCAN`, not the blocking `KEYS` command.
 
 ### Dashboard frontend
 
-- Replace the `/org/dashboard` placeholder with a Mantine dashboard containing summary cards and application-by-stage counts.
-- Add `dashboardApi`, a `useDashboardSummary` query hook, and an `org.dashboardSummary` query key using existing frontend conventions.
+- Replace the `/company/dashboard` placeholder with a Mantine dashboard containing summary cards and application-by-stage counts.
+- Add `dashboardApi`, a `useDashboardSummary` query hook, and an `company.dashboardSummary` query key using existing frontend conventions.
 - Use the existing API client and response envelope handling.
 - Keep dashboard query freshness aligned with the 60-second server cache; no optimistic update is required.
 
 ## Error Handling
 
-- Candidate cross-tenant or missing resources return `404 NOT_FOUND`.
+- Candidate cross-company or missing resources return `404 NOT_FOUND`.
 - Invalid skill IDs return `400 VALIDATION_ERROR`.
 - Duplicate applications return `409 CONFLICT`.
 - Login rate limit returns `429 RATE_LIMITED` with `Retry-After`.
@@ -213,11 +213,11 @@ Invalidation will use the exact tenant key for the dashboard. The generic cache 
 
 ### Backend integration and end-to-end tests
 
-- Candidate flow across two tenant schemas.
+- Candidate flow across two company schemas.
 - Candidate access to only open indexed jobs.
-- Application ownership and cross-tenant `404` behavior.
+- Application ownership and cross-company `404` behavior.
 - Public index status updates after internal pipeline changes.
-- Dashboard isolation between two tenant users.
+- Dashboard isolation between two company users.
 - Real Redis limiter behavior using the Docker Compose Redis service.
 
 ### Frontend verification

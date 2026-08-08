@@ -1,6 +1,6 @@
-# TalentPipe — Multi-Tenant ATS
+# TalentPipe — Multi-Company ATS
 
-**One-liner:** Schema-per-tenant applicant tracking system. Each company gets an isolated PostgreSQL schema for job postings, candidate pipelines, interviews, recruiter collaboration, resume parsing, skill-matching, and rate-limited public application intake.
+**One-liner:** Schema-per-company applicant tracking system. Each company gets an isolated PostgreSQL schema for job postings, candidate pipelines, interviews, recruiter collaboration, resume parsing, skill-matching, and rate-limited public application intake.
 
 **Status:** M11 (Platform Control + Candidate Experience) — implemented on top of M10 (Deploy).
 
@@ -17,15 +17,15 @@
 | Validation | Zod 4 (shared frontend + backend) |
 | Infra | Docker Compose (postgres:16 + redis:7-alpine + minio/minio) |
 | Auth | JWT access (15m) + refresh (7d), argon2 password hashing |
-| Multi-tenancy | One PostgreSQL database, **separate schema per tenant** (`SET search_path TO tenant_<id>, public`) |
+| Multi-tenancy | One PostgreSQL database, **separate schema per company** (`SET search_path TO company_<id>, public`) |
 | Storage | S3-compatible (MinIO local) |
 | Cache/Queue/Rate-limit | Redis (limiter + dashboard cache) + BullMQ notifications queue |
 
 ## Current State
 
-- **Backend:** Auth, schema-per-tenant repositories, candidate accounts, public careers, applications/pipeline, Redis sign-in limiting, tenant dashboard cache, a BullMQ notifications queue (stage-change jobs delivered to `audit_logs`), interviews + feedback (scheduling with auto-move to the Interview stage, server-side interviewer scoping, 1:1 feedback, `GET /org/users`), org settings + user management (invite/role/remove with audit rows), tenant suspend/reactivate (blocks sign-in/refresh + hides public careers), and the SuperAdmin platform module (`/platform/*`). Health endpoint at `GET /api/health`.
-- **Frontend:** Vite/Mantine application with organization and candidate platforms, candidate job search/apply/bookmarks/profile flows, the organization dashboard summary, interviews list/scheduler/feedback UI, OrgAdmin settings + team pages, and the SuperAdmin platform views (tenants list/detail/stats).
-- **M11:** SuperAdmin account management across tenants (user create/role/password/suspend/reactivate/remove, candidate CRUD with cascade delete), cross-tenant application stage moves + interview reschedule/cancel, per-user suspension (`users.status`, enforced at sign-in/refresh), candidate withdraw (`DELETE /candidate/applications/:id`), candidate job detail page (`/jobs/$jobId` via shared `JobDetailsView`), and the applications page (job links, status stepper, withdraw). Seed now creates 6 accounts (all five internal roles + Candidate).
+- **Backend:** Auth, schema-per-company repositories, candidate accounts, public careers, applications/pipeline, Redis sign-in limiting, company dashboard cache, a BullMQ notifications queue (stage-change jobs delivered to `audit_logs`), interviews + feedback (scheduling with auto-move to the Interview stage, server-side interviewer scoping, 1:1 feedback, `GET /company/users`), company settings + user management (invite/role/remove with audit rows), company suspend/reactivate (blocks sign-in/refresh + hides public careers), and the SuperAdmin platform module (`/platform/*`). Health endpoint at `GET /api/health`.
+- **Frontend:** Vite/Mantine application with company and candidate platforms, candidate job search/apply/bookmarks/profile flows, the company dashboard summary, interviews list/scheduler/feedback UI, CompanyAdmin settings + team pages, and the SuperAdmin platform views (companies list/detail/stats).
+- **M11:** SuperAdmin account management across companies (user create/role/password/suspend/reactivate/remove, candidate CRUD with cascade delete), cross-company application stage moves + interview reschedule/cancel, per-user suspension (`users.status`, enforced at sign-in/refresh), candidate withdraw (`DELETE /candidate/applications/:id`), candidate job detail page (`/jobs/$jobId` via shared `JobDetailsView`), and the applications page (job links, status stepper, withdraw). Seed now creates 6 accounts (all five internal roles + Candidate).
 - **Not yet built:** platform email/notifications, password-change flow, pipeline-stage management endpoints, anonymous apply, and automated resume parsing. CI runs via `.github/workflows/ci.yml` (lint → typecheck → unit → e2e release gates → build). Production: self-hosted `docker-compose.prod.yml` stack (backend/frontend Dockerfiles, one-shot migrate service, env-file secrets) — see `09_IMPLEMENTATION_GUIDE.md` Phase 10 for the deploy runbook.
 
 ## Commands
@@ -58,7 +58,7 @@ Migrations and the seed are **not** run automatically. On a fresh DB you must, i
 1. `docker compose up -d` (wait for postgres to be ready)
 2. Apply the eight migrations under `backend/drizzle/*/migration.sql` chronologically via `psql` (see `docs/00b_LOCAL_DEV_BOOTSTRAP.md` for the exact one-liners)
 3. Apply `backend/drizzle/template-schema.sql`
-4. `cd backend && npm run seed` (creates the 6 sample accounts: SuperAdmin, OrgAdmin, Interviewer, HiringManager, Recruiter, Candidate)
+4. `cd backend && npm run seed` (creates the 6 sample accounts: SuperAdmin, CompanyAdmin, Interviewer, HiringManager, Recruiter, Candidate)
 
 Without steps 2–4 you'll get `relation "..." does not exist` on the first login. Full runbook with checks after each step: `docs/00b_LOCAL_DEV_BOOTSTRAP.md`.
 
@@ -78,22 +78,22 @@ Applied migration order includes:
 
 ## Architecture
 
-### Multi-Tenancy (schema-per-tenant)
+### Multi-Company (schema-per-company)
 
-- `tenantId` from **JWT only** — never from body/params/headers
-- Request-scoped via `AsyncLocalStorage` in `TenantContextInterceptor` (app-global)
-- Drizzle client created per-request with `SET search_path TO tenant_<id>, public` via `DrizzleSchemaService`
-- **No `tenant_id` columns** on any tenant-scoped table — schema boundary is the filter
-- Cross-tenant resource reference → **404 Not Found** (never 403)
+- `companyId` from **JWT only** — never from body/params/headers
+- Request-scoped via `AsyncLocalStorage` in `CompanyContextInterceptor` (app-global)
+- Drizzle client created per-request with `SET search_path TO company_<id>, public` via `DrizzleSchemaService`
+- **No `company_id` columns** on any company-scoped table — schema boundary is the filter
+- Cross-company resource reference → **404 Not Found** (never 403)
 - SuperAdmin operates in `public` schema with unscoped repos, guarded by `requireRole('SuperAdmin')`
-- Repos use `forCurrentTenant()` (tenant-scoped) or `forPublic()` (global/public tables)
-- Important: `forCurrentTenant()` throws if no tenant context. `forPublic()` and `forSchema(name)` don't need one.
+- Repos use `forCurrentCompany()` (company-scoped) or `forPublic()` (global/public tables)
+- Important: `forCurrentCompany()` throws if no company context. `forPublic()` and `forSchema(name)` don't need one.
 
 ### Schema Layout
 
 Tables split across two groups:
-- **Public schema:** `tenants`, `skills`, `audit_logs`, `user_emails`, `refresh_tokens`
-- **Per-tenant schema (created on signup):** `users`, `job_postings`, `candidates`, `pipeline_stages`, `applications`, `resumes`, `resume_skills`, `job_required_skills`, `interviews`, `interview_feedbacks`, `notes`
+- **Public schema:** `companies`, `skills`, `audit_logs`, `user_emails`, `refresh_tokens`
+- **Per-company schema (created on signup):** `users`, `job_postings`, `candidates`, `pipeline_stages`, `applications`, `resumes`, `resume_skills`, `job_required_skills`, `interviews`, `interview_feedbacks`, `notes`
 
 Template schema `template` is created by `drizzle/template-schema.sql`. Signup clones it.
 
@@ -101,16 +101,16 @@ Template schema `template` is created by `drizzle/template-schema.sql`. Signup c
 
 ```
 backend/src/
-  app.module.ts           — imports AuthModule, registers TenantContextInterceptor + RolesGuard globally
+  app.module.ts           — imports AuthModule, registers CompanyContextInterceptor + RolesGuard globally
   main.ts                 — CORS (localhost:5173), global prefix api, listen :3000
   database/
-    schema.ts             — all Drizzle table definitions (public + tenant)
+    schema.ts             — all Drizzle table definitions (public + company)
     drizzle.provider.ts   — Pool provider (pg)
-    drizzle-schema.service.ts — forCurrentTenant() / forPublic() / forSchema()
+    drizzle-schema.service.ts — forCurrentCompany() / forPublic() / forSchema()
   interceptors/
-    tenant-context.ts     — AsyncLocalStorage, getTenantId(), getSchema(), getCurrentUser()
-    tenant-context.interceptor.ts — sets context from JWT user
-  repositories/           — one per entity, currently: tenant.repository.ts, user.repository.ts
+    company-context.ts     — AsyncLocalStorage, getCompanyId(), getSchema(), getCurrentUser()
+    company-context.interceptor.ts — sets context from JWT user
+  repositories/           — one per entity, currently: company.repository.ts, user.repository.ts
   shared/                 — password.ts (argon2), roles.guard.ts, roles.decorator.ts
   modules/
     auth/                 — controller, service, jwt.strategy, module
@@ -133,7 +133,7 @@ frontend/src/
 
 ### Database Connection
 
-- `Pool` from `pg` — single pool for all tenants, schema routing per-connection via `SET search_path`
+- `Pool` from `pg` — single pool for all companies, schema routing per-connection via `SET search_path`
 - Each DB operation acquires a client from pool, sets `search_path`, then releases
 - `DATABASE_URL=postgres://devuser:devpassword@localhost:5432/talentpipe` (dev .env committed)
 
@@ -153,7 +153,7 @@ frontend/src/
 | M | Name | Done when |
 |---|------|-----------|
 | M0 | Scaffold | NestJS + Vite boot, Docker Compose up |
-| M1 | Auth + Tenancy + RBAC | Signup creates tenant schema, isolation tests pass |
+| M1 | Auth + Tenancy + RBAC | Signup creates company schema, isolation tests pass |
 | M2 | Job Postings + Candidates | CRUD via API |
 | M3 | Pipeline (Kanban) | Drag stage move end-to-end (dnd-kit) |
 | M4 | Resume + Skill Match | Match score computed on apply |
@@ -161,9 +161,9 @@ frontend/src/
 | M6 | Redis (rate-limit + cache) | 429 on public apply, dashboard cache |
 | M7 | BullMQ background jobs | Stage-change notifications via BullMQ worker (audit-log delivery) |
 | M8 | Interviews + Feedback | Schedule + submit feedback works — done ✅ |
-| M9 | Admin + Platform + CI | OrgAdmin settings/users UI, platform views, CI green — done ✅ |
+| M9 | Admin + Platform + CI | CompanyAdmin settings/users UI, platform views, CI green — done ✅ |
 | M10 | Deploy | Live URL, prod config — done ✅ |
-| M11 | Platform Control + Candidate Experience | SA account CRUD + per-user suspend + cross-tenant applications/interviews + candidate job detail/withdraw — done ✅ |
+| M11 | Platform Control + Candidate Experience | SA account CRUD + per-user suspend + cross-company applications/interviews + candidate job detail/withdraw — done ✅ |
 
 ## Documentation Index
 
@@ -172,10 +172,10 @@ frontend/src/
 | 00 | `docs/00_PROJECT_INSTRUCTIONS.md` | **Canonical spec** — consolidates all 8 source docs into one single-source-of-truth | Read first when starting a new milestone. Overrides any contradiction in 01–09. |
 | 00b | `docs/00b_LOCAL_DEV_BOOTSTRAP.md` | **Local dev runbook** — docker up → migrations → template schema → seed → start backend/frontend → login. Includes checks after each step, daily loop, nuke-and-restart, and troubleshooting table. | Read first when you haven't run the project in a while, after `docker compose down -v`, or when something is broken and you forgot the sequence. |
 | 01 | `docs/01_TALENTPIPE_PRD_SRS.md` | Product requirements & software requirements spec | Understand feature scope, user stories, and acceptance criteria for a given milestone. |
-| 02 | `docs/02_TECHNICAL_OVERVIEW.md` | High-level architecture decisions, stack rationale | Context on *why* specific tech was chosen (NestJS, Drizzle, schema-per-tenant, etc.). |
+| 02 | `docs/02_TECHNICAL_OVERVIEW.md` | High-level architecture decisions, stack rationale | Context on *why* specific tech was chosen (NestJS, Drizzle, schema-per-company, etc.). |
 | 03 | `docs/03_RECRUITMENT_ATS_ARCHITECTURE.md` | System architecture — modules, data flow, integration points | Reference when wiring cross-module interactions (e.g., apply → resume parsing → pipeline). |
 | 04 | `docs/04_ERD_DIAGRAM.md` | Entity-relationship diagram (Mermaid) | Consult before creating or modifying any Drizzle table definition. |
-| 05 | `docs/05_DATA_ISOLATION_STRATEGY.md` | Schema-per-tenant isolation deep-dive | Debug multi-tenancy issues, understand search_path mechanics, verify isolation correctness. |
+| 05 | `docs/05_DATA_ISOLATION_STRATEGY.md` | Schema-per-company isolation deep-dive | Debug multi-tenancy issues, understand search_path mechanics, verify isolation correctness. |
 | 06 | `docs/06_ROLE_INTERACTIONS.md` | Role hierarchy, permissions matrix, guard logic | Implement or audit RBAC guards, role decorators, and permission checks. |
 | 07 | `docs/07_API_ENDPOINT_DOCUMENTATION.md` | Full REST API reference — routes, DTOs, responses, status codes | Build or test API endpoints. Canonical reference for request/response shapes. |
 | 08 | `docs/08_FRONTEND_COMPONENT_STRUCTURE.md` | React component tree, routing, state management | Build frontend features — component hierarchy, data-fetching patterns, route design. |

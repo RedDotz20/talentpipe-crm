@@ -4,7 +4,7 @@
 
 **Goal:** Reorganize `frontend/src/` into dashboard-scoped feature folders with directory-based routing and eliminate the `shared/` wrapper.
 
-**Architecture:** Three dashboard folders (`org/`, `candidate-portal/`, `admin/`) each own their pages, hooks, API, and types. Global code sits at `src/api/`, `src/components/`, `src/hooks/`. Routes use directory-based TanStack Router convention. No logic changes — only file moves, renames, and import path updates.
+**Architecture:** Three dashboard folders (`company/`, `candidate-portal/`, `admin/`) each own their pages, hooks, API, and types. Global code sits at `src/api/`, `src/components/`, `src/hooks/`. Routes use directory-based TanStack Router convention. No logic changes — only file moves, renames, and import path updates.
 
 **Tech Stack:** Vite 8 + React 19 + TanStack Router 1 (file-based routing) + TypeScript 6
 
@@ -23,11 +23,11 @@ $dirs = @(
   'src/hooks/auth',
   'src/types',
   'src/utils',
-  'src/features/org/dashboard',
-  'src/features/org/job-postings',
-  'src/features/org/candidates',
-  'src/features/org/pipeline',
-  'src/features/org/interviews',
+  'src/features/company/dashboard',
+  'src/features/company/job-postings',
+  'src/features/company/candidates',
+  'src/features/company/pipeline',
+  'src/features/company/interviews',
   'src/features/candidate-portal/types',
   'src/features/candidate-portal/api',
   'src/features/candidate-portal/hooks',
@@ -36,10 +36,10 @@ $dirs = @(
   'src/features/candidate-portal/applications',
   'src/features/candidate-portal/bookmarks',
   'src/features/candidate-portal/settings',
-  'src/features/admin/tenants',
+  'src/features/admin/companies',
   'src/routes/_candidate',
-  'src/routes/auth/org',
-  'src/routes/org',
+  'src/routes/auth/company',
+  'src/routes/company',
   'src/routes/admin'
 )
 
@@ -177,8 +177,8 @@ export const candidateApi = {
     return data;
   },
 
-  getJobDetail: async (tenantId: string, jobId: string): Promise<Job> => {
-    const { data } = await apiClient.get(`/candidate/jobs/${tenantId}/${jobId}`);
+  getJobDetail: async (companyId: string, jobId: string): Promise<Job> => {
+    const { data } = await apiClient.get(`/candidate/jobs/${companyId}/${jobId}`);
     return data;
   },
 
@@ -197,8 +197,8 @@ export const candidateApi = {
     return data;
   },
 
-  addBookmark: async (tenantId: string, jobPostingId: string): Promise<Bookmark> => {
-    const { data } = await apiClient.post('/candidate/bookmarks', { tenantId, jobPostingId });
+  addBookmark: async (companyId: string, jobPostingId: string): Promise<Bookmark> => {
+    const { data } = await apiClient.post('/candidate/bookmarks', { companyId, jobPostingId });
     return data;
   },
 
@@ -426,17 +426,17 @@ import { useProfile } from '../hooks';
 ### Task 8: Move platform layouts into feature dashboards
 
 **Files:**
-- Move: `frontend/src/app/OrgPlatform.tsx` → `frontend/src/features/org/layout.tsx`
+- Move: `frontend/src/app/CompanyPlatform.tsx` → `frontend/src/features/company/layout.tsx`
 - Move: `frontend/src/app/SuperAdminPlatform.tsx` → `frontend/src/features/admin/layout.tsx`
 - Move: `frontend/src/shared/components/CandidatePlatform.tsx` → `frontend/src/features/candidate-portal/layout.tsx`
 
-- [ ] **Move OrgPlatform and update import**
+- [ ] **Move CompanyPlatform and update import**
 
 ```pwsh
-Move-Item 'frontend/src/app/OrgPlatform.tsx' 'frontend/src/features/org/layout.tsx'
+Move-Item 'frontend/src/app/CompanyPlatform.tsx' 'frontend/src/features/company/layout.tsx'
 ```
 
-Edit `frontend/src/features/org/layout.tsx`:
+Edit `frontend/src/features/company/layout.tsx`:
 
 Old:
 ```typescript
@@ -450,7 +450,7 @@ import { useAuthStore } from '../../api/useAuth';
 import { useLogout } from '../../hooks/auth';
 ```
 
-Verify: from `frontend/src/features/org/layout.tsx`:
+Verify: from `frontend/src/features/company/layout.tsx`:
 - `../../api/useAuth` → `frontend/src/api/useAuth` ✓
 - `../../hooks/auth` → `frontend/src/hooks/auth` ✓
 
@@ -499,7 +499,7 @@ Verify: from `frontend/src/features/candidate-portal/layout.tsx`:
 
 **Files:**
 - Edit: `frontend/src/features/auth/SignInPage.tsx`
-- Edit: `frontend/src/features/auth/OrgSignupPage.tsx`
+- Edit: `frontend/src/features/auth/CompanySignupPage.tsx`
 
 (These files don't move — they stay in `features/auth/`. Only their imports change.)
 
@@ -517,16 +517,16 @@ import { useSignIn } from '../../hooks/auth';
 import { useAuthStore } from '../../api/useAuth';
 ```
 
-- [ ] **Update OrgSignupPage.tsx imports**
+- [ ] **Update CompanySignupPage.tsx imports**
 
 Old:
 ```typescript
-import { useOrgSignup } from '../../shared/hooks/auth';
+import { useCompanySignup } from '../../shared/hooks/auth';
 ```
 
 New:
 ```typescript
-import { useOrgSignup } from '../../hooks/auth';
+import { useCompanySignup } from '../../hooks/auth';
 ```
 
 ---
@@ -549,18 +549,18 @@ This uses TanStack Router v1's directory-based routing support. The `routeTree.g
 | `routes/_candidate.settings.tsx` | `routes/_candidate/settings.tsx` |
 | `routes/auth.signin.tsx` | `routes/auth/signin.tsx` |
 | `routes/auth.signup.tsx` | `routes/auth/signup.tsx` |
-| `routes/auth.org.signup.tsx` | `routes/auth/org/signup.tsx` |
-| `routes/org.tsx` | `routes/org/__root.tsx` |
-| `routes/org.dashboard.tsx` | `routes/org/dashboard.tsx` |
+| `routes/auth.company.signup.tsx` | `routes/auth/company/signup.tsx` |
+| `routes/company.tsx` | `routes/company/__root.tsx` |
+| `routes/company.dashboard.tsx` | `routes/company/dashboard.tsx` |
 | `routes/admin.tsx` | `routes/admin/__root.tsx` |
-| `routes/admin.tenants.tsx` | `routes/admin/tenants.tsx` |
+| `routes/admin.companies.tsx` | `routes/admin/companies.tsx` |
 
 - [ ] **Move route files to directories + update imports**
 
 ```pwsh
 # Move route group roots (layouts)
 Copy-Item 'frontend/src/routes/_candidate.tsx' 'frontend/src/routes/_candidate/__root.tsx'
-Copy-Item 'frontend/src/routes/org.tsx' 'frontend/src/routes/org/__root.tsx'
+Copy-Item 'frontend/src/routes/company.tsx' 'frontend/src/routes/company/__root.tsx'
 Copy-Item 'frontend/src/routes/admin.tsx' 'frontend/src/routes/admin/__root.tsx'
 
 # Move leaf routes
@@ -570,9 +570,9 @@ Copy-Item 'frontend/src/routes/_candidate.bookmarks.tsx' 'frontend/src/routes/_c
 Copy-Item 'frontend/src/routes/_candidate.settings.tsx' 'frontend/src/routes/_candidate/settings.tsx'
 Copy-Item 'frontend/src/routes/auth.signin.tsx' 'frontend/src/routes/auth/signin.tsx'
 Copy-Item 'frontend/src/routes/auth.signup.tsx' 'frontend/src/routes/auth/signup.tsx'
-Copy-Item 'frontend/src/routes/auth.org.signup.tsx' 'frontend/src/routes/auth/org/signup.tsx'
-Copy-Item 'frontend/src/routes/org.dashboard.tsx' 'frontend/src/routes/org/dashboard.tsx'
-Copy-Item 'frontend/src/routes/admin.tenants.tsx' 'frontend/src/routes/admin/tenants.tsx'
+Copy-Item 'frontend/src/routes/auth.company.signup.tsx' 'frontend/src/routes/auth/company/signup.tsx'
+Copy-Item 'frontend/src/routes/company.dashboard.tsx' 'frontend/src/routes/company/dashboard.tsx'
+Copy-Item 'frontend/src/routes/admin.companies.tsx' 'frontend/src/routes/admin/companies.tsx'
 ```
 
 Now edit each new route file to update imports.
@@ -639,17 +639,17 @@ New:
 import { SettingsPage } from '../features/candidate-portal/settings/SettingsPage';
 ```
 
-**`routes/org/__root.tsx`:**
+**`routes/company/__root.tsx`:**
 
 Old:
 ```typescript
-import { OrgPlatform } from '../app/OrgPlatform';
+import { CompanyPlatform } from '../app/CompanyPlatform';
 import { useAuthStore } from '../shared/api/useAuth';
 ```
 
 New:
 ```typescript
-import { OrgPlatform } from '../features/org/layout';
+import { CompanyPlatform } from '../features/company/layout';
 import { useAuthStore } from '../api/useAuth';
 ```
 
@@ -695,17 +695,17 @@ import { CandidateSignupPage } from '../features/candidate-portal/signup/SignupP
 import { useAuthStore } from '../api/useAuth';
 ```
 
-**`routes/auth/org/signup.tsx`:**
+**`routes/auth/company/signup.tsx`:**
 
 Old:
 ```typescript
-import { OrgSignupPage } from '../features/auth/OrgSignupPage';
+import { CompanySignupPage } from '../features/auth/CompanySignupPage';
 import { useAuthStore } from '../shared/api/useAuth';
 ```
 
 New:
 ```typescript
-import { OrgSignupPage } from '../features/auth/OrgSignupPage';
+import { CompanySignupPage } from '../features/auth/CompanySignupPage';
 import { useAuthStore } from '../api/useAuth';
 ```
 
@@ -721,7 +721,7 @@ New:
 import { useAuthStore } from '../api/useAuth';
 ```
 
-**`routes/org/dashboard.tsx`** and **`routes/admin/tenants.tsx`** — no import changes needed (they have no shared/ imports).
+**`routes/company/dashboard.tsx`** and **`routes/admin/companies.tsx`** — no import changes needed (they have no shared/ imports).
 
 ---
 
@@ -739,11 +739,11 @@ Remove-Item 'frontend/src/routes/_candidate.bookmarks.tsx'
 Remove-Item 'frontend/src/routes/_candidate.settings.tsx'
 Remove-Item 'frontend/src/routes/auth.signin.tsx'
 Remove-Item 'frontend/src/routes/auth.signup.tsx'
-Remove-Item 'frontend/src/routes/auth.org.signup.tsx'
-Remove-Item 'frontend/src/routes/org.tsx'
-Remove-Item 'frontend/src/routes/org.dashboard.tsx'
+Remove-Item 'frontend/src/routes/auth.company.signup.tsx'
+Remove-Item 'frontend/src/routes/company.tsx'
+Remove-Item 'frontend/src/routes/company.dashboard.tsx'
 Remove-Item 'frontend/src/routes/admin.tsx'
-Remove-Item 'frontend/src/routes/admin.tenants.tsx'
+Remove-Item 'frontend/src/routes/admin.companies.tsx'
 ```
 
 - [ ] **Delete empty scaffold folders and old structure**
@@ -761,11 +761,11 @@ Remove-Item 'frontend/src/features/candidate' -Recurse
 Remove-Item 'frontend/src/features/.gitkeep'
 ```
 
-- [ ] **Delete old app/ OrgPlatform and SuperAdminPlatform (if still there after moves)**
+- [ ] **Delete old app/ CompanyPlatform and SuperAdminPlatform (if still there after moves)**
 
 ```pwsh
 # These were moved in Task 8, but if they still exist as copies, remove them
-if (Test-Path 'frontend/src/app/OrgPlatform.tsx') { Remove-Item 'frontend/src/app/OrgPlatform.tsx' }
+if (Test-Path 'frontend/src/app/CompanyPlatform.tsx') { Remove-Item 'frontend/src/app/CompanyPlatform.tsx' }
 if (Test-Path 'frontend/src/app/SuperAdminPlatform.tsx') { Remove-Item 'frontend/src/app/SuperAdminPlatform.tsx' }
 ```
 

@@ -6,18 +6,18 @@ import {
   type PublicJobListing,
 } from '../api/publicCareersApi';
 
-export function usePublicJobs(tenantSlug: string) {
+export function usePublicJobs(companySlug: string) {
   return useQuery<PublicJobListing[]>({
-    queryKey: queryKeys.publicCareers.jobs(tenantSlug),
-    queryFn: () => publicCareersApi.getJobs(tenantSlug),
-    enabled: Boolean(tenantSlug),
+    queryKey: queryKeys.publicCareers.jobs(companySlug),
+    queryFn: () => publicCareersApi.getJobs(companySlug),
+    enabled: Boolean(companySlug),
   });
 }
 
-export function usePublicJob(tenantSlug: string, jobId: string) {
+export function usePublicJob(companySlug: string, jobId: string) {
   return useQuery<PublicJobDetail>({
-    queryKey: queryKeys.publicCareers.job(tenantSlug, jobId),
-    queryFn: () => publicCareersApi.getJob(tenantSlug, jobId),
-    enabled: Boolean(tenantSlug && jobId),
+    queryKey: queryKeys.publicCareers.job(companySlug, jobId),
+    queryFn: () => publicCareersApi.getJob(companySlug, jobId),
+    enabled: Boolean(companySlug && jobId),
   });
 }

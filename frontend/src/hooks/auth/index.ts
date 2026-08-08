@@ -1,4 +1,4 @@
 export { useSignIn } from './useSignIn';
 export { useCandidateSignup } from './useCandidateSignup';
-export { useOrgSignup } from './useOrgSignup';
+export { useCompanySignup } from './useCompanySignup';
 export { useLogout } from './useLogout';

@@ -5,9 +5,9 @@
 
 ## Overview
 
-Candidates transition from unauthenticated visitors to having full global accounts. A candidate can sign up once, browse job postings from all tenants/companies, apply, track application statuses, and bookmark jobs — all from a single dashboard.
+Candidates transition from unauthenticated visitors to having full global accounts. A candidate can sign up once, browse job postings from all companies/companies, apply, track application statuses, and bookmark jobs — all from a single dashboard.
 
-**Key shift:** Candidates are now authenticated global users (public schema), while tenant hiring data (job postings, applications, interviews, notes) stays per-tenant. A lightweight cross-schema index layer enables the candidate dashboard without querying every tenant schema.
+**Key shift:** Candidates are now authenticated global users (public schema), while company hiring data (job postings, applications, interviews, notes) stays per-company. A lightweight cross-schema index layer enables the candidate dashboard without querying every company schema.
 
 ## Data Model
 
@@ -16,30 +16,30 @@ Candidates transition from unauthenticated visitors to having full global accoun
 | Table | Purpose |
 |-------|---------|
 | `candidate_accounts` | Auth identity — id, email, passwordHash, firstName, lastName, phone, createdAt |
-| `candidate_bookmarks` | Saved jobs — id, candidateAccountId, tenantId, jobPostingId, createdAt |
-| `candidate_applications_index` | Dashboard history — id, candidateAccountId, tenantId, jobPostingId, applicationId, status (stage name), appliedAt |
-| `job_listings_index` | Cross-tenant job search — id, tenantId, jobPostingId, title, description, companyName, companySlug, status, requiredSkills[], createdAt, updatedAt |
+| `candidate_bookmarks` | Saved jobs — id, candidateAccountId, companyId, jobPostingId, createdAt |
+| `candidate_applications_index` | Dashboard history — id, candidateAccountId, companyId, jobPostingId, applicationId, status (stage name), appliedAt |
+| `job_listings_index` | Cross-company job search — id, companyId, jobPostingId, title, description, companyName, companySlug, status, requiredSkills[], createdAt, updatedAt |
 
-### Existing tables (unchanged in tenant schemas)
+### Existing tables (unchanged in company schemas)
 
-`users`, `jobPostings`, `candidates`, `applications`, `pipelineStages`, `resumes`, `resumeSkills`, `jobRequiredSkills`, `interviews`, `interviewFeedbacks`, `notes` — all stay per-tenant, all existing FKs intact.
+`users`, `jobPostings`, `candidates`, `applications`, `pipelineStages`, `resumes`, `resumeSkills`, `jobRequiredSkills`, `interviews`, `interviewFeedbacks`, `notes` — all stay per-company, all existing FKs intact.
 
 ### Flow: Candidate applies
 
-1. Candidate logged in → `POST /api/candidate/jobs/:tenantId/:jobId/apply`
-2. Backend switches to tenant schema, creates/finds `candidates` record (by email)
-3. Creates `applications` record in tenant schema
+1. Candidate logged in → `POST /api/candidate/jobs/:companyId/:jobId/apply`
+2. Backend switches to company schema, creates/finds `candidates` record (by email)
+3. Creates `applications` record in company schema
 4. Backend switches to public schema
 5. Creates `candidate_applications_index` row (lightweight summary)
 6. Returns success
 
-### Flow: Tenant updates application stage
+### Flow: Company updates application stage
 
-1. `PATCH /applications/:id/stage` updates the tenant schema
+1. `PATCH /applications/:id/stage` updates the company schema
 2. Application service also updates the matching `candidate_applications_index` row (via a cross-schema write to the public index)
 3. Candidate dashboard reflects the change
 
-### Flow: Tenant publishes a job
+### Flow: Company publishes a job
 
 1. `POST /job-postings` / `POST /job-postings/:id/publish`
 2. Job posting service also writes/updates `job_listings_index` in public schema
@@ -53,7 +53,7 @@ Candidates transition from unauthenticated visitors to having full global accoun
 | `POST /api/auth/candidate/login` | Login → returns JWT |
 | `POST /api/auth/refresh` | Reuse existing refresh endpoint |
 
-Candidate JWT payload: `{ sub: candidateAccountId, role: 'Candidate' }` — no `tenantId`.
+Candidate JWT payload: `{ sub: candidateAccountId, role: 'Candidate' }` — no `companyId`.
 
 ## API Endpoints
 
@@ -62,8 +62,8 @@ Candidate JWT payload: `{ sub: candidateAccountId, role: 'Candidate' }` — no `
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/candidate/jobs` | Candidate | List open jobs (from index), searchable |
-| GET | `/candidate/jobs/:tenantId/:jobId` | Candidate | Job detail |
-| POST | `/candidate/jobs/:tenantId/:jobId/apply` | Candidate | Submit application |
+| GET | `/candidate/jobs/:companyId/:jobId` | Candidate | Job detail |
+| POST | `/candidate/jobs/:companyId/:jobId/apply` | Candidate | Submit application |
 | GET | `/candidate/applications` | Candidate | My application history from index |
 | GET | `/candidate/applications/:appId` | Candidate | Application detail + status |
 | POST | `/candidate/bookmarks` | Candidate | Save a job |
@@ -83,12 +83,12 @@ export class CandidateAuthGuard implements CanActivate {
 }
 ```
 
-Applied to all `/candidate/*` routes. The `TenantContextInterceptor` sees no `tenantId` and sets context to `public` schema.
+Applied to all `/candidate/*` routes. The `CompanyContextInterceptor` sees no `companyId` and sets context to `public` schema.
 
 ## Frontend Routes
 
 ```
-/candidate/login       → LoginPage (separate from org login)
+/candidate/login       → LoginPage (separate from company login)
 /candidate/signup      → SignupPage
 /candidate/dashboard    → Main dashboard: job listings with search
 /candidate/applications → Application history with status per row
@@ -100,13 +100,13 @@ Separate `CandidateShell` layout — minimal chrome, no AppShell sidebar.
 
 ## Open / Unauthenticated Apply (backward compatible)
 
-`POST /public/:tenantSlug/jobs/:id/apply` continues to work for unauthenticated candidates (no account needed). These create tenant-scoped candidate + application records but do NOT create a candidate account or index entry. This preserves the fast-apply flow.
+`POST /public/:companySlug/jobs/:id/apply` continues to work for unauthenticated candidates (no account needed). These create company-scoped candidate + application records but do NOT create a candidate account or index entry. This preserves the fast-apply flow.
 
 ## Guard & Permission Changes
 
 - New `CandidateAuthGuard` for `/candidate/*` routes
 - Existing `RolesGuard` updated to recognize `'Candidate'` role string
-- `TenantContextInterceptor` handles JWT without `tenantId` → operates in public schema
+- `CompanyContextInterceptor` handles JWT without `companyId` → operates in public schema
 
 ## Affected Backend Modules
 
@@ -138,6 +138,6 @@ Separate `CandidateShell` layout — minimal chrome, no AppShell sidebar.
 
 ## Open Questions (resolved)
 
-- **Q: Does the unauthenticated apply flow still work?** Yes — `/public/:tenantSlug/jobs/:id/apply` unchanged. Candidates without accounts can still apply.
-- **Q: How does candidate_applications_index get updated when tenant moves stages?** The application service's `updateStage()` method does a dual write — updates the tenant's `applications` row and the public `candidate_applications_index` row (identified by `candidateAccountId` + `tenantId` + `jobPostingId`).
-- **Q: What happens when a tenant deletes a job posting?** The index row gets deleted/synced as well (cascade or explicit delete).
+- **Q: Does the unauthenticated apply flow still work?** Yes — `/public/:companySlug/jobs/:id/apply` unchanged. Candidates without accounts can still apply.
+- **Q: How does candidate_applications_index get updated when company moves stages?** The application service's `updateStage()` method does a dual write — updates the company's `applications` row and the public `candidate_applications_index` row (identified by `candidateAccountId` + `companyId` + `jobPostingId`).
+- **Q: What happens when a company deletes a job posting?** The index row gets deleted/synced as well (cascade or explicit delete).

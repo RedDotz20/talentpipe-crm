@@ -31,7 +31,7 @@ backend/src/
   app.controller.ts / app.service.ts        (T4: DELETE)
   app.controller.spec.ts                    (T4: DELETE)
   common/
-    context/tenant-context.ts               (T1: new — moved content)
+    context/company-context.ts               (T1: new — moved content)
     password.ts                             (T1: new — moved content)
     auth/auth-core.module.ts                (T1: new)
     auth/jwt.strategy.ts                    (T1: new — moved content)
@@ -39,7 +39,7 @@ backend/src/
     guards/candidate-auth.guard.ts          (T1: new — moved content)
     decorators/roles.decorator.ts           (T1: new — moved content)
     decorators/current-user.decorator.ts    (T1: new)
-    interceptors/tenant-context.interceptor.ts (T1: new — moved content)
+    interceptors/company-context.interceptor.ts (T1: new — moved content)
     interceptors/response.interceptor.ts    (T1: new — moved content)
     filters/api-exception.filter.ts         (T1: new — moved content)
     middlewares/logger.middleware.ts        (T1: new — moved+renamed)
@@ -54,7 +54,7 @@ backend/src/
     base.repository.ts                      (T1: new)
     repositories.module.ts                  (T1: new)
     user.repository.ts                      (T1: rewrite)
-    tenant.repository.ts                    (T1: rewrite)
+    company.repository.ts                    (T1: rewrite)
     refresh-token.repository.ts             (T1: new)
     candidate.repository.ts                 (T1: new)
     application.repository.ts               (T1: new)
@@ -73,14 +73,14 @@ backend/src/
       auth.service.ts                       (T2: rewrite)
       auth.service.spec.ts                  (T2: rewrite)
       jwt.strategy.ts                       (T4: DELETE — moved to common/auth)
-      dto/org-signup.dto.ts                 (T2: new)
+      dto/company-signup.dto.ts                 (T2: new)
       dto/signin.dto.ts                     (T2: new)
       dto/refresh.dto.ts                    (T2: new)
       dto/candidate-auth.dto.ts             (T2: remove CandidateLoginSchema)
       services/token.service.ts             (T2: new)
       services/token.service.spec.ts        (T2: new)
-      services/tenant-provisioning.service.ts      (T2: new)
-      services/tenant-provisioning.service.spec.ts (T2: new)
+      services/company-provisioning.service.ts      (T2: new)
+      services/company-provisioning.service.spec.ts (T2: new)
     candidate-account/
       candidate-account.module.ts           (T3: rewrite)
       candidate-account.controller.ts       (T3: rewrite)
@@ -102,7 +102,7 @@ backend/src/
 ### Task 1: Shared infrastructure + repository base (additive)
 
 **Files:**
-- Create: `backend/src/common/context/tenant-context.ts`
+- Create: `backend/src/common/context/company-context.ts`
 - Create: `backend/src/common/password.ts`
 - Create: `backend/src/common/pipes/zod-validation.pipe.ts`
 - Test: `backend/src/common/pipes/zod-validation.pipe.spec.ts`
@@ -112,7 +112,7 @@ backend/src/
 - Create: `backend/src/common/guards/roles.guard.ts`
 - Create: `backend/src/common/guards/candidate-auth.guard.ts`
 - Create: `backend/src/common/decorators/roles.decorator.ts`
-- Create: `backend/src/common/interceptors/tenant-context.interceptor.ts`
+- Create: `backend/src/common/interceptors/company-context.interceptor.ts`
 - Create: `backend/src/common/interceptors/response.interceptor.ts`
 - Create: `backend/src/common/filters/api-exception.filter.ts`
 - Create: `backend/src/common/middlewares/logger.middleware.ts`
@@ -128,15 +128,15 @@ backend/src/
 - Create: `backend/src/repositories/super-admin.repository.ts`
 - Create: `backend/src/repositories/user-email.repository.ts`
 - Rewrite: `backend/src/repositories/user.repository.ts`
-- Rewrite: `backend/src/repositories/tenant.repository.ts`
+- Rewrite: `backend/src/repositories/company.repository.ts`
 - Rewrite: `backend/src/repositories/candidate-account.repository.ts`
 - Rewrite: `backend/src/repositories/candidate-bookmark.repository.ts`
 - Rewrite: `backend/src/repositories/candidate-applications-index.repository.ts`
 - Rewrite: `backend/src/repositories/job-listings-index.repository.ts`
 
 **Interfaces:**
-- Consumes: existing `interceptors/tenant-context.ts` exports (`TenantContext`, `asyncStorage`, `getTenantId`, `getSchema`, `getCurrentUser`) — copied verbatim into `common/context/tenant-context.ts`.
-- Produces: `ZodValidationPipe<T>` (param pipe), `CurrentUser` (param decorator → `TenantContext`), `AuthCoreModule` (exports `JwtStrategy`, `PassportModule`, `JwtModule`), `DatabaseModule` (exports `DrizzleSchemaService`, `DRIZZLE_PROVIDER`), `RepositoriesModule` (exports all repos), `BaseRepository` with `withDb(schema, fn)` and default schema `'current'`, repos `UserRepository`, `TenantRepository`, `RefreshTokenRepository`, `CandidateRepository`, `ApplicationRepository`, `PipelineStageRepository`, `SuperAdminRepository`, `UserEmailRepository`, `CandidateAccountRepository`, `CandidateBookmarkRepository`, `CandidateApplicationsIndexRepository`, `JobListingsIndexRepository`.
+- Consumes: existing `interceptors/company-context.ts` exports (`CompanyContext`, `asyncStorage`, `getCompanyId`, `getSchema`, `getCurrentUser`) — copied verbatim into `common/context/company-context.ts`.
+- Produces: `ZodValidationPipe<T>` (param pipe), `CurrentUser` (param decorator → `CompanyContext`), `AuthCoreModule` (exports `JwtStrategy`, `PassportModule`, `JwtModule`), `DatabaseModule` (exports `DrizzleSchemaService`, `DRIZZLE_PROVIDER`), `RepositoriesModule` (exports all repos), `BaseRepository` with `withDb(schema, fn)` and default schema `'current'`, repos `UserRepository`, `CompanyRepository`, `RefreshTokenRepository`, `CandidateRepository`, `ApplicationRepository`, `PipelineStageRepository`, `SuperAdminRepository`, `UserEmailRepository`, `CandidateAccountRepository`, `CandidateBookmarkRepository`, `CandidateApplicationsIndexRepository`, `JobListingsIndexRepository`.
 
 This task is additive — it creates copies/moves in new paths while the old files stay until Task 4. Everything compiles throughout.
 
@@ -224,34 +224,34 @@ export class ZodValidationPipe<T> implements PipeTransform {
 Run: `npm test -- src/common/pipes/zod-validation.pipe.spec.ts`
 Expected: PASS (2 tests).
 
-- [ ] **Step 6: Create `common/context/tenant-context.ts`** (copy of `interceptors/tenant-context.ts`)
+- [ ] **Step 6: Create `common/context/company-context.ts`** (copy of `interceptors/company-context.ts`)
 
 ```ts
 import { AsyncLocalStorage } from 'async_hooks';
 
-export interface TenantContext {
-  tenantId: string;
+export interface CompanyContext {
+  companyId: string;
   userId: string;
   role: string;
 }
 
-export const asyncStorage = new AsyncLocalStorage<TenantContext>();
+export const asyncStorage = new AsyncLocalStorage<CompanyContext>();
 
-export function getTenantId(): string {
+export function getCompanyId(): string {
   const ctx = asyncStorage.getStore();
-  if (!ctx) throw new Error('No tenant context');
-  return ctx.tenantId;
+  if (!ctx) throw new Error('No company context');
+  return ctx.companyId;
 }
 
 export function getSchema(): string {
-  const tenantId = getTenantId();
-  if (tenantId === 'public') return 'public';
-  return `tenant_${tenantId}`;
+  const companyId = getCompanyId();
+  if (companyId === 'public') return 'public';
+  return `company_${companyId}`;
 }
 
-export function getCurrentUser(): TenantContext {
+export function getCurrentUser(): CompanyContext {
   const ctx = asyncStorage.getStore();
-  if (!ctx) throw new Error('No tenant context');
+  if (!ctx) throw new Error('No company context');
   return ctx;
 }
 ```
@@ -277,10 +277,10 @@ export async function verifyPassword(
 
 ```ts
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import { TenantContext } from '../context/tenant-context';
+import { CompanyContext } from '../context/company-context';
 
 export const CurrentUser = createParamDecorator(
-  (_data: unknown, ctx: ExecutionContext): TenantContext => {
+  (_data: unknown, ctx: ExecutionContext): CompanyContext => {
     const request = ctx.switchToHttp().getRequest();
     return request.user;
   },
@@ -307,12 +307,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: {
     sub: string;
-    tenantId: string | null;
+    companyId: string | null;
     role: string;
   }) {
     return {
       userId: payload.sub,
-      tenantId: payload.tenantId,
+      companyId: payload.companyId,
       role: payload.role,
     };
   }
@@ -391,7 +391,7 @@ export const ROLES_KEY = 'roles';
 export const Roles = (...roles: string[]) => SetMetadata(ROLES_KEY, roles);
 ```
 
-- [ ] **Step 14: Create `common/interceptors/tenant-context.interceptor.ts`**
+- [ ] **Step 14: Create `common/interceptors/company-context.interceptor.ts`**
 
 ```ts
 import {
@@ -401,24 +401,24 @@ import {
   CallHandler,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
-import { asyncStorage, TenantContext } from '../context/tenant-context';
+import { asyncStorage, CompanyContext } from '../context/company-context';
 
 @Injectable()
-export class TenantContextInterceptor implements NestInterceptor {
+export class CompanyContextInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest();
-    const user = request.user as TenantContext | undefined;
+    const user = request.user as CompanyContext | undefined;
 
-    const tenantId =
-      user?.role === 'SuperAdmin' || !user?.tenantId ? 'public' : user.tenantId;
+    const companyId =
+      user?.role === 'SuperAdmin' || !user?.companyId ? 'public' : user.companyId;
 
-    const ctx: TenantContext = user
+    const ctx: CompanyContext = user
       ? {
-          tenantId,
+          companyId,
           userId: user.userId,
           role: user.role,
         }
-      : { tenantId: 'public', userId: '', role: 'anonymous' };
+      : { companyId: 'public', userId: '', role: 'anonymous' };
 
     return new Observable((subscriber) => {
       asyncStorage.run(ctx, () => {
@@ -603,11 +603,11 @@ export const drizzleProvider = {
 
 Change line 5 from:
 ```ts
-import { getSchema } from '../interceptors/tenant-context';
+import { getSchema } from '../interceptors/company-context';
 ```
 to:
 ```ts
-import { getSchema } from '../common/context/tenant-context';
+import { getSchema } from '../common/context/company-context';
 ```
 
 - [ ] **Step 20: Create `database/database.module.ts`**
@@ -645,7 +645,7 @@ export abstract class BaseRepository {
     if (schema === 'public') {
       handle = await this.drizzleSchema.forPublic();
     } else if (schema === 'current') {
-      handle = await this.drizzleSchema.forCurrentTenant();
+      handle = await this.drizzleSchema.forCurrentCompany();
     } else {
       handle = await this.drizzleSchema.forSchema(schema);
     }
@@ -706,15 +706,15 @@ export class UserRepository extends BaseRepository {
 }
 ```
 
-- [ ] **Step 23: Rewrite `repositories/tenant.repository.ts`**
+- [ ] **Step 23: Rewrite `repositories/company.repository.ts`**
 
 ```ts
 import { Injectable } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
-import { tenants } from '../database/schema';
+import { companies } from '../database/schema';
 import { BaseRepository } from './base.repository';
 
-const TENANT_TABLES = [
+const COMPANY_TABLES = [
   'users',
   'job_postings',
   'candidates',
@@ -729,13 +729,13 @@ const TENANT_TABLES = [
 ];
 
 @Injectable()
-export class TenantRepository extends BaseRepository {
+export class CompanyRepository extends BaseRepository {
   async findBySlug(slug: string) {
     return this.withDb('public', async (db) => {
       const rows = await db
         .select()
-        .from(tenants)
-        .where(eq(tenants.slug, slug))
+        .from(companies)
+        .where(eq(companies.slug, slug))
         .execute();
       return rows[0] ?? null;
     });
@@ -745,8 +745,8 @@ export class TenantRepository extends BaseRepository {
     return this.withDb('public', async (db) => {
       const rows = await db
         .select()
-        .from(tenants)
-        .where(eq(tenants.id, id))
+        .from(companies)
+        .where(eq(companies.id, id))
         .execute();
       return rows[0] ?? null;
     });
@@ -755,7 +755,7 @@ export class TenantRepository extends BaseRepository {
   async create(data: { id: string; name: string; slug: string }) {
     return this.withDb('public', async (db) => {
       const rows = await db
-        .insert(tenants)
+        .insert(companies)
         .values(data)
         .returning()
         .execute();
@@ -763,11 +763,11 @@ export class TenantRepository extends BaseRepository {
     });
   }
 
-  async provisionSchema(tenantId: string) {
-    const schemaName = `tenant_${tenantId}`;
+  async provisionSchema(companyId: string) {
+    const schemaName = `company_${companyId}`;
     return this.withDb('public', async (db) => {
       await db.execute(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
-      for (const table of TENANT_TABLES) {
+      for (const table of COMPANY_TABLES) {
         await db.execute(
           `CREATE TABLE IF NOT EXISTS "${schemaName}"."${table}" (LIKE template."${table}" INCLUDING ALL)`,
         );
@@ -808,7 +808,7 @@ export class RefreshTokenRepository extends BaseRepository {
 
   async create(data: {
     userId: string;
-    tenantId: string;
+    companyId: string;
     tokenHash: string;
     expiresAt: Date;
   }) {
@@ -962,7 +962,7 @@ export class UserEmailRepository extends BaseRepository {
     });
   }
 
-  async create(data: { email: string; tenantId: string; userId: string }) {
+  async create(data: { email: string; companyId: string; userId: string }) {
     return this.withDb('public', async (db) => {
       const rows = await db
         .insert(userEmails)
@@ -1048,7 +1048,7 @@ export class CandidateBookmarkRepository extends BaseRepository {
 
   async findByJob(
     candidateAccountId: string,
-    tenantId: string,
+    companyId: string,
     jobPostingId: string,
   ) {
     return this.withDb('public', async (db) => {
@@ -1058,7 +1058,7 @@ export class CandidateBookmarkRepository extends BaseRepository {
         .where(
           and(
             eq(candidateBookmarks.candidateAccountId, candidateAccountId),
-            eq(candidateBookmarks.tenantId, tenantId),
+            eq(candidateBookmarks.companyId, companyId),
             eq(candidateBookmarks.jobPostingId, jobPostingId),
           ),
         )
@@ -1069,7 +1069,7 @@ export class CandidateBookmarkRepository extends BaseRepository {
 
   async create(data: {
     candidateAccountId: string;
-    tenantId: string;
+    companyId: string;
     jobPostingId: string;
     jobTitle: string;
     companyName: string;
@@ -1125,7 +1125,7 @@ export class CandidateApplicationsIndexRepository extends BaseRepository {
 
   async create(data: {
     candidateAccountId: string;
-    tenantId: string;
+    companyId: string;
     jobPostingId: string;
     applicationId: string;
     jobTitle: string;
@@ -1188,14 +1188,14 @@ export class JobListingsIndexRepository extends BaseRepository {
     });
   }
 
-  async findById(tenantId: string, jobPostingId: string) {
+  async findById(companyId: string, jobPostingId: string) {
     return this.withDb('public', async (db) => {
       const rows = await db
         .select()
         .from(jobListingsIndex)
         .where(
           and(
-            eq(jobListingsIndex.tenantId, tenantId),
+            eq(jobListingsIndex.companyId, companyId),
             eq(jobListingsIndex.jobPostingId, jobPostingId),
           ),
         )
@@ -1205,7 +1205,7 @@ export class JobListingsIndexRepository extends BaseRepository {
   }
 
   async upsert(data: {
-    tenantId: string;
+    companyId: string;
     jobPostingId: string;
     title: string;
     description: string;
@@ -1219,7 +1219,7 @@ export class JobListingsIndexRepository extends BaseRepository {
         .from(jobListingsIndex)
         .where(
           and(
-            eq(jobListingsIndex.tenantId, data.tenantId),
+            eq(jobListingsIndex.companyId, data.companyId),
             eq(jobListingsIndex.jobPostingId, data.jobPostingId),
           ),
         )
@@ -1238,7 +1238,7 @@ export class JobListingsIndexRepository extends BaseRepository {
           })
           .where(
             and(
-              eq(jobListingsIndex.tenantId, data.tenantId),
+              eq(jobListingsIndex.companyId, data.companyId),
               eq(jobListingsIndex.jobPostingId, data.jobPostingId),
             ),
           )
@@ -1256,13 +1256,13 @@ export class JobListingsIndexRepository extends BaseRepository {
     });
   }
 
-  async delete(tenantId: string, jobPostingId: string) {
+  async delete(companyId: string, jobPostingId: string) {
     return this.withDb('public', (db) =>
       db
         .delete(jobListingsIndex)
         .where(
           and(
-            eq(jobListingsIndex.tenantId, tenantId),
+            eq(jobListingsIndex.companyId, companyId),
             eq(jobListingsIndex.jobPostingId, jobPostingId),
           ),
         )
@@ -1278,7 +1278,7 @@ export class JobListingsIndexRepository extends BaseRepository {
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from '../database/database.module';
 import { UserRepository } from './user.repository';
-import { TenantRepository } from './tenant.repository';
+import { CompanyRepository } from './company.repository';
 import { RefreshTokenRepository } from './refresh-token.repository';
 import { CandidateRepository } from './candidate.repository';
 import { ApplicationRepository } from './application.repository';
@@ -1292,7 +1292,7 @@ import { JobListingsIndexRepository } from './job-listings-index.repository';
 
 const REPOSITORIES = [
   UserRepository,
-  TenantRepository,
+  CompanyRepository,
   RefreshTokenRepository,
   CandidateRepository,
   ApplicationRepository,
@@ -1334,9 +1334,9 @@ git commit -m "refactor(be): shared common/, DatabaseModule, RepositoriesModule,
 **Files:**
 - Create: `backend/src/modules/auth/services/token.service.ts`
 - Test: `backend/src/modules/auth/services/token.service.spec.ts`
-- Create: `backend/src/modules/auth/services/tenant-provisioning.service.ts`
-- Test: `backend/src/modules/auth/services/tenant-provisioning.service.spec.ts`
-- Create: `backend/src/modules/auth/dto/org-signup.dto.ts`
+- Create: `backend/src/modules/auth/services/company-provisioning.service.ts`
+- Test: `backend/src/modules/auth/services/company-provisioning.service.spec.ts`
+- Create: `backend/src/modules/auth/dto/company-signup.dto.ts`
 - Create: `backend/src/modules/auth/dto/signin.dto.ts`
 - Create: `backend/src/modules/auth/dto/refresh.dto.ts`
 - Modify: `backend/src/modules/auth/dto/candidate-auth.dto.ts` (remove `CandidateLoginSchema` + type)
@@ -1346,8 +1346,8 @@ git commit -m "refactor(be): shared common/, DatabaseModule, RepositoriesModule,
 - Rewrite: `backend/src/modules/auth/auth.service.spec.ts`
 
 **Interfaces:**
-- Consumes: `AuthCoreModule` (exports `JwtService` via `JwtModule`), `RepositoriesModule`, `common/password.ts`, `common/pipes/zod-validation.pipe.ts`, `common/decorators/current-user.decorator.ts`, `common/context/tenant-context.ts` (`TenantContext` type).
-- Produces: `TokenService.issueTokens(subject: { id: string; tenantId: string | null | undefined; role: string }) => Promise<{ accessToken: string; refreshToken: string }>`, `TokenService.rotate(refreshToken: string) => Promise<{ accessToken: string; refreshToken: string }>`, `TokenService.logout(userId: string) => Promise<void>`, `TenantProvisioningService.createTenant(dto) => Promise<{ tenantId: string; userId: string }>`.
+- Consumes: `AuthCoreModule` (exports `JwtService` via `JwtModule`), `RepositoriesModule`, `common/password.ts`, `common/pipes/zod-validation.pipe.ts`, `common/decorators/current-user.decorator.ts`, `common/context/company-context.ts` (`CompanyContext` type).
+- Produces: `TokenService.issueTokens(subject: { id: string; companyId: string | null | undefined; role: string }) => Promise<{ accessToken: string; refreshToken: string }>`, `TokenService.rotate(refreshToken: string) => Promise<{ accessToken: string; refreshToken: string }>`, `TokenService.logout(userId: string) => Promise<void>`, `CompanyProvisioningService.createCompany(dto) => Promise<{ companyId: string; userId: string }>`.
 
 - [ ] **Step 1: Write the failing tests for TokenService**
 
@@ -1396,32 +1396,32 @@ describe('TokenService', () => {
     it('signs access + refresh, stores a hashed row, and returns both tokens', async () => {
       const result = await service.issueTokens({
         id: 'u1',
-        tenantId: 't1',
-        role: 'OrgAdmin',
+        companyId: 't1',
+        role: 'CompanyAdmin',
       });
 
       expect(result).toEqual({ accessToken: 'token', refreshToken: 'token' });
       expect(jwtService.sign).toHaveBeenCalledTimes(2);
       expect(jwtService.sign).toHaveBeenLastCalledWith(
-        { sub: 'u1', tenantId: 't1', role: 'OrgAdmin' },
+        { sub: 'u1', companyId: 't1', role: 'CompanyAdmin' },
         expect.objectContaining({ secret: 'refresh-secret' }),
       );
       expect(refreshTokenRepo.deleteByUser).toHaveBeenCalledWith('u1');
       expect(refreshTokenRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           userId: 'u1',
-          tenantId: 't1',
+          companyId: 't1',
           tokenHash: 'hashed-value',
           expiresAt: expect.any(Date),
         }),
       );
     });
 
-    it('maps a null tenantId to the nil uuid in the stored row', async () => {
-      await service.issueTokens({ id: 'u1', tenantId: null, role: 'Candidate' });
+    it('maps a null companyId to the nil uuid in the stored row', async () => {
+      await service.issueTokens({ id: 'u1', companyId: null, role: 'Candidate' });
       expect(refreshTokenRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          tenantId: '00000000-0000-0000-0000-000000000000',
+          companyId: '00000000-0000-0000-0000-000000000000',
         }),
       );
     });
@@ -1429,7 +1429,7 @@ describe('TokenService', () => {
 
   describe('rotate', () => {
     it('throws UnauthorizedException when no stored record exists', async () => {
-      jwtService.verify.mockReturnValue({ sub: 'u1', tenantId: null, role: 'Candidate' });
+      jwtService.verify.mockReturnValue({ sub: 'u1', companyId: null, role: 'Candidate' });
       refreshTokenRepo.findLatestByUser.mockResolvedValue(null);
       await expect(service.rotate('refresh-token')).rejects.toThrow(
         UnauthorizedException,
@@ -1437,7 +1437,7 @@ describe('TokenService', () => {
     });
 
     it('throws UnauthorizedException on an expired stored record', async () => {
-      jwtService.verify.mockReturnValue({ sub: 'u1', tenantId: 't1', role: 'OrgAdmin' });
+      jwtService.verify.mockReturnValue({ sub: 'u1', companyId: 't1', role: 'CompanyAdmin' });
       refreshTokenRepo.findLatestByUser.mockResolvedValue({
         expiresAt: new Date(Date.now() - 1000),
         tokenHash: 'hashed-value',
@@ -1449,7 +1449,7 @@ describe('TokenService', () => {
     });
 
     it('re-issues tokens for a valid stored record', async () => {
-      jwtService.verify.mockReturnValue({ sub: 'u1', tenantId: 't1', role: 'OrgAdmin' });
+      jwtService.verify.mockReturnValue({ sub: 'u1', companyId: 't1', role: 'CompanyAdmin' });
       refreshTokenRepo.findLatestByUser.mockResolvedValue({
         expiresAt: new Date(Date.now() + 60_000),
         tokenHash: 'hashed-value',
@@ -1468,14 +1468,14 @@ describe('TokenService', () => {
 });
 ```
 
-- [ ] **Step 2: Write the failing tests for TenantProvisioningService**
+- [ ] **Step 2: Write the failing tests for CompanyProvisioningService**
 
-Create `backend/src/modules/auth/services/tenant-provisioning.service.spec.ts`:
+Create `backend/src/modules/auth/services/company-provisioning.service.spec.ts`:
 ```ts
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException } from '@nestjs/common';
-import { TenantProvisioningService } from './tenant-provisioning.service';
-import { TenantRepository } from '../../../repositories/tenant.repository';
+import { CompanyProvisioningService } from './company-provisioning.service';
+import { CompanyRepository } from '../../../repositories/company.repository';
 import { UserRepository } from '../../../repositories/user.repository';
 import { UserEmailRepository } from '../../../repositories/user-email.repository';
 import { PipelineStageRepository } from '../../../repositories/pipeline-stage.repository';
@@ -1483,9 +1483,9 @@ import { PipelineStageRepository } from '../../../repositories/pipeline-stage.re
 jest.mock('crypto', () => ({ randomUUID: jest.fn(() => 'uuid-1') }));
 jest.mock('argon2', () => ({ hash: jest.fn().mockResolvedValue('hash'), verify: jest.fn() }));
 
-describe('TenantProvisioningService', () => {
-  let service: TenantProvisioningService;
-  const tenantRepo = {
+describe('CompanyProvisioningService', () => {
+  let service: CompanyProvisioningService;
+  const companyRepo = {
     findBySlug: jest.fn(),
     create: jest.fn().mockResolvedValue({ id: 'uuid-1' }),
     provisionSchema: jest.fn().mockResolvedValue(undefined),
@@ -1498,14 +1498,14 @@ describe('TenantProvisioningService', () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        TenantProvisioningService,
-        { provide: TenantRepository, useValue: tenantRepo },
+        CompanyProvisioningService,
+        { provide: CompanyRepository, useValue: companyRepo },
         { provide: UserRepository, useValue: userRepo },
         { provide: UserEmailRepository, useValue: userEmailRepo },
         { provide: PipelineStageRepository, useValue: pipelineStageRepo },
       ],
     }).compile();
-    service = module.get<TenantProvisioningService>(TenantProvisioningService);
+    service = module.get<CompanyProvisioningService>(CompanyProvisioningService);
   });
 
   it('should be defined', () => {
@@ -1513,9 +1513,9 @@ describe('TenantProvisioningService', () => {
   });
 
   it('throws ConflictException when the slug is already taken', async () => {
-    tenantRepo.findBySlug.mockResolvedValue({ id: 'x' });
+    companyRepo.findBySlug.mockResolvedValue({ id: 'x' });
     await expect(
-      service.createTenant({
+      service.createCompany({
         companyName: 'Acme',
         slug: 'acme',
         email: 'admin@acme.com',
@@ -1524,33 +1524,33 @@ describe('TenantProvisioningService', () => {
     ).rejects.toThrow(ConflictException);
   });
 
-  it('creates tenant, provisions schema, seeds user + stages + email link', async () => {
-    tenantRepo.findBySlug.mockResolvedValue(null);
-    const result = await service.createTenant({
+  it('creates company, provisions schema, seeds user + stages + email link', async () => {
+    companyRepo.findBySlug.mockResolvedValue(null);
+    const result = await service.createCompany({
       companyName: 'Acme',
       slug: 'acme',
       email: 'admin@acme.com',
       password: 'password1',
     });
 
-    expect(result).toEqual({ tenantId: 'uuid-1', userId: 'uuid-1' });
-    expect(tenantRepo.create).toHaveBeenCalledWith({
+    expect(result).toEqual({ companyId: 'uuid-1', userId: 'uuid-1' });
+    expect(companyRepo.create).toHaveBeenCalledWith({
       id: 'uuid-1',
       name: 'Acme',
       slug: 'acme',
     });
-    expect(tenantRepo.provisionSchema).toHaveBeenCalledWith('uuid-1');
+    expect(companyRepo.provisionSchema).toHaveBeenCalledWith('uuid-1');
     expect(userRepo.create).toHaveBeenCalledWith(
-      expect.objectContaining({ email: 'admin@acme.com', role: 'OrgAdmin' }),
-      'tenant_uuid-1',
+      expect.objectContaining({ email: 'admin@acme.com', role: 'CompanyAdmin' }),
+      'company_uuid-1',
     );
     expect(pipelineStageRepo.createMany).toHaveBeenCalledWith(
       ['Applied', 'Screening', 'Interview', 'Offer', 'Hired', 'Rejected'],
-      'tenant_uuid-1',
+      'company_uuid-1',
     );
     expect(userEmailRepo.create).toHaveBeenCalledWith({
       email: 'admin@acme.com',
-      tenantId: 'uuid-1',
+      companyId: 'uuid-1',
       userId: 'uuid-1',
     });
   });
@@ -1560,7 +1560,7 @@ describe('TenantProvisioningService', () => {
 - [ ] **Step 3: Run both new test files to verify they fail**
 
 Run: `npm test -- src/modules/auth/services`
-Expected: FAIL — `Cannot find module './token.service'` and `Cannot find module './tenant-provisioning.service'`.
+Expected: FAIL — `Cannot find module './token.service'` and `Cannot find module './company-provisioning.service'`.
 
 - [ ] **Step 4: Create `modules/auth/services/token.service.ts`**
 
@@ -1573,11 +1573,11 @@ import { RefreshTokenRepository } from '../../../repositories/refresh-token.repo
 
 const ACCESS_TTL = '15m';
 const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-export const NIL_TENANT_ID = '00000000-0000-0000-0000-000000000000';
+export const NIL_COMPANY_ID = '00000000-0000-0000-0000-000000000000';
 
 export interface TokenSubject {
   id: string;
-  tenantId: string | null | undefined;
+  companyId: string | null | undefined;
   role: string;
 }
 
@@ -1590,13 +1590,13 @@ export class TokenService {
   ) {}
 
   async issueTokens(subject: TokenSubject) {
-    const tenantId = subject.tenantId ?? NIL_TENANT_ID;
+    const companyId = subject.companyId ?? NIL_COMPANY_ID;
     const payload: Record<string, unknown> = {
       sub: subject.id,
       role: subject.role,
     };
-    if (subject.tenantId) {
-      payload.tenantId = subject.tenantId;
+    if (subject.companyId) {
+      payload.companyId = subject.companyId;
     }
 
     const accessToken = this.jwtService.sign(payload, {
@@ -1613,7 +1613,7 @@ export class TokenService {
     await this.refreshTokenRepo.deleteByUser(subject.id);
     await this.refreshTokenRepo.create({
       userId: subject.id,
-      tenantId,
+      companyId,
       tokenHash,
       expiresAt,
     });
@@ -1640,7 +1640,7 @@ export class TokenService {
 
     return this.issueTokens({
       id: payload.sub,
-      tenantId: payload.tenantId,
+      companyId: payload.companyId,
       role: payload.role,
     });
   }
@@ -1651,13 +1651,13 @@ export class TokenService {
 
   private verifyRefreshToken(refreshToken: string): {
     sub: string;
-    tenantId: string | null | undefined;
+    companyId: string | null | undefined;
     role: string;
   } {
     try {
       return this.jwtService.verify<{
         sub: string;
-        tenantId: string | null | undefined;
+        companyId: string | null | undefined;
         role: string;
       }>(refreshToken, {
         secret: this.configService.get<string>('JWT_REFRESH_SECRET')!,
@@ -1669,13 +1669,13 @@ export class TokenService {
 }
 ```
 
-- [ ] **Step 5: Create `modules/auth/services/tenant-provisioning.service.ts`**
+- [ ] **Step 5: Create `modules/auth/services/company-provisioning.service.ts`**
 
 ```ts
 import { ConflictException, Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { hashPassword } from '../../../common/password';
-import { TenantRepository } from '../../../repositories/tenant.repository';
+import { CompanyRepository } from '../../../repositories/company.repository';
 import { UserRepository } from '../../../repositories/user.repository';
 import { UserEmailRepository } from '../../../repositories/user-email.repository';
 import { PipelineStageRepository } from '../../../repositories/pipeline-stage.repository';
@@ -1689,7 +1689,7 @@ const DEFAULT_STAGES = [
   'Rejected',
 ];
 
-export interface CreateTenantDto {
+export interface CreateCompanyDto {
   companyName: string;
   slug: string;
   email: string;
@@ -1697,39 +1697,39 @@ export interface CreateTenantDto {
 }
 
 @Injectable()
-export class TenantProvisioningService {
+export class CompanyProvisioningService {
   constructor(
-    private tenantRepo: TenantRepository,
+    private companyRepo: CompanyRepository,
     private userRepo: UserRepository,
     private userEmailRepo: UserEmailRepository,
     private pipelineStageRepo: PipelineStageRepository,
   ) {}
 
-  async createTenant(dto: CreateTenantDto) {
-    const existing = await this.tenantRepo.findBySlug(dto.slug);
+  async createCompany(dto: CreateCompanyDto) {
+    const existing = await this.companyRepo.findBySlug(dto.slug);
     if (existing) throw new ConflictException('Slug already taken');
 
-    const tenantId = randomUUID();
-    const schemaName = `tenant_${tenantId}`;
+    const companyId = randomUUID();
+    const schemaName = `company_${companyId}`;
 
-    await this.tenantRepo.create({
-      id: tenantId,
+    await this.companyRepo.create({
+      id: companyId,
       name: dto.companyName,
       slug: dto.slug,
     });
-    await this.tenantRepo.provisionSchema(tenantId);
+    await this.companyRepo.provisionSchema(companyId);
 
     const passwordHash = await hashPassword(dto.password);
     const userId = randomUUID();
 
     await this.userRepo.create(
-      { id: userId, email: dto.email, passwordHash, role: 'OrgAdmin' },
+      { id: userId, email: dto.email, passwordHash, role: 'CompanyAdmin' },
       schemaName,
     );
     await this.pipelineStageRepo.createMany(DEFAULT_STAGES, schemaName);
-    await this.userEmailRepo.create({ email: dto.email, tenantId, userId });
+    await this.userEmailRepo.create({ email: dto.email, companyId, userId });
 
-    return { tenantId, userId };
+    return { companyId, userId };
   }
 }
 ```
@@ -1737,22 +1737,22 @@ export class TenantProvisioningService {
 - [ ] **Step 6: Run the two new specs to verify they pass**
 
 Run: `npm test -- src/modules/auth/services`
-Expected: PASS (TokenService + TenantProvisioningService).
+Expected: PASS (TokenService + CompanyProvisioningService).
 
 - [ ] **Step 7: Create the new auth DTOs**
 
-`backend/src/modules/auth/dto/org-signup.dto.ts`:
+`backend/src/modules/auth/dto/company-signup.dto.ts`:
 ```ts
 import { z } from 'zod';
 
-export const OrgSignupSchema = z.object({
+export const CompanySignupSchema = z.object({
   companyName: z.string().min(1).max(255),
   slug: z.string().min(1).max(100),
   email: z.string().email(),
   password: z.string().min(8).max(100),
 });
 
-export type OrgSignupDto = z.infer<typeof OrgSignupSchema>;
+export type CompanySignupDto = z.infer<typeof CompanySignupSchema>;
 ```
 
 `backend/src/modules/auth/dto/signin.dto.ts`:
@@ -1801,8 +1801,8 @@ export type CandidateSignupDto = z.infer<typeof CandidateSignupSchema>;
 import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { hashPassword, verifyPassword } from '../../common/password';
 import { TokenService } from './services/token.service';
-import { TenantProvisioningService } from './services/tenant-provisioning.service';
-import { OrgSignupDto } from './dto/org-signup.dto';
+import { CompanyProvisioningService } from './services/company-provisioning.service';
+import { CompanySignupDto } from './dto/company-signup.dto';
 import { SigninDto } from './dto/signin.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { CandidateSignupDto } from './dto/candidate-auth.dto';
@@ -1814,7 +1814,7 @@ import { SuperAdminRepository } from '../../repositories/super-admin.repository'
 @Injectable()
 export class AuthService {
   constructor(
-    private tenantProvisioning: TenantProvisioningService,
+    private companyProvisioning: CompanyProvisioningService,
     private tokenService: TokenService,
     private userEmailRepo: UserEmailRepository,
     private userRepo: UserRepository,
@@ -1822,12 +1822,12 @@ export class AuthService {
     private superAdminRepo: SuperAdminRepository,
   ) {}
 
-  async orgSignup(dto: OrgSignupDto) {
-    const { tenantId, userId } = await this.tenantProvisioning.createTenant(dto);
+  async companySignup(dto: CompanySignupDto) {
+    const { companyId, userId } = await this.companyProvisioning.createCompany(dto);
     const tokens = await this.tokenService.issueTokens({
       id: userId,
-      tenantId,
-      role: 'OrgAdmin',
+      companyId,
+      role: 'CompanyAdmin',
     });
     return { data: tokens, message: 'Company created' };
   }
@@ -1837,7 +1837,7 @@ export class AuthService {
     if (emailRecord) {
       const user = await this.userRepo.findByEmail(
         dto.email,
-        `tenant_${emailRecord.tenantId}`,
+        `company_${emailRecord.companyId}`,
       );
       if (!user) throw new UnauthorizedException('Invalid credentials');
       const valid = await verifyPassword(user.passwordHash, dto.password);
@@ -1845,7 +1845,7 @@ export class AuthService {
 
       const tokens = await this.tokenService.issueTokens({
         id: user.id,
-        tenantId: emailRecord.tenantId,
+        companyId: emailRecord.companyId,
         role: user.role,
       });
       return { data: tokens, message: 'Signed in' };
@@ -1858,7 +1858,7 @@ export class AuthService {
 
       const tokens = await this.tokenService.issueTokens({
         id: account.id,
-        tenantId: null,
+        companyId: null,
         role: 'Candidate',
       });
       return { data: tokens, message: 'Signed in' };
@@ -1871,7 +1871,7 @@ export class AuthService {
 
     const tokens = await this.tokenService.issueTokens({
       id: admin.id,
-      tenantId: null,
+      companyId: null,
       role: 'SuperAdmin',
     });
     return { data: tokens, message: 'Signed in' };
@@ -1892,7 +1892,7 @@ export class AuthService {
 
     const tokens = await this.tokenService.issueTokens({
       id: account.id,
-      tenantId: null,
+      companyId: null,
       role: 'Candidate',
     });
     return { data: tokens, message: 'Account created' };
@@ -1926,8 +1926,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { TenantContext } from '../../common/context/tenant-context';
-import { OrgSignupSchema, OrgSignupDto } from './dto/org-signup.dto';
+import { CompanyContext } from '../../common/context/company-context';
+import { CompanySignupSchema, CompanySignupDto } from './dto/company-signup.dto';
 import { SigninSchema, SigninDto } from './dto/signin.dto';
 import { RefreshSchema, RefreshDto } from './dto/refresh.dto';
 import { CandidateSignupSchema, CandidateSignupDto } from './dto/candidate-auth.dto';
@@ -1936,11 +1936,11 @@ import { CandidateSignupSchema, CandidateSignupDto } from './dto/candidate-auth.
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  @Post('org/signup')
-  async orgSignup(
-    @Body(new ZodValidationPipe(OrgSignupSchema)) dto: OrgSignupDto,
+  @Post('company/signup')
+  async companySignup(
+    @Body(new ZodValidationPipe(CompanySignupSchema)) dto: CompanySignupDto,
   ) {
-    return this.authService.orgSignup(dto);
+    return this.authService.companySignup(dto);
   }
 
   @Post('signin')
@@ -1965,7 +1965,7 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard('jwt'))
-  async logout(@CurrentUser() user: TenantContext) {
+  async logout(@CurrentUser() user: CompanyContext) {
     await this.authService.logout(user.userId);
     return { message: 'Logged out' };
   }
@@ -1981,12 +1981,12 @@ import { RepositoriesModule } from '../../repositories/repositories.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { TokenService } from './services/token.service';
-import { TenantProvisioningService } from './services/tenant-provisioning.service';
+import { CompanyProvisioningService } from './services/company-provisioning.service';
 
 @Module({
   imports: [AuthCoreModule, RepositoriesModule],
   controllers: [AuthController],
-  providers: [AuthService, TokenService, TenantProvisioningService],
+  providers: [AuthService, TokenService, CompanyProvisioningService],
 })
 export class AuthModule {}
 ```
@@ -1997,7 +1997,7 @@ export class AuthModule {}
 import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { TenantProvisioningService } from './services/tenant-provisioning.service';
+import { CompanyProvisioningService } from './services/company-provisioning.service';
 import { TokenService } from './services/token.service';
 import { UserEmailRepository } from '../../repositories/user-email.repository';
 import { UserRepository } from '../../repositories/user.repository';
@@ -2008,7 +2008,7 @@ jest.mock('argon2', () => ({ hash: jest.fn(), verify: jest.fn().mockResolvedValu
 
 describe('AuthService', () => {
   let service: AuthService;
-  const tenantProvisioning = { createTenant: jest.fn() };
+  const companyProvisioning = { createCompany: jest.fn() };
   const tokenService = { issueTokens: jest.fn() };
   const userEmailRepo = { findByEmail: jest.fn() };
   const userRepo = { findByEmail: jest.fn() };
@@ -2020,7 +2020,7 @@ describe('AuthService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
-        { provide: TenantProvisioningService, useValue: tenantProvisioning },
+        { provide: CompanyProvisioningService, useValue: companyProvisioning },
         { provide: TokenService, useValue: tokenService },
         { provide: UserEmailRepository, useValue: userEmailRepo },
         { provide: UserRepository, useValue: userRepo },
@@ -2035,10 +2035,10 @@ describe('AuthService', () => {
     expect(service).toBeDefined();
   });
 
-  describe('orgSignup', () => {
-    it('provisions tenant and issues OrgAdmin tokens', async () => {
-      tenantProvisioning.createTenant.mockResolvedValue({
-        tenantId: 't1',
+  describe('companySignup', () => {
+    it('provisions company and issues CompanyAdmin tokens', async () => {
+      companyProvisioning.createCompany.mockResolvedValue({
+        companyId: 't1',
         userId: 'u1',
       });
       tokenService.issueTokens.mockResolvedValue({
@@ -2046,7 +2046,7 @@ describe('AuthService', () => {
         refreshToken: 'r',
       });
 
-      const result = await service.orgSignup({
+      const result = await service.companySignup({
         companyName: 'Acme',
         slug: 'acme',
         email: 'admin@acme.com',
@@ -2055,8 +2055,8 @@ describe('AuthService', () => {
 
       expect(tokenService.issueTokens).toHaveBeenCalledWith({
         id: 'u1',
-        tenantId: 't1',
-        role: 'OrgAdmin',
+        companyId: 't1',
+        role: 'CompanyAdmin',
       });
       expect(result).toEqual({
         data: { accessToken: 'a', refreshToken: 'r' },
@@ -2066,13 +2066,13 @@ describe('AuthService', () => {
   });
 
   describe('signin', () => {
-    it('signs in an org user found via the email index', async () => {
-      userEmailRepo.findByEmail.mockResolvedValue({ tenantId: 't1', userId: 'u1' });
+    it('signs in an company user found via the email index', async () => {
+      userEmailRepo.findByEmail.mockResolvedValue({ companyId: 't1', userId: 'u1' });
       userRepo.findByEmail.mockResolvedValue({
         id: 'u1',
         email: 'admin@acme.com',
         passwordHash: 'hash',
-        role: 'OrgAdmin',
+        role: 'CompanyAdmin',
       });
       tokenService.issueTokens.mockResolvedValue({
         accessToken: 'a',
@@ -2086,12 +2086,12 @@ describe('AuthService', () => {
 
       expect(userRepo.findByEmail).toHaveBeenCalledWith(
         'admin@acme.com',
-        'tenant_t1',
+        'company_t1',
       );
       expect(tokenService.issueTokens).toHaveBeenCalledWith({
         id: 'u1',
-        tenantId: 't1',
-        role: 'OrgAdmin',
+        companyId: 't1',
+        role: 'CompanyAdmin',
       });
       expect(result).toEqual({
         data: { accessToken: 'a', refreshToken: 'r' },
@@ -2140,7 +2140,7 @@ Expected: PASS (all specs).
 
 ```bash
 git add backend/src/modules/auth
-git commit -m "refactor(be): split AuthService into TokenService + TenantProvisioningService, add Zod DTOs"
+git commit -m "refactor(be): split AuthService into TokenService + CompanyProvisioningService, add Zod DTOs"
 ```
 
 ---
@@ -2157,7 +2157,7 @@ git commit -m "refactor(be): split AuthService into TokenService + TenantProvisi
 - Rewrite: `backend/src/modules/candidate-account/candidate-account.module.ts`
 
 **Interfaces:**
-- Consumes: `AuthCoreModule`, `RepositoriesModule`, `ZodValidationPipe`, `CurrentUser`, `TenantContext`. Repos: `CandidateRepository.findByEmail(email, schema)`, `CandidateRepository.create(data, schema)`, `PipelineStageRepository.findFirst(schema)`, `ApplicationRepository.create(data, schema)`.
+- Consumes: `AuthCoreModule`, `RepositoriesModule`, `ZodValidationPipe`, `CurrentUser`, `CompanyContext`. Repos: `CandidateRepository.findByEmail(email, schema)`, `CandidateRepository.create(data, schema)`, `PipelineStageRepository.findFirst(schema)`, `ApplicationRepository.create(data, schema)`.
 - Produces: unchanged controller/service API (same routes and return shapes).
 
 - [ ] **Step 1: Create the candidate-account DTOs**
@@ -2167,7 +2167,7 @@ git commit -m "refactor(be): split AuthService into TokenService + TenantProvisi
 import { z } from 'zod';
 
 export const BookmarkJobSchema = z.object({
-  tenantId: z.string().uuid(),
+  companyId: z.string().uuid(),
   jobPostingId: z.string().uuid(),
 });
 
@@ -2230,9 +2230,9 @@ export class CandidateAccountService {
     return this.jobListingsIndexRepo.findAll(search);
   }
 
-  async getJobDetail(tenantId: string, jobPostingId: string) {
+  async getJobDetail(companyId: string, jobPostingId: string) {
     const job = await this.jobListingsIndexRepo.findById(
-      tenantId,
+      companyId,
       jobPostingId,
     );
     if (!job) throw new NotFoundException('Job posting not found');
@@ -2241,12 +2241,12 @@ export class CandidateAccountService {
 
   async apply(
     candidateAccountId: string,
-    tenantId: string,
+    companyId: string,
     jobPostingId: string,
     phone?: string,
   ) {
     const job = await this.jobListingsIndexRepo.findById(
-      tenantId,
+      companyId,
       jobPostingId,
     );
     if (!job) throw new NotFoundException('Job posting not found');
@@ -2255,7 +2255,7 @@ export class CandidateAccountService {
       await this.candidateAccountRepo.findById(candidateAccountId);
     if (!account) throw new NotFoundException('Candidate account not found');
 
-    const schemaName = `tenant_${tenantId}`;
+    const schemaName = `company_${companyId}`;
 
     let candidate = await this.candidateRepo.findByEmail(
       account.email,
@@ -2286,7 +2286,7 @@ export class CandidateAccountService {
 
     await this.candidateApplicationsIndexRepo.create({
       candidateAccountId,
-      tenantId,
+      companyId,
       jobPostingId,
       applicationId: application.id,
       jobTitle: job.title,
@@ -2309,25 +2309,25 @@ export class CandidateAccountService {
 
   async addBookmark(
     candidateAccountId: string,
-    tenantId: string,
+    companyId: string,
     jobPostingId: string,
   ) {
     const existing = await this.candidateBookmarkRepo.findByJob(
       candidateAccountId,
-      tenantId,
+      companyId,
       jobPostingId,
     );
     if (existing) return existing;
 
     const job = await this.jobListingsIndexRepo.findById(
-      tenantId,
+      companyId,
       jobPostingId,
     );
     if (!job) throw new NotFoundException('Job posting not found');
 
     return this.candidateBookmarkRepo.create({
       candidateAccountId,
-      tenantId,
+      companyId,
       jobPostingId,
       jobTitle: job.title,
       companyName: job.companyName,
@@ -2378,7 +2378,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { CandidateAuthGuard } from '../../common/guards/candidate-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { TenantContext } from '../../common/context/tenant-context';
+import { CompanyContext } from '../../common/context/company-context';
 import { CandidateAccountService } from './candidate-account.service';
 import { BookmarkJobSchema, BookmarkJobDto } from './dto/bookmark.dto';
 import { ApplyJobSchema, ApplyJobDto } from './dto/apply.dto';
@@ -2394,25 +2394,25 @@ export class CandidateAccountController {
     return this.candidateAccountService.getJobs(search);
   }
 
-  @Get('jobs/:tenantId/:jobId')
+  @Get('jobs/:companyId/:jobId')
   async getJobDetail(
-    @Param('tenantId') tenantId: string,
+    @Param('companyId') companyId: string,
     @Param('jobId') jobId: string,
   ) {
-    return this.candidateAccountService.getJobDetail(tenantId, jobId);
+    return this.candidateAccountService.getJobDetail(companyId, jobId);
   }
 
-  @Post('jobs/:tenantId/:jobId/apply')
+  @Post('jobs/:companyId/:jobId/apply')
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
   async apply(
-    @Param('tenantId') tenantId: string,
+    @Param('companyId') companyId: string,
     @Param('jobId') jobId: string,
     @Body(new ZodValidationPipe(ApplyJobSchema)) body: ApplyJobDto,
-    @CurrentUser() user: TenantContext,
+    @CurrentUser() user: CompanyContext,
   ) {
     return this.candidateAccountService.apply(
       user.userId,
-      tenantId,
+      companyId,
       jobId,
       body.phone,
     );
@@ -2420,7 +2420,7 @@ export class CandidateAccountController {
 
   @Get('applications')
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
-  async getApplications(@CurrentUser() user: TenantContext) {
+  async getApplications(@CurrentUser() user: CompanyContext) {
     return this.candidateAccountService.getApplications(user.userId);
   }
 
@@ -2428,30 +2428,30 @@ export class CandidateAccountController {
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
   async addBookmark(
     @Body(new ZodValidationPipe(BookmarkJobSchema)) body: BookmarkJobDto,
-    @CurrentUser() user: TenantContext,
+    @CurrentUser() user: CompanyContext,
   ) {
     return this.candidateAccountService.addBookmark(
       user.userId,
-      body.tenantId,
+      body.companyId,
       body.jobPostingId,
     );
   }
 
   @Delete('bookmarks/:id')
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
-  async removeBookmark(@Param('id') id: string, @CurrentUser() user: TenantContext) {
+  async removeBookmark(@Param('id') id: string, @CurrentUser() user: CompanyContext) {
     return this.candidateAccountService.removeBookmark(user.userId, id);
   }
 
   @Get('bookmarks')
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
-  async getBookmarks(@CurrentUser() user: TenantContext) {
+  async getBookmarks(@CurrentUser() user: CompanyContext) {
     return this.candidateAccountService.getBookmarks(user.userId);
   }
 
   @Get('profile')
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
-  async getProfile(@CurrentUser() user: TenantContext) {
+  async getProfile(@CurrentUser() user: CompanyContext) {
     return this.candidateAccountService.getProfile(user.userId);
   }
 }
@@ -2531,7 +2531,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './modules/auth/auth.module';
 import { CandidateAccountModule } from './modules/candidate-account/candidate-account.module';
 import { HealthModule } from './modules/health/health.module';
-import { TenantContextInterceptor } from './common/interceptors/tenant-context.interceptor';
+import { CompanyContextInterceptor } from './common/interceptors/company-context.interceptor';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { RolesGuard } from './common/guards/roles.guard';
 import { ApiExceptionFilter } from './common/filters/api-exception.filter';
@@ -2545,7 +2545,7 @@ import { LoggerMiddleware } from './common/middlewares/logger.middleware';
     HealthModule,
   ],
   providers: [
-    { provide: APP_INTERCEPTOR, useClass: TenantContextInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: CompanyContextInterceptor },
     { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_FILTER, useClass: ApiExceptionFilter },
@@ -2616,8 +2616,8 @@ Remove-Item -LiteralPath "backend/src/shared/response.interceptor.ts"
 Remove-Item -LiteralPath "backend/src/shared/roles.guard.ts"
 Remove-Item -LiteralPath "backend/src/shared/roles.decorator.ts"
 Remove-Item -LiteralPath "backend/src/shared/candidate-auth.guard.ts"
-Remove-Item -LiteralPath "backend/src/interceptors/tenant-context.ts"
-Remove-Item -LiteralPath "backend/src/interceptors/tenant-context.interceptor.ts"
+Remove-Item -LiteralPath "backend/src/interceptors/company-context.ts"
+Remove-Item -LiteralPath "backend/src/interceptors/company-context.interceptor.ts"
 Remove-Item -LiteralPath "backend/src/interceptors/.gitkeep"
 Remove-Item -LiteralPath "backend/src/shared/.gitkeep" -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath "backend/src/database/.gitkeep" -ErrorAction SilentlyContinue
@@ -2627,7 +2627,7 @@ Then confirm no orphaned references:
 ```bash
 rg -n "shared/|interceptors/|app\.service|AppService|app\.controller|AppController" backend/src backend/test
 ```
-Expected: no output (all references gone). Note `tenant-context` (common/context) will still appear — that's correct.
+Expected: no output (all references gone). Note `company-context` (common/context) will still appear — that's correct.
 
 - [ ] **Step 6: Rewrite `test/app.e2e-spec.ts`**
 
@@ -2743,7 +2743,7 @@ Expected: all PASS.
 Run: `npm run start:dev` (or `npm start`), then:
 ```powershell
 $body = '{"companyName":"Smoke Co","slug":"smoke-" + (Get-Random),"email":"smoke@example.com","password":"Smoke123!"}'
-$res = Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/auth/org/signup -ContentType application/json -Body $body
+$res = Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/auth/company/signup -ContentType application/json -Body $body
 $res.data.accessToken  # expect a non-empty JWT
 ```
 Then sign in with the same credentials via `POST /api/auth/signin` and expect `{ data: { accessToken, refreshToken }, message: "Signed in" }`.
@@ -2773,7 +2773,7 @@ git commit -m "chore(be): final cleanup after SOLID restructure"
 - `DatabaseModule` + `drizzleProvider` ConfigService → Task 1 (Steps 18–20).
 - `BaseRepository` + standard shapes + all new repos → Task 1 (Steps 21–33).
 - `RepositoriesModule` → Task 1 (Step 34).
-- `AuthService` split → Task 2 (TokenService, TenantProvisioningService, rewritten AuthService).
+- `AuthService` split → Task 2 (TokenService, CompanyProvisioningService, rewritten AuthService).
 - `AuthCoreModule` + hidden-coupling fix → Task 1 (Step 10) + Task 2/3 module rewrites.
 - Zod validation enforcement → Task 2 (Steps 7–10) + Task 3 (Steps 1–4).
 - `CurrentUser` decorator → Task 1 (Step 8), used in Tasks 2–3.

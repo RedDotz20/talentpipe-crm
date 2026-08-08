@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add global candidate accounts with signup/login, cross-tenant job search, application history, and job bookmarks.
+**Goal:** Add global candidate accounts with signup/login, cross-company job search, application history, and job bookmarks.
 
-**Architecture:** Four new public-schema tables (`candidate_accounts`, `candidate_bookmarks`, `candidate_applications_index`, `job_listings_index`). New `CandidateAuthGuard` for `/candidate/*` routes. Candidate JWT has `role: 'Candidate'` but no `tenantId` — operates in public schema. Dual-writes sync tenant schema changes (stage updates, job publishes) to public index tables.
+**Architecture:** Four new public-schema tables (`candidate_accounts`, `candidate_bookmarks`, `candidate_applications_index`, `job_listings_index`). New `CandidateAuthGuard` for `/candidate/*` routes. Candidate JWT has `role: 'Candidate'` but no `companyId` — operates in public schema. Dual-writes sync company schema changes (stage updates, job publishes) to public index tables.
 
 **Tech Stack:** NestJS 11, Drizzle ORM, PostgreSQL 16, React 19, Mantine 9, TanStack Router, TanStack Query, Zustand 5, Zod 4
 
@@ -12,10 +12,10 @@
 
 - All DB access via repositories (no direct Drizzle outside `/repositories`)
 - Error shape: `{ "error": { "code": "...", "message": "..." } }`
-- Candidate JWT has no `tenantId` — `TenantContextInterceptor` falls back to `public` schema
-- Existing `POST /public/:tenantSlug/jobs/:id/apply` unchanged (backward compatible)
+- Candidate JWT has no `companyId` — `CompanyContextInterceptor` falls back to `public` schema
+- Existing `POST /public/:companySlug/jobs/:id/apply` unchanged (backward compatible)
 - Frontend uses Zustand for auth state, TanStack Query for API data
-- Schema-per-tenant: `candidates`, `applications` stay in tenant schemas — only index tables live in public
+- Schema-per-company: `candidates`, `applications` stay in company schemas — only index tables live in public
 
 ---
 
@@ -58,7 +58,7 @@ export const candidateBookmarks = pgTable(
     candidateAccountId: uuid('candidate_account_id')
       .notNull()
       .references(() => candidateAccounts.id),
-    tenantId: varchar('tenant_id', { length: 36 }).notNull(),
+    companyId: varchar('company_id', { length: 36 }).notNull(),
     jobPostingId: uuid('job_posting_id').notNull(),
     jobTitle: varchar('job_title', { length: 255 }).notNull(),
     companyName: varchar('company_name', { length: 255 }).notNull(),
@@ -66,7 +66,7 @@ export const candidateBookmarks = pgTable(
   },
   (table) => ({
     candidateIdx: index('idx_candidate_bookmarks_account').on(table.candidateAccountId),
-    jobIdx: index('idx_candidate_bookmarks_job').on(table.tenantId, table.jobPostingId),
+    jobIdx: index('idx_candidate_bookmarks_job').on(table.companyId, table.jobPostingId),
   }),
 );
 
@@ -77,7 +77,7 @@ export const candidateApplicationsIndex = pgTable(
     candidateAccountId: uuid('candidate_account_id')
       .notNull()
       .references(() => candidateAccounts.id),
-    tenantId: varchar('tenant_id', { length: 36 }).notNull(),
+    companyId: varchar('company_id', { length: 36 }).notNull(),
     jobPostingId: uuid('job_posting_id').notNull(),
     applicationId: uuid('application_id').notNull(),
     jobTitle: varchar('job_title', { length: 255 }).notNull(),
@@ -87,7 +87,7 @@ export const candidateApplicationsIndex = pgTable(
   },
   (table) => ({
     candidateIdx: index('idx_candidate_app_index_account').on(table.candidateAccountId),
-    tenantJobIdx: index('idx_candidate_app_index_tenant_job').on(table.tenantId, table.jobPostingId),
+    companyJobIdx: index('idx_candidate_app_index_company_job').on(table.companyId, table.jobPostingId),
   }),
 );
 
@@ -95,7 +95,7 @@ export const jobListingsIndex = pgTable(
   'job_listings_index',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    tenantId: varchar('tenant_id', { length: 36 }).notNull(),
+    companyId: varchar('company_id', { length: 36 }).notNull(),
     jobPostingId: uuid('job_posting_id').notNull().unique(),
     title: varchar('title', { length: 255 }).notNull(),
     description: text('description'),
@@ -108,7 +108,7 @@ export const jobListingsIndex = pgTable(
   (table) => ({
     statusIdx: index('idx_job_listings_status').on(table.status),
     companyIdx: index('idx_job_listings_company').on(table.companyName),
-    tenantIdx: index('idx_job_listings_tenant').on(table.tenantId),
+    companyIdx: index('idx_job_listings_company').on(table.companyId),
   }),
 );
 ```
@@ -221,7 +221,7 @@ export class CandidateBookmarkRepository {
       .where(eq(candidateBookmarks.candidateAccountId, candidateAccountId));
   }
 
-  async create(data: { candidateAccountId: string; tenantId: string; jobPostingId: string; jobTitle: string; companyName: string }) {
+  async create(data: { candidateAccountId: string; companyId: string; jobPostingId: string; jobTitle: string; companyName: string }) {
     const { db } = await this.drizzleSchema.forPublic();
     const rows = await db.insert(candidateBookmarks).values(data).returning();
     return rows[0];
@@ -236,12 +236,12 @@ export class CandidateBookmarkRepository {
       ));
   }
 
-  async findByJob(candidateAccountId: string, tenantId: string, jobPostingId: string) {
+  async findByJob(candidateAccountId: string, companyId: string, jobPostingId: string) {
     const { db } = await this.drizzleSchema.forPublic();
     const rows = await db.select().from(candidateBookmarks)
       .where(and(
         eq(candidateBookmarks.candidateAccountId, candidateAccountId),
-        eq(candidateBookmarks.tenantId, tenantId),
+        eq(candidateBookmarks.companyId, companyId),
         eq(candidateBookmarks.jobPostingId, jobPostingId),
       ));
     return rows[0] ?? null;
@@ -270,7 +270,7 @@ export class CandidateApplicationsIndexRepository {
 
   async create(data: {
     candidateAccountId: string;
-    tenantId: string;
+    companyId: string;
     jobPostingId: string;
     applicationId: string;
     jobTitle: string;
@@ -320,18 +320,18 @@ export class JobListingsIndexRepository {
     return rows;
   }
 
-  async findById(tenantId: string, jobPostingId: string) {
+  async findById(companyId: string, jobPostingId: string) {
     const { db } = await this.drizzleSchema.forPublic();
     const rows = await db.select().from(jobListingsIndex)
       .where(and(
-        eq(jobListingsIndex.tenantId, tenantId),
+        eq(jobListingsIndex.companyId, companyId),
         eq(jobListingsIndex.jobPostingId, jobPostingId),
       ));
     return rows[0] ?? null;
   }
 
   async upsert(data: {
-    tenantId: string;
+    companyId: string;
     jobPostingId: string;
     title: string;
     description: string | null;
@@ -342,7 +342,7 @@ export class JobListingsIndexRepository {
     const { db, release } = await this.drizzleSchema.forPublic();
     const existing = await db.select().from(jobListingsIndex)
       .where(and(
-        eq(jobListingsIndex.tenantId, data.tenantId),
+        eq(jobListingsIndex.companyId, data.companyId),
         eq(jobListingsIndex.jobPostingId, data.jobPostingId),
       ));
 
@@ -360,11 +360,11 @@ export class JobListingsIndexRepository {
     return rows[0];
   }
 
-  async delete(tenantId: string, jobPostingId: string) {
+  async delete(companyId: string, jobPostingId: string) {
     const { db } = await this.drizzleSchema.forPublic();
     await db.delete(jobListingsIndex)
       .where(and(
-        eq(jobListingsIndex.tenantId, tenantId),
+        eq(jobListingsIndex.companyId, companyId),
         eq(jobListingsIndex.jobPostingId, jobPostingId),
       ));
   }
@@ -510,7 +510,7 @@ git commit -m "feat: add candidate signup and login endpoints"
 - Modify: `backend/src/app.module.ts`
 
 **Interfaces:**
-- Consumes: All 4 candidate repositories, `CandidateAuthGuard`, `DrizzleSchemaService`, existing `candidates` and `applications` tenant tables
+- Consumes: All 4 candidate repositories, `CandidateAuthGuard`, `DrizzleSchemaService`, existing `candidates` and `applications` company tables
 - Produces: All `/candidate/*` endpoints
 
 - [ ] **Step 1: Create DTOs**
@@ -524,7 +524,7 @@ export const ApplyJobSchema = z.object({
 });
 
 export const BookmarkJobSchema = z.object({
-  tenantId: z.string().uuid(),
+  companyId: z.string().uuid(),
   jobPostingId: z.string().uuid(),
 });
 
@@ -546,7 +546,7 @@ import { JobListingsIndexRepository } from '../../repositories/job-listings-inde
 import { DrizzleSchemaService } from '../../database/drizzle-schema.service';
 import { candidates, applications, jobPostings, pipelineStages } from '../../database/schema';
 import { eq, and, sql } from 'drizzle-orm';
-import { getCurrentUser } from '../../interceptors/tenant-context';
+import { getCurrentUser } from '../../interceptors/company-context';
 
 @Injectable()
 export class CandidateAccountService {
@@ -562,33 +562,33 @@ export class CandidateAccountService {
     return this.jobListingsIndexRepo.findAll(search);
   }
 
-  async getJobDetail(tenantId: string, jobPostingId: string) {
-    const job = await this.jobListingsIndexRepo.findById(tenantId, jobPostingId);
+  async getJobDetail(companyId: string, jobPostingId: string) {
+    const job = await this.jobListingsIndexRepo.findById(companyId, jobPostingId);
     if (!job) throw new NotFoundException();
     return job;
   }
 
-  async apply(candidateAccountId: string, tenantId: string, jobPostingId: string, phone?: string) {
+  async apply(candidateAccountId: string, companyId: string, jobPostingId: string, phone?: string) {
     const user = getCurrentUser();
     
     // Check job exists in index
-    const job = await this.jobListingsIndexRepo.findById(tenantId, jobPostingId);
+    const job = await this.jobListingsIndexRepo.findById(companyId, jobPostingId);
     if (!job || job.status !== 'open') throw new NotFoundException('Job not found or closed');
 
-    // Switch to tenant schema
-    const tenantSchema = `tenant_${tenantId}`;
-    const { db: tenantDb, release } = await this.drizzleSchema.forSchema(tenantSchema);
+    // Switch to company schema
+    const companySchema = `company_${companyId}`;
+    const { db: companyDb, release } = await this.drizzleSchema.forSchema(companySchema);
 
     // Get candidate account info
     const account = await this.candidateAccountRepo.findById(candidateAccountId);
     if (!account) throw new NotFoundException('Account not found');
 
-    // Find or create candidate record in tenant schema
-    let candidateRecord = await tenantDb.select().from(candidates)
+    // Find or create candidate record in company schema
+    let candidateRecord = await companyDb.select().from(candidates)
       .where(eq(candidates.email, account.email)).then(r => r[0] ?? null);
 
     if (!candidateRecord) {
-      candidateRecord = (await tenantDb.insert(candidates).values({
+      candidateRecord = (await companyDb.insert(candidates).values({
         name: `${account.firstName} ${account.lastName}`,
         email: account.email,
         phone: phone || account.phone,
@@ -596,11 +596,11 @@ export class CandidateAccountService {
     }
 
     // Get the initial pipeline stage (Applied = first stage by order)
-    const initialStage = await tenantDb.select().from(pipelineStages)
+    const initialStage = await companyDb.select().from(pipelineStages)
       .orderBy(pipelineStages.order).limit(1).then(r => r[0]);
 
     // Create application
-    const application = (await tenantDb.insert(applications).values({
+    const application = (await companyDb.insert(applications).values({
       candidateId: candidateRecord.id,
       jobPostingId: jobPostingId,
       currentStageId: initialStage?.id,
@@ -611,7 +611,7 @@ export class CandidateAccountService {
     // Write to public index
     await this.candidateApplicationsIndexRepo.create({
       candidateAccountId,
-      tenantId,
+      companyId,
       jobPostingId,
       applicationId: application.id,
       jobTitle: job.title,
@@ -630,16 +630,16 @@ export class CandidateAccountService {
     return this.candidateBookmarkRepo.findByCandidate(candidateAccountId);
   }
 
-  async addBookmark(candidateAccountId: string, tenantId: string, jobPostingId: string) {
-    const existing = await this.candidateBookmarkRepo.findByJob(candidateAccountId, tenantId, jobPostingId);
+  async addBookmark(candidateAccountId: string, companyId: string, jobPostingId: string) {
+    const existing = await this.candidateBookmarkRepo.findByJob(candidateAccountId, companyId, jobPostingId);
     if (existing) return existing; // idempotent
 
-    const job = await this.jobListingsIndexRepo.findById(tenantId, jobPostingId);
+    const job = await this.jobListingsIndexRepo.findById(companyId, jobPostingId);
     if (!job) throw new NotFoundException('Job not found');
 
     return this.candidateBookmarkRepo.create({
       candidateAccountId,
-      tenantId,
+      companyId,
       jobPostingId,
       jobTitle: job.title,
       companyName: job.companyName,
@@ -673,7 +673,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { CandidateAuthGuard } from '../../shared/candidate-auth.guard';
 import { CandidateAccountService } from './candidate-account.service';
 import { ApplyJobSchema, BookmarkJobSchema, UpdateProfileSchema } from './dto/candidate-apply.dto';
-import { getCurrentUser } from '../../interceptors/tenant-context';
+import { getCurrentUser } from '../../interceptors/company-context';
 
 @Controller('candidate')
 @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
@@ -685,19 +685,19 @@ export class CandidateAccountController {
     return this.service.getJobs(search);
   }
 
-  @Get('jobs/:tenantId/:jobId')
-  async getJobDetail(@Param('tenantId') tenantId: string, @Param('jobId') jobId: string) {
-    return this.service.getJobDetail(tenantId, jobId);
+  @Get('jobs/:companyId/:jobId')
+  async getJobDetail(@Param('companyId') companyId: string, @Param('jobId') jobId: string) {
+    return this.service.getJobDetail(companyId, jobId);
   }
 
-  @Post('jobs/:tenantId/:jobId/apply')
+  @Post('jobs/:companyId/:jobId/apply')
   async apply(
-    @Param('tenantId') tenantId: string,
+    @Param('companyId') companyId: string,
     @Param('jobId') jobId: string,
     @Body() body: { phone?: string },
   ) {
     const user = getCurrentUser();
-    return this.service.apply(user.userId, tenantId, jobId, body.phone);
+    return this.service.apply(user.userId, companyId, jobId, body.phone);
   }
 
   @Get('applications')
@@ -709,7 +709,7 @@ export class CandidateAccountController {
   @Post('bookmarks')
   async addBookmark(@Body() body: BookmarkJobSchema) {
     const user = getCurrentUser();
-    return this.service.addBookmark(user.userId, body.tenantId, body.jobPostingId);
+    return this.service.addBookmark(user.userId, body.companyId, body.jobPostingId);
   }
 
   @Delete('bookmarks/:id')
@@ -828,7 +828,7 @@ git commit -m "feat: sync candidate_applications_index on stage update"
 - Modify: `backend/src/modules/job-postings/job-postings.module.ts`
 
 **Interfaces:**
-- Consumes: `JobListingsIndexRepository`, `TenantRepository` (for company name/slug)
+- Consumes: `JobListingsIndexRepository`, `CompanyRepository` (for company name/slug)
 - Produces: When job is published/closed, syncs `job_listings_index`
 
 - [ ] **Step 1: Update JobPostingsService to sync index**
@@ -837,24 +837,24 @@ In `backend/src/modules/job-postings/job-postings.service.ts`, in the `publish`,
 
 ```typescript
 import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
-import { TenantRepository } from '../../repositories/tenant.repository';
-import { getTenantId } from '../../interceptors/tenant-context';
+import { CompanyRepository } from '../../repositories/company.repository';
+import { getCompanyId } from '../../interceptors/company-context';
 
 // In constructor:
 // private jobListingsIndexRepo: JobListingsIndexRepository
-// private tenantRepo: TenantRepository
+// private companyRepo: CompanyRepository
 
 // Helper method:
 private async syncJobListingIndex(jobPostingId: string, title: string, description: string | null, status: string) {
-  const tenantId = getTenantId();
-  const tenant = await this.tenantRepo.findById(tenantId);
+  const companyId = getCompanyId();
+  const company = await this.companyRepo.findById(companyId);
   await this.jobListingsIndexRepo.upsert({
-    tenantId,
+    companyId,
     jobPostingId,
     title,
     description,
-    companyName: tenant.name,
-    companySlug: tenant.slug,
+    companyName: company.name,
+    companySlug: company.slug,
     status,
   });
 }
@@ -878,7 +878,7 @@ if (data.status) {
 
 - [ ] **Step 2: Register repositories in JobPostingsModule**
 
-Add `JobListingsIndexRepository` and `TenantRepository` to `providers` array.
+Add `JobListingsIndexRepository` and `CompanyRepository` to `providers` array.
 
 - [ ] **Step 3: Commit**
 
@@ -1101,7 +1101,7 @@ import { CandidateSettingsPage } from '../features/candidate/settings/SettingsPa
 
 - [ ] **Step 5: Update `useAuth` store to handle Candidate role**
 
-Read `frontend/src/shared/api/useAuth.ts` and ensure the store can persist candidate tokens alongside org tokens. The existing store should work with any role — just ensure `isAuthenticated()` returns true for candidate tokens.
+Read `frontend/src/shared/api/useAuth.ts` and ensure the store can persist candidate tokens alongside company tokens. The existing store should work with any role — just ensure `isAuthenticated()` returns true for candidate tokens.
 
 - [ ] **Step 6: Commit**
 
@@ -1152,9 +1152,9 @@ export function CandidateDashboardPage() {
     fetchJobs();
   }, [search]);
 
-  const handleApply = async (tenantId: string, jobId: string) => {
+  const handleApply = async (companyId: string, jobId: string) => {
     const token = localStorage.getItem('accessToken');
-    const res = await fetch(`/api/candidate/jobs/${tenantId}/${jobId}/apply`, {
+    const res = await fetch(`/api/candidate/jobs/${companyId}/${jobId}/apply`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     });
@@ -1172,14 +1172,14 @@ export function CandidateDashboardPage() {
       />
       <Grid>
         {jobs.map((job) => (
-          <Grid.Col key={`${job.tenantId}-${job.jobPostingId}`} span={{ base: 12, sm: 6, md: 4 }}>
+          <Grid.Col key={`${job.companyId}-${job.jobPostingId}`} span={{ base: 12, sm: 6, md: 4 }}>
             <Card withBorder p="lg">
               <Title order={4}>{job.title}</Title>
               <Text c="dimmed">{job.companyName}</Text>
               <Text lineClamp={3} mt="sm">{job.description}</Text>
               <Group mt="md">
-                <Button size="sm" onClick={() => handleApply(job.tenantId, job.jobPostingId)}>Apply</Button>
-                <Anchor component={Link} to={`/candidate/jobs/${job.tenantId}/${job.jobPostingId}`}>Details</Anchor>
+                <Button size="sm" onClick={() => handleApply(job.companyId, job.jobPostingId)}>Apply</Button>
+                <Anchor component={Link} to={`/candidate/jobs/${job.companyId}/${job.jobPostingId}`}>Details</Anchor>
               </Group>
             </Card>
           </Grid.Col>
@@ -1287,11 +1287,11 @@ export function CandidateBookmarksPage() {
           <Grid.Col key={bm.id} span={{ base: 12, sm: 6 }}>
             <Card withBorder p="lg">
               <Title order={4}>{bm.jobTitle || 'Job'}</Title>
-              <Text c="dimmed">{bm.companyName || bm.tenantId}</Text>
+              <Text c="dimmed">{bm.companyName || bm.companyId}</Text>
               <Text size="sm" c="gray">Bookmarked {new Date(bm.createdAt).toLocaleDateString()}</Text>
               <Group mt="md">
                 <Button size="sm" onClick={() => removeBookmark(bm.id)} color="red">Remove</Button>
-                <Button size="sm" variant="outline" onClick={() => navigate({ to: `/candidate/jobs/${bm.tenantId}/${bm.jobPostingId}` })}>View Job</Button>
+                <Button size="sm" variant="outline" onClick={() => navigate({ to: `/candidate/jobs/${bm.companyId}/${bm.jobPostingId}` })}>View Job</Button>
               </Group>
             </Card>
           </Grid.Col>

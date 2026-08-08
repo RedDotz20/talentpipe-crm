@@ -17,7 +17,7 @@ interface CandidateApplyModalProps {
   onClose: () => void;
   job: Pick<
     Job,
-    'id' | 'jobPostingId' | 'tenantId' | 'title' | 'companyName'
+    'id' | 'jobPostingId' | 'companyId' | 'title' | 'companyName'
   >;
 }
 
@@ -55,7 +55,7 @@ export function CandidateApplyModal({
     const jobPostingId = job.jobPostingId ?? job.id;
     apply(
       {
-        tenantId: job.tenantId,
+        companyId: job.companyId,
         jobId: jobPostingId,
         data: {
           phone: phone || undefined,

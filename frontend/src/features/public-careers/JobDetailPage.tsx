@@ -8,15 +8,15 @@ import { getSafeCareerReturnTo } from '@/features/auth/returnTo';
 import { usePublicJob } from './hooks/usePublicCareers';
 
 interface JobDetailPageProps {
-  tenantSlug: string;
+  companySlug: string;
   jobId: string;
 }
 
 export function JobDetailPage({
-  tenantSlug,
+  companySlug,
   jobId,
 }: JobDetailPageProps) {
-  const { data: job, isLoading, error } = usePublicJob(tenantSlug, jobId);
+  const { data: job, isLoading, error } = usePublicJob(companySlug, jobId);
   const navigate = useNavigate();
   const { isAuthenticated, role } = useAuthStore();
   const [applyOpened, setApplyOpened] = useState(false);
@@ -24,7 +24,7 @@ export function JobDetailPage({
 
   const handleApply = () => {
     const returnTo =
-      getSafeCareerReturnTo(`/careers/${tenantSlug}/jobs/${jobId}`) ?? undefined;
+      getSafeCareerReturnTo(`/careers/${companySlug}/jobs/${jobId}`) ?? undefined;
     if (!isAuthenticated()) {
       navigate({
         to: '/auth/signin',
@@ -59,7 +59,7 @@ export function JobDetailPage({
           </Alert>
           <Button
             onClick={() =>
-              navigate({ to: '/careers/$tenantSlug/jobs', params: { tenantSlug } })
+              navigate({ to: '/careers/$companySlug/jobs', params: { companySlug } })
             }
             variant="light"
           >
@@ -81,7 +81,7 @@ export function JobDetailPage({
         <JobDetailsView
           job={job}
           backLink={
-            <Link to="/careers/$tenantSlug/jobs" params={{ tenantSlug }}>
+            <Link to="/careers/$companySlug/jobs" params={{ companySlug }}>
               Back to open positions
             </Link>
           }
