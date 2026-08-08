@@ -11,7 +11,12 @@ import {
   Avatar,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconBuildingEstate, IconUsers, IconLogout } from '@tabler/icons-react';
+import {
+  IconBuildingEstate,
+  IconUsers,
+  IconListDetails,
+  IconLogout,
+} from '@tabler/icons-react';
 import { useLogout } from '@/hooks/auth';
 import { ColorSchemeToggle } from '@/components/ColorSchemeToggle';
 import { PageTransition } from '@/components/PageTransition';
@@ -29,7 +34,8 @@ export function SuperAdminPlatform() {
 
   const navItems = [
     { label: 'Tenants', icon: IconBuildingEstate, to: '/admin/companies' },
-    { label: 'Candidates', icon: IconUsers, to: '/admin/candidates' },
+    { label: 'Users', icon: IconUsers, to: '/admin/users' },
+    { label: 'Applications', icon: IconListDetails, to: '/admin/applications' },
   ];
 
   return (
