@@ -5,12 +5,13 @@ import { RouterProvider } from '@tanstack/react-router';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from '@/api/queryClient';
 import { router } from './router';
-import '@mantine/notifications/styles.css';
+import { theme } from './theme';
+import '@mantine/notifications/styles.layer.css';
 
 export function Providers() {
   return (
     <QueryClientProvider client={queryClient}>
-      <MantineProvider>
+      <MantineProvider theme={theme} defaultColorScheme="auto">
         <Notifications position="top-right" zIndex={2000} />
         <RouterProvider router={router} />
       </MantineProvider>

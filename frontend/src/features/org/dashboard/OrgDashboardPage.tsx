@@ -1,21 +1,16 @@
 import {
   Alert,
-  Card,
   Group,
   Loader,
-  SimpleGrid,
   Stack,
   Table,
   Text,
   Title,
+  Badge,
+  SimpleGrid,
+  Paper,
 } from '@mantine/core';
 import { useDashboardSummary } from './hooks/useDashboardSummary';
-
-const summaryCards = [
-  { key: 'totalApplications', label: 'Applications' },
-  { key: 'totalCandidates', label: 'Candidates' },
-  { key: 'openJobPostings', label: 'Open jobs' },
-] as const;
 
 export function OrgDashboardPage() {
   const { data: summary, isLoading, error } = useDashboardSummary();
@@ -40,42 +35,68 @@ export function OrgDashboardPage() {
     <Stack gap="xl">
       <Title order={2}>Dashboard</Title>
 
-      <SimpleGrid cols={{ base: 1, sm: 3 }}>
-        {summaryCards.map((card) => (
-          <Card key={card.key} withBorder shadow="sm" padding="lg">
-            <Text size="sm" c="dimmed">{card.label}</Text>
-            <Text size="2rem" fw={700}>{summary[card.key]}</Text>
-          </Card>
-        ))}
+      <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
+        <Paper withBorder p="lg" radius="lg">
+          <Text size="xs" tt="uppercase" fw={500} c="dimmed" mb={4}>
+            Applications
+          </Text>
+          <Text size="xl" fw={700}>
+            {summary.totalApplications}
+          </Text>
+        </Paper>
+        <Paper withBorder p="lg" radius="lg">
+          <Text size="xs" tt="uppercase" fw={500} c="dimmed" mb={4}>
+            Candidates
+          </Text>
+          <Text size="xl" fw={700}>
+            {summary.totalCandidates}
+          </Text>
+        </Paper>
+        <Paper withBorder p="lg" radius="lg">
+          <Text size="xs" tt="uppercase" fw={500} c="dimmed" mb={4}>
+            Open jobs
+          </Text>
+          <Text size="xl" fw={700}>
+            {summary.openJobPostings}
+          </Text>
+        </Paper>
       </SimpleGrid>
 
-      <Card withBorder shadow="sm" padding="lg">
-        <Title order={3} mb="md">Applications by stage</Title>
-        <Table striped withTableBorder>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Stage</Table.Th>
-              <Table.Th>Applications</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {summary.applicationsByStage.length === 0 ? (
+      <div>
+        <Title order={3} mb="md">
+          Applications by stage
+        </Title>
+        <Paper withBorder radius="lg">
+          <Table>
+            <Table.Thead>
               <Table.Tr>
-                <Table.Td colSpan={2}>
-                  <Text c="dimmed">No applications yet.</Text>
-                </Table.Td>
+                <Table.Th>Stage</Table.Th>
+                <Table.Th>Applications</Table.Th>
               </Table.Tr>
-            ) : (
-              summary.applicationsByStage.map((stage) => (
-                <Table.Tr key={stage.stageId}>
-                  <Table.Td>{stage.stageName}</Table.Td>
-                  <Table.Td>{stage.count}</Table.Td>
+            </Table.Thead>
+            <Table.Tbody>
+              {summary.applicationsByStage.length === 0 ? (
+                <Table.Tr>
+                  <Table.Td colSpan={2}>
+                    <Text c="dimmed">No applications yet.</Text>
+                  </Table.Td>
                 </Table.Tr>
-              ))
-            )}
-          </Table.Tbody>
-        </Table>
-      </Card>
+              ) : (
+                summary.applicationsByStage.map((stage) => (
+                  <Table.Tr key={stage.stageId}>
+                    <Table.Td>{stage.stageName}</Table.Td>
+                    <Table.Td>
+                      <Badge variant="light" color="indigo">
+                        {stage.count}
+                      </Badge>
+                    </Table.Td>
+                  </Table.Tr>
+                ))
+              )}
+            </Table.Tbody>
+          </Table>
+        </Paper>
+      </div>
     </Stack>
   );
 }
