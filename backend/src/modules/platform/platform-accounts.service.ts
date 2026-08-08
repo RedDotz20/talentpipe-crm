@@ -16,6 +16,7 @@ import { CandidateRepository } from '../../repositories/candidate.repository';
 import { CandidateApplicationsIndexRepository } from '../../repositories/candidate-applications-index.repository';
 import { ApplicationRepository } from '../../repositories/application.repository';
 import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
+import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
 import { CreateCompanyUserDto } from './dto/create-company-user.dto';
 import { UpdateCompanyUserDto } from './dto/update-company-user.dto';
 import { CreateCandidateDto } from './dto/create-candidate.dto';
@@ -34,6 +35,7 @@ export class PlatformAccountsService {
     private readonly candidateIndexRepo: CandidateApplicationsIndexRepository,
     private readonly applicationRepo: ApplicationRepository,
     private readonly pipelineStageRepo: PipelineStageRepository,
+    private readonly jobListingsIndexRepo: JobListingsIndexRepository,
     private readonly auditService: AuditService,
   ) {}
 
@@ -243,6 +245,23 @@ export class PlatformAccountsService {
       phone: updated.phone,
       createdAt: updated.createdAt,
     };
+  }
+
+  async deleteCompany(companyId: string) {
+    const tenant = await this.requireCompany(companyId);
+    await this.candidateIndexRepo.cancelByCompany(companyId);
+    await this.jobListingsIndexRepo.deleteByCompany(companyId);
+    await this.userEmailRepo.deleteByCompany(companyId);
+    await this.refreshTokenRepo.deleteByCompany(companyId);
+    await this.tenantRepo.dropSchema(companyId);
+    await this.tenantRepo.remove(companyId);
+    await this.auditService.log(
+      'company.delete',
+      companyId,
+      { name: tenant.name, slug: tenant.slug },
+      companyId,
+    );
+    return { id: companyId };
   }
 
   async listAllUsers() {

@@ -76,6 +76,11 @@ export class PlatformAccountsController {
     return this.accountsService.setCompanyUserStatus(id, userId, 'active');
   }
 
+  @Delete('companies/:id')
+  deleteCompany(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.accountsService.deleteCompany(id);
+  }
+
   @Delete('companies/:id/users/:userId')
   removeCompanyUser(
     @Param('id', new ParseUUIDPipe()) id: string,

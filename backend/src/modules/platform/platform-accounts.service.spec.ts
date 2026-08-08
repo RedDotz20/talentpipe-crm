@@ -11,6 +11,7 @@ import { CandidateApplicationsIndexRepository } from '../../repositories/candida
 import { ApplicationRepository } from '../../repositories/application.repository';
 import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
 import { AuditService } from '../../common/audit/audit.service';
+import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
 
 jest.mock('../../common/password', () => ({
   hashPassword: jest.fn().mockResolvedValue('hashed'),
@@ -23,6 +24,8 @@ function makeDeps() {
         .fn()
         .mockResolvedValue({ id: 'tenant-a', status: 'active' }),
       findAll: jest.fn().mockResolvedValue([]),
+      remove: jest.fn(),
+      dropSchema: jest.fn(),
     },
     userRepo: {
       findAll: jest.fn().mockResolvedValue([]),
@@ -43,6 +46,7 @@ function makeDeps() {
       findByEmail: jest.fn(),
       create: jest.fn(),
       deleteByUserId: jest.fn(),
+      deleteByCompany: jest.fn(),
     },
     refreshTokenRepo: { deleteByUser: jest.fn(), deleteByCompany: jest.fn() },
     interviewRepo: { deleteByInterviewer: jest.fn() },
@@ -61,6 +65,7 @@ function makeDeps() {
     candidateIndexRepo: {
       findByCandidate: jest.fn().mockResolvedValue([]),
       deleteById: jest.fn(),
+      cancelByCompany: jest.fn(),
     },
     applicationRepo: {
       findAll: jest.fn().mockResolvedValue([]),
@@ -68,6 +73,9 @@ function makeDeps() {
     },
     pipelineStageRepo: {
       findAll: jest.fn().mockResolvedValue([]),
+    },
+    jobListingsIndexRepo: {
+      deleteByCompany: jest.fn(),
     },
     auditService: { log: jest.fn() },
   };
@@ -90,6 +98,7 @@ function makeService(
     merged.candidateIndexRepo as CandidateApplicationsIndexRepository,
     merged.applicationRepo as ApplicationRepository,
     merged.pipelineStageRepo as PipelineStageRepository,
+    merged.jobListingsIndexRepo as JobListingsIndexRepository,
     merged.auditService as AuditService,
   );
 }
@@ -413,6 +422,45 @@ describe('PlatformAccountsService', () => {
       const service = makeService();
       await service.setCompanyUserStatus('tenant-a', 'u1', 'active');
       expect(deps.userRepo.setAllStatus).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('deleteCompany', () => {
+    it('cancels index rows, cleans public rows, drops the schema, and audits', async () => {
+      deps.tenantRepo.findById.mockResolvedValue({
+        id: 'tenant-a',
+        name: 'Acme',
+        slug: 'acme',
+      });
+      const service = makeService();
+      const result = await service.deleteCompany('tenant-a');
+      expect(result).toEqual({ id: 'tenant-a' });
+      expect(deps.candidateIndexRepo.cancelByCompany).toHaveBeenCalledWith(
+        'tenant-a',
+      );
+      expect(deps.applicationRepo).toBeDefined();
+      expect(deps.userEmailRepo.deleteByCompany).toHaveBeenCalledWith(
+        'tenant-a',
+      );
+      expect(deps.refreshTokenRepo.deleteByCompany).toHaveBeenCalledWith(
+        'tenant-a',
+      );
+      expect(deps.tenantRepo.dropSchema).toHaveBeenCalledWith('tenant-a');
+      expect(deps.tenantRepo.remove).toHaveBeenCalledWith('tenant-a');
+      expect(deps.auditService.log).toHaveBeenCalledWith(
+        'company.delete',
+        'tenant-a',
+        { name: 'Acme', slug: 'acme' },
+        'tenant-a',
+      );
+    });
+
+    it('throws NotFoundException for an unknown company', async () => {
+      deps.tenantRepo.findById.mockResolvedValue(null);
+      const service = makeService();
+      await expect(service.deleteCompany('nope')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });
