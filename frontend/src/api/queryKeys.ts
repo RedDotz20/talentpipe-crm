@@ -61,6 +61,7 @@ export const queryKeys = {
       filters,
     ],
     stats: () => ['platform', 'stats'],
+    users: () => ['platform', 'users'],
   },
 } as const;
 

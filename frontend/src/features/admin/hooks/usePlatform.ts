@@ -17,6 +17,13 @@ export function usePlatformStats() {
   });
 }
 
+export function usePlatformUsers() {
+  return useQuery({
+    queryKey: queryKeys.platform.users(),
+    queryFn: platformApi.listUsers,
+  });
+}
+
 export function useCompanyDetail(id: string) {
   return useQuery({
     queryKey: queryKeys.platform.company(id),
@@ -35,6 +42,19 @@ export function useSetCompanyStatus() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.platform.companies() });
       queryClient.invalidateQueries({ queryKey: queryKeys.platform.stats() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.users() });
+    },
+  });
+}
+
+export function useDeleteCompany() {
+  const queryClient = useQueryClient();
+  return useApiMutation({
+    mutationFn: (id: string) => platformApi.deleteCompany(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.companies() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.stats() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.users() });
     },
   });
 }
@@ -83,6 +103,7 @@ export function useCreateCompanyUser(companyId: string) {
       platformApi.createCompanyUser(companyId, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.platform.companyUsers(companyId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.users() });
     },
   });
 }
@@ -94,6 +115,7 @@ export function useUpdateCompanyUser(companyId: string) {
       platformApi.updateCompanyUser(companyId, userId, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.platform.companyUsers(companyId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.users() });
     },
   });
 }
@@ -105,6 +127,7 @@ export function useSetCompanyUserStatus(companyId: string) {
       platformApi.setCompanyUserStatus(companyId, userId, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.platform.companyUsers(companyId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.users() });
     },
   });
 }
@@ -115,6 +138,7 @@ export function useRemoveCompanyUser(companyId: string) {
     mutationFn: (userId: string) => platformApi.removeCompanyUser(companyId, userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.platform.companyUsers(companyId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.users() });
     },
   });
 }
@@ -126,6 +150,7 @@ export function useCreateCandidate() {
       platformApi.createCandidate(body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.platform.candidates() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.users() });
     },
   });
 }
@@ -137,6 +162,7 @@ export function useUpdateCandidate() {
       platformApi.updateCandidate(id, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.platform.candidates() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.users() });
     },
   });
 }
@@ -147,6 +173,7 @@ export function useRemoveCandidate() {
     mutationFn: (id: string) => platformApi.removeCandidate(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.platform.candidates() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.users() });
     },
   });
 }

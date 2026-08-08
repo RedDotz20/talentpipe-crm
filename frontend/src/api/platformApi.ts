@@ -22,10 +22,15 @@ export interface PlatformStats {
 }
 
 export interface PlatformUser {
+  type: 'company' | 'candidate';
   id: string;
   email: string;
   role: string;
-  status: 'active' | 'suspended';
+  status: 'active' | 'suspended' | null;
+  companyId: string | null;
+  companyName: string | null;
+  firstName: string | null;
+  lastName: string | null;
   createdAt: string;
 }
 
@@ -90,6 +95,14 @@ export const platformApi = {
   getStats: async (): Promise<PlatformStats> => {
     const { data } = await apiClient.get('/platform/stats');
     return unwrap(data as ApiEnvelope<PlatformStats>);
+  },
+  listUsers: async (): Promise<PlatformUser[]> => {
+    const { data } = await apiClient.get('/platform/users');
+    return unwrap(data as ApiEnvelope<PlatformUser[]>);
+  },
+  deleteCompany: async (id: string): Promise<ApiEnvelope<{ id: string }>> => {
+    const { data } = await apiClient.delete(`/platform/companies/${id}`);
+    return data as ApiEnvelope<{ id: string }>;
   },
   listCompanyUsers: async (companyId: string): Promise<PlatformUser[]> => {
     const { data } = await apiClient.get(`/platform/companies/${companyId}/users`);
