@@ -14,13 +14,13 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PlatformAccountsService } from './platform-accounts.service';
 import {
-  CreateTenantUserSchema,
-  CreateTenantUserDto,
-} from './dto/create-tenant-user.dto';
+  CreateCompanyUserSchema,
+  CreateCompanyUserDto,
+} from './dto/create-company-user.dto';
 import {
-  UpdateTenantUserSchema,
-  UpdateTenantUserDto,
-} from './dto/update-tenant-user.dto';
+  UpdateCompanyUserSchema,
+  UpdateCompanyUserDto,
+} from './dto/update-company-user.dto';
 import {
   CreateCandidateSchema,
   CreateCandidateDto,
@@ -36,57 +36,62 @@ import {
 export class PlatformAccountsController {
   constructor(private readonly accountsService: PlatformAccountsService) {}
 
-  @Get('tenants/:id/users')
-  listTenantUsers(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.accountsService.listTenantUsers(id);
+  @Get('companies/:id/users')
+  listCompanyUsers(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.accountsService.listCompanyUsers(id);
   }
 
-  @Post('tenants/:id/users')
-  createTenantUser(
+  @Post('companies/:id/users')
+  createCompanyUser(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body(new ZodValidationPipe(CreateTenantUserSchema))
-    body: CreateTenantUserDto,
+    @Body(new ZodValidationPipe(CreateCompanyUserSchema))
+    body: CreateCompanyUserDto,
   ) {
-    return this.accountsService.createTenantUser(id, body);
+    return this.accountsService.createCompanyUser(id, body);
   }
 
-  @Patch('tenants/:id/users/:userId')
-  updateTenantUser(
+  @Patch('companies/:id/users/:userId')
+  updateCompanyUser(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('userId', new ParseUUIDPipe()) userId: string,
-    @Body(new ZodValidationPipe(UpdateTenantUserSchema))
-    body: UpdateTenantUserDto,
+    @Body(new ZodValidationPipe(UpdateCompanyUserSchema))
+    body: UpdateCompanyUserDto,
   ) {
-    return this.accountsService.updateTenantUser(id, userId, body);
+    return this.accountsService.updateCompanyUser(id, userId, body);
   }
 
-  @Patch('tenants/:id/users/:userId/suspend')
+  @Patch('companies/:id/users/:userId/suspend')
   suspendTenantUser(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('userId', new ParseUUIDPipe()) userId: string,
   ) {
-    return this.accountsService.setTenantUserStatus(id, userId, 'suspended');
+    return this.accountsService.setCompanyUserStatus(id, userId, 'suspended');
   }
 
-  @Patch('tenants/:id/users/:userId/reactivate')
+  @Patch('companies/:id/users/:userId/reactivate')
   reactivateTenantUser(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('userId', new ParseUUIDPipe()) userId: string,
   ) {
-    return this.accountsService.setTenantUserStatus(id, userId, 'active');
+    return this.accountsService.setCompanyUserStatus(id, userId, 'active');
   }
 
-  @Delete('tenants/:id/users/:userId')
-  removeTenantUser(
+  @Delete('companies/:id/users/:userId')
+  removeCompanyUser(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('userId', new ParseUUIDPipe()) userId: string,
   ) {
-    return this.accountsService.removeTenantUser(id, userId);
+    return this.accountsService.removeCompanyUser(id, userId);
   }
 
-  @Get('tenants/:id/pipeline-stages')
-  listTenantStages(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.accountsService.listTenantStages(id);
+  @Get('companies/:id/pipeline-stages')
+  listCompanyStages(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.accountsService.listCompanyStages(id);
+  }
+
+  @Get('users')
+  listAllUsers() {
+    return this.accountsService.listAllUsers();
   }
 
   @Get('candidates')

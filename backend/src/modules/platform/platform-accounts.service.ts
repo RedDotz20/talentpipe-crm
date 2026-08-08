@@ -6,7 +6,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { hashPassword } from '../../common/password';
 import { AuditService } from '../../common/audit/audit.service';
-import { TenantRepository } from '../../repositories/tenant.repository';
+import { CompanyRepository } from '../../repositories/company.repository';
 import { UserRepository } from '../../repositories/user.repository';
 import { UserEmailRepository } from '../../repositories/user-email.repository';
 import { RefreshTokenRepository } from '../../repositories/refresh-token.repository';
@@ -16,15 +16,15 @@ import { CandidateRepository } from '../../repositories/candidate.repository';
 import { CandidateApplicationsIndexRepository } from '../../repositories/candidate-applications-index.repository';
 import { ApplicationRepository } from '../../repositories/application.repository';
 import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
-import { CreateTenantUserDto } from './dto/create-tenant-user.dto';
-import { UpdateTenantUserDto } from './dto/update-tenant-user.dto';
+import { CreateCompanyUserDto } from './dto/create-company-user.dto';
+import { UpdateCompanyUserDto } from './dto/update-company-user.dto';
 import { CreateCandidateDto } from './dto/create-candidate.dto';
 import { UpdateCandidateDto } from './dto/update-candidate.dto';
 
 @Injectable()
 export class PlatformAccountsService {
   constructor(
-    private readonly tenantRepo: TenantRepository,
+    private readonly tenantRepo: CompanyRepository,
     private readonly userRepo: UserRepository,
     private readonly userEmailRepo: UserEmailRepository,
     private readonly refreshTokenRepo: RefreshTokenRepository,
@@ -37,23 +37,23 @@ export class PlatformAccountsService {
     private readonly auditService: AuditService,
   ) {}
 
-  private schemaOf(tenantId: string): string {
-    return `tenant_${tenantId}`;
+  private schemaOf(companyId: string): string {
+    return `company_${companyId}`;
   }
 
-  private async requireTenant(tenantId: string) {
-    const tenant = await this.tenantRepo.findById(tenantId);
-    if (!tenant) throw new NotFoundException('Tenant not found');
+  private async requireCompany(companyId: string) {
+    const tenant = await this.tenantRepo.findById(companyId);
+    if (!tenant) throw new NotFoundException('Company not found');
     return tenant;
   }
 
-  async listTenantUsers(tenantId: string) {
-    await this.requireTenant(tenantId);
-    return this.userRepo.findAll(this.schemaOf(tenantId));
+  async listCompanyUsers(companyId: string) {
+    await this.requireCompany(companyId);
+    return this.userRepo.findAll(this.schemaOf(companyId));
   }
 
-  async createTenantUser(tenantId: string, dto: CreateTenantUserDto) {
-    await this.requireTenant(tenantId);
+  async createCompanyUser(companyId: string, dto: CreateCompanyUserDto) {
+    await this.requireCompany(companyId);
     const email = dto.email.trim().toLowerCase();
     const existing = await this.userEmailRepo.findByEmail(email);
     if (existing) {
@@ -67,28 +67,28 @@ export class PlatformAccountsService {
     const id = randomUUID();
     await this.userRepo.create(
       { id, email, passwordHash, role: dto.role },
-      this.schemaOf(tenantId),
+      this.schemaOf(companyId),
     );
     await this.userEmailRepo.create({
       email,
-      tenantId,
+      companyId,
       userId: id,
     });
     await this.auditService.log(
       'platform.user.create',
       id,
       { email, role: dto.role },
-      tenantId,
+      companyId,
     );
     return { id, email, role: dto.role };
   }
 
-  async updateTenantUser(
-    tenantId: string,
+  async updateCompanyUser(
+    companyId: string,
     userId: string,
-    dto: UpdateTenantUserDto,
+    dto: UpdateCompanyUserDto,
   ) {
-    const schema = this.schemaOf(tenantId);
+    const schema = this.schemaOf(companyId);
     const user = await this.userRepo.findById(userId, schema);
     if (!user) throw new NotFoundException('User not found');
     const updates: { role?: string; passwordHash?: string } = {};
@@ -107,17 +107,17 @@ export class PlatformAccountsService {
       'platform.user.update',
       userId,
       { email: user.email, role: updates.role ?? user.role },
-      tenantId,
+      companyId,
     );
     return { id: userId, email: user.email, role: updates.role ?? user.role };
   }
 
-  async setTenantUserStatus(
-    tenantId: string,
+  async setCompanyUserStatus(
+    companyId: string,
     userId: string,
     status: 'active' | 'suspended',
   ) {
-    const schema = this.schemaOf(tenantId);
+    const schema = this.schemaOf(companyId);
     const user = await this.userRepo.findById(userId, schema);
     if (!user) throw new NotFoundException('User not found');
     if (user.status === status) {
@@ -135,7 +135,7 @@ export class PlatformAccountsService {
         : 'platform.user.reactivate',
       userId,
       { email: user.email },
-      tenantId,
+      companyId,
     );
     return {
       id: updated.id,
@@ -145,8 +145,8 @@ export class PlatformAccountsService {
     };
   }
 
-  async removeTenantUser(tenantId: string, userId: string) {
-    const schema = this.schemaOf(tenantId);
+  async removeCompanyUser(companyId: string, userId: string) {
+    const schema = this.schemaOf(companyId);
     const user = await this.userRepo.findById(userId, schema);
     if (!user) throw new NotFoundException('User not found');
     await this.interviewRepo.deleteByInterviewer(userId, schema);
@@ -157,14 +157,14 @@ export class PlatformAccountsService {
       'platform.user.remove',
       userId,
       { email: user.email },
-      tenantId,
+      companyId,
     );
     return { id: userId };
   }
 
-  async listTenantStages(tenantId: string) {
-    await this.requireTenant(tenantId);
-    return this.pipelineStageRepo.findAll(this.schemaOf(tenantId));
+  async listCompanyStages(companyId: string) {
+    await this.requireCompany(companyId);
+    return this.pipelineStageRepo.findAll(this.schemaOf(companyId));
   }
 
   async listCandidates() {
@@ -175,8 +175,8 @@ export class PlatformAccountsService {
     const email = dto.email.trim().toLowerCase();
     const existing = await this.candidateAccountRepo.findByEmail(email);
     if (existing) throw new ConflictException('Email already in use');
-    const orgOwner = await this.userEmailRepo.findByEmail(email);
-    if (orgOwner) throw new ConflictException('Email already in use');
+    const companyOwner = await this.userEmailRepo.findByEmail(email);
+    if (companyOwner) throw new ConflictException('Email already in use');
     const passwordHash = await hashPassword(dto.password);
     const account = await this.candidateAccountRepo.create({
       email,
@@ -219,8 +219,9 @@ export class PlatformAccountsService {
       if (existing && existing.id !== id) {
         throw new ConflictException('Email already in use');
       }
-      const orgOwner = await this.userEmailRepo.findByEmail(normalizedEmail);
-      if (orgOwner) throw new ConflictException('Email already in use');
+      const companyOwner =
+        await this.userEmailRepo.findByEmail(normalizedEmail);
+      if (companyOwner) throw new ConflictException('Email already in use');
       data.email = normalizedEmail;
     }
     if (dto.password) {
@@ -240,19 +241,68 @@ export class PlatformAccountsService {
     };
   }
 
+  async listAllUsers() {
+    const companies = await this.tenantRepo.findAll();
+    const companyUsers: Array<{
+      type: 'company';
+      id: string;
+      email: string;
+      role: string;
+      status: string;
+      companyId: string;
+      companyName: string;
+      firstName: null;
+      lastName: null;
+      createdAt: Date;
+    }> = [];
+    for (const tenant of companies) {
+      const users = await this.userRepo.findAll(this.schemaOf(tenant.id));
+      for (const user of users) {
+        companyUsers.push({
+          type: 'company',
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          status: user.status,
+          companyId: tenant.id,
+          companyName: tenant.name,
+          firstName: null,
+          lastName: null,
+          createdAt: user.createdAt,
+        });
+      }
+    }
+    const candidates = await this.candidateAccountRepo.findAll();
+    const candidateRows = candidates.map((c) => ({
+      type: 'candidate' as const,
+      id: c.id,
+      email: c.email,
+      role: 'Candidate',
+      status: null,
+      companyId: null,
+      companyName: null,
+      firstName: c.firstName,
+      lastName: c.lastName,
+      createdAt: c.createdAt,
+    }));
+    return [...companyUsers, ...candidateRows].sort((a, b) =>
+      a.email.localeCompare(b.email),
+    );
+  }
+
   async removeCandidate(id: string) {
     const account = await this.candidateAccountRepo.findById(id);
     if (!account) throw new NotFoundException('Candidate not found');
-    const tenants = await this.tenantRepo.findAll();
+    const companies = await this.tenantRepo.findAll();
     const indexed = await this.candidateIndexRepo.findByCandidate(id);
     for (const row of indexed) {
       await this.candidateIndexRepo.deleteById(row.id);
       await this.applicationRepo.delete(
         row.applicationId,
-        this.schemaOf(row.tenantId),
+        this.schemaOf(row.companyId),
       );
     }
-    for (const tenant of tenants) {
+    for (const tenant of companies) {
       const candidate = await this.candidateRepo.findByAccountId(
         id,
         this.schemaOf(tenant.id),

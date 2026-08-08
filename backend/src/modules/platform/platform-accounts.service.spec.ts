@@ -1,6 +1,6 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { PlatformAccountsService } from './platform-accounts.service';
-import { TenantRepository } from '../../repositories/tenant.repository';
+import { CompanyRepository } from '../../repositories/company.repository';
 import { UserRepository } from '../../repositories/user.repository';
 import { UserEmailRepository } from '../../repositories/user-email.repository';
 import { RefreshTokenRepository } from '../../repositories/refresh-token.repository';
@@ -79,7 +79,7 @@ function makeService(
 ): PlatformAccountsService {
   const merged = { ...deps, ...overrides };
   return new PlatformAccountsService(
-    merged.tenantRepo as TenantRepository,
+    merged.tenantRepo as CompanyRepository,
     merged.userRepo as UserRepository,
     merged.userEmailRepo as UserEmailRepository,
     merged.refreshTokenRepo as RefreshTokenRepository,
@@ -101,14 +101,14 @@ describe('PlatformAccountsService', () => {
   describe('tenant users', () => {
     it('lists tenant users through the explicit schema', async () => {
       const service = makeService();
-      await service.listTenantUsers('tenant-a');
-      expect(deps.userRepo.findAll).toHaveBeenCalledWith('tenant_tenant-a');
+      await service.listCompanyUsers('tenant-a');
+      expect(deps.userRepo.findAll).toHaveBeenCalledWith('company_tenant-a');
     });
 
     it('404s when the tenant is missing', async () => {
       deps.tenantRepo.findById.mockResolvedValue(null);
       const service = makeService();
-      await expect(service.listTenantUsers('nope')).rejects.toThrow(
+      await expect(service.listCompanyUsers('nope')).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -117,7 +117,7 @@ describe('PlatformAccountsService', () => {
       deps.userEmailRepo.findByEmail.mockResolvedValue({ id: 'e1' });
       const service = makeService();
       await expect(
-        service.createTenantUser('tenant-a', {
+        service.createCompanyUser('tenant-a', {
           email: 'dup@x.com',
           role: 'Recruiter',
           password: 'password1',
@@ -130,7 +130,7 @@ describe('PlatformAccountsService', () => {
       deps.candidateAccountRepo.findByEmail.mockResolvedValue({ id: 'c1' });
       const service = makeService();
       await expect(
-        service.createTenantUser('tenant-a', {
+        service.createCompanyUser('tenant-a', {
           email: 'John@Acme.com',
           role: 'Recruiter',
           password: 'password1',
@@ -143,17 +143,17 @@ describe('PlatformAccountsService', () => {
 
     it('creates a tenant user and its email bridge', async () => {
       const service = makeService();
-      await service.createTenantUser('tenant-a', {
+      await service.createCompanyUser('tenant-a', {
         email: 'new@x.com',
         role: 'Recruiter',
         password: 'password1',
       });
       expect(deps.userRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({ role: 'Recruiter' }),
-        'tenant_tenant-a',
+        'company_tenant-a',
       );
       expect(deps.userEmailRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ tenantId: 'tenant-a' }),
+        expect.objectContaining({ companyId: 'tenant-a' }),
       );
     });
 
@@ -164,13 +164,13 @@ describe('PlatformAccountsService', () => {
         role: 'Recruiter',
       });
       const service = makeService();
-      const result = await service.updateTenantUser('tenant-a', 'u1', {
+      const result = await service.updateCompanyUser('tenant-a', 'u1', {
         role: 'Interviewer',
       });
       expect(deps.userRepo.updateRole).toHaveBeenCalledWith(
         'u1',
         'Interviewer',
-        'tenant_tenant-a',
+        'company_tenant-a',
       );
       expect(deps.refreshTokenRepo.deleteByUser).toHaveBeenCalledWith('u1');
       expect(deps.auditService.log).toHaveBeenCalledWith(
@@ -195,7 +195,7 @@ describe('PlatformAccountsService', () => {
       });
       const service = makeService();
       await expect(
-        service.setTenantUserStatus('tenant-a', 'u1', 'suspended'),
+        service.setCompanyUserStatus('tenant-a', 'u1', 'suspended'),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -207,11 +207,11 @@ describe('PlatformAccountsService', () => {
         status: 'suspended',
       });
       const service = makeService();
-      await service.setTenantUserStatus('tenant-a', 'u1', 'suspended');
+      await service.setCompanyUserStatus('tenant-a', 'u1', 'suspended');
       expect(deps.userRepo.updateStatus).toHaveBeenCalledWith(
         'u1',
         'suspended',
-        'tenant_tenant-a',
+        'company_tenant-a',
       );
       expect(deps.refreshTokenRepo.deleteByUser).toHaveBeenCalledWith('u1');
       expect(deps.auditService.log).toHaveBeenCalled();
@@ -219,19 +219,19 @@ describe('PlatformAccountsService', () => {
 
     it('removes a tenant user and cleans up bridges', async () => {
       const service = makeService();
-      await service.removeTenantUser('tenant-a', 'u1');
+      await service.removeCompanyUser('tenant-a', 'u1');
       expect(deps.interviewRepo.deleteByInterviewer).toHaveBeenCalledWith(
         'u1',
-        'tenant_tenant-a',
+        'company_tenant-a',
       );
       expect(deps.userEmailRepo.deleteByUserId).toHaveBeenCalledWith('u1');
     });
 
     it('lists tenant pipeline stages through the explicit schema', async () => {
       const service = makeService();
-      await service.listTenantStages('tenant-a');
+      await service.listCompanyStages('tenant-a');
       expect(deps.pipelineStageRepo.findAll).toHaveBeenCalledWith(
-        'tenant_tenant-a',
+        'company_tenant-a',
       );
     });
   });
@@ -290,7 +290,7 @@ describe('PlatformAccountsService', () => {
         email: 'c@x.com',
       });
       deps.candidateIndexRepo.findByCandidate.mockResolvedValue([
-        { id: 'idx1', applicationId: 'app1', tenantId: 'tenant-a' },
+        { id: 'idx1', applicationId: 'app1', companyId: 'tenant-a' },
       ]);
       deps.tenantRepo.findAll.mockResolvedValue([{ id: 'tenant-a' }]);
       deps.candidateRepo.findByAccountId.mockResolvedValue({ id: 'tc1' });
@@ -299,16 +299,57 @@ describe('PlatformAccountsService', () => {
       expect(deps.candidateIndexRepo.deleteById).toHaveBeenCalledWith('idx1');
       expect(deps.applicationRepo.delete).toHaveBeenCalledWith(
         'app1',
-        'tenant_tenant-a',
+        'company_tenant-a',
       );
       expect(
         deps.candidateIndexRepo.deleteById.mock.invocationCallOrder[0],
       ).toBeLessThan(deps.applicationRepo.delete.mock.invocationCallOrder[0]);
       expect(deps.candidateRepo.delete).toHaveBeenCalledWith(
         'tc1',
-        'tenant_tenant-a',
+        'company_tenant-a',
       );
       expect(deps.candidateAccountRepo.remove).toHaveBeenCalledWith('c1');
+    });
+  });
+
+  describe('listAllUsers', () => {
+    it('merges company users with company names and candidates', async () => {
+      deps.tenantRepo.findAll.mockResolvedValue([
+        { id: 'tenant-a', name: 'Acme' },
+      ]);
+      deps.userRepo.findAll.mockResolvedValue([
+        { id: 'u1', email: 'a@acme.com', role: 'Recruiter', status: 'active', createdAt: new Date('2026-01-01') },
+      ]);
+      deps.candidateAccountRepo.findAll.mockResolvedValue([
+        { id: 'c1', email: 'c@x.com', firstName: 'Jane', lastName: 'Doe', phone: null, resumeFileUrl: null, createdAt: new Date('2026-02-01') },
+      ]);
+      const service = makeService();
+      const result = await service.listAllUsers();
+      expect(result[0]).toEqual({
+        type: 'company',
+        id: 'u1',
+        email: 'a@acme.com',
+        role: 'Recruiter',
+        status: 'active',
+        companyId: 'tenant-a',
+        companyName: 'Acme',
+        firstName: null,
+        lastName: null,
+        createdAt: expect.any(Date),
+      });
+      expect(result[1]).toEqual({
+        type: 'candidate',
+        id: 'c1',
+        email: 'c@x.com',
+        role: 'Candidate',
+        status: null,
+        companyId: null,
+        companyName: null,
+        firstName: 'Jane',
+        lastName: 'Doe',
+        createdAt: expect.any(Date),
+      });
+      expect(deps.userRepo.findAll).toHaveBeenCalledWith('company_tenant-a');
     });
   });
 });
