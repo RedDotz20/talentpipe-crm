@@ -10,6 +10,7 @@ describe('PlatformService', () => {
   let service: PlatformService;
   const tenantRepo = {
     findAll: jest.fn(),
+    findPaginated: jest.fn(),
     findById: jest.fn(),
     updateStatus: jest.fn(),
   };
@@ -141,6 +142,28 @@ describe('PlatformService', () => {
       tenantRepo.findAll.mockResolvedValue([{ id: 't1' }, { id: 't2' }]);
       const result = await service.getStats();
       expect(result).toEqual({ companies: 2, users: 4, applications: 10 });
+    });
+  });
+
+  describe('listCompanies', () => {
+    it('delegates to the tenant repository with pagination', async () => {
+      tenantRepo.findPaginated.mockResolvedValue({
+        data: [],
+        total: 0,
+        page: 1,
+        pageSize: 10,
+      });
+      const result = await service.listCompanies({
+        page: 1,
+        pageSize: 10,
+        status: 'active',
+      });
+      expect(tenantRepo.findPaginated).toHaveBeenCalledWith({
+        page: 1,
+        pageSize: 10,
+        status: 'active',
+      });
+      expect(result).toEqual({ data: [], total: 0, page: 1, pageSize: 10 });
     });
   });
 });
