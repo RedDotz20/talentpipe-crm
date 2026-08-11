@@ -21,12 +21,12 @@ interface Tokens {
 
 interface JwtClaims {
   sub: string;
-  tenantId?: string;
+  companyId?: string;
   role: string;
 }
 
-interface TenantAccount {
-  tenantId: string;
+interface CompanyAccount {
+  companyId: string;
   userId: string;
   token: string;
 }
@@ -55,7 +55,7 @@ interface Interview {
 let app: INestApplication<Server> | undefined;
 let cleanupPool: Pool | undefined;
 let cleanupRedis: Redis | undefined;
-const createdTenantIds: string[] = [];
+const createdCompanyIds: string[] = [];
 const createdOrgUserIds: string[] = [];
 const createdCandidateIds: string[] = [];
 const runId = `${Date.now()}-${randomUUID().slice(0, 8)}`;
@@ -88,6 +88,14 @@ const assertEnvelope = <T>(
   if (!envelope.data) throw new Error('The response did not contain data');
   return envelope.data;
 };
+
+// GET /api/interviews returns a paginated envelope ({ data, total, page, pageSize })
+// inside the response interceptor's { data, message } wrapper.
+const assertInterviewList = (
+  response: { status: number; body: unknown },
+  expectedStatus: number,
+): Interview[] =>
+  assertEnvelope<{ data: Interview[] }>(response, expectedStatus).data;
 
 const verifyInfrastructure = async (): Promise<void> => {
   const databaseUrl = process.env.DATABASE_URL;
@@ -134,10 +142,10 @@ const httpServer = (): Server => {
   return app.getHttpServer();
 };
 
-const createTenant = async (suffix: string): Promise<TenantAccount> => {
+const createTenant = async (suffix: string): Promise<CompanyAccount> => {
   const email = `phase8-${suffix}-${runId}@example.test`;
   const response = await request(httpServer())
-    .post('/api/auth/org/signup')
+    .post('/api/auth/company/signup')
     .send({
       companyName: `Phase 8 ${suffix} ${runId}`,
       slug: `phase8-${suffix}-${runId}`,
@@ -146,12 +154,12 @@ const createTenant = async (suffix: string): Promise<TenantAccount> => {
     });
   const tokens = assertEnvelope<Tokens>(response, 201);
   const claims = decodeClaims(tokens.accessToken);
-  if (!claims.tenantId)
-    throw new Error('Organization token did not contain tenantId');
-  createdTenantIds.push(claims.tenantId);
+  if (!claims.companyId)
+    throw new Error('Company token did not contain companyId');
+  createdCompanyIds.push(claims.companyId);
   createdOrgUserIds.push(claims.sub);
   return {
-    tenantId: claims.tenantId,
+    companyId: claims.companyId,
     userId: claims.sub,
     token: tokens.accessToken,
   };
@@ -173,7 +181,7 @@ const createCandidate = async (suffix: string): Promise<CandidateAccount> => {
 };
 
 const createOpenJob = async (
-  tenant: TenantAccount,
+  tenant: CompanyAccount,
   suffix: string,
 ): Promise<JobPosting> => {
   const created = await request(httpServer())
@@ -182,6 +190,9 @@ const createOpenJob = async (
     .send({
       title: `Phase 8 ${suffix} Job ${runId}`,
       description: 'Phase 8 release-gate job',
+      employmentType: 'full-time',
+      location: 'Makati City',
+      workSetup: 'on-site',
     });
   const posting = assertEnvelope<JobPosting>(created, 201);
 
@@ -192,7 +203,7 @@ const createOpenJob = async (
 };
 
 const createInterviewerUser = async (
-  tenant: TenantAccount,
+  tenant: CompanyAccount,
   suffix: string,
 ): Promise<{ userId: string; token: string; email: string }> => {
   const pool = cleanupPool;
@@ -202,14 +213,14 @@ const createInterviewerUser = async (
   const userId = randomUUID();
   const passwordHash = (await argon2.hash(password)) as string;
   await pool.query(
-    `INSERT INTO "tenant_${tenant.tenantId}"."users" (id, email, password_hash, role)
+    `INSERT INTO "company_${tenant.companyId}"."users" (id, email, password_hash, role)
      VALUES ($1, $2, $3, 'Interviewer')`,
     [userId, email, passwordHash],
   );
   await pool.query(
-    `INSERT INTO public.user_emails (id, email, tenant_id, user_id)
+    `INSERT INTO public.user_emails (id, email, company_id, user_id)
      VALUES ($1, $2, $3, $4)`,
-    [randomUUID(), email, tenant.tenantId, userId],
+    [randomUUID(), email, tenant.companyId, userId],
   );
   createdOrgUserIds.push(userId);
 
@@ -255,30 +266,30 @@ const cleanupDatabase = async (): Promise<void> => {
       [createdCandidateIds],
     );
   }
-  if (createdTenantIds.length > 0) {
+  if (createdCompanyIds.length > 0) {
     await cleanupPool.query(
-      'DELETE FROM public.audit_logs WHERE tenant_id = ANY($1::text[])',
-      [createdTenantIds],
+      'DELETE FROM public.audit_logs WHERE company_id = ANY($1::text[])',
+      [createdCompanyIds],
     );
     await cleanupPool.query(
-      'DELETE FROM public.candidate_applications_index WHERE tenant_id = ANY($1::text[])',
-      [createdTenantIds],
+      'DELETE FROM public.candidate_applications_index WHERE company_id = ANY($1::text[])',
+      [createdCompanyIds],
     );
     await cleanupPool.query(
-      'DELETE FROM public.candidate_bookmarks WHERE tenant_id = ANY($1::text[])',
-      [createdTenantIds],
+      'DELETE FROM public.candidate_bookmarks WHERE company_id = ANY($1::text[])',
+      [createdCompanyIds],
     );
     await cleanupPool.query(
-      'DELETE FROM public.job_listings_index WHERE tenant_id = ANY($1::text[])',
-      [createdTenantIds],
+      'DELETE FROM public.job_listings_index WHERE company_id = ANY($1::text[])',
+      [createdCompanyIds],
     );
     await cleanupPool.query(
-      'DELETE FROM public.user_emails WHERE tenant_id = ANY($1::uuid[])',
-      [createdTenantIds],
+      'DELETE FROM public.user_emails WHERE company_id = ANY($1::uuid[])',
+      [createdCompanyIds],
     );
     await cleanupPool.query(
-      'DELETE FROM public.refresh_tokens WHERE tenant_id = ANY($1::uuid[])',
-      [createdTenantIds],
+      'DELETE FROM public.refresh_tokens WHERE company_id = ANY($1::uuid[])',
+      [createdCompanyIds],
     );
   }
   if (createdOrgUserIds.length > 0) {
@@ -293,21 +304,22 @@ const cleanupDatabase = async (): Promise<void> => {
       [createdCandidateIds],
     );
   }
-  if (createdTenantIds.length > 0) {
+  if (createdCompanyIds.length > 0) {
     await cleanupPool.query(
-      'DELETE FROM public.tenants WHERE id = ANY($1::uuid[])',
-      [createdTenantIds],
+      'DELETE FROM public.companies WHERE id = ANY($1::uuid[])',
+      [createdCompanyIds],
     );
-    for (const tenantId of createdTenantIds) {
+    for (const companyId of createdCompanyIds) {
       await cleanupPool.query(
-        `DROP SCHEMA IF EXISTS ${quoteIdentifier(`tenant_${tenantId}`)} CASCADE`,
+        `DROP SCHEMA IF EXISTS ${quoteIdentifier(`company_${companyId}`)} CASCADE`,
       );
     }
   }
 };
 
 describe('Phase 8 release gate', () => {
-  let tenant: TenantAccount;
+  jest.setTimeout(30000);
+  let tenant: CompanyAccount;
   let candidate: CandidateAccount;
   let job: JobPosting;
   let applicationId: string;
@@ -315,7 +327,6 @@ describe('Phase 8 release gate', () => {
   let interviewerB: { userId: string; token: string; email: string };
 
   beforeAll(async () => {
-    jest.setTimeout(30000);
     await verifyInfrastructure();
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -331,7 +342,7 @@ describe('Phase 8 release gate', () => {
     interviewerB = await createInterviewerUser(tenant, 'B');
 
     const applyResponse = await request(httpServer())
-      .post(`/api/candidate/jobs/${tenant.tenantId}/${job.id}/apply`)
+      .post(`/api/candidate/jobs/${tenant.companyId}/${job.id}/apply`)
       .set('Authorization', `Bearer ${candidate.token}`)
       .send({ coverLetter: 'Phase 8 interview test' });
     const application = assertEnvelope<{ applicationId: string }>(
@@ -387,20 +398,20 @@ describe('Phase 8 release gate', () => {
     const own = await request(httpServer())
       .get('/api/interviews')
       .set('Authorization', `Bearer ${interviewerA.token}`);
-    const ownList = assertEnvelope<Interview[]>(own, 200);
+    const ownList = assertInterviewList(own, 200);
     expect(ownList).toHaveLength(1);
     expect(ownList[0].interviewerId).toBe(interviewerA.userId);
 
     const other = await request(httpServer())
       .get('/api/interviews')
       .set('Authorization', `Bearer ${interviewerB.token}`);
-    const otherList = assertEnvelope<Interview[]>(other, 200);
+    const otherList = assertInterviewList(other, 200);
     expect(otherList).toHaveLength(0);
 
     const all = await request(httpServer())
       .get('/api/interviews')
       .set('Authorization', `Bearer ${tenant.token}`);
-    const allList = assertEnvelope<Interview[]>(all, 200);
+    const allList = assertInterviewList(all, 200);
     expect(allList).toHaveLength(1);
   });
 
@@ -414,7 +425,7 @@ describe('Phase 8 release gate', () => {
     const interviews = await request(httpServer())
       .get('/api/interviews')
       .set('Authorization', `Bearer ${interviewerA.token}`);
-    const list = assertEnvelope<Interview[]>(interviews, 200);
+    const list = assertInterviewList(interviews, 200);
     const interviewId = list[0].id;
 
     const forbidden = await request(httpServer())
@@ -452,7 +463,7 @@ describe('Phase 8 release gate', () => {
     const interviews = await request(httpServer())
       .get('/api/interviews')
       .set('Authorization', `Bearer ${tenant.token}`);
-    const list = assertEnvelope<Interview[]>(interviews, 200);
+    const list = assertInterviewList(interviews, 200);
     const interviewId = list[0].id;
 
     const rescheduled = await request(httpServer())
@@ -489,19 +500,19 @@ describe('Phase 8 release gate', () => {
     const interviews = await request(httpServer())
       .get('/api/interviews')
       .set('Authorization', `Bearer ${tenant.token}`);
-    const list = assertEnvelope<Interview[]>(interviews, 200);
+    const list = assertInterviewList(interviews, 200);
     const interviewId = list[0].id;
 
-    const orgFeedback = await request(httpServer())
+    const companyFeedback = await request(httpServer())
       .post(`/api/interviews/${interviewId}/feedback`)
       .set('Authorization', `Bearer ${tenant.token}`)
       .send({ rating: 3 });
-    assertStatus(orgFeedback, 403);
+    assertStatus(companyFeedback, 403);
   });
 
   it('lists tenant users for the interviewer picker', async () => {
     const response = await request(httpServer())
-      .get('/api/org/users')
+      .get('/api/company/users')
       .set('Authorization', `Bearer ${tenant.token}`);
     const users = assertEnvelope<{ id: string; email: string; role: string }[]>(
       response,

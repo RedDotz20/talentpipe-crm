@@ -12,9 +12,10 @@ import { NoteRepository } from '../../repositories/note.repository';
 import { CandidateApplicationsIndexRepository } from '../../repositories/candidate-applications-index.repository';
 import {
   getCurrentUser,
-  getTenantId,
-  TenantContext,
-} from '../../common/context/tenant-context';
+  getCompanyId,
+  CompanyContext,
+} from '../../common/context/company-context';
+import type { ListQueryDto } from '../../common/dto/list-query.dto';
 import { CacheService } from '../../common/cache/cache.service';
 import {
   NOTIFICATION_QUEUE,
@@ -38,8 +39,16 @@ export class ApplicationsService {
     private readonly notificationQueue: Queue<StageChangeNotificationPayload>,
   ) {}
 
-  list(filters?: { jobPostingId?: string; stageId?: string }) {
-    return this.applicationRepo.findAll(filters);
+  list(
+    filters?: { jobPostingId?: string; stageId?: string },
+    query?: ListQueryDto,
+  ) {
+    return this.applicationRepo.findAllFiltered({
+      ...filters,
+      search: query?.search,
+      sortBy: query?.sortBy,
+      sortDir: query?.sortDir,
+    });
   }
 
   async getOne(id: string) {
@@ -49,7 +58,7 @@ export class ApplicationsService {
     return { ...application, notes };
   }
 
-  async updateStage(id: string, dto: UpdateStageDto, tenantId: string) {
+  async updateStage(id: string, dto: UpdateStageDto, companyId: string) {
     const application = await this.applicationRepo.findById(id);
     if (!application) throw new NotFoundException('Application not found');
     const stage = await this.pipelineStageRepo.findById(dto.stageId);
@@ -58,7 +67,7 @@ export class ApplicationsService {
     if (!updated) throw new NotFoundException('Application not found');
     const indexed = await this.candidateApplicationsIndexRepo.updateStatus(
       id,
-      tenantId,
+      companyId,
       stage.name,
     );
     if (application.candidateAccountId && !indexed) {
@@ -72,11 +81,11 @@ export class ApplicationsService {
         'Candidate application status could not be synchronized',
       );
     }
-    await this.cacheService.invalidateTenantDashboard(getTenantId());
+    await this.cacheService.invalidateCompanyDashboard(getCompanyId());
 
     try {
       await this.notificationQueue.add(STAGE_CHANGE_JOB, {
-        tenantId,
+        companyId,
         actorUserId: getCurrentUser().userId,
         applicationId: id,
         jobPostingId: application.jobPostingId,
@@ -95,7 +104,7 @@ export class ApplicationsService {
     return this.getOne(id);
   }
 
-  async addNote(user: TenantContext, id: string, dto: CreateNoteDto) {
+  async addNote(user: CompanyContext, id: string, dto: CreateNoteDto) {
     const application = await this.applicationRepo.findById(id);
     if (!application) throw new NotFoundException('Application not found');
     return this.noteRepo.create({

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { eq, desc, and, count } from 'drizzle-orm';
+import { eq, desc, and, count, asc, ilike, or } from 'drizzle-orm';
 import {
   applications,
   candidates,
@@ -77,6 +77,56 @@ export class ApplicationRepository extends BaseRepository {
         )
         .where(and(...conditions))
         .orderBy(desc(applications.appliedAt))
+        .execute();
+    });
+  }
+
+  async findAllFiltered(
+    filters: {
+      jobPostingId?: string;
+      stageId?: string;
+      search?: string;
+      sortBy?: string;
+      sortDir?: 'asc' | 'desc';
+    },
+    schema = 'current',
+  ) {
+    return this.withDb(schema, async (db) => {
+      const conditions = [];
+      if (filters?.jobPostingId) {
+        conditions.push(eq(applications.jobPostingId, filters.jobPostingId));
+      }
+      if (filters?.stageId) {
+        conditions.push(eq(applications.currentStageId, filters.stageId));
+      }
+      if (filters?.search) {
+        conditions.push(
+          or(
+            ilike(candidates.name, `%${filters.search}%`),
+            ilike(jobPostings.title, `%${filters.search}%`),
+          ),
+        );
+      }
+      const sortDir = filters?.sortDir ?? 'desc';
+      const orderBy =
+        filters?.sortBy === 'candidateName'
+          ? sortDir === 'asc'
+            ? asc(candidates.name)
+            : desc(candidates.name)
+          : sortDir === 'asc'
+            ? asc(applications.appliedAt)
+            : desc(applications.appliedAt);
+      return db
+        .select(selectAppRow)
+        .from(applications)
+        .innerJoin(candidates, eq(applications.candidateId, candidates.id))
+        .innerJoin(jobPostings, eq(applications.jobPostingId, jobPostings.id))
+        .leftJoin(
+          pipelineStages,
+          eq(applications.currentStageId, pipelineStages.id),
+        )
+        .where(and(...conditions))
+        .orderBy(orderBy)
         .execute();
     });
   }

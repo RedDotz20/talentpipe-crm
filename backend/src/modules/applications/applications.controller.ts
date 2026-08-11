@@ -12,13 +12,14 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { TenantContext } from '../../common/context/tenant-context';
+import { CompanyContext } from '../../common/context/company-context';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { ListQuerySchema, ListQueryDto } from '../../common/dto/list-query.dto';
 import { ApplicationsService } from './applications.service';
 import { UpdateStageSchema, UpdateStageDto } from './dto/update-stage.dto';
 import { CreateNoteSchema, CreateNoteDto } from './dto/create-note.dto';
 
-const VIEW_ROLES = ['OrgAdmin', 'Recruiter', 'HiringManager'];
+const VIEW_ROLES = ['CompanyAdmin', 'Recruiter', 'HiringManager'];
 
 @Controller('applications')
 export class ApplicationsController {
@@ -28,11 +29,12 @@ export class ApplicationsController {
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
   list(
+    @Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto,
     @Query('jobPostingId', new ParseUUIDPipe({ optional: true }))
     jobPostingId?: string,
     @Query('stageId', new ParseUUIDPipe({ optional: true })) stageId?: string,
   ) {
-    return this.applicationsService.list({ jobPostingId, stageId });
+    return this.applicationsService.list({ jobPostingId, stageId }, query);
   }
 
   @Get(':id')
@@ -48,9 +50,9 @@ export class ApplicationsController {
   updateStage(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodValidationPipe(UpdateStageSchema)) dto: UpdateStageDto,
-    @CurrentUser() user: TenantContext,
+    @CurrentUser() user: CompanyContext,
   ) {
-    return this.applicationsService.updateStage(id, dto, user.tenantId);
+    return this.applicationsService.updateStage(id, dto, user.companyId);
   }
 
   @Post(':id/notes')
@@ -59,7 +61,7 @@ export class ApplicationsController {
   addNote(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodValidationPipe(CreateNoteSchema)) dto: CreateNoteDto,
-    @CurrentUser() user: TenantContext,
+    @CurrentUser() user: CompanyContext,
   ) {
     return this.applicationsService.addNote(user, id, dto);
   }

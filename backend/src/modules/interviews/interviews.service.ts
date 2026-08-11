@@ -11,7 +11,8 @@ import { InterviewFeedbackRepository } from '../../repositories/interview-feedba
 import { ApplicationRepository } from '../../repositories/application.repository';
 import { UserRepository } from '../../repositories/user.repository';
 import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
-import { TenantContext } from '../../common/context/tenant-context';
+import { CompanyContext } from '../../common/context/company-context';
+import type { ListQueryDto } from '../../common/dto/list-query.dto';
 import { ApplicationsService } from '../applications/applications.service';
 import { CreateInterviewDto } from './dto/create-interview.dto';
 import { UpdateInterviewDto } from './dto/update-interview.dto';
@@ -30,14 +31,20 @@ export class InterviewsService {
     private readonly applicationsService: ApplicationsService,
   ) {}
 
-  list(user: TenantContext, assignedToMe?: string) {
-    const ownOnly = user.role === 'Interviewer' || assignedToMe === 'true';
-    return ownOnly
-      ? this.interviewRepo.findAll({ interviewerId: user.userId })
-      : this.interviewRepo.findAll();
+  list(
+    user: CompanyContext,
+    query: ListQueryDto & { status?: string; assignedToMe?: string },
+  ) {
+    const ownOnly =
+      user.role === 'Interviewer' || query.assignedToMe === 'true';
+    const filters = {
+      ...(ownOnly ? { interviewerId: user.userId } : {}),
+      ...(query.status ? { status: query.status } : {}),
+    };
+    return this.interviewRepo.findPaginated(filters, query);
   }
 
-  async getOne(user: TenantContext, id: string) {
+  async getOne(user: CompanyContext, id: string) {
     const interview = await this.interviewRepo.findById(id);
     if (!interview) throw new NotFoundException('Interview not found');
     if (
@@ -49,7 +56,7 @@ export class InterviewsService {
     return interview;
   }
 
-  async schedule(user: TenantContext, dto: CreateInterviewDto) {
+  async schedule(user: CompanyContext, dto: CreateInterviewDto) {
     const application = await this.applicationRepo.findById(dto.applicationId);
     if (!application) throw new NotFoundException('Application not found');
     const interviewer = await this.userRepo.findById(dto.interviewerId);
@@ -67,7 +74,7 @@ export class InterviewsService {
     await this.moveToInterviewStage(
       application.id,
       application.currentStageId,
-      user.tenantId,
+      user.companyId,
     );
     return interview;
   }
@@ -85,7 +92,7 @@ export class InterviewsService {
   }
 
   async submitFeedback(
-    user: TenantContext,
+    user: CompanyContext,
     id: string,
     dto: SubmitFeedbackDto,
   ) {
@@ -113,7 +120,7 @@ export class InterviewsService {
   private async moveToInterviewStage(
     applicationId: string,
     currentStageId: string | null,
-    tenantId: string,
+    companyId: string,
   ) {
     const stages = await this.pipelineStageRepo.findAll();
     const interviewStage = stages.find((stage) => stage.name === 'Interview');
@@ -127,7 +134,7 @@ export class InterviewsService {
     await this.applicationsService.updateStage(
       applicationId,
       { stageId: interviewStage.id },
-      tenantId,
+      companyId,
     );
   }
 }

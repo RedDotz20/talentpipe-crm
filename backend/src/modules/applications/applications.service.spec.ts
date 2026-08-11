@@ -7,15 +7,15 @@ import { NoteRepository } from '../../repositories/note.repository';
 import { CandidateApplicationsIndexRepository } from '../../repositories/candidate-applications-index.repository';
 import { CacheService } from '../../common/cache/cache.service';
 import { NOTIFICATION_QUEUE, STAGE_CHANGE_JOB } from '../../queues/queues';
-import { asyncStorage } from '../../common/context/tenant-context';
+import { asyncStorage } from '../../common/context/company-context';
 
 const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
-  asyncStorage.run({ tenantId: 't1', userId: 'u1', role: 'OrgAdmin' }, fn);
+  asyncStorage.run({ companyId: 't1', userId: 'u1', role: 'CompanyAdmin' }, fn);
 
 describe('ApplicationsService', () => {
   let service: ApplicationsService;
   const applicationRepo = {
-    findAll: jest.fn(),
+    findAllFiltered: jest.fn(),
     findById: jest.fn(),
     create: jest.fn(),
     updateStage: jest.fn(),
@@ -23,7 +23,7 @@ describe('ApplicationsService', () => {
   const pipelineStageRepo = { findById: jest.fn() };
   const noteRepo = { findByApplicationId: jest.fn(), create: jest.fn() };
   const candidateApplicationsIndexRepo = { updateStatus: jest.fn() };
-  const cacheService = { invalidateTenantDashboard: jest.fn() };
+  const cacheService = { invalidateCompanyDashboard: jest.fn() };
   const notificationQueue = { add: jest.fn() };
 
   beforeEach(async () => {
@@ -49,14 +49,25 @@ describe('ApplicationsService', () => {
     expect(service).toBeDefined();
   });
 
-  it('lists applications with filters', async () => {
-    applicationRepo.findAll.mockResolvedValue([{ id: 'a1' }]);
-    await expect(
-      service.list({ jobPostingId: 'j1', stageId: 's1' }),
-    ).resolves.toEqual([{ id: 'a1' }]);
-    expect(applicationRepo.findAll).toHaveBeenCalledWith({
+  it('lists applications with filters and query', async () => {
+    applicationRepo.findAllFiltered.mockResolvedValue([{ id: 'a1' }]);
+    const result = await service.list(
+      { jobPostingId: 'j1', stageId: 's1' },
+      {
+        search: 'alice',
+        page: 1,
+        pageSize: 10,
+        sortBy: 'appliedAt',
+        sortDir: 'desc',
+      },
+    );
+    expect(result).toEqual([{ id: 'a1' }]);
+    expect(applicationRepo.findAllFiltered).toHaveBeenCalledWith({
       jobPostingId: 'j1',
       stageId: 's1',
+      search: 'alice',
+      sortBy: 'appliedAt',
+      sortDir: 'desc',
     });
   });
 
@@ -125,9 +136,9 @@ describe('ApplicationsService', () => {
       'tenant-a',
       'Interview',
     );
-    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
+    expect(cacheService.invalidateCompanyDashboard).toHaveBeenCalledWith('t1');
     expect(notificationQueue.add).toHaveBeenCalledWith(STAGE_CHANGE_JOB, {
-      tenantId: 'tenant-a',
+      companyId: 'tenant-a',
       actorUserId: 'u1',
       applicationId: 'a1',
       jobPostingId: 'j1',
@@ -159,7 +170,7 @@ describe('ApplicationsService', () => {
         service.updateStage('a1', { stageId: 's2' }, 'tenant-a'),
       ),
     ).resolves.toEqual(expect.objectContaining({ id: 'a1' }));
-    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
+    expect(cacheService.invalidateCompanyDashboard).toHaveBeenCalledWith('t1');
   });
 
   it('rolls back a linked candidate application when index synchronization returns null', async () => {
@@ -189,7 +200,7 @@ describe('ApplicationsService', () => {
       undefined,
       's2',
     );
-    expect(cacheService.invalidateTenantDashboard).not.toHaveBeenCalled();
+    expect(cacheService.invalidateCompanyDashboard).not.toHaveBeenCalled();
   });
 
   it('keeps manual tenant-only candidates updated without an index row', async () => {
@@ -211,7 +222,7 @@ describe('ApplicationsService', () => {
         service.updateStage('a1', { stageId: 's2' }, 'tenant-a'),
       ),
     ).resolves.toEqual(expect.objectContaining({ id: 'a1' }));
-    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
+    expect(cacheService.invalidateCompanyDashboard).toHaveBeenCalledWith('t1');
   });
 
   it('updateStage rejects when the stage update writes no application', async () => {
@@ -232,7 +243,7 @@ describe('ApplicationsService', () => {
     ).rejects.toThrow('Application not found');
 
     expect(candidateApplicationsIndexRepo.updateStatus).not.toHaveBeenCalled();
-    expect(cacheService.invalidateTenantDashboard).not.toHaveBeenCalled();
+    expect(cacheService.invalidateCompanyDashboard).not.toHaveBeenCalled();
   });
 
   it('addNote creates a note with the current user', async () => {
@@ -240,7 +251,7 @@ describe('ApplicationsService', () => {
     noteRepo.create.mockResolvedValue({ id: 'n1' });
     await expect(
       service.addNote(
-        { tenantId: 't1', userId: 'u1', role: 'OrgAdmin' },
+        { companyId: 't1', userId: 'u1', role: 'CompanyAdmin' },
         'a1',
         { content: 'Phone screen scheduled' },
       ),

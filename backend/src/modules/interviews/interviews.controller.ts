@@ -12,8 +12,9 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { TenantContext } from '../../common/context/tenant-context';
+import { CompanyContext } from '../../common/context/company-context';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { ListQuerySchema, ListQueryDto } from '../../common/dto/list-query.dto';
 import { InterviewsService } from './interviews.service';
 import {
   CreateInterviewSchema,
@@ -28,8 +29,13 @@ import {
   SubmitFeedbackDto,
 } from './dto/submit-feedback.dto';
 
-const VIEW_ROLES = ['OrgAdmin', 'Recruiter', 'HiringManager', 'Interviewer'];
-const SCHEDULER_ROLES = ['OrgAdmin', 'Recruiter', 'HiringManager'];
+const VIEW_ROLES = [
+  'CompanyAdmin',
+  'Recruiter',
+  'HiringManager',
+  'Interviewer',
+];
+const SCHEDULER_ROLES = ['CompanyAdmin', 'Recruiter', 'HiringManager'];
 
 @Controller('interviews')
 export class InterviewsController {
@@ -39,10 +45,16 @@ export class InterviewsController {
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
   list(
-    @Query('assignedToMe') assignedToMe: string | undefined,
-    @CurrentUser() user: TenantContext,
+    @CurrentUser() user: CompanyContext,
+    @Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto,
+    @Query('status') status?: string,
+    @Query('assignedToMe') assignedToMe?: string,
   ) {
-    return this.interviewsService.list(user, assignedToMe);
+    return this.interviewsService.list(user, {
+      ...query,
+      status,
+      assignedToMe,
+    });
   }
 
   @Get(':id')
@@ -50,7 +62,7 @@ export class InterviewsController {
   @Roles(...VIEW_ROLES)
   getOne(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @CurrentUser() user: TenantContext,
+    @CurrentUser() user: CompanyContext,
   ) {
     return this.interviewsService.getOne(user, id);
   }
@@ -60,7 +72,7 @@ export class InterviewsController {
   @Roles(...SCHEDULER_ROLES)
   schedule(
     @Body(new ZodValidationPipe(CreateInterviewSchema)) dto: CreateInterviewDto,
-    @CurrentUser() user: TenantContext,
+    @CurrentUser() user: CompanyContext,
   ) {
     return this.interviewsService.schedule(user, dto);
   }
@@ -81,7 +93,7 @@ export class InterviewsController {
   submitFeedback(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodValidationPipe(SubmitFeedbackSchema)) dto: SubmitFeedbackDto,
-    @CurrentUser() user: TenantContext,
+    @CurrentUser() user: CompanyContext,
   ) {
     return this.interviewsService.submitFeedback(user, id, dto);
   }

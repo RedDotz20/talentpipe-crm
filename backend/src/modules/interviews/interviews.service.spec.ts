@@ -16,7 +16,7 @@ import { ApplicationsService } from '../applications/applications.service';
 describe('InterviewsService', () => {
   let service: InterviewsService;
   const interviewRepo = {
-    findAll: jest.fn(),
+    findPaginated: jest.fn(),
     findById: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
@@ -30,8 +30,8 @@ describe('InterviewsService', () => {
   const pipelineStageRepo = { findAll: jest.fn() };
   const applicationsService = { updateStage: jest.fn() };
 
-  const scheduler = { tenantId: 't1', userId: 'oa1', role: 'OrgAdmin' };
-  const interviewer = { tenantId: 't1', userId: 'iv1', role: 'Interviewer' };
+  const scheduler = { companyId: 't1', userId: 'oa1', role: 'CompanyAdmin' };
+  const interviewer = { companyId: 't1', userId: 'iv1', role: 'Interviewer' };
   const interview = {
     id: 'i1',
     applicationId: 'a1',
@@ -61,21 +61,35 @@ describe('InterviewsService', () => {
   });
 
   it('forces the interviewer role to own interviews only', async () => {
-    interviewRepo.findAll.mockResolvedValue([interview]);
-    await expect(service.list(interviewer)).resolves.toEqual([interview]);
-    expect(interviewRepo.findAll).toHaveBeenCalledWith({
-      interviewerId: 'iv1',
+    interviewRepo.findPaginated.mockResolvedValue({
+      data: [interview],
+      total: 1,
     });
+    await expect(
+      service.list(interviewer, { page: 1, pageSize: 10 }),
+    ).resolves.toEqual({ data: [interview], total: 1 });
+    expect(interviewRepo.findPaginated).toHaveBeenCalledWith(
+      { interviewerId: 'iv1' },
+      { page: 1, pageSize: 10 },
+    );
   });
 
   it('lets schedulers see all interviews unless assignedToMe is set', async () => {
-    interviewRepo.findAll.mockResolvedValue([]);
-    await service.list(scheduler);
-    expect(interviewRepo.findAll).toHaveBeenCalledWith();
-    await service.list(scheduler, 'true');
-    expect(interviewRepo.findAll).toHaveBeenLastCalledWith({
-      interviewerId: 'oa1',
+    interviewRepo.findPaginated.mockResolvedValue({ data: [], total: 0 });
+    await service.list(scheduler, { page: 1, pageSize: 10 });
+    expect(interviewRepo.findPaginated).toHaveBeenCalledWith(
+      {},
+      { page: 1, pageSize: 10 },
+    );
+    await service.list(scheduler, {
+      page: 1,
+      pageSize: 10,
+      assignedToMe: 'true',
     });
+    expect(interviewRepo.findPaginated).toHaveBeenLastCalledWith(
+      { interviewerId: 'oa1' },
+      { page: 1, pageSize: 10, assignedToMe: 'true' },
+    );
   });
 
   it('getOne throws NotFoundException when missing', async () => {
@@ -268,7 +282,7 @@ describe('InterviewsService', () => {
     interviewRepo.findById.mockResolvedValue(interview);
     await expect(
       service.submitFeedback(
-        { tenantId: 't1', userId: 'iv1', role: 'OrgAdmin' },
+        { companyId: 't1', userId: 'iv1', role: 'CompanyAdmin' },
         'i1',
         { rating: 4 },
       ),
