@@ -10,6 +10,7 @@ import {
   Title,
 } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
+import { JobMetaBadges } from '@/shared/components/JobMetaBadges';
 import { usePublicJobs } from './hooks/usePublicCareers';
 
 interface JobListingPageProps {
@@ -61,6 +62,11 @@ export function JobListingPage({ companySlug }: JobListingPageProps) {
                     <Text c="dimmed" size="sm">
                       {job.companyName}
                     </Text>
+                    <JobMetaBadges
+                      employmentType={job.employmentType}
+                      location={job.location}
+                      workSetup={job.workSetup}
+                    />
                   </div>
                   <Badge color="green">Open</Badge>
                 </Group>

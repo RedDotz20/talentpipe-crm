@@ -1,5 +1,6 @@
 import { Alert, Badge, Button, Card, Group, Loader, Stack, Text, Title } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
+import { JobMetaBadges } from '@/shared/components/JobMetaBadges';
 import { useApplications, useJobs } from '../hooks';
 import type { Job } from '../types';
 
@@ -45,6 +46,11 @@ export function JobSearchPage() {
                 )}
               </Group>
               <Text size="sm" c="dimmed">{job.companyName}</Text>
+              <JobMetaBadges
+                employmentType={job.employmentType}
+                location={job.location}
+                workSetup={job.workSetup}
+              />
             </div>
           </Group>
           <Button

@@ -10,12 +10,16 @@ import {
   Title,
 } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
+import { JobMetaBadges } from '@/shared/components/JobMetaBadges';
 
 interface JobDetailsViewProps {
   job: {
     title: string;
     companyName: string;
     description?: string | null;
+    employmentType?: string | null;
+    location?: string | null;
+    workSetup?: string | null;
     requiredSkills?: { id: string; name: string }[];
   };
   onApply: () => void;
@@ -46,6 +50,11 @@ export function JobDetailsView({
         <Text c="dimmed" mt="xs">
           {job.companyName}
         </Text>
+        <JobMetaBadges
+          employmentType={job.employmentType}
+          location={job.location}
+          workSetup={job.workSetup}
+        />
       </div>
       <Card withBorder padding="xl" radius="md">
         <Stack gap="lg">

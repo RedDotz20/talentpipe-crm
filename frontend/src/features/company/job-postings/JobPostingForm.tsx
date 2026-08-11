@@ -1,4 +1,4 @@
-import { Button, Modal, Stack, TextInput, Textarea } from '@mantine/core';
+import { Button, Modal, Select, Stack, TextInput, Textarea } from '@mantine/core';
 import { useForm, schemaResolver } from '@mantine/form';
 import { z } from 'zod';
 import { RequiredSkillsPicker } from './RequiredSkillsPicker';
@@ -7,8 +7,14 @@ import type { CreateJobPostingInput } from '../../../api/jobPostingsApi';
 const schema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
+  employmentType: z.string().min(1, 'Employment type is required'),
+  location: z.string().min(1, 'Location is required'),
+  workSetup: z.string().min(1, 'Work setup is required'),
   requiredSkillIds: z.array(z.string()).default([]),
 });
+
+const EMPLOYMENT_TYPES = ['full-time', 'part-time', 'contract', 'intern'];
+const WORK_SETUPS = ['on-site', 'hybrid', 'work-from-home'];
 
 interface Props {
   opened: boolean;
@@ -19,7 +25,14 @@ interface Props {
 
 export function JobPostingForm({ opened, onClose, submitting, onSubmit }: Props) {
   const form = useForm({
-    initialValues: { title: '', description: '', requiredSkillIds: [] as string[] },
+    initialValues: {
+      title: '',
+      description: '',
+      employmentType: '',
+      location: '',
+      workSetup: '',
+      requiredSkillIds: [] as string[],
+    },
     validate: schemaResolver(schema),
   });
 
@@ -30,6 +43,9 @@ export function JobPostingForm({ opened, onClose, submitting, onSubmit }: Props)
           onSubmit({
             title: values.title,
             description: values.description || undefined,
+            employmentType: values.employmentType,
+            location: values.location,
+            workSetup: values.workSetup,
             requiredSkillIds: values.requiredSkillIds,
           });
           form.reset();
@@ -41,6 +57,32 @@ export function JobPostingForm({ opened, onClose, submitting, onSubmit }: Props)
             placeholder="Senior Software Engineer"
             required
             {...form.getInputProps('title')}
+          />
+          <Select
+            label="Employment type"
+            placeholder="Full-time"
+            required
+            data={EMPLOYMENT_TYPES.map((value) => ({
+              value,
+              label: value.charAt(0).toUpperCase() + value.slice(1),
+            }))}
+            {...form.getInputProps('employmentType')}
+          />
+          <TextInput
+            label="Location"
+            placeholder="Makati City"
+            required
+            {...form.getInputProps('location')}
+          />
+          <Select
+            label="Work setup"
+            placeholder="On-site"
+            required
+            data={WORK_SETUPS.map((value) => ({
+              value,
+              label: value.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+            }))}
+            {...form.getInputProps('workSetup')}
           />
           <Textarea
             label="Description"

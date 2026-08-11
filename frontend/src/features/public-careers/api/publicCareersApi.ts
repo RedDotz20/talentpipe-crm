@@ -14,6 +14,9 @@ export interface PublicJobListing {
   companyName: string;
   title: string;
   description: string | null;
+  employmentType: string | null;
+  location: string | null;
+  workSetup: string | null;
   createdAt: string;
   updatedAt: string;
 }

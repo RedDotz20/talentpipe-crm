@@ -5,6 +5,9 @@ export interface JobPosting {
   id: string;
   title: string;
   description: string | null;
+  employmentType: string | null;
+  location: string | null;
+  workSetup: string | null;
   status: 'draft' | 'open' | 'closed';
   createdByUserId: string | null;
   createdAt: string;
@@ -14,12 +17,18 @@ export interface JobPosting {
 export interface CreateJobPostingInput {
   title: string;
   description?: string;
+  employmentType: string;
+  location: string;
+  workSetup: string;
   requiredSkillIds?: string[];
 }
 
 export interface UpdateJobPostingInput {
   title?: string;
   description?: string | null;
+  employmentType?: string;
+  location?: string;
+  workSetup?: string;
   requiredSkillIds?: string[];
 }
 

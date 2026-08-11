@@ -6,6 +6,10 @@ export interface Job {
   title: string;
   companyName: string;
   description?: string;
+  employmentType?: string | null;
+  location?: string | null;
+  workSetup?: string | null;
+  requiredSkills?: { id: string; name: string; category?: string | null }[];
   requirements?: string;
   benefits?: string;
 }

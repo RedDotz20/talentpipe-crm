@@ -42,8 +42,22 @@ const schema = z.object({
   companyId: z.string().min(1, 'Company is required'),
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
+  employmentType: z.string().min(1, 'Employment type is required'),
+  location: z.string().min(1, 'Location is required'),
+  workSetup: z.string().min(1, 'Work setup is required'),
   requiredSkillIds: z.array(z.string()).default([]),
 })
+
+const EMPLOYMENT_TYPES = ['full-time', 'part-time', 'contract', 'intern']
+const WORK_SETUPS = ['on-site', 'hybrid', 'work-from-home']
+
+const metaLabel = (value: string | null | undefined): string => {
+  if (!value) return 'Not specified'
+  return value
+    .split('-')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
 
 export function JobsPage() {
   const [filters, setFilters] = useState<{ companyId?: string; status?: string }>(
@@ -87,6 +101,9 @@ export function JobsPage() {
       companyId: '',
       title: '',
       description: '',
+      employmentType: '',
+      location: '',
+      workSetup: '',
       requiredSkillIds: [] as string[],
     },
     validate: schemaResolver(schema),
@@ -98,6 +115,9 @@ export function JobsPage() {
         companyId: editing.companyId,
         title: editing.title,
         description: editing.description ?? '',
+        employmentType: editing.employmentType ?? '',
+        location: editing.location ?? '',
+        workSetup: editing.workSetup ?? '',
         requiredSkillIds: detail?.requiredSkillIds ?? [],
       })
     } else if (formOpen && !editing) {
@@ -115,6 +135,9 @@ export function JobsPage() {
           input: {
             title: values.title,
             description: values.description || null,
+            employmentType: values.employmentType,
+            location: values.location,
+            workSetup: values.workSetup,
             requiredSkillIds: values.requiredSkillIds,
           },
         },
@@ -126,6 +149,9 @@ export function JobsPage() {
           companyId: values.companyId,
           title: values.title,
           description: values.description || undefined,
+          employmentType: values.employmentType,
+          location: values.location,
+          workSetup: values.workSetup,
           requiredSkillIds: values.requiredSkillIds,
         },
         { onSuccess: () => closeForm() },
@@ -183,6 +209,7 @@ export function JobsPage() {
               <Table.Tr>
                 <Table.Th>Company</Table.Th>
                 <Table.Th>Title</Table.Th>
+                <Table.Th>Details</Table.Th>
                 <Table.Th>Status</Table.Th>
                 <Table.Th>Created</Table.Th>
                 <Table.Th>Actions</Table.Th>
@@ -193,6 +220,12 @@ export function JobsPage() {
                 <Table.Tr key={job.id}>
                   <Table.Td>{job.companyName}</Table.Td>
                   <Table.Td>{job.title}</Table.Td>
+                  <Table.Td>
+                    <Text size="xs" c="dimmed">
+                      {metaLabel(job.employmentType)} · {metaLabel(job.location)} ·{' '}
+                      {metaLabel(job.workSetup)}
+                    </Text>
+                  </Table.Td>
                   <Table.Td>
                     <Badge variant="light" color={statusColors[job.status]}>
                       {job.status}
@@ -275,6 +308,32 @@ export function JobsPage() {
               placeholder="Senior Software Engineer"
               required
               {...form.getInputProps('title')}
+            />
+            <Select
+              label="Employment type"
+              placeholder="Full-time"
+              required
+              data={EMPLOYMENT_TYPES.map((value) => ({
+                value,
+                label: value.charAt(0).toUpperCase() + value.slice(1),
+              }))}
+              {...form.getInputProps('employmentType')}
+            />
+            <TextInput
+              label="Location"
+              placeholder="Makati City"
+              required
+              {...form.getInputProps('location')}
+            />
+            <Select
+              label="Work setup"
+              placeholder="On-site"
+              required
+              data={WORK_SETUPS.map((value) => ({
+                value,
+                label: value.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+              }))}
+              {...form.getInputProps('workSetup')}
             />
             <Textarea
               label="Description"

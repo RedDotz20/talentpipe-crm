@@ -78,6 +78,9 @@ export interface PlatformJob {
   companyName: string;
   title: string;
   description: string | null;
+  employmentType: string | null;
+  location: string | null;
+  workSetup: string | null;
   status: 'draft' | 'open' | 'closed';
   createdAt: string;
   requiredSkillIds: string[];
@@ -87,12 +90,18 @@ export interface CreatePlatformJobInput {
   companyId: string;
   title: string;
   description?: string;
+  employmentType: string;
+  location: string;
+  workSetup: string;
   requiredSkillIds?: string[];
 }
 
 export interface UpdatePlatformJobInput {
   title?: string;
   description?: string | null;
+  employmentType?: string;
+  location?: string;
+  workSetup?: string;
   requiredSkillIds?: string[];
 }
 
