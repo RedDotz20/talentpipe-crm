@@ -108,7 +108,9 @@ export function SuperAdminPlatform() {
 
       <AppShell.Main>
         <PageTransition>
-          <Outlet />
+          <div style={{ maxWidth: '88rem', marginInline: 'auto' }}>
+            <Outlet />
+          </div>
         </PageTransition>
       </AppShell.Main>
     </AppShell>
