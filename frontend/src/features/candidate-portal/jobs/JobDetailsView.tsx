@@ -3,11 +3,13 @@ import {
   Badge,
   Button,
   Card,
+  Group,
   SimpleGrid,
   Stack,
   Text,
   Title,
 } from '@mantine/core';
+import { Link } from '@tanstack/react-router';
 
 interface JobDetailsViewProps {
   job: {
@@ -19,6 +21,7 @@ interface JobDetailsViewProps {
   onApply: () => void;
   applyLabel?: string;
   backLink?: ReactNode;
+  applied?: boolean;
 }
 
 export function JobDetailsView({
@@ -26,12 +29,20 @@ export function JobDetailsView({
   onApply,
   applyLabel = 'Apply now',
   backLink,
+  applied = false,
 }: JobDetailsViewProps) {
   return (
     <Stack gap="xl">
       {backLink}
       <div>
-        <Title order={1}>{job.title}</Title>
+        <Group gap="sm">
+          <Title order={1}>{job.title}</Title>
+          {applied && (
+            <Badge variant="light" color="green" size="lg">
+              Applied
+            </Badge>
+          )}
+        </Group>
         <Text c="dimmed" mt="xs">
           {job.companyName}
         </Text>
@@ -60,9 +71,21 @@ export function JobDetailsView({
               </SimpleGrid>
             )}
           </div>
-          <Button onClick={onApply} size="md">
-            {applyLabel}
-          </Button>
+          {applied ? (
+            <Button
+              component={Link}
+              to="/applications"
+              size="md"
+              variant="light"
+              color="green"
+            >
+              View my application
+            </Button>
+          ) : (
+            <Button onClick={onApply} size="md">
+              {applyLabel}
+            </Button>
+          )}
         </Stack>
       </Card>
     </Stack>

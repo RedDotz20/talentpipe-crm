@@ -1,10 +1,11 @@
-import { Alert, Button, Card, Group, Loader, Stack, Text, Title } from '@mantine/core';
+import { Alert, Badge, Button, Card, Group, Loader, Stack, Text, Title } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
-import { useJobs } from '../hooks';
+import { useApplications, useJobs } from '../hooks';
 import type { Job } from '../types';
 
 export function JobSearchPage() {
   const { data: jobs = [], isLoading: jobsLoading, error: jobsError } = useJobs();
+  const { data: applications = [] } = useApplications();
 
   if (jobsLoading) {
     return (
@@ -22,6 +23,12 @@ export function JobSearchPage() {
     return <Text>No jobs available</Text>;
   }
 
+  const appliedKeys = new Set(
+    applications.map((app) => `${app.companyId}:${app.jobPostingId}`),
+  );
+  const isApplied = (job: Job) =>
+    appliedKeys.has(`${job.companyId}:${job.jobPostingId ?? job.id}`);
+
   return (
     <Stack>
       <Title order={2}>Job Search</Title>
@@ -29,7 +36,14 @@ export function JobSearchPage() {
         <Card key={job.id} shadow="sm" padding="lg" radius="md" withBorder>
           <Group justify="space-between" mb="xs">
             <div>
-              <Title order={4}>{job.title}</Title>
+              <Group gap="sm">
+                <Title order={4}>{job.title}</Title>
+                {isApplied(job) && (
+                  <Badge variant="light" color="green" size="sm">
+                    Applied
+                  </Badge>
+                )}
+              </Group>
               <Text size="sm" c="dimmed">{job.companyName}</Text>
             </div>
           </Group>

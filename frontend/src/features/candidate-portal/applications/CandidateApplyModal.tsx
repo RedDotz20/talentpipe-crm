@@ -9,6 +9,7 @@ import {
   TextInput,
   Textarea,
 } from '@mantine/core';
+import { isAxiosError } from 'axios';
 import { useApply, useAllSkills, useProfile } from '../hooks';
 import type { Job, Skill } from '../types';
 
@@ -65,7 +66,14 @@ export function CandidateApplyModal({
       },
       {
         onSuccess: () => setSuccess(true),
-        onError: () => setError('Failed to submit application'),
+        onError: (err: unknown) => {
+          const backendMessage = isAxiosError<{
+            error: { message: string };
+          }>(err)
+            ? err.response?.data?.error?.message
+            : undefined;
+          setError(backendMessage ?? 'Failed to submit application');
+        },
       },
     );
   };

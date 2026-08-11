@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { Alert, Container, Group, Loader } from '@mantine/core';
-import { useJobDetail } from '@/features/candidate-portal/hooks';
+import { useApplications, useJobDetail } from '@/features/candidate-portal/hooks';
 import { JobDetailsView } from '@/features/candidate-portal/jobs/JobDetailsView';
 import { CandidateApplyModal } from '@/features/candidate-portal/applications/CandidateApplyModal';
 
@@ -16,6 +16,7 @@ function CandidateJobDetailRoute() {
   const { jobId } = Route.useParams();
   const { companyId } = Route.useSearch();
   const { data: job, isLoading, error } = useJobDetail(companyId, jobId);
+  const { data: applications = [] } = useApplications();
   const [applyOpened, setApplyOpened] = useState(false);
 
   if (!companyId) {
@@ -48,6 +49,11 @@ function CandidateJobDetailRoute() {
     );
   }
 
+  const applied = applications.some(
+    (app) =>
+      app.companyId === companyId && app.jobPostingId === (job.jobPostingId ?? job.id),
+  );
+
   return (
     <Container size="md" py="xl">
       <JobDetailsView
@@ -55,6 +61,7 @@ function CandidateJobDetailRoute() {
         backLink={<Link to="/dashboard">Back to job search</Link>}
         onApply={() => setApplyOpened(true)}
         applyLabel="Apply now"
+        applied={applied}
       />
       {applyOpened && (
         <CandidateApplyModal
