@@ -44,7 +44,8 @@ export function JobSearchPage() {
   });
   const jobs = jobsResult.data;
   const { data: applications = [] } = useApplications({ pageSize: 50 });
-  const { data: bookmarks = [] } = useBookmarks({ pageSize: 50 });
+  const { data: bookmarksResult = { data: [], total: 0 } } = useBookmarks({ pageSize: 50 });
+  const bookmarks = bookmarksResult.data;
   const { mutate: addBookmark, isPending: isAdding } = useAddBookmark();
   const { mutate: removeBookmark, isPending: isRemoving } = useRemoveBookmark();
   const [applyJob, setApplyJob] = useState<Job | null>(null);
