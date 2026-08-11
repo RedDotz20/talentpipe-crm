@@ -13,8 +13,9 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { TenantContext } from '../../common/context/tenant-context';
+import { CompanyContext } from '../../common/context/company-context';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { ListQuerySchema, ListQueryDto } from '../../common/dto/list-query.dto';
 import { JobPostingsService } from './job-postings.service';
 import {
   CreateJobPostingSchema,
@@ -25,8 +26,8 @@ import {
   UpdateJobPostingDto,
 } from './dto/update-job-posting.dto';
 
-const VIEW_ROLES = ['OrgAdmin', 'Recruiter', 'HiringManager'];
-const EDIT_ROLES = ['OrgAdmin', 'Recruiter'];
+const VIEW_ROLES = ['CompanyAdmin', 'Recruiter', 'HiringManager'];
+const EDIT_ROLES = ['CompanyAdmin', 'Recruiter'];
 
 @Controller('job-postings')
 export class JobPostingsController {
@@ -35,8 +36,11 @@ export class JobPostingsController {
   @Get()
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
-  list(@Query('status') status?: string) {
-    return this.jobPostingsService.list(status);
+  list(
+    @Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto,
+    @Query('status') status?: string,
+  ) {
+    return this.jobPostingsService.list(status, query);
   }
 
   @Post()
@@ -45,7 +49,7 @@ export class JobPostingsController {
   create(
     @Body(new ZodValidationPipe(CreateJobPostingSchema))
     dto: CreateJobPostingDto,
-    @CurrentUser() user: TenantContext,
+    @CurrentUser() user: CompanyContext,
   ) {
     return this.jobPostingsService.create(user, dto);
   }
@@ -84,7 +88,7 @@ export class JobPostingsController {
 
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'))
-  @Roles('OrgAdmin')
+  @Roles('CompanyAdmin')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.jobPostingsService.remove(id);
   }

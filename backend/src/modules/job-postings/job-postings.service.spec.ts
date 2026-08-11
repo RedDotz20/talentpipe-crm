@@ -1,21 +1,22 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { asyncStorage } from '../../common/context/tenant-context';
+import { asyncStorage } from '../../common/context/company-context';
 import { JobPostingsService } from './job-postings.service';
 import { JobPostingRepository } from '../../repositories/job-posting.repository';
 import { SkillRepository } from '../../repositories/skill.repository';
-import { TenantRepository } from '../../repositories/tenant.repository';
+import { CompanyRepository } from '../../repositories/company.repository';
 import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
 import { ApplicationRepository } from '../../repositories/application.repository';
 import { CacheService } from '../../common/cache/cache.service';
 
 const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
-  asyncStorage.run({ tenantId: 't1', userId: 'u1', role: 'OrgAdmin' }, fn);
+  asyncStorage.run({ companyId: 't1', userId: 'u1', role: 'CompanyAdmin' }, fn);
 
 describe('JobPostingsService', () => {
   let service: JobPostingsService;
   const jobPostingRepo = {
     findAll: jest.fn(),
+    findPaginated: jest.fn(),
     findById: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
@@ -27,7 +28,7 @@ describe('JobPostingsService', () => {
   const tenantRepo = { findById: jest.fn() };
   const jobListingsIndexRepo = { upsert: jest.fn(), delete: jest.fn() };
   const applicationRepo = { countByJobPosting: jest.fn().mockResolvedValue(0) };
-  const cacheService = { invalidateTenantDashboard: jest.fn() };
+  const cacheService = { invalidateCompanyDashboard: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -36,7 +37,7 @@ describe('JobPostingsService', () => {
         JobPostingsService,
         { provide: JobPostingRepository, useValue: jobPostingRepo },
         { provide: SkillRepository, useValue: skillRepo },
-        { provide: TenantRepository, useValue: tenantRepo },
+        { provide: CompanyRepository, useValue: tenantRepo },
         { provide: JobListingsIndexRepository, useValue: jobListingsIndexRepo },
         { provide: ApplicationRepository, useValue: applicationRepo },
         { provide: CacheService, useValue: cacheService },
@@ -50,9 +51,28 @@ describe('JobPostingsService', () => {
   });
 
   it('lists postings via the repository', async () => {
-    jobPostingRepo.findAll.mockResolvedValue([{ id: 'p1' }]);
-    await expect(service.list('draft')).resolves.toEqual([{ id: 'p1' }]);
-    expect(jobPostingRepo.findAll).toHaveBeenCalledWith('draft');
+    jobPostingRepo.findPaginated.mockResolvedValue({
+      data: [{ id: 'p1' }],
+      total: 1,
+    });
+
+    const result = await service.list('draft', {
+      search: undefined,
+      page: 1,
+      pageSize: 10,
+      sortBy: undefined,
+      sortDir: undefined,
+    });
+
+    expect(jobPostingRepo.findPaginated).toHaveBeenCalledWith({
+      search: undefined,
+      page: 1,
+      pageSize: 10,
+      sortBy: undefined,
+      sortDir: undefined,
+      status: 'draft',
+    });
+    expect(result).toEqual({ data: [{ id: 'p1' }], total: 1 });
   });
 
   it('getOne throws NotFoundException when missing', async () => {
@@ -77,8 +97,14 @@ describe('JobPostingsService', () => {
 
     const result = await runInContext(() =>
       service.create(
-        { tenantId: 't1', userId: 'u1', role: 'OrgAdmin' },
-        { title: 'Eng', requiredSkillIds: ['s1'] },
+        { companyId: 't1', userId: 'u1', role: 'CompanyAdmin' },
+        {
+          title: 'Eng',
+          employmentType: 'full-time',
+          location: 'Makati City',
+          workSetup: 'hybrid',
+          requiredSkillIds: ['s1'],
+        },
       ),
     );
 
@@ -86,6 +112,9 @@ describe('JobPostingsService', () => {
     expect(jobPostingRepo.create).toHaveBeenCalledWith({
       title: 'Eng',
       description: undefined,
+      employmentType: 'full-time',
+      location: 'Makati City',
+      workSetup: 'hybrid',
       createdByUserId: 'u1',
     });
     expect(jobPostingRepo.setRequiredSkills).toHaveBeenCalledWith('p1', ['s1']);
@@ -94,18 +123,24 @@ describe('JobPostingsService', () => {
       title: 'Eng',
       requiredSkillIds: ['s1'],
     });
-    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
+    expect(cacheService.invalidateCompanyDashboard).toHaveBeenCalledWith('t1');
   });
 
   it('create rejects unknown skill ids', async () => {
     skillRepo.findByIds.mockResolvedValue([{ id: 's1' }]);
     await expect(
       service.create(
-        { tenantId: 't1', userId: 'u1', role: 'OrgAdmin' },
-        { title: 'Eng', requiredSkillIds: ['s1', 'missing'] },
+        { companyId: 't1', userId: 'u1', role: 'CompanyAdmin' },
+        {
+          title: 'Eng',
+          employmentType: 'full-time',
+          location: 'Makati City',
+          workSetup: 'on-site',
+          requiredSkillIds: ['s1', 'missing'],
+        },
       ),
     ).rejects.toThrow(NotFoundException);
-    expect(cacheService.invalidateTenantDashboard).not.toHaveBeenCalled();
+    expect(cacheService.invalidateCompanyDashboard).not.toHaveBeenCalled();
   });
 
   it('publish only works on drafts and syncs the listing index', async () => {
@@ -128,7 +163,7 @@ describe('JobPostingsService', () => {
     );
 
     expect(jobListingsIndexRepo.upsert).toHaveBeenCalledWith({
-      tenantId: 't1',
+      companyId: 't1',
       jobPostingId: 'p1',
       title: 'Eng',
       description: '',
@@ -136,7 +171,7 @@ describe('JobPostingsService', () => {
       companySlug: 'acme',
       status: 'open',
     });
-    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
+    expect(cacheService.invalidateCompanyDashboard).toHaveBeenCalledWith('t1');
   });
 
   it('publish rejects non-draft postings', async () => {
@@ -166,7 +201,7 @@ describe('JobPostingsService', () => {
     expect(jobListingsIndexRepo.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'closed' }),
     );
-    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
+    expect(cacheService.invalidateCompanyDashboard).toHaveBeenCalledWith('t1');
   });
 
   it('update resyncs the listing index for non-draft postings', async () => {
@@ -194,7 +229,7 @@ describe('JobPostingsService', () => {
     expect(jobListingsIndexRepo.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ title: 'Eng v2', status: 'open' }),
     );
-    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
+    expect(cacheService.invalidateCompanyDashboard).toHaveBeenCalledWith('t1');
   });
 
   it('update writes required skills and invalidates the dashboard without a field update', async () => {
@@ -213,7 +248,7 @@ describe('JobPostingsService', () => {
 
     expect(jobPostingRepo.update).not.toHaveBeenCalled();
     expect(jobPostingRepo.setRequiredSkills).toHaveBeenCalledWith('p1', ['s1']);
-    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
+    expect(cacheService.invalidateCompanyDashboard).toHaveBeenCalledWith('t1');
   });
 
   it('update does not invalidate when no write occurs', async () => {
@@ -229,7 +264,7 @@ describe('JobPostingsService', () => {
 
     expect(jobPostingRepo.update).not.toHaveBeenCalled();
     expect(jobPostingRepo.setRequiredSkills).not.toHaveBeenCalled();
-    expect(cacheService.invalidateTenantDashboard).not.toHaveBeenCalled();
+    expect(cacheService.invalidateCompanyDashboard).not.toHaveBeenCalled();
   });
 
   it('update does not resync the listing index for draft postings', async () => {
@@ -270,6 +305,6 @@ describe('JobPostingsService', () => {
     await runInContext(() => service.remove('p1'));
     expect(jobPostingRepo.delete).toHaveBeenCalledWith('p1');
     expect(jobListingsIndexRepo.delete).toHaveBeenCalledWith('t1', 'p1');
-    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
+    expect(cacheService.invalidateCompanyDashboard).toHaveBeenCalledWith('t1');
   });
 });

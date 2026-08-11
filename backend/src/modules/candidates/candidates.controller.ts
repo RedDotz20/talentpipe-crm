@@ -5,19 +5,21 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { ListQuerySchema, ListQueryDto } from '../../common/dto/list-query.dto';
 import { CandidatesService } from './candidates.service';
 import {
   CreateCandidateSchema,
   CreateCandidateDto,
 } from './dto/create-candidate.dto';
 
-const VIEW_ROLES = ['OrgAdmin', 'Recruiter', 'HiringManager'];
-const EDIT_ROLES = ['OrgAdmin', 'Recruiter'];
+const VIEW_ROLES = ['CompanyAdmin', 'Recruiter', 'HiringManager'];
+const EDIT_ROLES = ['CompanyAdmin', 'Recruiter'];
 
 @Controller('candidates')
 export class CandidatesController {
@@ -26,8 +28,8 @@ export class CandidatesController {
   @Get()
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
-  list() {
-    return this.candidatesService.list();
+  list(@Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto) {
+    return this.candidatesService.list(query);
   }
 
   @Post()

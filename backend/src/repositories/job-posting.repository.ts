@@ -1,12 +1,20 @@
 import { Injectable } from '@nestjs/common';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, count } from 'drizzle-orm';
 import { jobPostings, jobRequiredSkills } from '../database/schema';
 import { BaseRepository } from './base.repository';
+import {
+  andConditions,
+  listEnvelope,
+  toOrderBy,
+  toPagination,
+  toWhere,
+} from './list-query.helper';
+import type { ListQueryDto } from '../common/dto/list-query.dto';
 
 @Injectable()
 export class JobPostingRepository extends BaseRepository {
-  async findAll(status?: string) {
-    return this.withDb('current', async (db) => {
+  async findAll(status?: string, schema = 'current') {
+    return this.withDb(schema, async (db) => {
       const base = db.select().from(jobPostings);
       return status
         ? base
@@ -14,6 +22,42 @@ export class JobPostingRepository extends BaseRepository {
             .orderBy(desc(jobPostings.createdAt))
             .execute()
         : base.orderBy(desc(jobPostings.createdAt)).execute();
+    });
+  }
+
+  async findPaginated(
+    query: ListQueryDto & { status?: string },
+    schema = 'current',
+  ) {
+    return this.withDb(schema, async (db) => {
+      const conditions = andConditions(
+        query.status ? [eq(jobPostings.status, query.status)] : [],
+        toWhere(query, [jobPostings.title]),
+      );
+      const sortOptions = {
+        sortMap: {
+          createdAt: jobPostings.createdAt,
+          title: jobPostings.title,
+        },
+        defaultSortBy: 'createdAt',
+      };
+      const { offset, limit } = toPagination(query);
+      const [rows, totalRows] = await Promise.all([
+        db
+          .select()
+          .from(jobPostings)
+          .where(conditions)
+          .orderBy(toOrderBy(query, sortOptions))
+          .limit(limit)
+          .offset(offset)
+          .execute(),
+        db
+          .select({ value: count() })
+          .from(jobPostings)
+          .where(conditions)
+          .execute(),
+      ]);
+      return listEnvelope(rows, Number(totalRows[0]?.value ?? 0), query);
     });
   }
 
@@ -29,12 +73,18 @@ export class JobPostingRepository extends BaseRepository {
     });
   }
 
-  async create(data: {
-    title: string;
-    description?: string | null;
-    createdByUserId?: string;
-  }) {
-    return this.withDb('current', async (db) => {
+  async create(
+    data: {
+      title: string;
+      description?: string | null;
+      employmentType?: string | null;
+      location?: string | null;
+      workSetup?: string | null;
+      createdByUserId?: string;
+    },
+    schema = 'current',
+  ) {
+    return this.withDb(schema, async (db) => {
       const rows = await db
         .insert(jobPostings)
         .values(data)
@@ -49,10 +99,14 @@ export class JobPostingRepository extends BaseRepository {
     data: Partial<{
       title: string;
       description: string | null;
+      employmentType: string | null;
+      location: string | null;
+      workSetup: string | null;
       status: string;
     }>,
+    schema = 'current',
   ) {
-    return this.withDb('current', async (db) => {
+    return this.withDb(schema, async (db) => {
       const rows = await db
         .update(jobPostings)
         .set(data)
@@ -63,14 +117,18 @@ export class JobPostingRepository extends BaseRepository {
     });
   }
 
-  async delete(id: string) {
-    return this.withDb('current', async (db) => {
+  async delete(id: string, schema = 'current') {
+    return this.withDb(schema, async (db) => {
       await db.delete(jobPostings).where(eq(jobPostings.id, id)).execute();
     });
   }
 
-  async setRequiredSkills(jobPostingId: string, skillIds: string[]) {
-    return this.withDb('current', async (db) => {
+  async setRequiredSkills(
+    jobPostingId: string,
+    skillIds: string[],
+    schema = 'current',
+  ) {
+    return this.withDb(schema, async (db) => {
       await db
         .delete(jobRequiredSkills)
         .where(eq(jobRequiredSkills.jobPostingId, jobPostingId))

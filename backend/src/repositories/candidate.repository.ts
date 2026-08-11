@@ -1,7 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, count } from 'drizzle-orm';
 import { candidates } from '../database/schema';
 import { BaseRepository } from './base.repository';
+import {
+  andConditions,
+  listEnvelope,
+  toOrderBy,
+  toPagination,
+  toWhere,
+} from './list-query.helper';
+import type { ListQueryDto } from '../common/dto/list-query.dto';
 
 @Injectable()
 export class CandidateRepository extends BaseRepository {
@@ -12,6 +20,38 @@ export class CandidateRepository extends BaseRepository {
         .from(candidates)
         .orderBy(desc(candidates.createdAt))
         .execute();
+    });
+  }
+
+  async findPaginated(query: ListQueryDto, schema = 'current') {
+    return this.withDb(schema, async (db) => {
+      const conditions = andConditions(
+        toWhere(query, [candidates.name, candidates.email]),
+      );
+      const sortOptions = {
+        sortMap: {
+          name: candidates.name,
+          createdAt: candidates.createdAt,
+        },
+        defaultSortBy: 'createdAt',
+      };
+      const { offset, limit } = toPagination(query);
+      const [rows, totalRows] = await Promise.all([
+        db
+          .select()
+          .from(candidates)
+          .where(conditions)
+          .orderBy(toOrderBy(query, sortOptions))
+          .limit(limit)
+          .offset(offset)
+          .execute(),
+        db
+          .select({ value: count() })
+          .from(candidates)
+          .where(conditions)
+          .execute(),
+      ]);
+      return listEnvelope(rows, Number(totalRows[0]?.value ?? 0), query);
     });
   }
 

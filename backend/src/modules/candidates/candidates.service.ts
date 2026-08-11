@@ -5,8 +5,9 @@ import { CandidateSkillRepository } from '../../repositories/candidate-skill.rep
 import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
 import { SkillRepository } from '../../repositories/skill.repository';
 import { CacheService } from '../../common/cache/cache.service';
-import { getTenantId } from '../../common/context/tenant-context';
+import { getCompanyId } from '../../common/context/company-context';
 import { CreateCandidateDto } from './dto/create-candidate.dto';
+import type { ListQueryDto } from '../../common/dto/list-query.dto';
 
 @Injectable()
 export class CandidatesService {
@@ -19,8 +20,8 @@ export class CandidatesService {
     private readonly cacheService: CacheService,
   ) {}
 
-  list() {
-    return this.candidateRepo.findAll();
+  list(query: ListQueryDto) {
+    return this.candidateRepo.findPaginated(query);
   }
 
   async getOne(id: string) {
@@ -99,7 +100,7 @@ export class CandidatesService {
       phone: dto.phone,
     });
     if (candidate) {
-      await this.cacheService.invalidateTenantDashboard(getTenantId());
+      await this.cacheService.invalidateCompanyDashboard(getCompanyId());
     }
     return candidate;
   }

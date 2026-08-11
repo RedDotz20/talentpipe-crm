@@ -7,15 +7,16 @@ import { CandidateSkillRepository } from '../../repositories/candidate-skill.rep
 import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
 import { SkillRepository } from '../../repositories/skill.repository';
 import { CacheService } from '../../common/cache/cache.service';
-import { asyncStorage } from '../../common/context/tenant-context';
+import { asyncStorage } from '../../common/context/company-context';
 
 const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
-  asyncStorage.run({ tenantId: 't1', userId: 'u1', role: 'OrgAdmin' }, fn);
+  asyncStorage.run({ companyId: 't1', userId: 'u1', role: 'CompanyAdmin' }, fn);
 
 describe('CandidatesService', () => {
   let service: CandidatesService;
   const candidateRepo = {
     findAll: jest.fn(),
+    findPaginated: jest.fn(),
     findById: jest.fn(),
     findByAccountId: jest.fn(),
     create: jest.fn(),
@@ -33,7 +34,7 @@ describe('CandidatesService', () => {
   const skillRepo = {
     findAll: jest.fn(),
   };
-  const cacheService = { invalidateTenantDashboard: jest.fn() };
+  const cacheService = { invalidateCompanyDashboard: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -56,8 +57,27 @@ describe('CandidatesService', () => {
   });
 
   it('lists candidates', async () => {
-    candidateRepo.findAll.mockResolvedValue([{ id: 'c1' }]);
-    await expect(service.list()).resolves.toEqual([{ id: 'c1' }]);
+    candidateRepo.findPaginated.mockResolvedValue({
+      data: [{ id: 'c1' }],
+      total: 1,
+    });
+
+    const result = await service.list({
+      search: undefined,
+      page: 1,
+      pageSize: 10,
+      sortBy: undefined,
+      sortDir: undefined,
+    });
+
+    expect(candidateRepo.findPaginated).toHaveBeenCalledWith({
+      search: undefined,
+      page: 1,
+      pageSize: 10,
+      sortBy: undefined,
+      sortDir: undefined,
+    });
+    expect(result).toEqual({ data: [{ id: 'c1' }], total: 1 });
   });
 
   it('getOne throws NotFoundException when missing', async () => {
@@ -221,6 +241,6 @@ describe('CandidatesService', () => {
       email: 'jane@example.com',
       phone: undefined,
     });
-    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
+    expect(cacheService.invalidateCompanyDashboard).toHaveBeenCalledWith('t1');
   });
 });

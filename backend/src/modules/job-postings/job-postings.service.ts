@@ -4,31 +4,32 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
-  getTenantId,
-  TenantContext,
-} from '../../common/context/tenant-context';
+  getCompanyId,
+  CompanyContext,
+} from '../../common/context/company-context';
 import { CacheService } from '../../common/cache/cache.service';
 import { JobPostingRepository } from '../../repositories/job-posting.repository';
 import { SkillRepository } from '../../repositories/skill.repository';
-import { TenantRepository } from '../../repositories/tenant.repository';
+import { CompanyRepository } from '../../repositories/company.repository';
 import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
 import { ApplicationRepository } from '../../repositories/application.repository';
 import { CreateJobPostingDto } from './dto/create-job-posting.dto';
 import { UpdateJobPostingDto } from './dto/update-job-posting.dto';
+import type { ListQueryDto } from '../../common/dto/list-query.dto';
 
 @Injectable()
 export class JobPostingsService {
   constructor(
     private readonly jobPostingRepo: JobPostingRepository,
     private readonly skillRepo: SkillRepository,
-    private readonly tenantRepo: TenantRepository,
+    private readonly tenantRepo: CompanyRepository,
     private readonly jobListingsIndexRepo: JobListingsIndexRepository,
     private readonly applicationRepo: ApplicationRepository,
     private readonly cacheService: CacheService,
   ) {}
 
-  list(status?: string) {
-    return this.jobPostingRepo.findAll(status);
+  list(status: string | undefined, query: ListQueryDto) {
+    return this.jobPostingRepo.findPaginated({ ...query, status });
   }
 
   async getOne(id: string) {
@@ -38,13 +39,16 @@ export class JobPostingsService {
     return { ...posting, requiredSkillIds };
   }
 
-  async create(user: TenantContext, dto: CreateJobPostingDto) {
+  async create(user: CompanyContext, dto: CreateJobPostingDto) {
     if (dto.requiredSkillIds?.length) {
       await this.assertSkillsExist(dto.requiredSkillIds);
     }
     const posting = await this.jobPostingRepo.create({
       title: dto.title,
       description: dto.description,
+      employmentType: dto.employmentType,
+      location: dto.location,
+      workSetup: dto.workSetup,
       createdByUserId: user.userId,
     });
     if (dto.requiredSkillIds?.length) {
@@ -53,7 +57,7 @@ export class JobPostingsService {
         dto.requiredSkillIds,
       );
     }
-    await this.cacheService.invalidateTenantDashboard(getTenantId());
+    await this.cacheService.invalidateCompanyDashboard(getCompanyId());
     return this.getOne(posting.id);
   }
 
@@ -67,10 +71,17 @@ export class JobPostingsService {
     const patch: Partial<{
       title: string;
       description: string | null;
+      employmentType: string;
+      location: string;
+      workSetup: string;
       status: string;
     }> = {};
     if (dto.title !== undefined) patch.title = dto.title;
     if (dto.description !== undefined) patch.description = dto.description;
+    if (dto.employmentType !== undefined)
+      patch.employmentType = dto.employmentType;
+    if (dto.location !== undefined) patch.location = dto.location;
+    if (dto.workSetup !== undefined) patch.workSetup = dto.workSetup;
     if (Object.keys(patch).length > 0) {
       const updated = await this.jobPostingRepo.update(id, patch);
       if (updated) {
@@ -85,7 +96,7 @@ export class JobPostingsService {
       didWrite = true;
     }
     if (didWrite) {
-      await this.cacheService.invalidateTenantDashboard(getTenantId());
+      await this.cacheService.invalidateCompanyDashboard(getCompanyId());
     }
     return this.getOne(id);
   }
@@ -99,7 +110,7 @@ export class JobPostingsService {
     const updated = await this.jobPostingRepo.update(id, { status: 'open' });
     if (updated) {
       await this.syncListing(updated);
-      await this.cacheService.invalidateTenantDashboard(getTenantId());
+      await this.cacheService.invalidateCompanyDashboard(getCompanyId());
     }
     return this.getOne(id);
   }
@@ -111,7 +122,7 @@ export class JobPostingsService {
     const updated = await this.jobPostingRepo.update(id, { status: 'closed' });
     if (updated) {
       await this.syncListing(updated);
-      await this.cacheService.invalidateTenantDashboard(getTenantId());
+      await this.cacheService.invalidateCompanyDashboard(getCompanyId());
     }
     return this.getOne(id);
   }
@@ -130,10 +141,10 @@ export class JobPostingsService {
         'Cannot delete a job posting that has applications',
       );
     }
-    const tenantId = getTenantId();
+    const companyId = getCompanyId();
     await this.jobPostingRepo.delete(id);
-    await this.jobListingsIndexRepo.delete(tenantId, id);
-    await this.cacheService.invalidateTenantDashboard(tenantId);
+    await this.jobListingsIndexRepo.delete(companyId, id);
+    await this.cacheService.invalidateCompanyDashboard(companyId);
   }
 
   private async assertSkillsExist(skillIds: string[]) {
@@ -147,15 +158,21 @@ export class JobPostingsService {
     id: string;
     title: string;
     description: string | null;
+    employmentType: string | null;
+    location: string | null;
+    workSetup: string | null;
     status: string;
   }) {
-    const tenantId = getTenantId();
-    const tenant = await this.tenantRepo.findById(tenantId);
+    const companyId = getCompanyId();
+    const tenant = await this.tenantRepo.findById(companyId);
     await this.jobListingsIndexRepo.upsert({
-      tenantId,
+      companyId,
       jobPostingId: posting.id,
       title: posting.title,
       description: posting.description ?? '',
+      employmentType: posting.employmentType,
+      location: posting.location,
+      workSetup: posting.workSetup,
       companyName: tenant?.name ?? '',
       companySlug: tenant?.slug ?? '',
       status: posting.status,
