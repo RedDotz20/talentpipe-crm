@@ -43,7 +43,8 @@ export function JobSearchPage() {
     workSetup: workSetupFilter ?? undefined,
   });
   const jobs = jobsResult.data;
-  const { data: applications = [] } = useApplications({ pageSize: 50 });
+  const { data: applicationsResult = { data: [], total: 0 } } = useApplications({ pageSize: 50 });
+  const applications = applicationsResult.data;
   const { data: bookmarksResult = { data: [], total: 0 } } = useBookmarks({ pageSize: 50 });
   const bookmarks = bookmarksResult.data;
   const { mutate: addBookmark, isPending: isAdding } = useAddBookmark();

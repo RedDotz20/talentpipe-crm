@@ -16,7 +16,8 @@ function CandidateJobDetailRoute() {
   const { jobId } = Route.useParams();
   const { companyId } = Route.useSearch();
   const { data: job, isLoading, error } = useJobDetail(companyId, jobId);
-  const { data: applications = [] } = useApplications();
+  const { data: applicationsResult = { data: [], total: 0 } } = useApplications({ pageSize: 50 });
+  const applications = applicationsResult.data;
   const [applyOpened, setApplyOpened] = useState(false);
 
   if (!companyId) {
