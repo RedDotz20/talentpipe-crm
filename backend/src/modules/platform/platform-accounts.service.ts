@@ -317,7 +317,7 @@ export class PlatformAccountsService {
     const account = await this.candidateAccountRepo.findById(id);
     if (!account) throw new NotFoundException('Candidate not found');
     const companies = await this.tenantRepo.findAll();
-    const indexed = await this.candidateIndexRepo.findByCandidate(id);
+    const indexed = await this.candidateIndexRepo.findAllByCandidate(id);
     for (const row of indexed) {
       await this.candidateIndexRepo.deleteById(row.id);
       await this.applicationRepo.delete(

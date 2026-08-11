@@ -63,7 +63,7 @@ function makeDeps() {
       delete: jest.fn(),
     },
     candidateIndexRepo: {
-      findByCandidate: jest.fn().mockResolvedValue([]),
+      findAllByCandidate: jest.fn().mockResolvedValue([]),
       deleteById: jest.fn(),
       cancelByCompany: jest.fn(),
     },
@@ -299,7 +299,7 @@ describe('PlatformAccountsService', () => {
         id: 'c1',
         email: 'c@x.com',
       });
-      deps.candidateIndexRepo.findByCandidate.mockResolvedValue([
+      deps.candidateIndexRepo.findAllByCandidate.mockResolvedValue([
         { id: 'idx1', applicationId: 'app1', companyId: 'tenant-a' },
       ]);
       deps.tenantRepo.findAll.mockResolvedValue([{ id: 'tenant-a' }]);
@@ -328,10 +328,24 @@ describe('PlatformAccountsService', () => {
         { id: 'tenant-a', name: 'Acme' },
       ]);
       deps.userRepo.findAll.mockResolvedValue([
-        { id: 'u1', email: 'a@acme.com', role: 'Recruiter', status: 'active', createdAt: new Date('2026-01-01') },
+        {
+          id: 'u1',
+          email: 'a@acme.com',
+          role: 'Recruiter',
+          status: 'active',
+          createdAt: new Date('2026-01-01'),
+        },
       ]);
       deps.candidateAccountRepo.findAll.mockResolvedValue([
-        { id: 'c1', email: 'c@x.com', firstName: 'Jane', lastName: 'Doe', phone: null, resumeFileUrl: null, createdAt: new Date('2026-02-01') },
+        {
+          id: 'c1',
+          email: 'c@x.com',
+          firstName: 'Jane',
+          lastName: 'Doe',
+          phone: null,
+          resumeFileUrl: null,
+          createdAt: new Date('2026-02-01'),
+        },
       ]);
       const service = makeService();
       const result = await service.listAllUsers();

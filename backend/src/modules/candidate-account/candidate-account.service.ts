@@ -314,9 +314,13 @@ export class CandidateAccountService {
     return { applicationId: application.id };
   }
 
-  async getApplications(candidateAccountId: string) {
+  async getApplications(
+    candidateAccountId: string,
+    query: ListQueryDto & { status?: string },
+  ) {
     return this.candidateApplicationsIndexRepo.findByCandidate(
       candidateAccountId,
+      query,
     );
   }
 
@@ -406,8 +410,11 @@ export class CandidateAccountService {
     return { skills: uniqueIds.length };
   }
 
-  async getBookmarks(candidateAccountId: string) {
-    return this.candidateBookmarkRepo.findByCandidate(candidateAccountId);
+  async getBookmarks(candidateAccountId: string, query: ListQueryDto) {
+    return this.candidateBookmarkRepo.findByCandidate(
+      candidateAccountId,
+      query,
+    );
   }
 
   async addBookmark(

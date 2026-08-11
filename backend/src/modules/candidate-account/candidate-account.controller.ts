@@ -82,8 +82,15 @@ export class CandidateAccountController {
 
   @Get('applications')
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
-  async getApplications(@CurrentUser() user: CompanyContext) {
-    return this.candidateAccountService.getApplications(user.userId);
+  async getApplications(
+    @Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto,
+    @CurrentUser() user: CompanyContext,
+    @Query('status') status?: string,
+  ) {
+    return this.candidateAccountService.getApplications(user.userId, {
+      ...query,
+      status,
+    });
   }
 
   @Get('applications/:id')
@@ -144,8 +151,11 @@ export class CandidateAccountController {
 
   @Get('bookmarks')
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
-  async getBookmarks(@CurrentUser() user: CompanyContext) {
-    return this.candidateAccountService.getBookmarks(user.userId);
+  async getBookmarks(
+    @Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto,
+    @CurrentUser() user: CompanyContext,
+  ) {
+    return this.candidateAccountService.getBookmarks(user.userId, query);
   }
 
   @Get('profile')

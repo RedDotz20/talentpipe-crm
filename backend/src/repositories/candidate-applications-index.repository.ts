@@ -1,21 +1,72 @@
 import { Injectable } from '@nestjs/common';
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, and, desc, count } from 'drizzle-orm';
 import { candidateApplicationsIndex } from '../database/schema';
 import { BaseRepository } from './base.repository';
+import {
+  andConditions,
+  listEnvelope,
+  toOrderBy,
+  toPagination,
+  toWhere,
+} from './list-query.helper';
+import type { ListQueryDto } from '../common/dto/list-query.dto';
 
 @Injectable()
 export class CandidateApplicationsIndexRepository extends BaseRepository {
-  async findByCandidate(candidateAccountId: string) {
+  async findByCandidate(
+    candidateAccountId: string,
+    query: ListQueryDto & { status?: string },
+  ) {
     return this.withDb('public', async (db) => {
-      return db
+      const conditions = andConditions(
+        [eq(candidateApplicationsIndex.candidateAccountId, candidateAccountId)],
+        query.status
+          ? [eq(candidateApplicationsIndex.status, query.status)]
+          : [],
+        toWhere(query, [
+          candidateApplicationsIndex.jobTitle,
+          candidateApplicationsIndex.companyName,
+        ]),
+      );
+      const sortOptions = {
+        sortMap: {
+          appliedAt: candidateApplicationsIndex.appliedAt,
+          jobTitle: candidateApplicationsIndex.jobTitle,
+          companyName: candidateApplicationsIndex.companyName,
+        },
+        defaultSortBy: 'appliedAt',
+      };
+      const { offset, limit } = toPagination(query);
+      const [rows, totalRows] = await Promise.all([
+        db
+          .select()
+          .from(candidateApplicationsIndex)
+          .where(conditions)
+          .orderBy(toOrderBy(query, sortOptions))
+          .limit(limit)
+          .offset(offset)
+          .execute(),
+        db
+          .select({ value: count() })
+          .from(candidateApplicationsIndex)
+          .where(conditions)
+          .execute(),
+      ]);
+      return listEnvelope(rows, Number(totalRows[0]?.value ?? 0), query);
+    });
+  }
+
+  async findAllByCandidate(candidateAccountId: string) {
+    return this.withDb('public', (db) =>
+      db
         .select()
         .from(candidateApplicationsIndex)
         .where(
           eq(candidateApplicationsIndex.candidateAccountId, candidateAccountId),
         )
         .orderBy(desc(candidateApplicationsIndex.appliedAt))
-        .execute();
-    });
+        .execute(),
+    );
   }
 
   async findByJob(

@@ -1,23 +1,58 @@
 import { Injectable } from '@nestjs/common';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, count } from 'drizzle-orm';
 import { candidateBookmarks } from '../database/schema';
 import { BaseRepository } from './base.repository';
+import {
+  andConditions,
+  listEnvelope,
+  toOrderBy,
+  toPagination,
+  toWhere,
+} from './list-query.helper';
+import type { ListQueryDto } from '../common/dto/list-query.dto';
 
 @Injectable()
 export class CandidateBookmarkRepository extends BaseRepository {
-  async findByCandidate(candidateAccountId: string) {
+  async findByCandidate(candidateAccountId: string, query: ListQueryDto) {
     return this.withDb('public', async (db) => {
-      return db
-        .select()
-        .from(candidateBookmarks)
-        .where(eq(candidateBookmarks.candidateAccountId, candidateAccountId))
-        .execute();
+      const conditions = andConditions(
+        [eq(candidateBookmarks.candidateAccountId, candidateAccountId)],
+        toWhere(query, [
+          candidateBookmarks.jobTitle,
+          candidateBookmarks.companyName,
+        ]),
+      );
+      const sortOptions = {
+        sortMap: {
+          createdAt: candidateBookmarks.createdAt,
+          jobTitle: candidateBookmarks.jobTitle,
+          companyName: candidateBookmarks.companyName,
+        },
+        defaultSortBy: 'createdAt',
+      };
+      const { offset, limit } = toPagination(query);
+      const [rows, totalRows] = await Promise.all([
+        db
+          .select()
+          .from(candidateBookmarks)
+          .where(conditions)
+          .orderBy(toOrderBy(query, sortOptions))
+          .limit(limit)
+          .offset(offset)
+          .execute(),
+        db
+          .select({ value: count() })
+          .from(candidateBookmarks)
+          .where(conditions)
+          .execute(),
+      ]);
+      return listEnvelope(rows, Number(totalRows[0]?.value ?? 0), query);
     });
   }
 
   async findByJob(
     candidateAccountId: string,
-    tenantId: string,
+    companyId: string,
     jobPostingId: string,
   ) {
     return this.withDb('public', async (db) => {
@@ -27,7 +62,7 @@ export class CandidateBookmarkRepository extends BaseRepository {
         .where(
           and(
             eq(candidateBookmarks.candidateAccountId, candidateAccountId),
-            eq(candidateBookmarks.tenantId, tenantId),
+            eq(candidateBookmarks.companyId, companyId),
             eq(candidateBookmarks.jobPostingId, jobPostingId),
           ),
         )
@@ -38,7 +73,7 @@ export class CandidateBookmarkRepository extends BaseRepository {
 
   async create(data: {
     candidateAccountId: string;
-    tenantId: string;
+    companyId: string;
     jobPostingId: string;
     jobTitle: string;
     companyName: string;
