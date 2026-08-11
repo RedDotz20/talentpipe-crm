@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { INTERNAL_USER_ROLES } from '../../org/dto/invite-user.dto';
+import { INTERNAL_USER_ROLES } from '../../company/dto/invite-user.dto';
 
-export const UpdateTenantUserSchema = z
+export const UpdateCompanyUserSchema = z
   .object({
     role: z.enum(INTERNAL_USER_ROLES, { message: 'Invalid role' }).optional(),
     password: z
@@ -14,4 +14,4 @@ export const UpdateTenantUserSchema = z
     message: 'At least one of role or password is required',
   });
 
-export type UpdateTenantUserDto = z.infer<typeof UpdateTenantUserSchema>;
+export type UpdateCompanyUserDto = z.infer<typeof UpdateCompanyUserSchema>;

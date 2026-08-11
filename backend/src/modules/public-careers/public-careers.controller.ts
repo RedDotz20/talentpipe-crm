@@ -1,17 +1,28 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { PublicCareersService } from './public-careers.service';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { ListQuerySchema, ListQueryDto } from '../../common/dto/list-query.dto';
 
-@Controller('public/:tenantSlug/jobs')
+@Controller('public/:companySlug/jobs')
 export class PublicCareersController {
   constructor(private readonly service: PublicCareersService) {}
 
   @Get()
-  list(@Param('tenantSlug') tenantSlug: string) {
-    return this.service.list(tenantSlug);
+  list(
+    @Param('companySlug') companySlug: string,
+    @Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto,
+    @Query('employmentType') employmentType?: string,
+    @Query('workSetup') workSetup?: string,
+  ) {
+    return this.service.list(companySlug, {
+      ...query,
+      employmentType,
+      workSetup,
+    });
   }
 
   @Get(':id')
-  getOne(@Param('tenantSlug') tenantSlug: string, @Param('id') id: string) {
-    return this.service.getOne(tenantSlug, id);
+  getOne(@Param('companySlug') companySlug: string, @Param('id') id: string) {
+    return this.service.getOne(companySlug, id);
   }
 }

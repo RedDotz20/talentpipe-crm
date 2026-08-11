@@ -3,15 +3,15 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { JobPostingRepository } from '../../repositories/job-posting.repository';
 import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
 import { SkillRepository } from '../../repositories/skill.repository';
-import { TenantRepository } from '../../repositories/tenant.repository';
+import { CompanyRepository } from '../../repositories/company.repository';
 import { PublicCareersService } from './public-careers.service';
 
 describe('PublicCareersService', () => {
   let service: PublicCareersService;
   const tenantRepo = { findBySlug: jest.fn() };
   const indexRepo = {
-    findOpenByTenant: jest.fn(),
-    findOpenByTenantAndJob: jest.fn(),
+    findOpenByCompany: jest.fn(),
+    findOpenByCompanyAndJob: jest.fn(),
   };
   const jobPostingRepo = {
     findById: jest.fn(),
@@ -24,7 +24,7 @@ describe('PublicCareersService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PublicCareersService,
-        { provide: TenantRepository, useValue: tenantRepo },
+        { provide: CompanyRepository, useValue: tenantRepo },
         { provide: JobListingsIndexRepository, useValue: indexRepo },
         { provide: JobPostingRepository, useValue: jobPostingRepo },
         { provide: SkillRepository, useValue: skillRepo },
@@ -43,35 +43,50 @@ describe('PublicCareersService', () => {
       slug: 'acme',
       name: 'Acme',
     });
-    indexRepo.findOpenByTenant.mockResolvedValue([
-      {
-        jobPostingId: 'job-a',
-        tenantId: 'tenant-a',
-        companySlug: 'acme',
-        companyName: 'Acme',
-        title: 'Engineer',
-        description: 'Build things',
-        status: 'open',
-        createdAt: new Date('2026-08-01'),
-        updatedAt: new Date('2026-08-01'),
-      },
-    ]);
+    indexRepo.findOpenByCompany.mockResolvedValue({
+      data: [
+        {
+          jobPostingId: 'job-a',
+          companyId: 'tenant-a',
+          companySlug: 'acme',
+          companyName: 'Acme',
+          title: 'Engineer',
+          description: 'Build things',
+          status: 'open',
+          createdAt: new Date('2026-08-01'),
+          updatedAt: new Date('2026-08-01'),
+        },
+      ],
+      total: 1,
+      page: 1,
+      pageSize: 10,
+    });
 
-    await expect(service.list('acme')).resolves.toEqual([
-      expect.objectContaining({
-        id: 'job-a',
-        tenantId: 'tenant-a',
-        tenantSlug: 'acme',
-        title: 'Engineer',
-      }),
-    ]);
-    expect(indexRepo.findOpenByTenant).toHaveBeenCalledWith('tenant-a');
+    await expect(service.list('acme', { page: 1, pageSize: 10 })).resolves.toEqual({
+      data: [
+        expect.objectContaining({
+          id: 'job-a',
+          companyId: 'tenant-a',
+          companySlug: 'acme',
+          title: 'Engineer',
+        }),
+      ],
+      total: 1,
+      page: 1,
+      pageSize: 10,
+    });
+    expect(indexRepo.findOpenByCompany).toHaveBeenCalledWith('tenant-a', {
+      page: 1,
+      pageSize: 10,
+    });
   });
 
   it('throws NotFoundException for an unknown tenant', async () => {
     tenantRepo.findBySlug.mockResolvedValue(null);
 
-    await expect(service.list('missing')).rejects.toThrow(NotFoundException);
+    await expect(
+      service.list('missing', { page: 1, pageSize: 10 }),
+    ).rejects.toThrow(NotFoundException);
   });
 
   it('returns open detail with required skill metadata', async () => {
@@ -80,8 +95,8 @@ describe('PublicCareersService', () => {
       slug: 'acme',
       name: 'Acme',
     });
-    indexRepo.findOpenByTenantAndJob.mockResolvedValue({
-      tenantId: 'tenant-a',
+    indexRepo.findOpenByCompanyAndJob.mockResolvedValue({
+      companyId: 'tenant-a',
       jobPostingId: 'job-a',
       title: 'Engineer',
       description: 'Build things',
@@ -100,7 +115,7 @@ describe('PublicCareersService', () => {
     await expect(service.getOne('acme', 'job-a')).resolves.toEqual(
       expect.objectContaining({
         id: 'job-a',
-        tenantId: 'tenant-a',
+        companyId: 'tenant-a',
         requiredSkills: [
           { id: 'skill-a', name: 'React', category: 'Frontend' },
         ],
@@ -108,17 +123,17 @@ describe('PublicCareersService', () => {
     );
     expect(jobPostingRepo.findById).toHaveBeenCalledWith(
       'job-a',
-      'tenant_tenant-a',
+      'company_tenant-a',
     );
     expect(jobPostingRepo.getRequiredSkillIds).toHaveBeenCalledWith(
       'job-a',
-      'tenant_tenant-a',
+      'company_tenant-a',
     );
   });
 
   it('throws when the open index entry is missing', async () => {
     tenantRepo.findBySlug.mockResolvedValue({ id: 'tenant-a', slug: 'acme' });
-    indexRepo.findOpenByTenantAndJob.mockResolvedValue(null);
+    indexRepo.findOpenByCompanyAndJob.mockResolvedValue(null);
 
     await expect(service.getOne('acme', 'job-a')).rejects.toThrow(
       NotFoundException,
@@ -127,7 +142,7 @@ describe('PublicCareersService', () => {
 
   it('throws when the source posting is draft', async () => {
     tenantRepo.findBySlug.mockResolvedValue({ id: 'tenant-a', slug: 'acme' });
-    indexRepo.findOpenByTenantAndJob.mockResolvedValue({
+    indexRepo.findOpenByCompanyAndJob.mockResolvedValue({
       jobPostingId: 'job-a',
       status: 'open',
     });
@@ -140,7 +155,7 @@ describe('PublicCareersService', () => {
 
   it('throws when the source posting is closed', async () => {
     tenantRepo.findBySlug.mockResolvedValue({ id: 'tenant-a', slug: 'acme' });
-    indexRepo.findOpenByTenantAndJob.mockResolvedValue({
+    indexRepo.findOpenByCompanyAndJob.mockResolvedValue({
       jobPostingId: 'job-a',
       status: 'open',
     });

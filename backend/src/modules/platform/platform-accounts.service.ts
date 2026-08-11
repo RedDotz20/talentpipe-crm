@@ -19,6 +19,7 @@ import { PipelineStageRepository } from '../../repositories/pipeline-stage.repos
 import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
 import {
   inMemorySearch,
+  listEnvelope,
   sortAndPageInMemory,
 } from '../../repositories/list-query.helper';
 import type { ListQueryDto } from '../../common/dto/list-query.dto';
@@ -328,7 +329,7 @@ export class PlatformAccountsService {
       'lastName',
       'companyName',
     ]);
-    return sortAndPageInMemory(
+    const sorted = sortAndPageInMemory(
       rows,
       query,
       (row, sortBy) =>
@@ -336,6 +337,7 @@ export class PlatformAccountsService {
       'email',
       'asc',
     );
+    return listEnvelope(sorted.data, sorted.total, query);
   }
 
   async removeCandidate(id: string) {

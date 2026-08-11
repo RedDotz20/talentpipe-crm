@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { eq, and, desc, count, inArray, sql } from 'drizzle-orm';
+import { eq, and, count, inArray, sql } from 'drizzle-orm';
 import { jobListingsIndex, companies } from '../database/schema';
 import { BaseRepository } from './base.repository';
 import {
@@ -73,20 +73,47 @@ export class JobListingsIndexRepository extends BaseRepository {
     });
   }
 
-  async findOpenByCompany(companyId: string) {
-    return this.withDb('public', (db) =>
-      db
-        .select()
-        .from(jobListingsIndex)
-        .where(
-          and(
-            eq(jobListingsIndex.companyId, companyId),
-            eq(jobListingsIndex.status, 'open'),
-          ),
-        )
-        .orderBy(desc(jobListingsIndex.createdAt))
-        .execute(),
-    );
+  async findOpenByCompany(
+    companyId: string,
+    query: ListQueryDto & { employmentType?: string; workSetup?: string },
+  ) {
+    return this.withDb('public', async (db) => {
+      const conditions = andConditions(
+        [
+          eq(jobListingsIndex.companyId, companyId),
+          eq(jobListingsIndex.status, 'open'),
+        ],
+        query.employmentType
+          ? [eq(jobListingsIndex.employmentType, query.employmentType)]
+          : [],
+        query.workSetup ? [eq(jobListingsIndex.workSetup, query.workSetup)] : [],
+        toWhere(query, [jobListingsIndex.title]),
+      );
+      const sortOptions = {
+        sortMap: {
+          createdAt: jobListingsIndex.createdAt,
+          title: jobListingsIndex.title,
+        },
+        defaultSortBy: 'createdAt',
+      };
+      const { offset, limit } = toPagination(query);
+      const [rows, totalRows] = await Promise.all([
+        db
+          .select()
+          .from(jobListingsIndex)
+          .where(conditions)
+          .orderBy(toOrderBy(query, sortOptions))
+          .limit(limit)
+          .offset(offset)
+          .execute(),
+        db
+          .select({ value: count() })
+          .from(jobListingsIndex)
+          .where(conditions)
+          .execute(),
+      ]);
+      return listEnvelope(rows, Number(totalRows[0]?.value ?? 0), query);
+    });
   }
 
   async findOpenByCompanyAndJob(companyId: string, jobPostingId: string) {

@@ -2,7 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { JobPostingRepository } from '../../repositories/job-posting.repository';
 import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
 import { SkillRepository } from '../../repositories/skill.repository';
-import { TenantRepository } from '../../repositories/tenant.repository';
+import { CompanyRepository } from '../../repositories/company.repository';
+import type { ListQueryDto } from '../../common/dto/list-query.dto';
 
 export interface PublicSkill {
   id: string;
@@ -12,8 +13,8 @@ export interface PublicSkill {
 
 export interface PublicJobListing {
   id: string;
-  tenantId: string;
-  tenantSlug: string;
+  companyId: string;
+  companySlug: string;
   companyName: string;
   title: string;
   description: string | null;
@@ -28,35 +29,41 @@ export interface PublicJobDetail extends PublicJobListing {
 @Injectable()
 export class PublicCareersService {
   constructor(
-    private readonly tenantRepo: TenantRepository,
+    private readonly tenantRepo: CompanyRepository,
     private readonly indexRepo: JobListingsIndexRepository,
     private readonly jobPostingRepo: JobPostingRepository,
     private readonly skillRepo: SkillRepository,
   ) {}
 
-  async list(tenantSlug: string): Promise<PublicJobListing[]> {
-    const tenant = await this.tenantRepo.findBySlug(tenantSlug);
+  async list(
+    companySlug: string,
+    query: ListQueryDto & { employmentType?: string; workSetup?: string },
+  ) {
+    const tenant = await this.tenantRepo.findBySlug(companySlug);
     if (!tenant || tenant.status === 'suspended') {
-      throw new NotFoundException('Tenant not found');
+      throw new NotFoundException('Company not found');
     }
 
-    const rows = await this.indexRepo.findOpenByTenant(tenant.id);
-    return rows.map((row) => this.toPublicListing(row, tenant.id, tenant.slug));
+    const result = await this.indexRepo.findOpenByCompany(tenant.id, query);
+    return {
+      ...result,
+      data: result.data.map((row) => this.toPublicListing(row, tenant.id, tenant.slug)),
+    };
   }
 
-  async getOne(tenantSlug: string, jobId: string): Promise<PublicJobDetail> {
-    const tenant = await this.tenantRepo.findBySlug(tenantSlug);
+  async getOne(companySlug: string, jobId: string): Promise<PublicJobDetail> {
+    const tenant = await this.tenantRepo.findBySlug(companySlug);
     if (!tenant || tenant.status === 'suspended') {
       throw new NotFoundException('Job posting not found');
     }
 
-    const indexed = await this.indexRepo.findOpenByTenantAndJob(
+    const indexed = await this.indexRepo.findOpenByCompanyAndJob(
       tenant.id,
       jobId,
     );
     if (!indexed) throw new NotFoundException('Job posting not found');
 
-    const schema = `tenant_${tenant.id}`;
+    const schema = `company_${tenant.id}`;
     const posting = await this.jobPostingRepo.findById(jobId, schema);
     if (!posting || posting.status !== 'open') {
       throw new NotFoundException('Job posting not found');
@@ -80,15 +87,15 @@ export class PublicCareersService {
 
   private toPublicListing(
     row: Awaited<
-      ReturnType<JobListingsIndexRepository['findOpenByTenant']>
-    >[number],
-    tenantId: string,
-    tenantSlug: string,
+      ReturnType<JobListingsIndexRepository['findOpenByCompany']>
+    >['data'][number],
+    companyId: string,
+    companySlug: string,
   ): PublicJobListing {
     return {
       id: row.jobPostingId,
-      tenantId,
-      tenantSlug,
+      companyId,
+      companySlug,
       companyName: row.companyName,
       title: row.title,
       description: row.description,

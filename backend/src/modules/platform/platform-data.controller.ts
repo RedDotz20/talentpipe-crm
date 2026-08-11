@@ -1,10 +1,12 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
   Patch,
+  Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -20,6 +22,15 @@ import {
   RescheduleInterviewSchema,
   RescheduleInterviewDto,
 } from './dto/reschedule-interview.dto';
+import {
+  CreatePlatformJobSchema,
+  CreatePlatformJobDto,
+} from './dto/create-platform-job.dto';
+import {
+  UpdatePlatformJobSchema,
+  UpdatePlatformJobDto,
+} from './dto/update-platform-job.dto';
+import { ListQuerySchema, ListQueryDto } from '../../common/dto/list-query.dto';
 
 @Controller('platform')
 @UseGuards(AuthGuard('jwt'))
@@ -29,14 +40,15 @@ export class PlatformDataController {
 
   @Get('applications')
   listApplications(
-    @Query('tenantId', new ParseUUIDPipe({ optional: true }))
-    tenantId?: string,
+    @Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto,
+    @Query('companyId', new ParseUUIDPipe({ optional: true }))
+    companyId?: string,
     @Query('status') status?: string,
   ) {
-    return this.dataService.listApplications({
-      tenantId: tenantId || undefined,
-      status: status || undefined,
-    });
+    return this.dataService.listApplications(
+      { companyId: companyId || undefined, status: status || undefined },
+      query,
+    );
   }
 
   @Patch('applications/:id/stage')
@@ -50,14 +62,15 @@ export class PlatformDataController {
 
   @Get('interviews')
   listInterviews(
-    @Query('tenantId', new ParseUUIDPipe({ optional: true }))
-    tenantId?: string,
+    @Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto,
+    @Query('companyId', new ParseUUIDPipe({ optional: true }))
+    companyId?: string,
     @Query('status') status?: string,
   ) {
-    return this.dataService.listInterviews({
-      tenantId: tenantId || undefined,
-      status: status || undefined,
-    });
+    return this.dataService.listInterviews(
+      { companyId: companyId || undefined, status: status || undefined },
+      query,
+    );
   }
 
   @Patch('interviews/:id')
@@ -67,5 +80,55 @@ export class PlatformDataController {
     body: RescheduleInterviewDto,
   ) {
     return this.dataService.rescheduleInterview(id, body);
+  }
+
+  @Get('jobs')
+  listJobs(
+    @Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto,
+    @Query('companyId', new ParseUUIDPipe({ optional: true }))
+    companyId?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.dataService.listJobs(
+      { companyId: companyId || undefined, status: status || undefined },
+      query,
+    );
+  }
+
+  @Get('jobs/:id')
+  getJob(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.dataService.getJob(id);
+  }
+
+  @Post('jobs')
+  createJob(
+    @Body(new ZodValidationPipe(CreatePlatformJobSchema))
+    body: CreatePlatformJobDto,
+  ) {
+    return this.dataService.createJob(body);
+  }
+
+  @Patch('jobs/:id')
+  updateJob(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodValidationPipe(UpdatePlatformJobSchema))
+    body: UpdatePlatformJobDto,
+  ) {
+    return this.dataService.updateJob(id, body);
+  }
+
+  @Post('jobs/:id/publish')
+  publishJob(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.dataService.publishJob(id);
+  }
+
+  @Post('jobs/:id/close')
+  closeJob(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.dataService.closeJob(id);
+  }
+
+  @Delete('jobs/:id')
+  deleteJob(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.dataService.deleteJob(id);
   }
 }
