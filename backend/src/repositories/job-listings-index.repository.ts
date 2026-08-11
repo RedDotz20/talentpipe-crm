@@ -1,29 +1,75 @@
 import { Injectable } from '@nestjs/common';
-import { eq, and, desc } from 'drizzle-orm';
-import { jobListingsIndex } from '../database/schema';
+import { eq, and, desc, count, inArray, sql } from 'drizzle-orm';
+import { jobListingsIndex, companies } from '../database/schema';
 import { BaseRepository } from './base.repository';
+import {
+  andConditions,
+  listEnvelope,
+  toOrderBy,
+  toPagination,
+  toWhere,
+} from './list-query.helper';
+import type { ListQueryDto } from '../common/dto/list-query.dto';
 
 @Injectable()
 export class JobListingsIndexRepository extends BaseRepository {
-  async findAll(search?: string) {
+  async findAll(
+    query: ListQueryDto & { employmentType?: string; workSetup?: string },
+  ) {
     return this.withDb('public', async (db) => {
-      const results = await db
-        .select()
-        .from(jobListingsIndex)
-        .where(eq(jobListingsIndex.status, 'open'))
-        .orderBy(desc(jobListingsIndex.createdAt))
-        .execute();
-
-      if (search) {
-        const lowerSearch = search.toLowerCase();
-        return results.filter(
-          (r) =>
-            r.title.toLowerCase().includes(lowerSearch) ||
-            r.companyName.toLowerCase().includes(lowerSearch),
-        );
-      }
-
-      return results;
+      const searchColumns = [
+        jobListingsIndex.title,
+        jobListingsIndex.companyName,
+        jobListingsIndex.location,
+      ];
+      const conditions = andConditions(
+        [
+          eq(jobListingsIndex.status, 'open'),
+          // SQL-side exclusion keeps pagination totals correct: index rows of
+          // suspended (or hard-deleted) companies never match. Cast the uuid
+          // to varchar: index company_id is varchar and Postgres has no
+          // varchar = uuid operator.
+          inArray(
+            jobListingsIndex.companyId,
+            db
+              .select({ id: sql<string>`${companies.id}::varchar` })
+              .from(companies)
+              .where(eq(companies.status, 'active')),
+          ),
+        ],
+        query.employmentType
+          ? [eq(jobListingsIndex.employmentType, query.employmentType)]
+          : [],
+        query.workSetup
+          ? [eq(jobListingsIndex.workSetup, query.workSetup)]
+          : [],
+        toWhere(query, searchColumns),
+      );
+      const sortOptions = {
+        sortMap: {
+          createdAt: jobListingsIndex.createdAt,
+          title: jobListingsIndex.title,
+          companyName: jobListingsIndex.companyName,
+        },
+        defaultSortBy: 'createdAt',
+      };
+      const { offset, limit } = toPagination(query);
+      const [rows, totalRows] = await Promise.all([
+        db
+          .select()
+          .from(jobListingsIndex)
+          .where(conditions)
+          .orderBy(toOrderBy(query, sortOptions))
+          .limit(limit)
+          .offset(offset)
+          .execute(),
+        db
+          .select({ value: count() })
+          .from(jobListingsIndex)
+          .where(conditions)
+          .execute(),
+      ]);
+      return listEnvelope(rows, Number(totalRows[0]?.value ?? 0), query);
     });
   }
 
@@ -82,6 +128,9 @@ export class JobListingsIndexRepository extends BaseRepository {
     jobPostingId: string;
     title: string;
     description: string;
+    employmentType: string | null;
+    location: string | null;
+    workSetup: string | null;
     companyName: string;
     companySlug: string;
     status: string;
@@ -104,6 +153,9 @@ export class JobListingsIndexRepository extends BaseRepository {
           .set({
             title: data.title,
             description: data.description,
+            employmentType: data.employmentType,
+            location: data.location,
+            workSetup: data.workSetup,
             companyName: data.companyName,
             companySlug: data.companySlug,
             status: data.status,

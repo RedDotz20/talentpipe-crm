@@ -14,13 +14,14 @@ import { PipelineStageRepository } from '../../repositories/pipeline-stage.repos
 import { CandidateSkillRepository } from '../../repositories/candidate-skill.repository';
 import { SkillRepository } from '../../repositories/skill.repository';
 import { JobPostingRepository } from '../../repositories/job-posting.repository';
-import { TenantRepository } from '../../repositories/tenant.repository';
+import { CompanyRepository } from '../../repositories/company.repository';
 import { SkillMatchingService } from '../skill-matching/skill-matching.service';
 import { ResumesService } from '../resumes/resumes.service';
 import { CacheService } from '../../common/cache/cache.service';
 import { UserEmailRepository } from '../../repositories/user-email.repository';
 import { InterviewRepository } from '../../repositories/interview.repository';
 import { NoteRepository } from '../../repositories/note.repository';
+import type { ListQueryDto } from '../../common/dto/list-query.dto';
 
 const isDuplicateCandidateApplicationError = (error: unknown): boolean => {
   if (typeof error !== 'object' || error === null) return false;
@@ -93,7 +94,7 @@ export class CandidateAccountService {
     private readonly candidateSkillRepo: CandidateSkillRepository,
     private readonly skillRepo: SkillRepository,
     private readonly jobPostingRepo: JobPostingRepository,
-    private readonly tenantRepo: TenantRepository,
+    private readonly tenantRepo: CompanyRepository,
     private readonly skillMatching: SkillMatchingService,
     private readonly resumesService: ResumesService,
     private readonly cacheService: CacheService,
@@ -102,39 +103,84 @@ export class CandidateAccountService {
     private readonly noteRepo: NoteRepository,
   ) {}
 
-  async getJobs(search?: string) {
-    const jobs = await this.jobListingsIndexRepo.findAll(search);
-    const suspendedIds = new Set(
-      (await this.tenantRepo.findSuspendedIds()).map((t) => t.id),
-    );
-    return jobs.filter((job) => !suspendedIds.has(job.tenantId));
+  async getJobs(
+    query: ListQueryDto & { employmentType?: string; workSetup?: string },
+  ) {
+    // Filtering (suspended/deleted companies) now lives in the repo WHERE clause.
+    return this.jobListingsIndexRepo.findAll(query);
   }
 
-  async getJobDetail(tenantId: string, jobPostingId: string) {
-    await this.requireActiveTenant(tenantId);
-    const job = await this.jobListingsIndexRepo.findOpenByTenantAndJob(
-      tenantId,
+  async getAppliedJobDetail(
+    candidateAccountId: string,
+    companyId: string,
+    jobPostingId: string,
+  ) {
+    const job = await this.jobListingsIndexRepo.findOpenByCompanyAndJob(
+      companyId,
       jobPostingId,
     );
-    if (!job) throw new NotFoundException('Job posting not found');
-    await this.requireOpenTenantJob(tenantId, jobPostingId);
-    return job;
+    if (job) {
+      await this.requireOpenCompanyJob(companyId, jobPostingId);
+      return this.withRequiredSkills(job, companyId, jobPostingId);
+    }
+    const applied = await this.candidateApplicationsIndexRepo.findByJob(
+      candidateAccountId,
+      companyId,
+      jobPostingId,
+    );
+    if (!applied) throw new NotFoundException('Job posting not found');
+    await this.requireActiveCompany(companyId);
+    const existing = await this.jobListingsIndexRepo.findById(
+      companyId,
+      jobPostingId,
+    );
+    if (!existing) throw new NotFoundException('Job posting not found');
+    return this.withRequiredSkills(existing, companyId, jobPostingId);
+  }
+
+  private async withRequiredSkills(
+    job: {
+      companyId: string;
+      jobPostingId: string;
+      title: string;
+      companyName: string;
+      description: string | null;
+      status: string;
+      createdAt: Date;
+      updatedAt: Date;
+    },
+    companyId: string,
+    jobPostingId: string,
+  ) {
+    const requiredSkillIds = await this.jobPostingRepo.getRequiredSkillIds(
+      jobPostingId,
+      `company_${companyId}`,
+    );
+    const skills = await this.skillRepo.findByIds(requiredSkillIds);
+    return {
+      ...job,
+      requiredSkills: skills.map(({ id, name, category }) => ({
+        id,
+        name,
+        category,
+      })),
+    };
   }
 
   async apply(
     candidateAccountId: string,
-    tenantId: string,
+    companyId: string,
     jobPostingId: string,
     dto: { phone?: string; skillIds?: string[]; coverLetter?: string },
   ) {
-    const job = await this.jobListingsIndexRepo.findOpenByTenantAndJob(
-      tenantId,
+    const job = await this.jobListingsIndexRepo.findOpenByCompanyAndJob(
+      companyId,
       jobPostingId,
     );
     if (!job) throw new NotFoundException('Job posting not found');
 
-    const schemaName = `tenant_${tenantId}`;
-    await this.requireOpenTenantJob(tenantId, jobPostingId);
+    const schemaName = `company_${companyId}`;
+    await this.requireOpenCompanyJob(companyId, jobPostingId);
 
     const account =
       await this.candidateAccountRepo.findById(candidateAccountId);
@@ -143,7 +189,7 @@ export class CandidateAccountService {
     // Check for existing application
     const existing = await this.candidateApplicationsIndexRepo.findByJob(
       candidateAccountId,
-      tenantId,
+      companyId,
       jobPostingId,
     );
     if (existing) {
@@ -238,7 +284,7 @@ export class CandidateAccountService {
     try {
       await this.candidateApplicationsIndexRepo.create({
         candidateAccountId,
-        tenantId,
+        companyId,
         jobPostingId,
         applicationId: application.id,
         jobTitle: job.title,
@@ -264,7 +310,7 @@ export class CandidateAccountService {
       throw error;
     }
 
-    await this.cacheService.invalidateTenantDashboard(tenantId);
+    await this.cacheService.invalidateCompanyDashboard(companyId);
     return { applicationId: application.id };
   }
 
@@ -287,7 +333,7 @@ export class CandidateAccountService {
 
     const application = await this.applicationRepo.findByIdForCandidate(
       applicationId,
-      `tenant_${indexed.tenantId}`,
+      `company_${indexed.companyId}`,
     );
     if (!application) throw new NotFoundException('Application not found');
 
@@ -307,7 +353,7 @@ export class CandidateAccountService {
       );
     if (!indexed) throw new NotFoundException('Application not found');
 
-    const schemaName = `tenant_${indexed.tenantId}`;
+    const schemaName = `company_${indexed.companyId}`;
     const interviews = await this.interviewRepo.findAll(
       { applicationId: indexed.applicationId },
       schemaName,
@@ -332,7 +378,7 @@ export class CandidateAccountService {
       throw error;
     }
     await this.candidateApplicationsIndexRepo.deleteById(indexed.id);
-    await this.cacheService.invalidateTenantDashboard(indexed.tenantId);
+    await this.cacheService.invalidateCompanyDashboard(indexed.companyId);
     return { applicationId };
   }
 
@@ -366,47 +412,47 @@ export class CandidateAccountService {
 
   async addBookmark(
     candidateAccountId: string,
-    tenantId: string,
+    companyId: string,
     jobPostingId: string,
   ) {
-    const job = await this.jobListingsIndexRepo.findOpenByTenantAndJob(
-      tenantId,
+    const job = await this.jobListingsIndexRepo.findOpenByCompanyAndJob(
+      companyId,
       jobPostingId,
     );
     if (!job) throw new NotFoundException('Job posting not found');
-    await this.requireOpenTenantJob(tenantId, jobPostingId);
+    await this.requireOpenCompanyJob(companyId, jobPostingId);
 
     const existing = await this.candidateBookmarkRepo.findByJob(
       candidateAccountId,
-      tenantId,
+      companyId,
       jobPostingId,
     );
     if (existing) return existing;
 
     return this.candidateBookmarkRepo.create({
       candidateAccountId,
-      tenantId,
+      companyId,
       jobPostingId,
       jobTitle: job.title,
       companyName: job.companyName,
     });
   }
 
-  private async requireActiveTenant(tenantId: string): Promise<void> {
-    const tenant = await this.tenantRepo.findById(tenantId);
+  private async requireActiveCompany(companyId: string): Promise<void> {
+    const tenant = await this.tenantRepo.findById(companyId);
     if (!tenant || tenant.status === 'suspended') {
-      throw new NotFoundException('Tenant not found');
+      throw new NotFoundException('Company not found');
     }
   }
 
-  private async requireOpenTenantJob(
-    tenantId: string,
+  private async requireOpenCompanyJob(
+    companyId: string,
     jobPostingId: string,
   ): Promise<void> {
-    await this.requireActiveTenant(tenantId);
+    await this.requireActiveCompany(companyId);
     const posting = await this.jobPostingRepo.findById(
       jobPostingId,
-      `tenant_${tenantId}`,
+      `company_${companyId}`,
     );
     if (!posting || posting.status !== 'open') {
       throw new NotFoundException('Job posting not found');
@@ -464,8 +510,8 @@ export class CandidateAccountService {
       if (existing && existing.id !== candidateAccountId) {
         throw new ConflictException('Email already in use');
       }
-      const orgOwner = await this.userEmailRepo.findByEmail(dto.email);
-      if (orgOwner) {
+      const companyOwner = await this.userEmailRepo.findByEmail(dto.email);
+      if (companyOwner) {
         throw new ConflictException('Email already in use');
       }
     }

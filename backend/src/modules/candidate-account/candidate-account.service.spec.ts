@@ -15,7 +15,7 @@ import { PipelineStageRepository } from '../../repositories/pipeline-stage.repos
 import { CandidateSkillRepository } from '../../repositories/candidate-skill.repository';
 import { SkillRepository } from '../../repositories/skill.repository';
 import { JobPostingRepository } from '../../repositories/job-posting.repository';
-import { TenantRepository } from '../../repositories/tenant.repository';
+import { CompanyRepository } from '../../repositories/company.repository';
 import { UserEmailRepository } from '../../repositories/user-email.repository';
 import { InterviewRepository } from '../../repositories/interview.repository';
 import { NoteRepository } from '../../repositories/note.repository';
@@ -44,7 +44,7 @@ describe('CandidateAccountService', () => {
   const jobListingsIndexRepo = {
     findAll: jest.fn(),
     findById: jest.fn(),
-    findOpenByTenantAndJob: jest.fn(),
+    findOpenByCompanyAndJob: jest.fn(),
   };
   const candidateRepo = {
     findByEmail: jest.fn(),
@@ -83,7 +83,7 @@ describe('CandidateAccountService', () => {
   };
   const tenantRepo = {
     findById: jest.fn().mockResolvedValue({ status: 'active' }),
-    findSuspendedIds: jest.fn().mockResolvedValue([]),
+    findAll: jest.fn().mockResolvedValue([]),
   };
   const userEmailRepo = {
     findByEmail: jest.fn().mockResolvedValue(null),
@@ -94,7 +94,7 @@ describe('CandidateAccountService', () => {
   const noteRepo = {
     findByApplicationId: jest.fn(),
   };
-  const cacheService = { invalidateTenantDashboard: jest.fn() };
+  const cacheService = { invalidateCompanyDashboard: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -117,7 +117,7 @@ describe('CandidateAccountService', () => {
         { provide: CandidateSkillRepository, useValue: candidateSkillRepo },
         { provide: SkillRepository, useValue: skillRepo },
         { provide: JobPostingRepository, useValue: jobPostingRepo },
-        { provide: TenantRepository, useValue: tenantRepo },
+        { provide: CompanyRepository, useValue: tenantRepo },
         { provide: UserEmailRepository, useValue: userEmailRepo },
         { provide: InterviewRepository, useValue: interviewRepo },
         { provide: NoteRepository, useValue: noteRepo },
@@ -128,6 +128,8 @@ describe('CandidateAccountService', () => {
     }).compile();
     service = module.get<CandidateAccountService>(CandidateAccountService);
     jobPostingRepo.findById.mockResolvedValue({ status: 'open' });
+    jobPostingRepo.getRequiredSkillIds.mockResolvedValue([]);
+    skillRepo.findByIds.mockResolvedValue([]);
   });
 
   it('should be defined', () => {
@@ -136,12 +138,13 @@ describe('CandidateAccountService', () => {
 
   describe('job visibility', () => {
     it('hides closed jobs from candidate detail', async () => {
-      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue(null);
+      jobListingsIndexRepo.findOpenByCompanyAndJob.mockResolvedValue(null);
+      candidateApplicationsIndexRepo.findByJob.mockResolvedValue(null);
 
-      await expect(service.getJobDetail('t1', 'j1')).rejects.toThrow(
-        NotFoundException,
-      );
-      expect(jobListingsIndexRepo.findOpenByTenantAndJob).toHaveBeenCalledWith(
+      await expect(
+        service.getAppliedJobDetail('candidate-1', 't1', 'j1'),
+      ).rejects.toThrow(NotFoundException);
+      expect(jobListingsIndexRepo.findOpenByCompanyAndJob).toHaveBeenCalledWith(
         't1',
         'j1',
       );
@@ -150,33 +153,144 @@ describe('CandidateAccountService', () => {
     });
 
     it('hides draft jobs from candidate detail', async () => {
-      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue(null);
+      jobListingsIndexRepo.findOpenByCompanyAndJob.mockResolvedValue(null);
+      candidateApplicationsIndexRepo.findByJob.mockResolvedValue(null);
 
-      await expect(service.getJobDetail('t1', 'j1')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.getAppliedJobDetail('candidate-1', 't1', 'j1'),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('returns an open job from candidate detail', async () => {
       const job = {
-        tenantId: 't1',
+        companyId: 't1',
         jobPostingId: 'j1',
         status: 'open',
         title: 'Backend Engineer',
       };
-      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue(job);
+      jobListingsIndexRepo.findOpenByCompanyAndJob.mockResolvedValue(job);
 
-      await expect(service.getJobDetail('t1', 'j1')).resolves.toEqual(job);
-      expect(jobPostingRepo.findById).toHaveBeenCalledWith('j1', 'tenant_t1');
+      await expect(
+        service.getAppliedJobDetail('candidate-1', 't1', 'j1'),
+      ).resolves.toEqual({ ...job, requiredSkills: [] });
+      expect(jobPostingRepo.findById).toHaveBeenCalledWith('j1', 'company_t1');
+      expect(jobPostingRepo.getRequiredSkillIds).toHaveBeenCalledWith(
+        'j1',
+        'company_t1',
+      );
+    });
+
+    it('enriches open job detail with required skills', async () => {
+      const job = {
+        companyId: 't1',
+        jobPostingId: 'j1',
+        status: 'open',
+        title: 'Backend Engineer',
+      };
+      jobListingsIndexRepo.findOpenByCompanyAndJob.mockResolvedValue(job);
+      jobPostingRepo.getRequiredSkillIds.mockResolvedValue(['s1', 's2']);
+      skillRepo.findByIds.mockResolvedValue([
+        { id: 's1', name: 'TypeScript', category: 'Language' },
+        { id: 's2', name: 'React', category: 'Frontend' },
+      ]);
+
+      const result = await service.getAppliedJobDetail(
+        'candidate-1',
+        't1',
+        'j1',
+      );
+
+      expect(result.requiredSkills).toEqual([
+        { id: 's1', name: 'TypeScript', category: 'Language' },
+        { id: 's2', name: 'React', category: 'Frontend' },
+      ]);
+      expect(skillRepo.findByIds).toHaveBeenCalledWith(['s1', 's2']);
+    });
+
+    it('lets an applied candidate view a closed job', async () => {
+      jobListingsIndexRepo.findOpenByCompanyAndJob.mockResolvedValue(null);
+      candidateApplicationsIndexRepo.findByJob.mockResolvedValue({
+        candidateAccountId: 'candidate-1',
+        companyId: 't1',
+        jobPostingId: 'j1',
+      });
+      const closedJob = {
+        companyId: 't1',
+        jobPostingId: 'j1',
+        status: 'closed',
+        title: 'Backend Engineer',
+      };
+      jobListingsIndexRepo.findById.mockResolvedValue(closedJob);
+
+      await expect(
+        service.getAppliedJobDetail('candidate-1', 't1', 'j1'),
+      ).resolves.toEqual({ ...closedJob, requiredSkills: [] });
+      expect(jobListingsIndexRepo.findById).toHaveBeenCalledWith('t1', 'j1');
+    });
+
+    it('enriches the applied closed job detail with required skills', async () => {
+      jobListingsIndexRepo.findOpenByCompanyAndJob.mockResolvedValue(null);
+      candidateApplicationsIndexRepo.findByJob.mockResolvedValue({
+        candidateAccountId: 'candidate-1',
+        companyId: 't1',
+        jobPostingId: 'j1',
+      });
+      jobListingsIndexRepo.findById.mockResolvedValue({
+        companyId: 't1',
+        jobPostingId: 'j1',
+        status: 'closed',
+        title: 'Backend Engineer',
+      });
+      jobPostingRepo.getRequiredSkillIds.mockResolvedValue(['s1']);
+      skillRepo.findByIds.mockResolvedValue([
+        { id: 's1', name: 'TypeScript', category: 'Language' },
+      ]);
+
+      const result = await service.getAppliedJobDetail(
+        'candidate-1',
+        't1',
+        'j1',
+      );
+
+      expect(result.requiredSkills).toEqual([
+        { id: 's1', name: 'TypeScript', category: 'Language' },
+      ]);
+      expect(jobPostingRepo.getRequiredSkillIds).toHaveBeenCalledWith(
+        'j1',
+        'company_t1',
+      );
+    });
+
+    it('still hides a closed job from a candidate who did not apply', async () => {
+      jobListingsIndexRepo.findOpenByCompanyAndJob.mockResolvedValue(null);
+      candidateApplicationsIndexRepo.findByJob.mockResolvedValue(null);
+
+      await expect(
+        service.getAppliedJobDetail('candidate-1', 't1', 'j1'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('hides a closed applied job whose company was deleted', async () => {
+      jobListingsIndexRepo.findOpenByCompanyAndJob.mockResolvedValue(null);
+      candidateApplicationsIndexRepo.findByJob.mockResolvedValue({
+        candidateAccountId: 'candidate-1',
+        companyId: 't1',
+        jobPostingId: 'j1',
+      });
+      tenantRepo.findById.mockResolvedValueOnce(null);
+
+      await expect(
+        service.getAppliedJobDetail('candidate-1', 't1', 'j1'),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('hides closed jobs from candidate applications', async () => {
-      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue(null);
+      jobListingsIndexRepo.findOpenByCompanyAndJob.mockResolvedValue(null);
 
       await expect(
         service.apply('candidate-1', 't1', 'j1', {}),
       ).rejects.toThrow(NotFoundException);
-      expect(jobListingsIndexRepo.findOpenByTenantAndJob).toHaveBeenCalledWith(
+      expect(jobListingsIndexRepo.findOpenByCompanyAndJob).toHaveBeenCalledWith(
         't1',
         'j1',
       );
@@ -185,12 +299,12 @@ describe('CandidateAccountService', () => {
 
     it('hides closed jobs from candidate bookmarks', async () => {
       candidateBookmarkRepo.findByJob.mockResolvedValue(null);
-      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue(null);
+      jobListingsIndexRepo.findOpenByCompanyAndJob.mockResolvedValue(null);
 
       await expect(
         service.addBookmark('candidate-1', 't1', 'j1'),
       ).rejects.toThrow(NotFoundException);
-      expect(jobListingsIndexRepo.findOpenByTenantAndJob).toHaveBeenCalledWith(
+      expect(jobListingsIndexRepo.findOpenByCompanyAndJob).toHaveBeenCalledWith(
         't1',
         'j1',
       );
@@ -201,16 +315,16 @@ describe('CandidateAccountService', () => {
       const existingBookmark = {
         id: 'bookmark-1',
         candidateAccountId: 'candidate-1',
-        tenantId: 't1',
+        companyId: 't1',
         jobPostingId: 'j1',
       };
       candidateBookmarkRepo.findByJob.mockResolvedValue(existingBookmark);
-      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue(null);
+      jobListingsIndexRepo.findOpenByCompanyAndJob.mockResolvedValue(null);
 
       await expect(
         service.addBookmark('candidate-1', 't1', 'j1'),
       ).rejects.toThrow(NotFoundException);
-      expect(jobListingsIndexRepo.findOpenByTenantAndJob).toHaveBeenCalledWith(
+      expect(jobListingsIndexRepo.findOpenByCompanyAndJob).toHaveBeenCalledWith(
         't1',
         'j1',
       );
@@ -218,21 +332,21 @@ describe('CandidateAccountService', () => {
     });
 
     it('hides a stale open index when the tenant posting is closed', async () => {
-      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue({
-        tenantId: 't1',
+      jobListingsIndexRepo.findOpenByCompanyAndJob.mockResolvedValue({
+        companyId: 't1',
         jobPostingId: 'j1',
         status: 'open',
       });
       jobPostingRepo.findById.mockResolvedValue({ status: 'closed' });
 
-      await expect(service.getJobDetail('t1', 'j1')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.getAppliedJobDetail('candidate-1', 't1', 'j1'),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('rejects apply when the tenant posting is no longer open', async () => {
-      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue({
-        tenantId: 't1',
+      jobListingsIndexRepo.findOpenByCompanyAndJob.mockResolvedValue({
+        companyId: 't1',
         jobPostingId: 'j1',
         status: 'open',
       });
@@ -245,8 +359,8 @@ describe('CandidateAccountService', () => {
     });
 
     it('rejects bookmarking when the tenant posting is no longer open', async () => {
-      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue({
-        tenantId: 't1',
+      jobListingsIndexRepo.findOpenByCompanyAndJob.mockResolvedValue({
+        companyId: 't1',
         jobPostingId: 'j1',
         status: 'open',
       });
@@ -256,6 +370,39 @@ describe('CandidateAccountService', () => {
         service.addBookmark('candidate-1', 't1', 'j1'),
       ).rejects.toThrow(NotFoundException);
       expect(candidateBookmarkRepo.findByJob).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('job search', () => {
+    it('returns the repository envelope and passes the query through', async () => {
+      jobListingsIndexRepo.findAll.mockResolvedValue({
+        data: [{ companyId: 't1', jobPostingId: 'j1', title: 'Live job' }],
+        total: 1,
+      });
+
+      const jobs = await service.getJobs({
+        search: 'engineer',
+        page: 1,
+        pageSize: 10,
+        sortBy: 'title',
+        sortDir: 'asc',
+        employmentType: 'full-time',
+        workSetup: 'hybrid',
+      });
+
+      expect(jobListingsIndexRepo.findAll).toHaveBeenCalledWith({
+        search: 'engineer',
+        page: 1,
+        pageSize: 10,
+        sortBy: 'title',
+        sortDir: 'asc',
+        employmentType: 'full-time',
+        workSetup: 'hybrid',
+      });
+      expect(jobs).toEqual({
+        data: [{ companyId: 't1', jobPostingId: 'j1', title: 'Live job' }],
+        total: 1,
+      });
     });
   });
 
@@ -322,8 +469,8 @@ describe('CandidateAccountService', () => {
     });
 
     it('rejects unknown override skills before creating an application', async () => {
-      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue({
-        tenantId: 't1',
+      jobListingsIndexRepo.findOpenByCompanyAndJob.mockResolvedValue({
+        companyId: 't1',
         jobPostingId: 'j1',
         status: 'open',
         title: 'Engineer',
@@ -347,8 +494,8 @@ describe('CandidateAccountService', () => {
     });
 
     it('deduplicates and persists valid override skills and the cover letter', async () => {
-      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue({
-        tenantId: 't1',
+      jobListingsIndexRepo.findOpenByCompanyAndJob.mockResolvedValue({
+        companyId: 't1',
         jobPostingId: 'j1',
         status: 'open',
         title: 'Engineer',
@@ -390,14 +537,16 @@ describe('CandidateAccountService', () => {
           appliedSkillIds: ['known-skill', 'second-skill'],
           coverLetter: 'Interested in the role',
         }),
-        'tenant_t1',
+        'company_t1',
       );
-      expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
+      expect(cacheService.invalidateCompanyDashboard).toHaveBeenCalledWith(
+        't1',
+      );
     });
 
     it('deletes the tenant application when the public index insert fails', async () => {
-      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue({
-        tenantId: 't1',
+      jobListingsIndexRepo.findOpenByCompanyAndJob.mockResolvedValue({
+        companyId: 't1',
         jobPostingId: 'j1',
         status: 'open',
         title: 'Engineer',
@@ -429,12 +578,15 @@ describe('CandidateAccountService', () => {
       await expect(
         service.apply('candidate-a', 't1', 'j1', {}),
       ).rejects.toThrow('index unavailable');
-      expect(applicationRepo.delete).toHaveBeenCalledWith('app-a', 'tenant_t1');
+      expect(applicationRepo.delete).toHaveBeenCalledWith(
+        'app-a',
+        'company_t1',
+      );
     });
 
     it('converts duplicate application index violations into a conflict', async () => {
-      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue({
-        tenantId: 't1',
+      jobListingsIndexRepo.findOpenByCompanyAndJob.mockResolvedValue({
+        companyId: 't1',
         jobPostingId: 'j1',
         status: 'open',
         title: 'Engineer',
@@ -472,12 +624,15 @@ describe('CandidateAccountService', () => {
       await expect(applicationPromise).rejects.toThrow(
         'You already applied to this application.',
       );
-      expect(applicationRepo.delete).toHaveBeenCalledWith('app-a', 'tenant_t1');
+      expect(applicationRepo.delete).toHaveBeenCalledWith(
+        'app-a',
+        'company_t1',
+      );
     });
 
     it('converts wrapped duplicate application violations into a conflict after compensation', async () => {
-      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue({
-        tenantId: 't1',
+      jobListingsIndexRepo.findOpenByCompanyAndJob.mockResolvedValue({
+        companyId: 't1',
         jobPostingId: 'j1',
         status: 'open',
         title: 'Engineer',
@@ -517,12 +672,15 @@ describe('CandidateAccountService', () => {
       await expect(applicationPromise).rejects.toThrow(
         'You already applied to this application.',
       );
-      expect(applicationRepo.delete).toHaveBeenCalledWith('app-a', 'tenant_t1');
+      expect(applicationRepo.delete).toHaveBeenCalledWith(
+        'app-a',
+        'company_t1',
+      );
     });
 
     it('reloads the winner after a concurrent candidate-account insert', async () => {
-      jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue({
-        tenantId: 't1',
+      jobListingsIndexRepo.findOpenByCompanyAndJob.mockResolvedValue({
+        companyId: 't1',
         jobPostingId: 'j1',
         status: 'open',
         title: 'Engineer',
@@ -562,11 +720,11 @@ describe('CandidateAccountService', () => {
       });
       expect(candidateRepo.findByAccountId).toHaveBeenLastCalledWith(
         'candidate-a',
-        'tenant_t1',
+        'company_t1',
       );
       expect(applicationRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({ candidateId: 'winner-candidate' }),
-        'tenant_t1',
+        'company_t1',
       );
     });
 
@@ -574,7 +732,7 @@ describe('CandidateAccountService', () => {
       const indexed = {
         id: 'index-a',
         candidateAccountId: 'candidate-a',
-        tenantId: 't1',
+        companyId: 't1',
         applicationId: 'app-a',
         status: 'Applied',
       };
@@ -597,7 +755,7 @@ describe('CandidateAccountService', () => {
       });
       expect(applicationRepo.findByIdForCandidate).toHaveBeenCalledWith(
         'app-a',
-        'tenant_t1',
+        'company_t1',
       );
     });
   });
@@ -605,7 +763,7 @@ describe('CandidateAccountService', () => {
   describe('withdraw', () => {
     it('deletes the application and its index row', async () => {
       candidateApplicationsIndexRepo.findByCandidateAndApplication.mockResolvedValue(
-        { id: 'idx1', tenantId: 'tenant-a', applicationId: 'app1' },
+        { id: 'idx1', companyId: 'tenant-a', applicationId: 'app1' },
       );
       interviewRepo.findAll.mockResolvedValue([]);
       noteRepo.findByApplicationId.mockResolvedValue([]);
@@ -614,20 +772,20 @@ describe('CandidateAccountService', () => {
 
       expect(interviewRepo.findAll).toHaveBeenCalledWith(
         { applicationId: 'app1' },
-        'tenant_tenant-a',
+        'company_tenant-a',
       );
       expect(noteRepo.findByApplicationId).toHaveBeenCalledWith(
         'app1',
-        'tenant_tenant-a',
+        'company_tenant-a',
       );
       expect(applicationRepo.delete).toHaveBeenCalledWith(
         'app1',
-        'tenant_tenant-a',
+        'company_tenant-a',
       );
       expect(candidateApplicationsIndexRepo.deleteById).toHaveBeenCalledWith(
         'idx1',
       );
-      expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith(
+      expect(cacheService.invalidateCompanyDashboard).toHaveBeenCalledWith(
         'tenant-a',
       );
       expect(result).toEqual({ applicationId: 'app1' });
@@ -649,7 +807,7 @@ describe('CandidateAccountService', () => {
 
     it('409s when the application has interviews or notes', async () => {
       candidateApplicationsIndexRepo.findByCandidateAndApplication.mockResolvedValue(
-        { id: 'idx1', tenantId: 'tenant-a', applicationId: 'app1' },
+        { id: 'idx1', companyId: 'tenant-a', applicationId: 'app1' },
       );
       interviewRepo.findAll.mockResolvedValue([{ id: 'iv1' }]);
       noteRepo.findByApplicationId.mockResolvedValue([]);
@@ -659,12 +817,12 @@ describe('CandidateAccountService', () => {
       );
       expect(applicationRepo.delete).not.toHaveBeenCalled();
       expect(candidateApplicationsIndexRepo.deleteById).not.toHaveBeenCalled();
-      expect(cacheService.invalidateTenantDashboard).not.toHaveBeenCalled();
+      expect(cacheService.invalidateCompanyDashboard).not.toHaveBeenCalled();
     });
 
     it('still 409s on a foreign-key violation from delete as belt-and-suspenders', async () => {
       candidateApplicationsIndexRepo.findByCandidateAndApplication.mockResolvedValue(
-        { id: 'idx1', tenantId: 'tenant-a', applicationId: 'app1' },
+        { id: 'idx1', companyId: 'tenant-a', applicationId: 'app1' },
       );
       interviewRepo.findAll.mockResolvedValue([]);
       noteRepo.findByApplicationId.mockResolvedValue([]);
@@ -674,7 +832,7 @@ describe('CandidateAccountService', () => {
         ConflictException,
       );
       expect(candidateApplicationsIndexRepo.deleteById).not.toHaveBeenCalled();
-      expect(cacheService.invalidateTenantDashboard).not.toHaveBeenCalled();
+      expect(cacheService.invalidateCompanyDashboard).not.toHaveBeenCalled();
     });
   });
 
