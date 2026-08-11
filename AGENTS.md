@@ -2,7 +2,7 @@
 
 **One-liner:** Schema-per-company applicant tracking system. Each company gets an isolated PostgreSQL schema for job postings, candidate pipelines, interviews, recruiter collaboration, resume parsing, skill-matching, and rate-limited public application intake.
 
-**Status:** M11 (Platform Control + Candidate Experience) — implemented on top of M10 (Deploy).
+**Status:** M13 (Platform Jobs + Candidate Visibility) — implemented on top of M12 (Platform Control).
 
 ---
 
@@ -27,6 +27,7 @@
 - **Frontend:** Vite/Mantine application with company and candidate platforms, candidate job search/apply/bookmarks/profile flows, the company dashboard summary, interviews list/scheduler/feedback UI, CompanyAdmin settings + team pages, and the SuperAdmin platform views (companies list/detail/stats).
 - **M11:** SuperAdmin account management across companies (user create/role/password/suspend/reactivate/remove, candidate CRUD with cascade delete), cross-company application stage moves + interview reschedule/cancel, per-user suspension (`users.status`, enforced at sign-in/refresh), candidate withdraw (`DELETE /candidate/applications/:id`), candidate job detail page (`/jobs/$jobId` via shared `JobDetailsView`), and the applications page (job links, status stepper, withdraw). Seed now creates 6 accounts (all five internal roles + Candidate).
 - **M12:** SuperAdmin platform control — merged users endpoint (`GET /platform/users` returns company users + candidates with `type` discriminator), company hard-delete (`DELETE /platform/companies/:id` — drops schema, cleans public rows, cancels candidate applications), company suspend/reactivate cascades to all users in the schema, CompanyAdmin suspend cascades to all company users, frontend CompaniesPage with search/filter/pagination/actions/delete, new UsersPage (merged table, company-user + candidate actions, "Add user" modal with type toggle), new ApplicationsPage (cross-company table, company + stage filters, move-stage modal), admin nav updated (Tenants/Users/Applications). E2e: `phase12.e2e-spec.ts`.
+- **M13:** Platform jobs management — cross-company job CRUD (`GET/POST/PATCH/DELETE /platform/jobs`, `POST /platform/jobs/:id/publish|close`) with listings-index sync + dashboard cache invalidation + audit rows, admin JobsPage (company/status filters, create/edit/publish/close/delete, nav "Jobs"), candidate job search excludes jobs of deleted companies, applied candidates can view closed job details (`getAppliedJobDetail`), e2e hook-timeout hardening (jest.setTimeout at describe level in all e2e specs). E2e: `phase13.e2e-spec.ts`.
 - **Not yet built:** platform email/notifications, password-change flow, pipeline-stage management endpoints, anonymous apply, and automated resume parsing. CI runs via `.github/workflows/ci.yml` (lint → typecheck → unit → e2e release gates → build). Production: self-hosted `docker-compose.prod.yml` stack (backend/frontend Dockerfiles, one-shot migrate service, env-file secrets) — see `09_IMPLEMENTATION_GUIDE.md` Phase 10 for the deploy runbook.
 
 ## Commands
@@ -165,6 +166,8 @@ frontend/src/
 | M9 | Admin + Platform + CI | CompanyAdmin settings/users UI, platform views, CI green — done ✅ |
 | M10 | Deploy | Live URL, prod config — done ✅ |
 | M11 | Platform Control + Candidate Experience | SA account CRUD + per-user suspend + cross-company applications/interviews + candidate job detail/withdraw — done ✅ |
+| M12 | Platform Control | Merged users/applications views + company hard-delete + suspend cascades — done ✅ |
+| M13 | Platform Jobs + Candidate Visibility | Cross-company job CRUD + search/detail visibility fixes — done ✅ |
 
 ## Documentation Index
 

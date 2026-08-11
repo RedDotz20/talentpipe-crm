@@ -15,6 +15,7 @@ import {
   IconBuildingEstate,
   IconUsers,
   IconListDetails,
+  IconBriefcase,
   IconLogout,
 } from '@tabler/icons-react';
 import { useLogout } from '@/hooks/auth';
@@ -34,6 +35,7 @@ export function SuperAdminPlatform() {
 
   const navItems = [
     { label: 'Tenants', icon: IconBuildingEstate, to: '/admin/companies' },
+    { label: 'Jobs', icon: IconBriefcase, to: '/admin/jobs' },
     { label: 'Users', icon: IconUsers, to: '/admin/users' },
     { label: 'Applications', icon: IconListDetails, to: '/admin/applications' },
   ];

@@ -60,6 +60,11 @@ export const queryKeys = {
       'interviews',
       filters,
     ],
+    jobs: (filters?: { companyId?: string; status?: string }) => [
+      'platform',
+      'jobs',
+      filters,
+    ],
     stats: () => ['platform', 'stats'],
     users: () => ['platform', 'users'],
   },

@@ -199,3 +199,62 @@ export function useRescheduleInterview() {
     },
   });
 }
+
+export function usePlatformJobs(filters?: { companyId?: string; status?: string }) {
+  return useQuery({
+    queryKey: queryKeys.platform.jobs(filters),
+    queryFn: () => platformApi.listJobs(filters),
+  });
+}
+
+export function useCreateJob() {
+  const queryClient = useQueryClient();
+  return useApiMutation({
+    mutationFn: (input: import('@/api/platformApi').CreatePlatformJobInput) =>
+      platformApi.createJob(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['platform', 'jobs'] });
+    },
+  });
+}
+
+export function useUpdateJob() {
+  const queryClient = useQueryClient();
+  return useApiMutation({
+    mutationFn: ({ id, input }: { id: string; input: import('@/api/platformApi').UpdatePlatformJobInput }) =>
+      platformApi.updateJob(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['platform', 'jobs'] });
+    },
+  });
+}
+
+export function usePublishJob() {
+  const queryClient = useQueryClient();
+  return useApiMutation({
+    mutationFn: (id: string) => platformApi.publishJob(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['platform', 'jobs'] });
+    },
+  });
+}
+
+export function useCloseJob() {
+  const queryClient = useQueryClient();
+  return useApiMutation({
+    mutationFn: (id: string) => platformApi.closeJob(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['platform', 'jobs'] });
+    },
+  });
+}
+
+export function useDeleteJob() {
+  const queryClient = useQueryClient();
+  return useApiMutation({
+    mutationFn: (id: string) => platformApi.deleteJob(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['platform', 'jobs'] });
+    },
+  });
+}

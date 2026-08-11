@@ -72,6 +72,30 @@ export interface PlatformStage {
   order: number;
 }
 
+export interface PlatformJob {
+  id: string;
+  companyId: string;
+  companyName: string;
+  title: string;
+  description: string | null;
+  status: 'draft' | 'open' | 'closed';
+  createdAt: string;
+  requiredSkillIds: string[];
+}
+
+export interface CreatePlatformJobInput {
+  companyId: string;
+  title: string;
+  description?: string;
+  requiredSkillIds?: string[];
+}
+
+export interface UpdatePlatformJobInput {
+  title?: string;
+  description?: string | null;
+  requiredSkillIds?: string[];
+}
+
 const unwrap = <T>(body: ApiEnvelope<T>): T => body.data;
 
 export const platformApi = {
@@ -183,5 +207,33 @@ export const platformApi = {
   listCompanyStages: async (companyId: string): Promise<PlatformStage[]> => {
     const { data } = await apiClient.get(`/platform/companies/${companyId}/pipeline-stages`);
     return unwrap(data as ApiEnvelope<PlatformStage[]>);
+  },
+  listJobs: async (filters?: { companyId?: string; status?: string }): Promise<PlatformJob[]> => {
+    const { data } = await apiClient.get('/platform/jobs', { params: filters });
+    return unwrap(data as ApiEnvelope<PlatformJob[]>);
+  },
+  getJob: async (id: string): Promise<PlatformJob> => {
+    const { data } = await apiClient.get(`/platform/jobs/${id}`);
+    return unwrap(data as ApiEnvelope<PlatformJob>);
+  },
+  createJob: async (input: CreatePlatformJobInput): Promise<ApiEnvelope<PlatformJob>> => {
+    const { data } = await apiClient.post('/platform/jobs', input);
+    return data as ApiEnvelope<PlatformJob>;
+  },
+  updateJob: async (id: string, input: UpdatePlatformJobInput): Promise<ApiEnvelope<PlatformJob>> => {
+    const { data } = await apiClient.patch(`/platform/jobs/${id}`, input);
+    return data as ApiEnvelope<PlatformJob>;
+  },
+  publishJob: async (id: string): Promise<ApiEnvelope<PlatformJob>> => {
+    const { data } = await apiClient.post(`/platform/jobs/${id}/publish`);
+    return data as ApiEnvelope<PlatformJob>;
+  },
+  closeJob: async (id: string): Promise<ApiEnvelope<PlatformJob>> => {
+    const { data } = await apiClient.post(`/platform/jobs/${id}/close`);
+    return data as ApiEnvelope<PlatformJob>;
+  },
+  deleteJob: async (id: string): Promise<ApiEnvelope<{ id: string }>> => {
+    const { data } = await apiClient.delete(`/platform/jobs/${id}`);
+    return data as ApiEnvelope<{ id: string }>;
   },
 };
