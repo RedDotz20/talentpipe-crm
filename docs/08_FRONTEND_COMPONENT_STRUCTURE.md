@@ -110,10 +110,17 @@ Access control is enforced in each route's `beforeLoad` (TanStack Router), redir
 - `api/client.ts` — axios instance with `baseURL: '/api'`, attaches the access token, and transparently refreshes on 401 (single in-flight refresh).
 - `api/useAuth.ts` — Zustand store (login/signup/logout/refresh) persisted to `localStorage`.
 - `api/authApi.ts` — auth endpoints + TypeScript types.
-- `api/queryKeys.ts` — TanStack Query cache-key factory.
+- `api/queryKeys.ts` — TanStack Query cache-key factory. List queries take a params object as their key segment; mutation invalidations use the param-less prefix (prefix-matching invalidates all variants).
 - One file per resource (M2+): `jobPostingsApi.ts`, `candidatesApi.ts`, `skillsApi.ts` — each exporting TanStack Query hooks (`useJobPostings(...)`, `useCreateJobPosting`, etc.). Mutations use the `useApiMutation` wrapper for toasts.
 
-## 5. Build Order (matches backend milestones)
+## 5. Shared List Query Layer (M15)
+
+- `shared/types/listQuery.ts` — `ListQueryParams` (`search`, `page`, `pageSize`, `sortBy`, `sortDir`) + `Paginated<T>` (`{ data, total, page, pageSize }`) matching the backend envelope.
+- `shared/hooks/useListQuery.ts` — one state hook per list page: debounced search (300ms, Mantine `useDebouncedValue`), page, sortBy + sortDir with toggle; returns `params` ready to spread into list-hook calls.
+- `shared/components/ListControls.tsx` — search `TextInput`, optional filter `Select`s, "Sort by" `Select`, asc/desc toggle button; used above every list table/grid.
+- Every list page renders a server-driven Mantine `Pagination` from `Paginated.total` (admin pages no longer slice client-side).
+
+## 6. Build Order (matches backend milestones)
 
 1. ✅ Auth + `CompanyPlatform`/`SuperAdminPlatform`/`CandidatePlatform` shells + file-based routing + role-gated `beforeLoad` guards
 2. ✅ Job postings + candidates (basic CRUD, tables)

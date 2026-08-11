@@ -165,11 +165,39 @@ The public careers section is read-only in Phase 5. Apply buttons redirect anony
 ## Platform Data (SuperAdmin, M11) ✅
 
 | Method | Path | Roles | Description |
-|---|---|---|---|
+|---|---|---|
 | GET | `/platform/applications?companyId=&status=` | SA | List applications across companies (optional filters) |
 | PATCH | `/platform/applications/:id/stage` | SA | Move an application to a stage in its own company's schema (stage must belong to that company); syncs `candidate_applications_index` status — on sync failure the move rolls back and returns `503 SERVICE_UNAVAILABLE`; audit `platform.application.stage_move` (no BullMQ) |
 | GET | `/platform/interviews?companyId=&status=` | SA | List interviews across companies (optional filters) |
 | PATCH | `/platform/interviews/:id` | SA | Reschedule (`{ scheduledAt }`) / cancel (`{ status: 'cancelled' }`); audit `platform.interview.update` |
+
+## List Query Params (M15) ✅
+
+Every upgraded list endpoint accepts the same query params and returns a paginated envelope:
+
+**Query params:** `search` (ilike `%term%` on the endpoint's searchable columns), `page` (default 1), `pageSize` (default 10, max 50), `sortBy` (whitelisted per endpoint — unknown values fall back to the default sort), `sortDir` (`asc` | `desc`).
+
+**Response shape:** `{ data: [...], total, page, pageSize }` (wrapped in the standard envelope as `data`).
+
+Upgraded endpoints and their specifics:
+
+| Endpoint | Searchable | Filters | Sortable (`sortBy`) | Default |
+|---|---|---|---|---|
+| `GET /candidate/jobs` | title, company, location | `employmentType`, `workSetup` | `createdAt`, `title`, `companyName` | createdAt desc |
+| `GET /candidate/applications` | jobTitle, company | `status` (stage name) | `appliedAt`, `jobTitle`, `companyName` | appliedAt desc |
+| `GET /candidate/bookmarks` | jobTitle, company | — | `createdAt`, `jobTitle`, `companyName` | createdAt desc |
+| `GET /job-postings` | title | `status` | `createdAt`, `title` | createdAt desc |
+| `GET /candidates` | name, email | — | `name`, `createdAt` | createdAt desc |
+| `GET /interviews` | candidate, jobTitle | `status`, `assignedToMe` | `scheduledAt`, `candidateName` | scheduledAt asc |
+| `GET /applications` (company) | candidate, jobTitle | `jobPostingId`, `stageId`, `status` | `appliedAt`, `candidateName` | appliedAt desc — **plain array, no pagination** (kanban/scheduler) |
+| `GET /platform/companies` | name, slug | `status` | `name`, `createdAt` | createdAt desc |
+| `GET /platform/users` | email, firstName, lastName, company | `type`, `companyId`, `role` | `email`, `createdAt` | email asc |
+| `GET /platform/applications` | candidate, jobTitle, company | `companyId`, `status` | `appliedAt`, `jobTitle`, `companyName` | appliedAt desc |
+| `GET /platform/jobs` | title, company | `companyId`, `status` | `createdAt`, `title`, `companyName` | createdAt desc |
+| `GET /platform/interviews` | candidate, jobTitle, company | `companyId`, `status` | `scheduledAt` | scheduledAt asc |
+| `GET /public/:companySlug/jobs` | title | `employmentType`, `workSetup` | `createdAt`, `title` | createdAt desc |
+
+Notes: candidate jobs excludes jobs of suspended/deleted companies in SQL (totals stay correct); platform aggregated lists filter/sort/page in-memory in the service; single-schema lists run SQL ilike/orderBy/limit-offset/count.
 
 ---
 

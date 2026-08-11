@@ -2,7 +2,7 @@
 
 **One-liner:** Schema-per-company applicant tracking system. Each company gets an isolated PostgreSQL schema for job postings, candidate pipelines, interviews, recruiter collaboration, resume parsing, skill-matching, and rate-limited public application intake.
 
-**Status:** M14 (Job Post Metadata) — implemented on top of M13 (Platform Jobs + Candidate Visibility).
+**Status:** M15 (List Search/Filter/Sort) — implemented on top of M14 (Job Post Metadata).
 
 ---
 
@@ -29,6 +29,7 @@
 - **M12:** SuperAdmin platform control — merged users endpoint (`GET /platform/users` returns company users + candidates with `type` discriminator), company hard-delete (`DELETE /platform/companies/:id` — drops schema, cleans public rows, cancels candidate applications), company suspend/reactivate cascades to all users in the schema, CompanyAdmin suspend cascades to all company users, frontend CompaniesPage with search/filter/pagination/actions/delete, new UsersPage (merged table, company-user + candidate actions, "Add user" modal with type toggle), new ApplicationsPage (cross-company table, company + stage filters, move-stage modal), admin nav updated (Tenants/Users/Applications). E2e: `phase12.e2e-spec.ts`.
 - **M13:** Platform jobs management — cross-company job CRUD (`GET/POST/PATCH/DELETE /platform/jobs`, `POST /platform/jobs/:id/publish|close`) with listings-index sync + dashboard cache invalidation + audit rows, admin JobsPage (company/status filters, create/edit/publish/close/delete, nav "Jobs"), candidate job search excludes jobs of deleted companies, applied candidates can view closed job details (`getAppliedJobDetail`), e2e hook-timeout hardening (jest.setTimeout at describe level in all e2e specs). E2e: `phase13.e2e-spec.ts`.
 - **M14:** Job post metadata — `employment_type` (full-time/part-time/contract/intern), `location`, `work_setup` (on-site/hybrid/work-from-home) columns on `job_postings` + `job_listings_index` (nullable, required in create forms), company `JobPostingForm` + admin `JobsPage` modal gain the fields, candidate search/detail + public careers pages show `JobMetaBadges` ("Not specified" fallback for legacy rows), candidate job detail now enriches `requiredSkills` (was missing vs public careers), migration `20260811100000_job_post_metadata`. E2e: phase13 metadata + skills round-trip assertions.
+- **M15:** Backend-driven search/filter/sort/pagination on every list surface. Shared `ListQuerySchema` (`search`, `page`, `pageSize` ≤50, `sortBy`, `sortDir`) + `repositories/list-query.helper.ts` (`toWhere`/`toOrderBy`/`toPagination`/`listEnvelope`/`inMemorySearch`/`sortAndPageInMemory`/`andConditions`); upgraded endpoints return `{ data, total, page, pageSize }`. Single-schema lists (candidate jobs/applications/bookmarks, company job-postings/candidates/interviews, platform companies, public careers) run SQL ilike/orderBy/limit-offset/count; platform aggregated lists (users/applications/jobs/interviews) filter/sort/page in-memory in the service. `GET /applications` (company, kanban/scheduler) gets search+sort only, stays a plain array. Sort columns are whitelisted per endpoint (injection-safe). Frontend: shared `useListQuery` hook + `ListControls` component (debounced search, filter Selects, sort Select + direction toggle), server-driven `Pagination` on all list pages (admin pages dropped client-side slicing). E2e: `phase14.e2e-spec.ts`.
 - **Not yet built:** platform email/notifications, password-change flow, pipeline-stage management endpoints, anonymous apply, and automated resume parsing. CI runs via `.github/workflows/ci.yml` (lint → typecheck → unit → e2e release gates → build). Production: self-hosted `docker-compose.prod.yml` stack (backend/frontend Dockerfiles, one-shot migrate service, env-file secrets) — see `09_IMPLEMENTATION_GUIDE.md` Phase 10 for the deploy runbook.
 
 ## Commands
@@ -170,6 +171,7 @@ frontend/src/
 | M12 | Platform Control | Merged users/applications views + company hard-delete + suspend cascades — done ✅ |
 | M13 | Platform Jobs + Candidate Visibility | Cross-company job CRUD + search/detail visibility fixes — done ✅ |
 | M14 | Job Post Metadata | Type/location/setup on forms, search, detail, public careers, and admin — done ✅ |
+| M15 | List Search/Filter/Sort | Backend-driven search/filter/sort/pagination on all 13 list endpoints + pages — done ✅ |
 
 ## Documentation Index
 
