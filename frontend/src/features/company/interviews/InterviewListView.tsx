@@ -4,6 +4,7 @@ import {
   Button,
   Group,
   Loader,
+  Pagination,
   Table,
   Text,
   Title,
@@ -11,6 +12,8 @@ import {
 import dayjs from 'dayjs';
 import { useAuthStore } from '@/api/useAuth';
 import type { Interview, InterviewStatus } from '@/api/interviewsApi';
+import { ListControls } from '@/shared/components/ListControls';
+import { useListQuery } from '@/shared/hooks/useListQuery';
 import {
   useInterviews,
   useScheduleInterview,
@@ -27,14 +30,20 @@ const STATUS_COLOR: Record<InterviewStatus, string> = {
 
 export function InterviewListView() {
   const role = useAuthStore((s) => s.role);
-  const interviewsQuery = useInterviews();
+  const listQuery = useListQuery({ sortBy: 'scheduledAt', sortDir: 'asc' });
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const interviewsQuery = useInterviews({
+    ...listQuery.params,
+    status: statusFilter ?? undefined,
+  });
   const schedule = useScheduleInterview();
   const updateInterview = useUpdateInterview();
   const [schedulerOpen, setSchedulerOpen] = useState(false);
   const [editing, setEditing] = useState<Interview | null>(null);
   const [feedbackFor, setFeedbackFor] = useState<Interview | null>(null);
 
-  const interviews = interviewsQuery.data ?? [];
+  const interviews = interviewsQuery.data?.data ?? [];
+  const total = interviewsQuery.data?.total ?? 0;
   const isInterviewer = role === 'Interviewer';
   const canManage =
     role === 'CompanyAdmin' || role === 'Recruiter' || role === 'HiringManager';
@@ -78,12 +87,48 @@ export function InterviewListView() {
         ) : null}
       </Group>
 
+      <ListControls
+        searchPlaceholder="Search candidate or job"
+        searchValue={listQuery.search}
+        onSearchChange={(value) => {
+          listQuery.setSearch(value);
+          listQuery.setPage(1);
+        }}
+        filters={[
+          {
+            key: 'status',
+            placeholder: 'Status',
+            data: [
+              { value: 'scheduled', label: 'Scheduled' },
+              { value: 'completed', label: 'Completed' },
+              { value: 'cancelled', label: 'Cancelled' },
+            ],
+            value: statusFilter,
+            onChange: (value) => {
+              setStatusFilter(value);
+              listQuery.setPage(1);
+            },
+          },
+        ]}
+        sortOptions={[
+          { value: 'scheduledAt', label: 'Date' },
+          { value: 'candidateName', label: 'Candidate' },
+        ]}
+        sortBy={listQuery.sortBy}
+        onSortByChange={(value) => {
+          listQuery.setSortBy(value);
+          listQuery.setPage(1);
+        }}
+        sortDir={listQuery.sortDir}
+        onToggleSortDir={listQuery.toggleSortDir}
+      />
       {interviewsQuery.isLoading ? (
         <Loader />
       ) : interviews.length === 0 ? (
-        <Text c="dimmed">No interviews yet.</Text>
+        <Text c="dimmed">No interviews match your filters.</Text>
       ) : (
-        <Table striped highlightOnHover>
+        <>
+          <Table striped highlightOnHover>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Candidate</Table.Th>
@@ -155,6 +200,15 @@ export function InterviewListView() {
             ))}
           </Table.Tbody>
         </Table>
+          <Group justify="center" mt="md">
+            <Pagination
+              total={Math.max(1, Math.ceil(total / 10))}
+              value={listQuery.page}
+              onChange={listQuery.setPage}
+              size="sm"
+            />
+          </Group>
+        </>
       )}
 
       <InterviewScheduler

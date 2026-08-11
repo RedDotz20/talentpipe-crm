@@ -1,5 +1,8 @@
-import { Badge, Button, Group, Loader, Stack, Table, Title } from '@mantine/core';
+import { useState } from 'react';
+import { Badge, Button, Group, Loader, Pagination, Stack, Table, Title } from '@mantine/core';
 import { useAuthStore } from '../../../api/useAuth';
+import { ListControls } from '@/shared/components/ListControls';
+import { useListQuery } from '@/shared/hooks/useListQuery';
 import {
   useJobPostings,
   usePublishJobPosting,
@@ -15,14 +18,20 @@ const STATUS_COLOR: Record<string, string> = {
 
 export function JobPostingList({ onCreate }: { onCreate: () => void }) {
   const role = useAuthStore((s) => s.role);
-  const { data, isLoading } = useJobPostings();
+  const listQuery = useListQuery({ sortBy: 'createdAt', sortDir: 'desc' });
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const { data: result = { data: [], total: 0 }, isLoading } = useJobPostings({
+    ...listQuery.params,
+    status: statusFilter ?? undefined,
+  });
+  const data = result.data;
   const publish = usePublishJobPosting();
   const close = useCloseJobPosting();
   const remove = useDeleteJobPosting();
 
   const canEdit = role === 'CompanyAdmin' || role === 'Recruiter';
 
-  const rows = (data ?? []).map((jp) => (
+  const rows = data.map((jp) => (
     <Table.Tr key={jp.id}>
       <Table.Td>{jp.title}</Table.Td>
       <Table.Td>
@@ -57,6 +66,41 @@ export function JobPostingList({ onCreate }: { onCreate: () => void }) {
         <Title order={2}>Job Postings</Title>
         {canEdit && <Button onClick={onCreate}>New Posting</Button>}
       </Group>
+      <ListControls
+        searchPlaceholder="Search title"
+        searchValue={listQuery.search}
+        onSearchChange={(value) => {
+          listQuery.setSearch(value);
+          listQuery.setPage(1);
+        }}
+        filters={[
+          {
+            key: 'status',
+            placeholder: 'Status',
+            data: [
+              { value: 'draft', label: 'Draft' },
+              { value: 'open', label: 'Open' },
+              { value: 'closed', label: 'Closed' },
+            ],
+            value: statusFilter,
+            onChange: (value) => {
+              setStatusFilter(value);
+              listQuery.setPage(1);
+            },
+          },
+        ]}
+        sortOptions={[
+          { value: 'createdAt', label: 'Date created' },
+          { value: 'title', label: 'Title' },
+        ]}
+        sortBy={listQuery.sortBy}
+        onSortByChange={(value) => {
+          listQuery.setSortBy(value);
+          listQuery.setPage(1);
+        }}
+        sortDir={listQuery.sortDir}
+        onToggleSortDir={listQuery.toggleSortDir}
+      />
       {isLoading ? (
         <Loader />
       ) : (
@@ -72,6 +116,14 @@ export function JobPostingList({ onCreate }: { onCreate: () => void }) {
           <Table.Tbody>{rows}</Table.Tbody>
         </Table>
       )}
+      <Group justify="center" mt="md">
+        <Pagination
+          total={Math.max(1, Math.ceil(result.total / 10))}
+          value={listQuery.page}
+          onChange={listQuery.setPage}
+          size="sm"
+        />
+      </Group>
     </Stack>
   );
 }

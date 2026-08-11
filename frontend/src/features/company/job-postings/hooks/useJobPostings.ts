@@ -1,13 +1,13 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { jobPostingsApi } from '@/api/jobPostingsApi';
-import { queryKeys } from '@/api/queryKeys';
+import { queryKeys, type CompanyJobPostingsParams } from '@/api/queryKeys';
 import { useApiMutation } from '@/hooks/useApiMutation';
 import type { UpdateJobPostingInput } from '@/api/jobPostingsApi';
 
-export function useJobPostings(status?: string) {
+export function useJobPostings(params?: CompanyJobPostingsParams) {
   return useQuery({
-    queryKey: queryKeys.company.jobPostings(status),
-    queryFn: () => jobPostingsApi.list(status),
+    queryKey: queryKeys.company.jobPostings(params),
+    queryFn: () => jobPostingsApi.list(params),
   });
 }
 

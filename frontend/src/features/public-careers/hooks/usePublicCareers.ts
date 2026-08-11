@@ -1,15 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/api/queryKeys';
+import type { ListQueryParams, Paginated } from '@/shared/types/listQuery';
 import {
   publicCareersApi,
   type PublicJobDetail,
   type PublicJobListing,
 } from '../api/publicCareersApi';
 
-export function usePublicJobs(companySlug: string) {
-  return useQuery<PublicJobListing[]>({
-    queryKey: queryKeys.publicCareers.jobs(companySlug),
-    queryFn: () => publicCareersApi.getJobs(companySlug),
+export function usePublicJobs(
+  companySlug: string,
+  params?: ListQueryParams & { employmentType?: string; workSetup?: string },
+) {
+  return useQuery<Paginated<PublicJobListing>>({
+    queryKey: queryKeys.publicCareers.jobs(companySlug, params),
+    queryFn: () => publicCareersApi.getJobs(companySlug, params),
     enabled: Boolean(companySlug),
   });
 }

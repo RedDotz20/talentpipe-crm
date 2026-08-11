@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import {
   Badge,
   Button,
@@ -9,12 +9,13 @@ import {
   Select,
   Table,
   Text,
-  TextInput,
   Title,
 } from '@mantine/core'
 import { Link } from '@tanstack/react-router'
 import dayjs from 'dayjs'
 import type { PlatformApplication } from '@/api/platformApi'
+import { ListControls } from '@/shared/components/ListControls'
+import { useListQuery } from '@/shared/hooks/useListQuery'
 import {
   useMoveApplicationStage,
   usePlatformApplications,
@@ -22,50 +23,24 @@ import {
   usePlatformStages,
 } from './hooks/usePlatform'
 
-const PAGE_SIZE = 10
-
 export function ApplicationsPage() {
-  const applicationsQuery = usePlatformApplications()
+  const listQuery = useListQuery({ sortBy: 'appliedAt', sortDir: 'desc' })
+  const [companyFilter, setCompanyFilter] = useState<string | null>(null)
+  const applicationsQuery = usePlatformApplications({
+    ...listQuery.params,
+    companyId: companyFilter ?? undefined,
+  })
   const companiesQuery = usePlatformCompanies()
 
-  const [search, setSearch] = useState('')
-  const [companyFilter, setCompanyFilter] = useState<string | null>(null)
-  const [stageFilter, setStageFilter] = useState<string | null>(null)
-  const [page, setPage] = useState(1)
   const [moveTarget, setMoveTarget] = useState<PlatformApplication | null>(null)
   const [stageId, setStageId] = useState<string | null>(null)
 
   const moveStage = useMoveApplicationStage()
   const stagesQuery = usePlatformStages(moveTarget?.companyId ?? '')
 
-  const applications = applicationsQuery.data ?? []
-  const companies = companiesQuery.data ?? []
-
-  const stages = useMemo(() => {
-    const names = new Set<string>()
-    for (const app of applications) names.add(app.stageName)
-    return [...names].sort().map((name) => ({ value: name, label: name }))
-  }, [applications])
-
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    return applications.filter((app) => {
-      if (companyFilter && app.companyId !== companyFilter) return false
-      if (stageFilter && app.stageName !== stageFilter) return false
-      if (
-        term &&
-        !app.candidateName.toLowerCase().includes(term) &&
-        !app.jobTitle.toLowerCase().includes(term) &&
-        !app.companyName.toLowerCase().includes(term)
-      ) {
-        return false
-      }
-      return true
-    })
-  }, [applications, search, companyFilter, stageFilter])
-
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const rows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const applications = applicationsQuery.data?.data ?? []
+  const total = applicationsQuery.data?.total ?? 0
+  const companies = companiesQuery.data?.data ?? []
 
   const openMove = (app: PlatformApplication) => {
     setMoveTarget(app)
@@ -78,41 +53,43 @@ export function ApplicationsPage() {
         <Title order={3}>Applications</Title>
       </Group>
 
-      <Group mb="md">
-        <TextInput
-          placeholder="Search candidate, job, or company"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.currentTarget.value)
-            setPage(1)
-          }}
-        />
-        <Select
-          placeholder="Company"
-          clearable
-          searchable
-          data={companies.map((c) => ({ value: c.id, label: c.name }))}
-          value={companyFilter}
-          onChange={(value) => {
-            setCompanyFilter(value)
-            setPage(1)
-          }}
-        />
-        <Select
-          placeholder="Stage"
-          clearable
-          data={stages}
-          value={stageFilter}
-          onChange={(value) => {
-            setStageFilter(value)
-            setPage(1)
-          }}
-        />
-      </Group>
+      <ListControls
+        searchPlaceholder="Search candidate, job, or company"
+        searchValue={listQuery.search}
+        onSearchChange={(value) => {
+          listQuery.setSearch(value)
+          listQuery.setPage(1)
+        }}
+        filters={[
+          {
+            key: 'company',
+            placeholder: 'Company',
+            searchable: true,
+            data: companies.map((c) => ({ value: c.id, label: c.name })),
+            value: companyFilter,
+            onChange: (value) => {
+              setCompanyFilter(value)
+              listQuery.setPage(1)
+            },
+          },
+        ]}
+        sortOptions={[
+          { value: 'appliedAt', label: 'Applied date' },
+          { value: 'jobTitle', label: 'Job title' },
+          { value: 'companyName', label: 'Company' },
+        ]}
+        sortBy={listQuery.sortBy}
+        onSortByChange={(value) => {
+          listQuery.setSortBy(value)
+          listQuery.setPage(1)
+        }}
+        sortDir={listQuery.sortDir}
+        onToggleSortDir={listQuery.toggleSortDir}
+      />
 
       {applicationsQuery.isLoading ? (
         <Loader />
-      ) : filtered.length === 0 ? (
+      ) : applications.length === 0 ? (
         <Text c="dimmed">No applications match.</Text>
       ) : (
         <>
@@ -129,7 +106,7 @@ export function ApplicationsPage() {
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {rows.map((app) => (
+              {applications.map((app) => (
                 <Table.Tr key={app.id}>
                   <Table.Td>{app.candidateName}</Table.Td>
                   <Table.Td>
@@ -164,7 +141,7 @@ export function ApplicationsPage() {
             </Table.Tbody>
           </Table>
           <Group justify="center" mt="md">
-            <Pagination total={pageCount} value={page} onChange={setPage} size="sm" />
+            <Pagination total={Math.max(1, Math.ceil(total / 10))} value={listQuery.page} onChange={listQuery.setPage} size="sm" />
           </Group>
         </>
       )}

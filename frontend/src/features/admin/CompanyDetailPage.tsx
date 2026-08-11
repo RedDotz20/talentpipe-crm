@@ -343,14 +343,14 @@ function UsersTab({ companyId }: { companyId: string }) {
 }
 
 function ApplicationsTab({ companyId }: { companyId: string }) {
-  const applicationsQuery = usePlatformApplications({ companyId })
+  const applicationsQuery = usePlatformApplications({ companyId, pageSize: 50 })
   const stagesQuery = usePlatformStages(companyId)
   const moveStage = useMoveApplicationStage()
 
   const [stageTarget, setStageTarget] = useState<PlatformApplication | null>(null)
   const [stageId, setStageId] = useState('')
 
-  const applications = applicationsQuery.data ?? []
+  const applications = applicationsQuery.data?.data ?? []
   const stages = stagesQuery.data ?? []
 
   return (
@@ -439,7 +439,7 @@ function ApplicationsTab({ companyId }: { companyId: string }) {
 }
 
 function InterviewsTab({ companyId }: { companyId: string }) {
-  const interviewsQuery = usePlatformInterviews({ companyId })
+  const interviewsQuery = usePlatformInterviews({ companyId, pageSize: 50 })
   const reschedule = useRescheduleInterview()
 
   const [rescheduleTarget, setRescheduleTarget] = useState<PlatformInterview | null>(
@@ -448,7 +448,7 @@ function InterviewsTab({ companyId }: { companyId: string }) {
   const [scheduledAt, setScheduledAt] = useState('')
   const [cancelTarget, setCancelTarget] = useState<PlatformInterview | null>(null)
 
-  const interviews = interviewsQuery.data ?? []
+  const interviews = interviewsQuery.data?.data ?? []
 
   return (
     <>

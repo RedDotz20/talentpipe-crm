@@ -10,6 +10,10 @@ import type {
   ResumeUpload,
   Skill,
 } from '@/features/candidate-portal/types';
+import type {
+  ListQueryParams,
+  Paginated,
+} from '@/shared/types/listQuery';
 
 const unwrap = <T>(body: ApiEnvelope<T>): T => body.data;
 
@@ -26,9 +30,12 @@ const normalizeJob = (job: CandidateJobRow): NormalizedCandidateJob => {
 };
 
 export const candidateApi = {
-  getJobs: async (search?: string): Promise<NormalizedCandidateJob[]> => {
-    const { data } = await apiClient.get('/candidate/jobs', { params: { search } });
-    return unwrap(data as ApiEnvelope<CandidateJobRow[]>).map(normalizeJob);
+  getJobs: async (
+    params?: ListQueryParams & { employmentType?: string; workSetup?: string },
+  ): Promise<Paginated<NormalizedCandidateJob>> => {
+    const { data } = await apiClient.get('/candidate/jobs', { params });
+    const body = unwrap(data as ApiEnvelope<Paginated<CandidateJobRow>>);
+    return { ...body, data: body.data.map(normalizeJob) };
   },
 
   getJobDetail: async (
@@ -39,9 +46,11 @@ export const candidateApi = {
     return normalizeJob(unwrap(data as ApiEnvelope<CandidateJobRow>));
   },
 
-  getApplications: async (): Promise<Application[]> => {
-    const { data } = await apiClient.get('/candidate/applications');
-    return unwrap(data as ApiEnvelope<Application[]>);
+  getApplications: async (
+    params?: ListQueryParams & { status?: string },
+  ): Promise<Paginated<Application>> => {
+    const { data } = await apiClient.get('/candidate/applications', { params });
+    return unwrap(data as ApiEnvelope<Paginated<Application>>);
   },
 
   getApplication: async (applicationId: string): Promise<CandidateApplicationDetail> => {
@@ -58,9 +67,9 @@ export const candidateApi = {
     return unwrap(data as ApiEnvelope<{ applicationId: string }>);
   },
 
-  getBookmarks: async (): Promise<Bookmark[]> => {
-    const { data } = await apiClient.get('/candidate/bookmarks');
-    return unwrap(data as ApiEnvelope<Bookmark[]>);
+  getBookmarks: async (params?: ListQueryParams): Promise<Paginated<Bookmark>> => {
+    const { data } = await apiClient.get('/candidate/bookmarks', { params });
+    return unwrap(data as ApiEnvelope<Paginated<Bookmark>>);
   },
 
   addBookmark: async (companyId: string, jobPostingId: string): Promise<Bookmark> => {

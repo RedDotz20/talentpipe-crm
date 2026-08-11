@@ -1,5 +1,6 @@
 import { apiClient } from './client';
 import type { ApiEnvelope } from '@/hooks/useApiMutation';
+import type { ListQueryParams, Paginated } from '@/shared/types/listQuery';
 
 export interface JobPosting {
   id: string;
@@ -35,9 +36,9 @@ export interface UpdateJobPostingInput {
 const unwrap = <T>(body: ApiEnvelope<T>): T => body.data;
 
 export const jobPostingsApi = {
-  list: async (status?: string): Promise<JobPosting[]> => {
-    const { data } = await apiClient.get('/job-postings', { params: { status } });
-    return unwrap(data as ApiEnvelope<JobPosting[]>);
+  list: async (params?: ListQueryParams & { status?: string }): Promise<Paginated<JobPosting>> => {
+    const { data } = await apiClient.get('/job-postings', { params });
+    return unwrap(data as ApiEnvelope<Paginated<JobPosting>>);
   },
   get: async (id: string): Promise<JobPosting> => {
     const { data } = await apiClient.get(`/job-postings/${id}`);

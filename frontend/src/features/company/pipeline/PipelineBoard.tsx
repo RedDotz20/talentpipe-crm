@@ -7,7 +7,9 @@ import {
   useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import { Group, Loader } from '@mantine/core';
+import { Group, Loader, TextInput } from '@mantine/core';
+import { useDebouncedValue } from '@mantine/hooks';
+import { IconSearch } from '@tabler/icons-react';
 import {
   useApplications,
   usePipelineStages,
@@ -18,7 +20,11 @@ import { ApplicationDetailDrawer } from './ApplicationDetailDrawer';
 
 export function PipelineBoard() {
   const { data: stages, isLoading: stagesLoading } = usePipelineStages();
-  const { data: applications, isLoading: appsLoading } = useApplications();
+  const [search, setSearch] = useState('');
+  const [debouncedSearch] = useDebouncedValue(search, 300);
+  const { data: applications, isLoading: appsLoading } = useApplications(
+    debouncedSearch.trim() ? { search: debouncedSearch.trim() } : undefined,
+  );
   const updateStage = useUpdateStage();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -48,6 +54,15 @@ export function PipelineBoard() {
       collisionDetection={closestCorners}
       onDragEnd={handleDragEnd}
     >
+      <Group mb="md">
+        <TextInput
+          placeholder="Search candidates or jobs"
+          value={search}
+          onChange={(event) => setSearch(event.currentTarget.value)}
+          leftSection={<IconSearch size="1rem" />}
+          style={{ minWidth: 240 }}
+        />
+      </Group>
       <Group align="flex-start" gap="md" wrap="nowrap" style={{ overflowX: 'auto' }}>
         {(stages ?? []).map((stage) => (
           <PipelineColumn

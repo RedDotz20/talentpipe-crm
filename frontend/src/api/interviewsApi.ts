@@ -1,5 +1,6 @@
 import { apiClient } from './client';
 import type { ApiEnvelope } from '@/hooks/useApiMutation';
+import type { ListQueryParams, Paginated } from '@/shared/types/listQuery';
 
 export type InterviewStatus = 'scheduled' | 'completed' | 'cancelled';
 
@@ -40,9 +41,9 @@ export interface InterviewFeedback {
 const unwrap = <T>(body: ApiEnvelope<T>): T => body.data;
 
 export const interviewsApi = {
-  list: async (): Promise<Interview[]> => {
-    const { data } = await apiClient.get('/interviews');
-    return unwrap(data as ApiEnvelope<Interview[]>);
+  list: async (params?: ListQueryParams & { status?: string }): Promise<Paginated<Interview>> => {
+    const { data } = await apiClient.get('/interviews', { params });
+    return unwrap(data as ApiEnvelope<Paginated<Interview>>);
   },
   get: async (id: string): Promise<Interview> => {
     const { data } = await apiClient.get(`/interviews/${id}`);

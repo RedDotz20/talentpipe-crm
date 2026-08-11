@@ -3,11 +3,12 @@ import { interviewsApi, type Interview } from '@/api/interviewsApi';
 import { companyUsersApi } from '@/api/companyUsersApi';
 import { queryKeys } from '@/api/queryKeys';
 import { useApiMutation } from '@/hooks/useApiMutation';
+import type { ListQueryParams } from '@/shared/types/listQuery';
 
-export function useInterviews() {
+export function useInterviews(params?: ListQueryParams & { status?: string }) {
   return useQuery({
-    queryKey: queryKeys.company.interviews(),
-    queryFn: () => interviewsApi.list(),
+    queryKey: queryKeys.company.interviews(params),
+    queryFn: () => interviewsApi.list(params),
   });
 }
 

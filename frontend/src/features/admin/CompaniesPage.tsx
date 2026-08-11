@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import {
   Badge,
   Button,
@@ -7,15 +7,15 @@ import {
   Loader,
   Modal,
   Pagination,
-  Select,
   SimpleGrid,
   Table,
   Text,
-  TextInput,
   Title,
 } from '@mantine/core'
 import { Link } from '@tanstack/react-router'
 import dayjs from 'dayjs'
+import { ListControls } from '@/shared/components/ListControls'
+import { useListQuery } from '@/shared/hooks/useListQuery'
 import {
   useDeleteCompany,
   usePlatformCompanies,
@@ -24,38 +24,21 @@ import {
 } from './hooks/usePlatform'
 import type { PlatformCompany } from '@/api/platformApi'
 
-const PAGE_SIZE = 10
-
 export function CompaniesPage() {
-  const companiesQuery = usePlatformCompanies()
+  const listQuery = useListQuery({ sortBy: 'createdAt', sortDir: 'desc' })
+  const [statusFilter, setStatusFilter] = useState<string | null>(null)
+  const companiesQuery = usePlatformCompanies({
+    ...listQuery.params,
+    status: statusFilter ?? undefined,
+  })
   const statsQuery = usePlatformStats()
   const setStatus = useSetCompanyStatus()
   const deleteCompany = useDeleteCompany()
 
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string | null>(null)
-  const [page, setPage] = useState(1)
   const [deleting, setDeleting] = useState<PlatformCompany | null>(null)
 
-  const companies = companiesQuery.data ?? []
-
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    return companies.filter((company) => {
-      if (statusFilter && company.status !== statusFilter) return false
-      if (
-        term &&
-        !company.name.toLowerCase().includes(term) &&
-        !company.slug.toLowerCase().includes(term)
-      ) {
-        return false
-      }
-      return true
-    })
-  }, [companies, search, statusFilter])
-
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const rows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const companies = companiesQuery.data?.data ?? []
+  const total = companiesQuery.data?.total ?? 0
 
   return (
     <>
@@ -94,33 +77,44 @@ export function CompaniesPage() {
         </SimpleGrid>
       )}
 
-      <Group mb="md">
-        <TextInput
-          placeholder="Search name or slug"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.currentTarget.value)
-            setPage(1)
-          }}
-        />
-        <Select
-          placeholder="Status"
-          clearable
-          data={[
-            { value: 'active', label: 'Active' },
-            { value: 'suspended', label: 'Suspended' },
-          ]}
-          value={statusFilter}
-          onChange={(value) => {
-            setStatusFilter(value)
-            setPage(1)
-          }}
-        />
-      </Group>
+      <ListControls
+        searchPlaceholder="Search name or slug"
+        searchValue={listQuery.search}
+        onSearchChange={(value) => {
+          listQuery.setSearch(value)
+          listQuery.setPage(1)
+        }}
+        filters={[
+          {
+            key: 'status',
+            placeholder: 'Status',
+            data: [
+              { value: 'active', label: 'Active' },
+              { value: 'suspended', label: 'Suspended' },
+            ],
+            value: statusFilter,
+            onChange: (value) => {
+              setStatusFilter(value)
+              listQuery.setPage(1)
+            },
+          },
+        ]}
+        sortOptions={[
+          { value: 'createdAt', label: 'Date created' },
+          { value: 'name', label: 'Name' },
+        ]}
+        sortBy={listQuery.sortBy}
+        onSortByChange={(value) => {
+          listQuery.setSortBy(value)
+          listQuery.setPage(1)
+        }}
+        sortDir={listQuery.sortDir}
+        onToggleSortDir={listQuery.toggleSortDir}
+      />
 
       {companiesQuery.isLoading ? (
         <Loader />
-      ) : filtered.length === 0 ? (
+      ) : companies.length === 0 ? (
         <Text c="dimmed">No companies match.</Text>
       ) : (
         <>
@@ -136,7 +130,7 @@ export function CompaniesPage() {
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {rows.map((company) => (
+              {companies.map((company) => (
                 <Table.Tr key={company.id}>
                   <Table.Td>
                     <Link
@@ -190,9 +184,9 @@ export function CompaniesPage() {
           </Table>
           <Group justify="center" mt="md">
             <Pagination
-              total={pageCount}
-              value={page}
-              onChange={setPage}
+              total={Math.max(1, Math.ceil(total / 10))}
+              value={listQuery.page}
+              onChange={listQuery.setPage}
               size="sm"
             />
           </Group>

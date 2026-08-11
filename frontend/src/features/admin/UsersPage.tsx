@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import {
   Alert,
   Badge,
@@ -22,6 +22,8 @@ import { INTERNAL_USER_ROLES } from '@/api/companyUsersApi'
 import { platformApi, type PlatformUser } from '@/api/platformApi'
 import { queryKeys } from '@/api/queryKeys'
 import { useApiMutation } from '@/hooks/useApiMutation'
+import { ListControls } from '@/shared/components/ListControls'
+import { useListQuery } from '@/shared/hooks/useListQuery'
 import {
   useCreateCandidate,
   usePlatformCompanies,
@@ -30,7 +32,6 @@ import {
   useUpdateCandidate,
 } from './hooks/usePlatform'
 
-const PAGE_SIZE = 10
 const roleOptions = INTERNAL_USER_ROLES.map((r) => ({ value: r, label: r }))
 
 interface CandidateForm {
@@ -51,7 +52,6 @@ const emptyCandidateForm: CandidateForm = {
 
 export function UsersPage() {
   const queryClient = useQueryClient()
-  const usersQuery = usePlatformUsers()
   const companiesQuery = usePlatformCompanies()
   const createCandidate = useCreateCandidate()
   const updateCandidate = useUpdateCandidate()
@@ -93,10 +93,16 @@ export function UsersPage() {
     },
   })
 
-  const [search, setSearch] = useState('')
+  const listQuery = useListQuery({ sortBy: 'email', sortDir: 'asc' })
   const [typeFilter, setTypeFilter] = useState<string | null>(null)
   const [companyFilter, setCompanyFilter] = useState<string | null>(null)
-  const [page, setPage] = useState(1)
+  const [roleFilter, setRoleFilter] = useState<string | null>(null)
+  const usersQuery = usePlatformUsers({
+    ...listQuery.params,
+    type: typeFilter ?? undefined,
+    companyId: companyFilter ?? undefined,
+    role: roleFilter ?? undefined,
+  })
 
   const [addOpen, setAddOpen] = useState(false)
   const [addType, setAddType] = useState<'company' | 'candidate'>('company')
@@ -110,33 +116,9 @@ export function UsersPage() {
   const [editing, setEditing] = useState<PlatformUser | null>(null)
   const [removing, setRemoving] = useState<PlatformUser | null>(null)
 
-  const users = usersQuery.data ?? []
-  const companies = companiesQuery.data ?? []
-
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    return users.filter((user) => {
-      if (typeFilter && user.type !== typeFilter) return false
-      if (
-        companyFilter &&
-        (user.type !== 'company' || user.companyId !== companyFilter)
-      ) {
-        return false
-      }
-      if (
-        term &&
-        !user.email.toLowerCase().includes(term) &&
-        !(user.firstName ?? '').toLowerCase().includes(term) &&
-        !(user.lastName ?? '').toLowerCase().includes(term)
-      ) {
-        return false
-      }
-      return true
-    })
-  }, [users, search, typeFilter, companyFilter])
-
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const rows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const users = usersQuery.data?.data ?? []
+  const total = usersQuery.data?.total ?? 0
+  const companies = companiesQuery.data?.data ?? []
 
   const displayName = (user: PlatformUser) =>
     user.type === 'candidate'
@@ -204,44 +186,65 @@ export function UsersPage() {
         <Button onClick={() => setAddOpen(true)}>Add user</Button>
       </Group>
 
-      <Group mb="md">
-        <TextInput
-          placeholder="Search name or email"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.currentTarget.value)
-            setPage(1)
-          }}
-        />
-        <Select
-          placeholder="Type"
-          clearable
-          data={[
-            { value: 'company', label: 'Company' },
-            { value: 'candidate', label: 'Candidate' },
-          ]}
-          value={typeFilter}
-          onChange={(value) => {
-            setTypeFilter(value)
-            setPage(1)
-          }}
-        />
-        <Select
-          placeholder="Company"
-          clearable
-          searchable
-          data={companies.map((c) => ({ value: c.id, label: c.name }))}
-          value={companyFilter}
-          onChange={(value) => {
-            setCompanyFilter(value)
-            setPage(1)
-          }}
-        />
-      </Group>
+      <ListControls
+        searchPlaceholder="Search name or email"
+        searchValue={listQuery.search}
+        onSearchChange={(value) => {
+          listQuery.setSearch(value)
+          listQuery.setPage(1)
+        }}
+        filters={[
+          {
+            key: 'type',
+            placeholder: 'Type',
+            data: [
+              { value: 'company', label: 'Company' },
+              { value: 'candidate', label: 'Candidate' },
+            ],
+            value: typeFilter,
+            onChange: (value) => {
+              setTypeFilter(value)
+              listQuery.setPage(1)
+            },
+          },
+          {
+            key: 'company',
+            placeholder: 'Company',
+            searchable: true,
+            data: companies.map((c) => ({ value: c.id, label: c.name })),
+            value: companyFilter,
+            onChange: (value) => {
+              setCompanyFilter(value)
+              listQuery.setPage(1)
+            },
+          },
+          {
+            key: 'role',
+            placeholder: 'Role',
+            data: roleOptions,
+            value: roleFilter,
+            onChange: (value) => {
+              setRoleFilter(value)
+              listQuery.setPage(1)
+            },
+          },
+        ]}
+        sortOptions={[
+          { value: 'email', label: 'Email' },
+          { value: 'createdAt', label: 'Date created' },
+        ]}
+        sortBy={listQuery.sortBy}
+        onSortByChange={(value) => {
+          listQuery.setSortBy(value)
+          listQuery.setPage(1)
+        }}
+        sortDir={listQuery.sortDir}
+        onToggleSortDir={listQuery.toggleSortDir}
+      />
 
       {usersQuery.isLoading ? (
         <Loader />
-      ) : filtered.length === 0 ? (
+      ) : users.length === 0 ? (
         <Text c="dimmed">No users match.</Text>
       ) : (
         <>
@@ -258,7 +261,7 @@ export function UsersPage() {
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {rows.map((user) => (
+              {users.map((user) => (
                 <Table.Tr key={`${user.type}-${user.id}`}>
                   <Table.Td>
                     {displayName(user)}
@@ -337,7 +340,7 @@ export function UsersPage() {
             </Table.Tbody>
           </Table>
           <Group justify="center" mt="md">
-            <Pagination total={pageCount} value={page} onChange={setPage} size="sm" />
+            <Pagination total={Math.max(1, Math.ceil(total / 10))} value={listQuery.page} onChange={listQuery.setPage} size="sm" />
           </Group>
         </>
       )}

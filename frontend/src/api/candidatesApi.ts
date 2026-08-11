@@ -1,5 +1,6 @@
 import { apiClient } from './client';
 import type { ApiEnvelope } from '@/hooks/useApiMutation';
+import type { ListQueryParams, Paginated } from '@/shared/types/listQuery';
 import type { Resume } from './resumesApi';
 import type { Skill } from './skillsApi';
 import type { Application } from './applicationsApi';
@@ -24,9 +25,9 @@ export interface CreateCandidateInput {
 const unwrap = <T>(body: ApiEnvelope<T>): T => body.data;
 
 export const candidatesApi = {
-  list: async (): Promise<Candidate[]> => {
-    const { data } = await apiClient.get('/candidates');
-    return unwrap(data as ApiEnvelope<Candidate[]>);
+  list: async (params?: ListQueryParams): Promise<Paginated<Candidate>> => {
+    const { data } = await apiClient.get('/candidates', { params });
+    return unwrap(data as ApiEnvelope<Paginated<Candidate>>);
   },
   get: async (id: string): Promise<Candidate> => {
     const { data } = await apiClient.get(`/candidates/${id}`);

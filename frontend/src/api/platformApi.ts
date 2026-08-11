@@ -1,5 +1,6 @@
 import { apiClient } from './client';
 import type { ApiEnvelope } from '@/hooks/useApiMutation';
+import type { ListQueryParams, Paginated } from '@/shared/types/listQuery';
 
 export interface PlatformCompany {
   id: string;
@@ -108,9 +109,9 @@ export interface UpdatePlatformJobInput {
 const unwrap = <T>(body: ApiEnvelope<T>): T => body.data;
 
 export const platformApi = {
-  listCompanies: async (): Promise<PlatformCompany[]> => {
-    const { data } = await apiClient.get('/platform/companies');
-    return unwrap(data as ApiEnvelope<PlatformCompany[]>);
+  listCompanies: async (params?: ListQueryParams & { status?: string }): Promise<Paginated<PlatformCompany>> => {
+    const { data } = await apiClient.get('/platform/companies', { params });
+    return unwrap(data as ApiEnvelope<Paginated<PlatformCompany>>);
   },
   getCompany: async (id: string): Promise<CompanyDetail> => {
     const { data } = await apiClient.get(`/platform/companies/${id}`);
@@ -129,9 +130,9 @@ export const platformApi = {
     const { data } = await apiClient.get('/platform/stats');
     return unwrap(data as ApiEnvelope<PlatformStats>);
   },
-  listUsers: async (): Promise<PlatformUser[]> => {
-    const { data } = await apiClient.get('/platform/users');
-    return unwrap(data as ApiEnvelope<PlatformUser[]>);
+  listUsers: async (params?: ListQueryParams & { type?: string; companyId?: string; role?: string }): Promise<Paginated<PlatformUser>> => {
+    const { data } = await apiClient.get('/platform/users', { params });
+    return unwrap(data as ApiEnvelope<Paginated<PlatformUser>>);
   },
   deleteCompany: async (id: string): Promise<ApiEnvelope<{ id: string }>> => {
     const { data } = await apiClient.delete(`/platform/companies/${id}`);
@@ -191,9 +192,9 @@ export const platformApi = {
     const { data } = await apiClient.delete(`/platform/candidates/${id}`);
     return data as ApiEnvelope<{ id: string }>;
   },
-  listApplications: async (filters?: { companyId?: string; status?: string }): Promise<PlatformApplication[]> => {
-    const { data } = await apiClient.get('/platform/applications', { params: filters });
-    return unwrap(data as ApiEnvelope<PlatformApplication[]>);
+  listApplications: async (params?: ListQueryParams & { companyId?: string; status?: string }): Promise<Paginated<PlatformApplication>> => {
+    const { data } = await apiClient.get('/platform/applications', { params });
+    return unwrap(data as ApiEnvelope<Paginated<PlatformApplication>>);
   },
   moveApplicationStage: async (
     id: string,
@@ -202,9 +203,9 @@ export const platformApi = {
     const { data } = await apiClient.patch(`/platform/applications/${id}/stage`, { stageId });
     return data as ApiEnvelope<Omit<PlatformApplication, 'companyId' | 'companyName'>>;
   },
-  listInterviews: async (filters?: { companyId?: string; status?: string }): Promise<PlatformInterview[]> => {
-    const { data } = await apiClient.get('/platform/interviews', { params: filters });
-    return unwrap(data as ApiEnvelope<PlatformInterview[]>);
+  listInterviews: async (params?: ListQueryParams & { companyId?: string; status?: string }): Promise<Paginated<PlatformInterview>> => {
+    const { data } = await apiClient.get('/platform/interviews', { params });
+    return unwrap(data as ApiEnvelope<Paginated<PlatformInterview>>);
   },
   rescheduleInterview: async (
     id: string,
@@ -217,9 +218,9 @@ export const platformApi = {
     const { data } = await apiClient.get(`/platform/companies/${companyId}/pipeline-stages`);
     return unwrap(data as ApiEnvelope<PlatformStage[]>);
   },
-  listJobs: async (filters?: { companyId?: string; status?: string }): Promise<PlatformJob[]> => {
-    const { data } = await apiClient.get('/platform/jobs', { params: filters });
-    return unwrap(data as ApiEnvelope<PlatformJob[]>);
+  listJobs: async (params?: ListQueryParams & { companyId?: string; status?: string }): Promise<Paginated<PlatformJob>> => {
+    const { data } = await apiClient.get('/platform/jobs', { params });
+    return unwrap(data as ApiEnvelope<Paginated<PlatformJob>>);
   },
   getJob: async (id: string): Promise<PlatformJob> => {
     const { data } = await apiClient.get(`/platform/jobs/${id}`);

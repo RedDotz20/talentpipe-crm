@@ -7,6 +7,9 @@ import { useApiMutation, type ApiEnvelope } from '@/hooks/useApiMutation';
 export interface ApplicationFiltersInput {
   jobPostingId?: string;
   stageId?: string;
+  search?: string;
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
 }
 
 export function useApplications(filters?: ApplicationFiltersInput) {

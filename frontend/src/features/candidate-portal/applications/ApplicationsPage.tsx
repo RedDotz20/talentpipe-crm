@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Alert,
   Badge,
@@ -7,6 +7,7 @@ import {
   Group,
   Loader,
   Modal,
+  Pagination,
   Stack,
   Stepper,
   Table,
@@ -15,6 +16,8 @@ import {
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Link } from '@tanstack/react-router';
+import { ListControls } from '@/shared/components/ListControls';
+import { useListQuery } from '@/shared/hooks/useListQuery';
 import { useApplicationDetail, useApplications, useWithdrawApplication } from '../hooks';
 import type { Application } from '../types';
 
@@ -36,12 +39,23 @@ const pipelineStep = (status: string): number => {
 };
 
 export function ApplicationsPage() {
-  const { data: applications = [], isLoading, error } = useApplications();
+  const listQuery = useListQuery({ sortBy: 'appliedAt', sortDir: 'desc' });
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const { data: result = { data: [], total: 0 }, isLoading, error } = useApplications({
+    ...listQuery.params,
+    status: statusFilter ?? undefined,
+  });
+  const applications = result.data;
   const [selectedApplicationId, setSelectedApplicationId] = useState<string | null>(null);
   const applicationDetail = useApplicationDetail(selectedApplicationId);
   const [withdrawTarget, setWithdrawTarget] = useState<Application | null>(null);
   const [withdrawOpened, withdrawHandlers] = useDisclosure(false);
   const withdraw = useWithdrawApplication();
+
+  const statusOptions = useMemo(() => {
+    const names = new Set(applications.map((app) => app.status));
+    return [...names].sort().map((name) => ({ value: name, label: name }));
+  }, [applications]);
 
   if (isLoading) {
     return (
@@ -56,7 +70,12 @@ export function ApplicationsPage() {
   }
 
   if (applications.length === 0) {
-    return <Text>No applications yet</Text>;
+    return (
+      <>
+        <Title order={2} mb="md">My Applications</Title>
+        <Text>No applications match your filters.</Text>
+      </>
+    );
   }
 
   const openWithdraw = (app: Application) => {
@@ -109,6 +128,38 @@ export function ApplicationsPage() {
   return (
     <>
       <Title order={2} mb="md">My Applications</Title>
+      <ListControls
+        searchPlaceholder="Search job title or company"
+        searchValue={listQuery.search}
+        onSearchChange={(value) => {
+          listQuery.setSearch(value);
+          listQuery.setPage(1);
+        }}
+        filters={[
+          {
+            key: 'status',
+            placeholder: 'Status',
+            data: statusOptions,
+            value: statusFilter,
+            onChange: (value) => {
+              setStatusFilter(value);
+              listQuery.setPage(1);
+            },
+          },
+        ]}
+        sortOptions={[
+          { value: 'appliedAt', label: 'Applied date' },
+          { value: 'jobTitle', label: 'Job title' },
+          { value: 'companyName', label: 'Company' },
+        ]}
+        sortBy={listQuery.sortBy}
+        onSortByChange={(value) => {
+          listQuery.setSortBy(value);
+          listQuery.setPage(1);
+        }}
+        sortDir={listQuery.sortDir}
+        onToggleSortDir={listQuery.toggleSortDir}
+      />
       <Table striped highlightOnHover withTableBorder>
         <Table.Thead>
           <Table.Tr>
@@ -121,6 +172,14 @@ export function ApplicationsPage() {
         </Table.Thead>
         <Table.Tbody>{rows}</Table.Tbody>
       </Table>
+      <Group justify="center" mt="md">
+        <Pagination
+          total={Math.max(1, Math.ceil(result.total / 10))}
+          value={listQuery.page}
+          onChange={listQuery.setPage}
+          size="sm"
+        />
+      </Group>
       <Drawer
         opened={!!selectedApplicationId}
         onClose={() => setSelectedApplicationId(null)}

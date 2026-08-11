@@ -1,12 +1,17 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { platformApi } from '@/api/platformApi';
-import { queryKeys } from '@/api/queryKeys';
+import {
+  queryKeys,
+  type PlatformAppsJobsParams,
+  type PlatformCompaniesParams,
+  type PlatformUsersParams,
+} from '@/api/queryKeys';
 import { useApiMutation } from '@/hooks/useApiMutation';
 
-export function usePlatformCompanies() {
+export function usePlatformCompanies(params?: PlatformCompaniesParams) {
   return useQuery({
-    queryKey: queryKeys.platform.companies(),
-    queryFn: platformApi.listCompanies,
+    queryKey: queryKeys.platform.companies(params),
+    queryFn: () => platformApi.listCompanies(params),
   });
 }
 
@@ -17,10 +22,10 @@ export function usePlatformStats() {
   });
 }
 
-export function usePlatformUsers() {
+export function usePlatformUsers(params?: PlatformUsersParams) {
   return useQuery({
-    queryKey: queryKeys.platform.users(),
-    queryFn: platformApi.listUsers,
+    queryKey: queryKeys.platform.users(params),
+    queryFn: () => platformApi.listUsers(params),
   });
 }
 
@@ -82,17 +87,17 @@ export function usePlatformCandidates() {
   });
 }
 
-export function usePlatformApplications(filters?: { companyId?: string; status?: string }) {
+export function usePlatformApplications(params?: PlatformAppsJobsParams) {
   return useQuery({
-    queryKey: queryKeys.platform.applications(filters),
-    queryFn: () => platformApi.listApplications(filters),
+    queryKey: queryKeys.platform.applications(params),
+    queryFn: () => platformApi.listApplications(params),
   });
 }
 
-export function usePlatformInterviews(filters?: { companyId?: string; status?: string }) {
+export function usePlatformInterviews(params?: PlatformAppsJobsParams) {
   return useQuery({
-    queryKey: queryKeys.platform.interviews(filters),
-    queryFn: () => platformApi.listInterviews(filters),
+    queryKey: queryKeys.platform.interviews(params),
+    queryFn: () => platformApi.listInterviews(params),
   });
 }
 
@@ -200,10 +205,10 @@ export function useRescheduleInterview() {
   });
 }
 
-export function usePlatformJobs(filters?: { companyId?: string; status?: string }) {
+export function usePlatformJobs(params?: PlatformAppsJobsParams) {
   return useQuery({
-    queryKey: queryKeys.platform.jobs(filters),
-    queryFn: () => platformApi.listJobs(filters),
+    queryKey: queryKeys.platform.jobs(params),
+    queryFn: () => platformApi.listJobs(params),
   });
 }
 

@@ -20,6 +20,8 @@ import dayjs from 'dayjs'
 import type { PlatformJob } from '@/api/platformApi'
 import { platformApi } from '@/api/platformApi'
 import { RequiredSkillsPicker } from '@/features/company/job-postings/RequiredSkillsPicker'
+import { ListControls } from '@/shared/components/ListControls'
+import { useListQuery } from '@/shared/hooks/useListQuery'
 import {
   useCloseJob,
   useCreateJob,
@@ -29,8 +31,6 @@ import {
   usePublishJob,
   useUpdateJob,
 } from './hooks/usePlatform'
-
-const PAGE_SIZE = 10
 
 const statusColors: Record<string, string> = {
   draft: 'gray',
@@ -60,12 +60,15 @@ const metaLabel = (value: string | null | undefined): string => {
 }
 
 export function JobsPage() {
-  const [filters, setFilters] = useState<{ companyId?: string; status?: string }>(
-    {},
-  )
-  const jobsQuery = usePlatformJobs(filters)
+  const listQuery = useListQuery({ sortBy: 'createdAt', sortDir: 'desc' })
+  const [companyFilter, setCompanyFilter] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<string | null>(null)
+  const jobsQuery = usePlatformJobs({
+    ...listQuery.params,
+    companyId: companyFilter ?? undefined,
+    status: statusFilter ?? undefined,
+  })
   const companiesQuery = usePlatformCompanies()
-  const [page, setPage] = useState(1)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<PlatformJob | null>(null)
   const [detail, setDetail] = useState<{ requiredSkillIds: string[] } | null>(
@@ -79,15 +82,9 @@ export function JobsPage() {
   const close = useCloseJob()
   const remove = useDeleteJob()
 
-  const jobs = jobsQuery.data ?? []
-  const companies = companiesQuery.data ?? []
-
-  const pageCount = Math.max(1, Math.ceil(jobs.length / PAGE_SIZE))
-  const rows = jobs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-
-  useEffect(() => {
-    setPage(1)
-  }, [filters])
+  const jobs = jobsQuery.data?.data ?? []
+  const total = jobsQuery.data?.total ?? 0
+  const companies = companiesQuery.data?.data ?? []
 
   useEffect(() => {
     if (editing) {
@@ -172,31 +169,53 @@ export function JobsPage() {
         <Button onClick={() => setFormOpen(true)}>New job</Button>
       </Group>
 
-      <Group mb="md">
-        <Select
-          placeholder="Company"
-          clearable
-          searchable
-          data={companies.map((c) => ({ value: c.id, label: c.name }))}
-          value={filters.companyId ?? null}
-          onChange={(value) =>
-            setFilters((f) => ({ ...f, companyId: value ?? undefined }))
-          }
-        />
-        <Select
-          placeholder="Status"
-          clearable
-          data={[
-            { value: 'draft', label: 'Draft' },
-            { value: 'open', label: 'Open' },
-            { value: 'closed', label: 'Closed' },
-          ]}
-          value={filters.status ?? null}
-          onChange={(value) =>
-            setFilters((f) => ({ ...f, status: value ?? undefined }))
-          }
-        />
-      </Group>
+      <ListControls
+        searchPlaceholder="Search title or company"
+        searchValue={listQuery.search}
+        onSearchChange={(value) => {
+          listQuery.setSearch(value)
+          listQuery.setPage(1)
+        }}
+        filters={[
+          {
+            key: 'company',
+            placeholder: 'Company',
+            searchable: true,
+            data: companies.map((c) => ({ value: c.id, label: c.name })),
+            value: companyFilter,
+            onChange: (value) => {
+              setCompanyFilter(value)
+              listQuery.setPage(1)
+            },
+          },
+          {
+            key: 'status',
+            placeholder: 'Status',
+            data: [
+              { value: 'draft', label: 'Draft' },
+              { value: 'open', label: 'Open' },
+              { value: 'closed', label: 'Closed' },
+            ],
+            value: statusFilter,
+            onChange: (value) => {
+              setStatusFilter(value)
+              listQuery.setPage(1)
+            },
+          },
+        ]}
+        sortOptions={[
+          { value: 'createdAt', label: 'Date created' },
+          { value: 'title', label: 'Title' },
+          { value: 'companyName', label: 'Company' },
+        ]}
+        sortBy={listQuery.sortBy}
+        onSortByChange={(value) => {
+          listQuery.setSortBy(value)
+          listQuery.setPage(1)
+        }}
+        sortDir={listQuery.sortDir}
+        onToggleSortDir={listQuery.toggleSortDir}
+      />
 
       {jobsQuery.isLoading ? (
         <Loader />
@@ -216,7 +235,7 @@ export function JobsPage() {
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {rows.map((job) => (
+              {jobs.map((job) => (
                 <Table.Tr key={job.id}>
                   <Table.Td>{job.companyName}</Table.Td>
                   <Table.Td>{job.title}</Table.Td>
@@ -281,7 +300,7 @@ export function JobsPage() {
             </Table.Tbody>
           </Table>
           <Group justify="center" mt="md">
-            <Pagination total={pageCount} value={page} onChange={setPage} size="sm" />
+            <Pagination total={Math.max(1, Math.ceil(total / 10))} value={listQuery.page} onChange={listQuery.setPage} size="sm" />
           </Group>
         </>
       )}

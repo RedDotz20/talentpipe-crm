@@ -7,6 +7,7 @@ import {
   Card,
   Group,
   Loader,
+  Pagination,
   SimpleGrid,
   Stack,
   Text,
@@ -16,6 +17,8 @@ import {
 import { IconBookmark, IconBookmarkFilled, IconEye, IconSend } from '@tabler/icons-react';
 import { Link } from '@tanstack/react-router';
 import { JobMetaBadges } from '@/shared/components/JobMetaBadges';
+import { ListControls } from '@/shared/components/ListControls';
+import { useListQuery } from '@/shared/hooks/useListQuery';
 import { timeAgo } from '@/shared/utils/timeAgo';
 import { CandidateApplyModal } from '../applications/CandidateApplyModal';
 import {
@@ -27,10 +30,21 @@ import {
 } from '../hooks';
 import type { Bookmark, Job } from '../types';
 
+const EMPLOYMENT_TYPES = ['full-time', 'part-time', 'contract', 'intern'];
+const WORK_SETUPS = ['on-site', 'hybrid', 'work-from-home'];
+
 export function JobSearchPage() {
-  const { data: jobs = [], isLoading: jobsLoading, error: jobsError } = useJobs();
-  const { data: applications = [] } = useApplications();
-  const { data: bookmarks = [] } = useBookmarks();
+  const listQuery = useListQuery({ sortBy: 'createdAt', sortDir: 'desc' });
+  const [employmentTypeFilter, setEmploymentTypeFilter] = useState<string | null>(null);
+  const [workSetupFilter, setWorkSetupFilter] = useState<string | null>(null);
+  const { data: jobsResult = { data: [], total: 0 }, isLoading: jobsLoading, error: jobsError } = useJobs({
+    ...listQuery.params,
+    employmentType: employmentTypeFilter ?? undefined,
+    workSetup: workSetupFilter ?? undefined,
+  });
+  const jobs = jobsResult.data;
+  const { data: applications = [] } = useApplications({ pageSize: 50 });
+  const { data: bookmarks = [] } = useBookmarks({ pageSize: 50 });
   const { mutate: addBookmark, isPending: isAdding } = useAddBookmark();
   const { mutate: removeBookmark, isPending: isRemoving } = useRemoveBookmark();
   const [applyJob, setApplyJob] = useState<Job | null>(null);
@@ -53,7 +67,12 @@ export function JobSearchPage() {
   }
 
   if (jobs.length === 0) {
-    return <Text>No jobs available</Text>;
+    return (
+      <Stack>
+        <Title order={2}>Job Search</Title>
+        <Text>No jobs match your filters.</Text>
+      </Stack>
+    );
   }
 
   const appliedKeys = new Set(
@@ -74,6 +93,54 @@ export function JobSearchPage() {
   return (
     <Stack>
       <Title order={2}>Job Search</Title>
+      <ListControls
+        searchPlaceholder="Search title, company, or location"
+        searchValue={listQuery.search}
+        onSearchChange={(value) => {
+          listQuery.setSearch(value);
+          listQuery.setPage(1);
+        }}
+        filters={[
+          {
+            key: 'employmentType',
+            placeholder: 'Employment type',
+            data: EMPLOYMENT_TYPES.map((value) => ({
+              value,
+              label: value.charAt(0).toUpperCase() + value.slice(1),
+            })),
+            value: employmentTypeFilter,
+            onChange: (value) => {
+              setEmploymentTypeFilter(value);
+              listQuery.setPage(1);
+            },
+          },
+          {
+            key: 'workSetup',
+            placeholder: 'Work setup',
+            data: WORK_SETUPS.map((value) => ({
+              value,
+              label: value.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+            })),
+            value: workSetupFilter,
+            onChange: (value) => {
+              setWorkSetupFilter(value);
+              listQuery.setPage(1);
+            },
+          },
+        ]}
+        sortOptions={[
+          { value: 'createdAt', label: 'Date posted' },
+          { value: 'title', label: 'Title' },
+          { value: 'companyName', label: 'Company' },
+        ]}
+        sortBy={listQuery.sortBy}
+        onSortByChange={(value) => {
+          listQuery.setSortBy(value);
+          listQuery.setPage(1);
+        }}
+        sortDir={listQuery.sortDir}
+        onToggleSortDir={listQuery.toggleSortDir}
+      />
       <SimpleGrid cols={{ base: 1, sm: 2, xl: 3 }} spacing="lg">
         {jobs.map((job: Job) => {
           const applied = isApplied(job);
@@ -162,6 +229,14 @@ export function JobSearchPage() {
         );
       })}
       </SimpleGrid>
+      <Group justify="center" mt="md">
+        <Pagination
+          total={Math.max(1, Math.ceil(jobsResult.total / (listQuery.params.pageSize ?? 10)))}
+          value={listQuery.page}
+          onChange={listQuery.setPage}
+          size="sm"
+        />
+      </Group>
       {applyJob && (
         <CandidateApplyModal
           opened

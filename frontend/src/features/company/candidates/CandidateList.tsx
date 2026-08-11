@@ -1,10 +1,16 @@
-import { Loader, Stack, Table, Title } from '@mantine/core';
+import { Group, Loader, Pagination, Stack, Table, Title } from '@mantine/core';
+import { ListControls } from '@/shared/components/ListControls';
+import { useListQuery } from '@/shared/hooks/useListQuery';
 import { useCandidates } from './hooks/useCandidates';
 
 export function CandidateList({ onSelect }: { onSelect: (id: string) => void }) {
-  const { data, isLoading } = useCandidates();
+  const listQuery = useListQuery({ sortBy: 'createdAt', sortDir: 'desc' });
+  const { data: result = { data: [], total: 0 }, isLoading } = useCandidates(
+    listQuery.params,
+  );
+  const data = result.data;
 
-  const rows = (data ?? []).map((c) => (
+  const rows = data.map((c) => (
     <Table.Tr
       key={c.id}
       style={{ cursor: 'pointer' }}
@@ -20,6 +26,25 @@ export function CandidateList({ onSelect }: { onSelect: (id: string) => void }) 
   return (
     <Stack>
       <Title order={2}>Candidates</Title>
+      <ListControls
+        searchPlaceholder="Search name or email"
+        searchValue={listQuery.search}
+        onSearchChange={(value) => {
+          listQuery.setSearch(value);
+          listQuery.setPage(1);
+        }}
+        sortOptions={[
+          { value: 'name', label: 'Name' },
+          { value: 'createdAt', label: 'Date created' },
+        ]}
+        sortBy={listQuery.sortBy}
+        onSortByChange={(value) => {
+          listQuery.setSortBy(value);
+          listQuery.setPage(1);
+        }}
+        sortDir={listQuery.sortDir}
+        onToggleSortDir={listQuery.toggleSortDir}
+      />
       {isLoading ? (
         <Loader />
       ) : (
@@ -35,6 +60,14 @@ export function CandidateList({ onSelect }: { onSelect: (id: string) => void }) 
           <Table.Tbody>{rows}</Table.Tbody>
         </Table>
       )}
+      <Group justify="center" mt="md">
+        <Pagination
+          total={Math.max(1, Math.ceil(result.total / 10))}
+          value={listQuery.page}
+          onChange={listQuery.setPage}
+          size="sm"
+        />
+      </Group>
     </Stack>
   );
 }

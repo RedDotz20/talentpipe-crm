@@ -1,5 +1,6 @@
 import { apiClient } from '@/api/client';
 import type { ApiEnvelope } from '@/hooks/useApiMutation';
+import type { ListQueryParams, Paginated } from '@/shared/types/listQuery';
 
 export interface PublicSkill {
   id: string;
@@ -28,11 +29,15 @@ export interface PublicJobDetail extends PublicJobListing {
 const unwrap = <T>(body: ApiEnvelope<T>): T => body.data;
 
 export const publicCareersApi = {
-  async getJobs(companySlug: string): Promise<PublicJobListing[]> {
+  async getJobs(
+    companySlug: string,
+    params?: ListQueryParams & { employmentType?: string; workSetup?: string },
+  ): Promise<Paginated<PublicJobListing>> {
     const { data } = await apiClient.get(
       `/public/${encodeURIComponent(companySlug)}/jobs`,
+      { params },
     );
-    return unwrap(data as ApiEnvelope<PublicJobListing[]>);
+    return unwrap(data as ApiEnvelope<Paginated<PublicJobListing>>);
   },
 
   async getJob(

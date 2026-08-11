@@ -26,6 +26,9 @@ export interface Application {
 export interface ApplicationFilters {
   jobPostingId?: string;
   stageId?: string;
+  search?: string;
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
 }
 
 const unwrap = <T>(body: ApiEnvelope<T>): T => body.data;

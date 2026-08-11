@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { candidatesApi } from '@/api/candidatesApi';
 import { queryKeys } from '@/api/queryKeys';
+import type { ListQueryParams } from '@/shared/types/listQuery';
 
-export function useCandidates() {
+export function useCandidates(params?: ListQueryParams) {
   return useQuery({
-    queryKey: queryKeys.company.candidates(),
-    queryFn: () => candidatesApi.list(),
+    queryKey: queryKeys.company.candidates(params),
+    queryFn: () => candidatesApi.list(params),
   });
 }
 
