@@ -50,6 +50,16 @@ export class PlatformDataService {
     return `company_${companyId}`;
   }
 
+  private rowSortValue(
+    row: Record<string, unknown>,
+    sortBy: string,
+  ): string | number | Date | null {
+    const value = row[sortBy];
+    if (typeof value === 'string') return value.toLowerCase();
+    if (value instanceof Date) return value;
+    return '';
+  }
+
   async listApplications(filters: PlatformFilters, query: ListQueryDto) {
     const companies = await this.tenantRepo.findAll();
     const target = filters.companyId
@@ -77,8 +87,7 @@ export class PlatformDataService {
     const sorted = sortAndPageInMemory(
       filtered,
       query,
-      (row, sortBy) =>
-        String(row[sortBy as keyof typeof row] ?? '').toLowerCase(),
+      (row, sortBy) => this.rowSortValue(row, sortBy),
       'appliedAt',
       'desc',
     );
@@ -172,8 +181,7 @@ export class PlatformDataService {
     const sorted = sortAndPageInMemory(
       filtered,
       query,
-      (row, sortBy) =>
-        String(row[sortBy as keyof typeof row] ?? '').toLowerCase(),
+      (row, sortBy) => this.rowSortValue(row, sortBy),
       'scheduledAt',
       'asc',
     );
@@ -233,8 +241,7 @@ export class PlatformDataService {
     const sorted = sortAndPageInMemory(
       filtered,
       query,
-      (row, sortBy) =>
-        String(row[sortBy as keyof typeof row] ?? '').toLowerCase(),
+      (row, sortBy) => this.rowSortValue(row, sortBy),
       'createdAt',
       'desc',
     );

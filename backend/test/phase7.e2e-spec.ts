@@ -20,12 +20,12 @@ interface Tokens {
 
 interface JwtClaims {
   sub: string;
-  tenantId?: string;
+  companyId?: string;
   role: string;
 }
 
-interface TenantAccount {
-  tenantId: string;
+interface CompanyAccount {
+  companyId: string;
   userId: string;
   token: string;
 }
@@ -48,14 +48,14 @@ interface PipelineStage {
 interface AuditLogRow {
   action: string;
   resource_id: string;
-  tenant_id: string;
+  company_id: string;
   metadata: string;
 }
 
 let app: INestApplication<Server> | undefined;
 let cleanupPool: Pool | undefined;
 let cleanupRedis: Redis | undefined;
-const createdTenantIds: string[] = [];
+const createdCompanyIds: string[] = [];
 const createdOrgUserIds: string[] = [];
 const createdCandidateIds: string[] = [];
 const runId = `${Date.now()}-${randomUUID().slice(0, 8)}`;
@@ -134,10 +134,10 @@ const httpServer = (): Server => {
   return app.getHttpServer();
 };
 
-const createTenant = async (suffix: string): Promise<TenantAccount> => {
+const createTenant = async (suffix: string): Promise<CompanyAccount> => {
   const email = `phase7-${suffix}-${runId}@example.test`;
   const response = await request(httpServer())
-    .post('/api/auth/org/signup')
+    .post('/api/auth/company/signup')
     .send({
       companyName: `Phase 7 ${suffix} ${runId}`,
       slug: `phase7-${suffix}-${runId}`,
@@ -146,12 +146,12 @@ const createTenant = async (suffix: string): Promise<TenantAccount> => {
     });
   const tokens = assertEnvelope<Tokens>(response, 201);
   const claims = decodeClaims(tokens.accessToken);
-  if (!claims.tenantId)
-    throw new Error('Organization token did not contain tenantId');
-  createdTenantIds.push(claims.tenantId);
+  if (!claims.companyId)
+    throw new Error('Company token did not contain companyId');
+  createdCompanyIds.push(claims.companyId);
   createdOrgUserIds.push(claims.sub);
   return {
-    tenantId: claims.tenantId,
+    companyId: claims.companyId,
     userId: claims.sub,
     token: tokens.accessToken,
   };
@@ -173,7 +173,7 @@ const createCandidate = async (suffix: string): Promise<CandidateAccount> => {
 };
 
 const createOpenJob = async (
-  tenant: TenantAccount,
+  tenant: CompanyAccount,
   suffix: string,
 ): Promise<JobPosting> => {
   const created = await request(httpServer())
@@ -182,6 +182,9 @@ const createOpenJob = async (
     .send({
       title: `Phase 7 ${suffix} Job ${runId}`,
       description: 'Phase 7 release-gate job',
+      employmentType: 'full-time',
+      location: 'Makati City',
+      workSetup: 'on-site',
     });
   const posting = assertEnvelope<JobPosting>(created, 201);
 
@@ -226,30 +229,30 @@ const cleanupDatabase = async (): Promise<void> => {
       [createdCandidateIds],
     );
   }
-  if (createdTenantIds.length > 0) {
+  if (createdCompanyIds.length > 0) {
     await cleanupPool.query(
-      'DELETE FROM public.audit_logs WHERE tenant_id = ANY($1::text[])',
-      [createdTenantIds],
+      'DELETE FROM public.audit_logs WHERE company_id = ANY($1::text[])',
+      [createdCompanyIds],
     );
     await cleanupPool.query(
-      'DELETE FROM public.candidate_applications_index WHERE tenant_id = ANY($1::text[])',
-      [createdTenantIds],
+      'DELETE FROM public.candidate_applications_index WHERE company_id = ANY($1::text[])',
+      [createdCompanyIds],
     );
     await cleanupPool.query(
-      'DELETE FROM public.candidate_bookmarks WHERE tenant_id = ANY($1::text[])',
-      [createdTenantIds],
+      'DELETE FROM public.candidate_bookmarks WHERE company_id = ANY($1::text[])',
+      [createdCompanyIds],
     );
     await cleanupPool.query(
-      'DELETE FROM public.job_listings_index WHERE tenant_id = ANY($1::text[])',
-      [createdTenantIds],
+      'DELETE FROM public.job_listings_index WHERE company_id = ANY($1::text[])',
+      [createdCompanyIds],
     );
     await cleanupPool.query(
-      'DELETE FROM public.user_emails WHERE tenant_id = ANY($1::uuid[])',
-      [createdTenantIds],
+      'DELETE FROM public.user_emails WHERE company_id = ANY($1::uuid[])',
+      [createdCompanyIds],
     );
     await cleanupPool.query(
-      'DELETE FROM public.refresh_tokens WHERE tenant_id = ANY($1::uuid[])',
-      [createdTenantIds],
+      'DELETE FROM public.refresh_tokens WHERE company_id = ANY($1::uuid[])',
+      [createdCompanyIds],
     );
   }
   if (createdOrgUserIds.length > 0) {
@@ -264,14 +267,14 @@ const cleanupDatabase = async (): Promise<void> => {
       [createdCandidateIds],
     );
   }
-  if (createdTenantIds.length > 0) {
+  if (createdCompanyIds.length > 0) {
     await cleanupPool.query(
-      'DELETE FROM public.tenants WHERE id = ANY($1::uuid[])',
-      [createdTenantIds],
+      'DELETE FROM public.companies WHERE id = ANY($1::uuid[])',
+      [createdCompanyIds],
     );
-    for (const tenantId of createdTenantIds) {
+    for (const companyId of createdCompanyIds) {
       await cleanupPool.query(
-        `DROP SCHEMA IF EXISTS ${quoteIdentifier(`tenant_${tenantId}`)} CASCADE`,
+        `DROP SCHEMA IF EXISTS ${quoteIdentifier(`company_${companyId}`)} CASCADE`,
       );
     }
   }
@@ -285,7 +288,7 @@ const waitForAuditLog = async (
   const deadline = Date.now() + timeoutMs;
   do {
     const result = await pool.query(
-      `SELECT action, resource_id, tenant_id, metadata
+      `SELECT action, resource_id, company_id, metadata
        FROM public.audit_logs
        WHERE action = 'notification.stage_change' AND resource_id = $1`,
       [applicationId],
@@ -299,13 +302,13 @@ const waitForAuditLog = async (
 };
 
 describe('Phase 7 release gate', () => {
-  let tenant: TenantAccount;
+  jest.setTimeout(30000);
+  let tenant: CompanyAccount;
   let candidate: CandidateAccount;
   let job: JobPosting;
   let applicationId: string;
 
   beforeAll(async () => {
-    jest.setTimeout(30000);
     await verifyInfrastructure();
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -332,7 +335,7 @@ describe('Phase 7 release gate', () => {
 
   it('delivers a stage-change notification to the audit log via the BullMQ worker', async () => {
     const applyResponse = await request(httpServer())
-      .post(`/api/candidate/jobs/${tenant.tenantId}/${job.id}/apply`)
+      .post(`/api/candidate/jobs/${tenant.companyId}/${job.id}/apply`)
       .set('Authorization', `Bearer ${candidate.token}`)
       .send({ coverLetter: 'Phase 7 notification test' });
     const application = assertEnvelope<{ applicationId: string }>(
@@ -342,7 +345,7 @@ describe('Phase 7 release gate', () => {
     applicationId = application.applicationId;
 
     const stagesResponse = await request(httpServer())
-      .get('/api/org/pipeline-stages')
+      .get('/api/company/pipeline-stages')
       .set('Authorization', `Bearer ${tenant.token}`);
     const stages = assertEnvelope<PipelineStage[]>(stagesResponse, 200);
     const screening = stages.find((stage) => stage.name === 'Screening');
@@ -364,7 +367,7 @@ describe('Phase 7 release gate', () => {
       );
     }
 
-    expect(row.tenant_id).toBe(tenant.tenantId);
+    expect(row.company_id).toBe(tenant.companyId);
     const metadata = JSON.parse(row.metadata) as {
       jobPostingId?: unknown;
       fromStage?: unknown;

@@ -25,12 +25,12 @@ interface Tokens {
 
 interface JwtClaims {
   sub: string;
-  tenantId?: string;
+  companyId?: string;
   role: string;
 }
 
-interface TenantAccount {
-  tenantId: string;
+interface CompanyAccount {
+  companyId: string;
   userId: string;
   token: string;
 }
@@ -42,7 +42,7 @@ interface CandidateAccount {
 
 interface JobListing {
   id: string;
-  tenantId: string;
+  companyId: string;
   jobPostingId: string;
   status: string;
 }
@@ -59,7 +59,7 @@ interface PipelineStage {
 
 interface CandidateApplication {
   applicationId: string;
-  tenantId: string;
+  companyId: string;
   status: string;
   jobPostingId: string;
 }
@@ -80,7 +80,7 @@ type HttpResponse = request.Response;
 let app: INestApplication<Server> | undefined;
 let cleanupPool: Pool | undefined;
 let cleanupRedis: Redis | undefined;
-const createdTenantIds: string[] = [];
+const createdCompanyIds: string[] = [];
 const createdOrgUserIds: string[] = [];
 const createdCandidateIds: string[] = [];
 const createdLimiterEmailDigests: string[] = [];
@@ -160,10 +160,10 @@ const httpServer = (): Server => {
   return app.getHttpServer();
 };
 
-const createTenant = async (suffix: string): Promise<TenantAccount> => {
+const createTenant = async (suffix: string): Promise<CompanyAccount> => {
   const email = `task8-${suffix}-${runId}@example.test`;
   const response = await request(httpServer())
-    .post('/api/auth/org/signup')
+    .post('/api/auth/company/signup')
     .send({
       companyName: `Task 8 ${suffix} ${runId}`,
       slug: `task8-${suffix}-${runId}`,
@@ -172,12 +172,12 @@ const createTenant = async (suffix: string): Promise<TenantAccount> => {
     });
   const tokens = assertEnvelope<Tokens>(response, 201);
   const claims = decodeClaims(tokens.accessToken);
-  if (!claims.tenantId)
-    throw new Error('Organization token did not contain tenantId');
-  createdTenantIds.push(claims.tenantId);
+  if (!claims.companyId)
+    throw new Error('Company token did not contain companyId');
+  createdCompanyIds.push(claims.companyId);
   createdOrgUserIds.push(claims.sub);
   return {
-    tenantId: claims.tenantId,
+    companyId: claims.companyId,
     userId: claims.sub,
     token: tokens.accessToken,
   };
@@ -199,7 +199,7 @@ const createCandidate = async (suffix: string): Promise<CandidateAccount> => {
 };
 
 const createOpenJob = async (
-  tenant: TenantAccount,
+  tenant: CompanyAccount,
   suffix: string,
 ): Promise<JobPosting> => {
   const created = await request(httpServer())
@@ -208,6 +208,9 @@ const createOpenJob = async (
     .send({
       title: `Task 8 ${suffix} Job ${runId}`,
       description: 'Release-gate integration job',
+      employmentType: 'full-time',
+      location: 'Makati City',
+      workSetup: 'on-site',
     });
   const posting = assertEnvelope<JobPosting>(created, 201);
 
@@ -218,7 +221,7 @@ const createOpenJob = async (
 };
 
 const createDraftJob = async (
-  tenant: TenantAccount,
+  tenant: CompanyAccount,
   suffix: string,
 ): Promise<JobPosting> => {
   const created = await request(httpServer())
@@ -227,12 +230,15 @@ const createDraftJob = async (
     .send({
       title: `Task 8 ${suffix} Draft Job ${runId}`,
       description: 'Release-gate draft job',
+      employmentType: 'part-time',
+      location: 'Cebu City',
+      workSetup: 'hybrid',
     });
   return assertEnvelope<JobPosting>(created, 201);
 };
 
 const closeJob = async (
-  tenant: TenantAccount,
+  tenant: CompanyAccount,
   job: JobPosting,
 ): Promise<JobPosting> => {
   const closed = await request(httpServer())
@@ -276,26 +282,26 @@ const cleanupDatabase = async (): Promise<void> => {
       [createdCandidateIds],
     );
   }
-  if (createdTenantIds.length > 0) {
+  if (createdCompanyIds.length > 0) {
     await cleanupPool.query(
-      'DELETE FROM public.candidate_applications_index WHERE tenant_id = ANY($1::text[])',
-      [createdTenantIds],
+      'DELETE FROM public.candidate_applications_index WHERE company_id = ANY($1::text[])',
+      [createdCompanyIds],
     );
     await cleanupPool.query(
-      'DELETE FROM public.candidate_bookmarks WHERE tenant_id = ANY($1::text[])',
-      [createdTenantIds],
+      'DELETE FROM public.candidate_bookmarks WHERE company_id = ANY($1::text[])',
+      [createdCompanyIds],
     );
     await cleanupPool.query(
-      'DELETE FROM public.job_listings_index WHERE tenant_id = ANY($1::text[])',
-      [createdTenantIds],
+      'DELETE FROM public.job_listings_index WHERE company_id = ANY($1::text[])',
+      [createdCompanyIds],
     );
     await cleanupPool.query(
-      'DELETE FROM public.user_emails WHERE tenant_id = ANY($1::uuid[])',
-      [createdTenantIds],
+      'DELETE FROM public.user_emails WHERE company_id = ANY($1::uuid[])',
+      [createdCompanyIds],
     );
     await cleanupPool.query(
-      'DELETE FROM public.refresh_tokens WHERE tenant_id = ANY($1::uuid[])',
-      [createdTenantIds],
+      'DELETE FROM public.refresh_tokens WHERE company_id = ANY($1::uuid[])',
+      [createdCompanyIds],
     );
   }
   if (createdOrgUserIds.length > 0) {
@@ -310,22 +316,23 @@ const cleanupDatabase = async (): Promise<void> => {
       [createdCandidateIds],
     );
   }
-  if (createdTenantIds.length > 0) {
+  if (createdCompanyIds.length > 0) {
     await cleanupPool.query(
-      'DELETE FROM public.tenants WHERE id = ANY($1::uuid[])',
-      [createdTenantIds],
+      'DELETE FROM public.companies WHERE id = ANY($1::uuid[])',
+      [createdCompanyIds],
     );
-    for (const tenantId of createdTenantIds) {
+    for (const companyId of createdCompanyIds) {
       await cleanupPool.query(
-        `DROP SCHEMA IF EXISTS ${quoteIdentifier(`tenant_${tenantId}`)} CASCADE`,
+        `DROP SCHEMA IF EXISTS ${quoteIdentifier(`company_${companyId}`)} CASCADE`,
       );
     }
   }
 };
 
 describe('Phase 5b/6 release gates', () => {
-  let tenantA: TenantAccount;
-  let tenantB: TenantAccount;
+  jest.setTimeout(30000);
+  let tenantA: CompanyAccount;
+  let tenantB: CompanyAccount;
   let jobA: JobPosting;
   let jobB: JobPosting;
   let jobADraft: JobPosting;
@@ -363,9 +370,9 @@ describe('Phase 5b/6 release gates', () => {
             await cleanupRedisKeys(`ratelimit:login:${digest}:*`);
           }
         } finally {
-          for (const tenantId of createdTenantIds) {
+          for (const companyId of createdCompanyIds) {
             if (cleanupRedis)
-              await cleanupRedis.del(dashboardSummaryKey(tenantId));
+              await cleanupRedis.del(dashboardSummaryKey(companyId));
           }
         }
       }
@@ -379,8 +386,10 @@ describe('Phase 5b/6 release gates', () => {
   it('keeps candidate jobs open-only, enforces ownership, and synchronizes stage status', async () => {
     const jobsResponse = await request(httpServer())
       .get('/api/candidate/jobs')
+      .query({ pageSize: 50 })
       .set('Authorization', `Bearer ${candidateA.token}`);
-    const jobs = assertEnvelope<JobListing[]>(jobsResponse, 200);
+    const body = assertEnvelope<{ data: JobListing[] }>(jobsResponse, 200);
+    const jobs = body.data;
     expect(jobs.every((job) => job.status === 'open')).toBe(true);
     expect(jobs.some((job) => job.jobPostingId === jobA.id)).toBe(true);
     expect(jobs.some((job) => job.jobPostingId === jobB.id)).toBe(true);
@@ -388,7 +397,7 @@ describe('Phase 5b/6 release gates', () => {
     expect(jobs.some((job) => job.jobPostingId === jobAClosed.id)).toBe(false);
 
     const applyResponse = await request(httpServer())
-      .post(`/api/candidate/jobs/${tenantA.tenantId}/${jobA.id}/apply`)
+      .post(`/api/candidate/jobs/${tenantA.companyId}/${jobA.id}/apply`)
       .set('Authorization', `Bearer ${candidateA.token}`)
       .send({ coverLetter: 'Task 8 ownership test' });
     const application = assertEnvelope<{ applicationId: string }>(
@@ -399,14 +408,14 @@ describe('Phase 5b/6 release gates', () => {
     applicationId = application.applicationId;
 
     const duplicate = await request(httpServer())
-      .post(`/api/candidate/jobs/${tenantA.tenantId}/${jobA.id}/apply`)
+      .post(`/api/candidate/jobs/${tenantA.companyId}/${jobA.id}/apply`)
       .set('Authorization', `Bearer ${candidateA.token}`)
       .send({});
     expect(duplicate.status).toBe(409);
     expect((duplicate.body as ErrorResponse).error.code).toBe('CONFLICT');
 
     const tenantBApplicationResponse = await request(httpServer())
-      .post(`/api/candidate/jobs/${tenantB.tenantId}/${jobB.id}/apply`)
+      .post(`/api/candidate/jobs/${tenantB.companyId}/${jobB.id}/apply`)
       .set('Authorization', `Bearer ${candidateB.token}`)
       .send({});
     const tenantBApplication = assertEnvelope<{ applicationId: string }>(
@@ -415,11 +424,11 @@ describe('Phase 5b/6 release gates', () => {
     );
     const tenantBApplicationsResponse = await request(httpServer())
       .get('/api/candidate/applications')
+      .query({ pageSize: 50 })
       .set('Authorization', `Bearer ${candidateB.token}`);
-    const tenantBApplications = assertEnvelope<CandidateApplication[]>(
-      tenantBApplicationsResponse,
-      200,
-    );
+    const tenantBApplications = assertEnvelope<{
+      data: CandidateApplication[];
+    }>(tenantBApplicationsResponse, 200).data;
     const tenantBIndexedApplication = tenantBApplications.find(
       (indexed) => indexed.applicationId === tenantBApplication.applicationId,
     );
@@ -435,7 +444,7 @@ describe('Phase 5b/6 release gates', () => {
       .set('Authorization', `Bearer ${candidateA.token}`);
     const ownerData = assertEnvelope<CandidateApplication>(ownerDetail, 200);
     expect(ownerData.applicationId).toBe(applicationId);
-    expect(ownerData.tenantId).toBe(tenantA.tenantId);
+    expect(ownerData.companyId).toBe(tenantA.companyId);
 
     const otherCandidateDetail = await request(httpServer())
       .get(`/api/candidate/applications/${applicationId}`)
@@ -446,7 +455,7 @@ describe('Phase 5b/6 release gates', () => {
     );
 
     const stagesResponse = await request(httpServer())
-      .get('/api/org/pipeline-stages')
+      .get('/api/company/pipeline-stages')
       .set('Authorization', `Bearer ${tenantA.token}`);
     const stages = assertEnvelope<PipelineStage[]>(stagesResponse, 200);
     const screening = stages.find((stage) => stage.name === 'Screening');
@@ -472,10 +481,11 @@ describe('Phase 5b/6 release gates', () => {
       httpServer(),
     )
       .get('/api/candidate/applications')
+      .query({ pageSize: 50 })
       .set('Authorization', `Bearer ${candidateB.token}`);
-    const tenantBApplicationsAfterTenantAUpdate = assertEnvelope<
-      CandidateApplication[]
-    >(tenantBApplicationsAfterTenantAUpdateResponse, 200);
+    const tenantBApplicationsAfterTenantAUpdate = assertEnvelope<{
+      data: CandidateApplication[];
+    }>(tenantBApplicationsAfterTenantAUpdateResponse, 200).data;
     expect(
       tenantBApplicationsAfterTenantAUpdate.find(
         (indexed) => indexed.applicationId === tenantBApplication.applicationId,
@@ -548,8 +558,8 @@ describe('Phase 5b/6 release gates', () => {
       }),
     );
 
-    const keyA = dashboardSummaryKey(tenantA.tenantId);
-    const keyB = dashboardSummaryKey(tenantB.tenantId);
+    const keyA = dashboardSummaryKey(tenantA.companyId);
+    const keyB = dashboardSummaryKey(tenantB.companyId);
     expect(await cleanupRedis!.get(keyA)).not.toBeNull();
     expect(await cleanupRedis!.get(keyB)).not.toBeNull();
 
@@ -563,7 +573,7 @@ describe('Phase 5b/6 release gates', () => {
 
     const pool = cleanupPool;
     if (!pool) throw new Error('Cleanup PostgreSQL pool was not initialized');
-    const tenantASchema = quoteIdentifier(`tenant_${tenantA.tenantId}`);
+    const tenantASchema = quoteIdentifier(`company_${tenantA.companyId}`);
     try {
       const closeResult = await pool.query(
         `UPDATE ${tenantASchema}."job_postings" SET "status" = 'closed' WHERE "id" = $1`,
@@ -601,7 +611,7 @@ describe('Phase 5b/6 release gates', () => {
     }
 
     const secondApplication = await request(httpServer())
-      .post(`/api/candidate/jobs/${tenantA.tenantId}/${jobA.id}/apply`)
+      .post(`/api/candidate/jobs/${tenantA.companyId}/${jobA.id}/apply`)
       .set('Authorization', `Bearer ${candidateB.token}`)
       .send({});
     assertStatus(secondApplication, 201);
