@@ -4,10 +4,13 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { ListQuerySchema, ListQueryDto } from '../../common/dto/list-query.dto';
 import { PlatformService } from './platform.service';
 
 @Controller('platform')
@@ -16,24 +19,27 @@ import { PlatformService } from './platform.service';
 export class PlatformController {
   constructor(private readonly platformService: PlatformService) {}
 
-  @Get('tenants')
-  listTenants() {
-    return this.platformService.listTenants();
+  @Get('companies')
+  listCompanies(
+    @Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto,
+    @Query('status') status?: string,
+  ) {
+    return this.platformService.listCompanies({ ...query, status });
   }
 
-  @Get('tenants/:id')
-  getTenant(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.platformService.getTenant(id);
+  @Get('companies/:id')
+  getCompany(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.platformService.getCompany(id);
   }
 
-  @Patch('tenants/:id/suspend')
+  @Patch('companies/:id/suspend')
   suspendTenant(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.platformService.setTenantStatus(id, 'suspended');
+    return this.platformService.setCompanyStatus(id, 'suspended');
   }
 
-  @Patch('tenants/:id/reactivate')
+  @Patch('companies/:id/reactivate')
   reactivateTenant(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.platformService.setTenantStatus(id, 'active');
+    return this.platformService.setCompanyStatus(id, 'active');
   }
 
   @Get('stats')

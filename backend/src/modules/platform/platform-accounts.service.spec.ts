@@ -348,8 +348,8 @@ describe('PlatformAccountsService', () => {
         },
       ]);
       const service = makeService();
-      const result = await service.listAllUsers();
-      expect(result[0]).toEqual({
+      const result = await service.listAllUsers({ page: 1, pageSize: 10 });
+      expect(result.data[0]).toEqual({
         type: 'company',
         id: 'u1',
         email: 'a@acme.com',
@@ -359,9 +359,9 @@ describe('PlatformAccountsService', () => {
         companyName: 'Acme',
         firstName: null,
         lastName: null,
-        createdAt: expect.any(Date),
+        createdAt: expect.any(Date) as Date,
       });
-      expect(result[1]).toEqual({
+      expect(result.data[1]).toEqual({
         type: 'candidate',
         id: 'c1',
         email: 'c@x.com',
@@ -371,7 +371,7 @@ describe('PlatformAccountsService', () => {
         companyName: null,
         firstName: 'Jane',
         lastName: 'Doe',
-        createdAt: expect.any(Date),
+        createdAt: expect.any(Date) as Date,
       });
       expect(deps.userRepo.findAll).toHaveBeenCalledWith('company_tenant-a');
     });

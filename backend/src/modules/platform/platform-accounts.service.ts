@@ -17,6 +17,11 @@ import { CandidateApplicationsIndexRepository } from '../../repositories/candida
 import { ApplicationRepository } from '../../repositories/application.repository';
 import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
 import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
+import {
+  inMemorySearch,
+  sortAndPageInMemory,
+} from '../../repositories/list-query.helper';
+import type { ListQueryDto } from '../../common/dto/list-query.dto';
 import { CreateCompanyUserDto } from './dto/create-company-user.dto';
 import { UpdateCompanyUserDto } from './dto/update-company-user.dto';
 import { CreateCandidateDto } from './dto/create-candidate.dto';
@@ -264,7 +269,9 @@ export class PlatformAccountsService {
     return { id: companyId };
   }
 
-  async listAllUsers() {
+  async listAllUsers(
+    query: ListQueryDto & { type?: string; companyId?: string; role?: string },
+  ) {
     const companies = await this.tenantRepo.findAll();
     const companyUsers: Array<{
       type: 'company';
@@ -308,8 +315,26 @@ export class PlatformAccountsService {
       lastName: c.lastName,
       createdAt: c.createdAt,
     }));
-    return [...companyUsers, ...candidateRows].sort((a, b) =>
-      a.email.localeCompare(b.email),
+    let rows: Array<
+      (typeof companyUsers)[number] | (typeof candidateRows)[number]
+    > = [...companyUsers, ...candidateRows];
+    if (query.type) rows = rows.filter((row) => row.type === query.type);
+    if (query.companyId)
+      rows = rows.filter((row) => row.companyId === query.companyId);
+    if (query.role) rows = rows.filter((row) => row.role === query.role);
+    rows = inMemorySearch(rows, query.search, [
+      'email',
+      'firstName',
+      'lastName',
+      'companyName',
+    ]);
+    return sortAndPageInMemory(
+      rows,
+      query,
+      (row, sortBy) =>
+        sortBy === 'createdAt' ? row.createdAt : row.email.toLowerCase(),
+      'email',
+      'asc',
     );
   }
 

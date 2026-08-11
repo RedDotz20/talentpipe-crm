@@ -7,11 +7,13 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { ListQuerySchema, ListQueryDto } from '../../common/dto/list-query.dto';
 import { PlatformAccountsService } from './platform-accounts.service';
 import {
   CreateCompanyUserSchema,
@@ -95,8 +97,18 @@ export class PlatformAccountsController {
   }
 
   @Get('users')
-  listAllUsers() {
-    return this.accountsService.listAllUsers();
+  listAllUsers(
+    @Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto,
+    @Query('type') type?: string,
+    @Query('companyId') companyId?: string,
+    @Query('role') role?: string,
+  ) {
+    return this.accountsService.listAllUsers({
+      ...query,
+      type,
+      companyId,
+      role,
+    });
   }
 
   @Get('candidates')

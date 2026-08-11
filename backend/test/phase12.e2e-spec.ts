@@ -203,7 +203,11 @@ const createCompanyUser = async (
   companyId: string,
   suffix: string,
   role = 'Recruiter',
-): Promise<{ user: { id: string; role: string }; email: string; password: string }> => {
+): Promise<{
+  user: { id: string; role: string };
+  email: string;
+  password: string;
+}> => {
   const email = `phase12-${suffix}-${runId}@example.test`;
   const password = `Phase12U!${randomUUID().slice(0, 16)}`;
   const created = await request(httpServer())
@@ -221,7 +225,12 @@ const createOpenJob = async (
   const created = await request(httpServer())
     .post('/api/job-postings')
     .set('Authorization', `Bearer ${tenant.token}`)
-    .send({ title: `Phase 12 ${suffix} Job ${runId}` });
+    .send({
+      title: `Phase 12 ${suffix} Job ${runId}`,
+      employmentType: 'full-time',
+      location: 'Makati City',
+      workSetup: 'on-site',
+    });
   const posting = assertEnvelope<{ id: string }>(created, 201);
   await request(httpServer())
     .post(`/api/job-postings/${posting.id}/publish`)
@@ -329,13 +338,13 @@ const cleanupRedisKeys = async (pattern: string): Promise<void> => {
 };
 
 describe('Phase 12 release gate', () => {
+  jest.setTimeout(30000);
   let superAdmin: CompanyAccount;
   let tenant: CompanyAccount;
   let candidateAToken = '';
   let doomed: CompanyAccount;
 
   beforeAll(async () => {
-    jest.setTimeout(30000);
     await verifyInfrastructure();
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -387,18 +396,18 @@ describe('Phase 12 release gate', () => {
   describe('merged users list', () => {
     it('returns company users with company names and candidates with null company', async () => {
       const listed = await request(httpServer())
-        .get('/api/platform/users')
+        .get(`/api/platform/users?search=${runId}&pageSize=50`)
         .set('Authorization', `Bearer ${superAdmin.token}`);
-      const rows = assertEnvelope<
-        Array<{
+      const rows = assertEnvelope<{
+        data: Array<{
           type: string;
           email: string;
           role: string;
           status: string | null;
           companyId: string | null;
           companyName: string | null;
-        }>
-      >(listed, 200);
+        }>;
+      }>(listed, 200).data;
 
       const admin = rows.find((r) => r.email === tenant.email);
       expect(admin?.type).toBe('company');
@@ -407,7 +416,9 @@ describe('Phase 12 release gate', () => {
       expect(admin?.role).toBe('CompanyAdmin');
       expect(admin?.status).toBe('active');
 
-      const candidate = rows.find((r) => r.email === `phase12-cand-a-${runId}@example.test`);
+      const candidate = rows.find(
+        (r) => r.email === `phase12-cand-a-${runId}@example.test`,
+      );
       expect(candidate?.type).toBe('candidate');
       expect(candidate?.companyId).toBeNull();
       expect(candidate?.companyName).toBeNull();
@@ -507,9 +518,7 @@ describe('Phase 12 release gate', () => {
       if (!pool) throw new Error('Cleanup PostgreSQL pool was not initialized');
 
       const jobId = (await createOpenJob(doomed, 'doomed')).id;
-      const applicationId = (
-        await applyAsCandidate(candidateAToken, doomed.companyId, jobId)
-      ).applicationId;
+      await applyAsCandidate(candidateAToken, doomed.companyId, jobId);
 
       await request(httpServer())
         .delete(`/api/platform/companies/${doomed.companyId}`)
@@ -525,9 +534,10 @@ describe('Phase 12 release gate', () => {
       expect(schemaExists.count).toBe(0);
 
       const companyRow = (
-        await pool.query('SELECT COUNT(*)::int AS count FROM public.companies WHERE id = $1', [
-          doomed.companyId,
-        ])
+        await pool.query(
+          'SELECT COUNT(*)::int AS count FROM public.companies WHERE id = $1',
+          [doomed.companyId],
+        )
       ).rows[0] as { count: number };
       expect(companyRow.count).toBe(0);
 

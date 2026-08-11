@@ -1,7 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { eq, count } from 'drizzle-orm';
 import { companies } from '../database/schema';
 import { BaseRepository } from './base.repository';
+import {
+  andConditions,
+  listEnvelope,
+  toOrderBy,
+  toPagination,
+  toWhere,
+} from './list-query.helper';
+import type { ListQueryDto } from '../common/dto/list-query.dto';
 
 const COMPANY_TABLES = [
   'users',
@@ -31,6 +39,39 @@ export class CompanyRepository extends BaseRepository {
   async findAll() {
     return this.withDb('public', async (db) => {
       return db.select().from(companies).orderBy(companies.createdAt).execute();
+    });
+  }
+
+  async findPaginated(query: ListQueryDto & { status?: string }) {
+    return this.withDb('public', async (db) => {
+      const conditions = andConditions(
+        query.status ? [eq(companies.status, query.status)] : [],
+        toWhere(query, [companies.name, companies.slug]),
+      );
+      const sortOptions = {
+        sortMap: {
+          name: companies.name,
+          createdAt: companies.createdAt,
+        },
+        defaultSortBy: 'createdAt',
+      };
+      const { offset, limit } = toPagination(query);
+      const [rows, totalRows] = await Promise.all([
+        db
+          .select()
+          .from(companies)
+          .where(conditions)
+          .orderBy(toOrderBy(query, sortOptions))
+          .limit(limit)
+          .offset(offset)
+          .execute(),
+        db
+          .select({ value: count() })
+          .from(companies)
+          .where(conditions)
+          .execute(),
+      ]);
+      return listEnvelope(rows, Number(totalRows[0]?.value ?? 0), query);
     });
   }
 

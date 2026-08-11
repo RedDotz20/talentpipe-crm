@@ -21,12 +21,12 @@ interface Tokens {
 
 interface JwtClaims {
   sub: string;
-  tenantId?: string;
+  companyId?: string;
   role: string;
 }
 
-interface TenantAccount {
-  tenantId: string;
+interface CompanyAccount {
+  companyId: string;
   userId: string;
   token: string;
   email: string;
@@ -44,7 +44,7 @@ interface PlatformTenant {
 let app: INestApplication<Server> | undefined;
 let cleanupPool: Pool | undefined;
 let cleanupRedis: Redis | undefined;
-const createdTenantIds: string[] = [];
+const createdCompanyIds: string[] = [];
 const createdOrgUserIds: string[] = [];
 const createdSuperAdminIds: string[] = [];
 const runId = `${Date.now()}-${randomUUID().slice(0, 8)}`;
@@ -129,11 +129,11 @@ const signIn = async (
 ): Promise<request.Response> =>
   request(httpServer()).post('/api/auth/signin').send({ email, password });
 
-const createTenant = async (suffix: string): Promise<TenantAccount> => {
+const createTenant = async (suffix: string): Promise<CompanyAccount> => {
   const email = `phase9-${suffix}-${runId}@example.test`;
   const password = `Phase9Org!${randomUUID().slice(0, 18)}`;
   const response = await request(httpServer())
-    .post('/api/auth/org/signup')
+    .post('/api/auth/company/signup')
     .send({
       companyName: `Phase 9 ${suffix} ${runId}`,
       slug: `phase9-${suffix}-${runId}`,
@@ -142,12 +142,12 @@ const createTenant = async (suffix: string): Promise<TenantAccount> => {
     });
   const tokens = assertEnvelope<Tokens>(response, 201);
   const claims = decodeClaims(tokens.accessToken);
-  if (!claims.tenantId)
-    throw new Error('Organization token did not contain tenantId');
-  createdTenantIds.push(claims.tenantId);
+  if (!claims.companyId)
+    throw new Error('Company token did not contain companyId');
+  createdCompanyIds.push(claims.companyId);
   createdOrgUserIds.push(claims.sub);
   return {
-    tenantId: claims.tenantId,
+    companyId: claims.companyId,
     userId: claims.sub,
     token: tokens.accessToken,
     email,
@@ -155,7 +155,7 @@ const createTenant = async (suffix: string): Promise<TenantAccount> => {
   };
 };
 
-const createSuperAdmin = async (): Promise<TenantAccount> => {
+const createSuperAdmin = async (): Promise<CompanyAccount> => {
   const pool = cleanupPool;
   if (!pool) throw new Error('Cleanup PostgreSQL pool was not initialized');
   const email = `phase9-superadmin-${runId}@example.test`;
@@ -172,7 +172,7 @@ const createSuperAdmin = async (): Promise<TenantAccount> => {
   const response = await signIn(email, password);
   const tokens = assertEnvelope<Tokens>(response, 200);
   return {
-    tenantId: 'public',
+    companyId: 'public',
     userId,
     token: tokens.accessToken,
     email,
@@ -181,13 +181,18 @@ const createSuperAdmin = async (): Promise<TenantAccount> => {
 };
 
 const createOpenJob = async (
-  tenant: TenantAccount,
+  tenant: CompanyAccount,
   suffix: string,
 ): Promise<{ id: string }> => {
   const created = await request(httpServer())
     .post('/api/job-postings')
     .set('Authorization', `Bearer ${tenant.token}`)
-    .send({ title: `Phase 9 ${suffix} Job ${runId}` });
+    .send({
+      title: `Phase 9 ${suffix} Job ${runId}`,
+      employmentType: 'full-time',
+      location: 'Makati City',
+      workSetup: 'on-site',
+    });
   const posting = assertEnvelope<{ id: string }>(created, 201);
   await request(httpServer())
     .post(`/api/job-postings/${posting.id}/publish`)
@@ -207,26 +212,26 @@ const cleanupDatabase = async (): Promise<void> => {
       [createdSuperAdminIds],
     );
   }
-  if (createdTenantIds.length > 0) {
+  if (createdCompanyIds.length > 0) {
     await cleanupPool.query(
-      'DELETE FROM public.audit_logs WHERE tenant_id = ANY($1::text[])',
-      [createdTenantIds],
+      'DELETE FROM public.audit_logs WHERE company_id = ANY($1::text[])',
+      [createdCompanyIds],
     );
     await cleanupPool.query(
-      'DELETE FROM public.candidate_applications_index WHERE tenant_id = ANY($1::text[])',
-      [createdTenantIds],
+      'DELETE FROM public.candidate_applications_index WHERE company_id = ANY($1::text[])',
+      [createdCompanyIds],
     );
     await cleanupPool.query(
-      'DELETE FROM public.job_listings_index WHERE tenant_id = ANY($1::text[])',
-      [createdTenantIds],
+      'DELETE FROM public.job_listings_index WHERE company_id = ANY($1::text[])',
+      [createdCompanyIds],
     );
     await cleanupPool.query(
-      'DELETE FROM public.user_emails WHERE tenant_id = ANY($1::uuid[])',
-      [createdTenantIds],
+      'DELETE FROM public.user_emails WHERE company_id = ANY($1::uuid[])',
+      [createdCompanyIds],
     );
     await cleanupPool.query(
-      'DELETE FROM public.refresh_tokens WHERE tenant_id = ANY($1::uuid[])',
-      [createdTenantIds],
+      'DELETE FROM public.refresh_tokens WHERE company_id = ANY($1::uuid[])',
+      [createdCompanyIds],
     );
   }
   if (createdOrgUserIds.length > 0) {
@@ -235,14 +240,14 @@ const cleanupDatabase = async (): Promise<void> => {
       [createdOrgUserIds],
     );
   }
-  if (createdTenantIds.length > 0) {
+  if (createdCompanyIds.length > 0) {
     await cleanupPool.query(
-      'DELETE FROM public.tenants WHERE id = ANY($1::uuid[])',
-      [createdTenantIds],
+      'DELETE FROM public.companies WHERE id = ANY($1::uuid[])',
+      [createdCompanyIds],
     );
-    for (const tenantId of createdTenantIds) {
+    for (const companyId of createdCompanyIds) {
       await cleanupPool.query(
-        `DROP SCHEMA IF EXISTS "tenant_${tenantId}" CASCADE`,
+        `DROP SCHEMA IF EXISTS "company_${companyId}" CASCADE`,
       );
     }
   }
@@ -265,13 +270,13 @@ const cleanupRedisKeys = async (pattern: string): Promise<void> => {
 };
 
 describe('Phase 9 release gate', () => {
-  let superAdmin: TenantAccount;
-  let tenant: TenantAccount;
-  let secondTenant: TenantAccount;
+  jest.setTimeout(30000);
+  let superAdmin: CompanyAccount;
+  let tenant: CompanyAccount;
+  let secondTenant: CompanyAccount;
   let recruiterToken = '';
 
   beforeAll(async () => {
-    jest.setTimeout(30000);
     await verifyInfrastructure();
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -299,13 +304,16 @@ describe('Phase 9 release gate', () => {
   });
 
   describe('platform tenant management', () => {
-    it('lists tenants with status and returns platform stats', async () => {
+    it('lists companies with status and returns platform stats', async () => {
       const listed = await request(httpServer())
-        .get('/api/platform/tenants')
+        .get('/api/platform/companies?pageSize=50')
         .set('Authorization', `Bearer ${superAdmin.token}`);
-      const platformTenants = assertEnvelope<PlatformTenant[]>(listed, 200);
+      const platformTenants = assertEnvelope<{ data: PlatformTenant[] }>(
+        listed,
+        200,
+      ).data;
       const created = platformTenants.filter((t) =>
-        createdTenantIds.includes(t.id),
+        createdCompanyIds.includes(t.id),
       );
       expect(created).toHaveLength(2);
       expect(created.every((t) => t.status === 'active')).toBe(true);
@@ -315,37 +323,37 @@ describe('Phase 9 release gate', () => {
         .get('/api/platform/stats')
         .set('Authorization', `Bearer ${superAdmin.token}`);
       const stats = assertEnvelope<{
-        tenants: number;
+        companies: number;
         users: number;
         applications: number;
       }>(statsResponse, 200);
-      expect(stats.tenants).toBeGreaterThanOrEqual(2);
+      expect(stats.companies).toBeGreaterThanOrEqual(2);
       expect(stats.users).toBeGreaterThanOrEqual(2);
     });
 
     it('returns tenant detail with usage counts', async () => {
       const detail = await request(httpServer())
-        .get(`/api/platform/tenants/${tenant.tenantId}`)
+        .get(`/api/platform/companies/${tenant.companyId}`)
         .set('Authorization', `Bearer ${superAdmin.token}`);
       const result = assertEnvelope<
         PlatformTenant & { users: number; applications: number }
       >(detail, 200);
-      expect(result.id).toBe(tenant.tenantId);
+      expect(result.id).toBe(tenant.companyId);
       expect(result.status).toBe('active');
       expect(result.users).toBeGreaterThanOrEqual(1);
       expect(typeof result.applications).toBe('number');
     });
 
-    it('returns 404 for unknown tenants', async () => {
+    it('returns 404 for unknown companies', async () => {
       await request(httpServer())
-        .get(`/api/platform/tenants/${randomUUID()}`)
+        .get(`/api/platform/companies/${randomUUID()}`)
         .set('Authorization', `Bearer ${superAdmin.token}`)
         .expect(404);
     });
 
     it('forbids non-SuperAdmin access to platform routes', async () => {
       await request(httpServer())
-        .get('/api/platform/tenants')
+        .get('/api/platform/companies')
         .set('Authorization', `Bearer ${tenant.token}`)
         .expect(403);
     });
@@ -369,21 +377,21 @@ describe('Phase 9 release gate', () => {
 
       const suspended = assertEnvelope<PlatformTenant>(
         await request(httpServer())
-          .patch(`/api/platform/tenants/${secondTenant.tenantId}/suspend`)
+          .patch(`/api/platform/companies/${secondTenant.companyId}/suspend`)
           .set('Authorization', `Bearer ${superAdmin.token}`),
         200,
       );
       expect(suspended.status).toBe('suspended');
 
       const suspendedList = await request(httpServer())
-        .get('/api/platform/tenants')
+        .get('/api/platform/companies?pageSize=50')
         .set('Authorization', `Bearer ${superAdmin.token}`);
-      const platformTenants = assertEnvelope<PlatformTenant[]>(
+      const platformTenants = assertEnvelope<{ data: PlatformTenant[] }>(
         suspendedList,
         200,
-      );
+      ).data;
       expect(
-        platformTenants.find((t) => t.id === secondTenant.tenantId)?.status,
+        platformTenants.find((t) => t.id === secondTenant.companyId)?.status,
       ).toBe('suspended');
 
       const signin = await signIn(secondTenant.email, secondTenant.password);
@@ -400,7 +408,7 @@ describe('Phase 9 release gate', () => {
       assertStatus(careers, 404);
 
       const double = await request(httpServer())
-        .patch(`/api/platform/tenants/${secondTenant.tenantId}/suspend`)
+        .patch(`/api/platform/companies/${secondTenant.companyId}/suspend`)
         .set('Authorization', `Bearer ${superAdmin.token}`);
       assertStatus(double, 409);
     });
@@ -408,14 +416,14 @@ describe('Phase 9 release gate', () => {
     it('reactivates the tenant and restores sign-in, rotation, and careers', async () => {
       const reactivated = assertEnvelope<PlatformTenant>(
         await request(httpServer())
-          .patch(`/api/platform/tenants/${secondTenant.tenantId}/reactivate`)
+          .patch(`/api/platform/companies/${secondTenant.companyId}/reactivate`)
           .set('Authorization', `Bearer ${superAdmin.token}`),
         200,
       );
       expect(reactivated.status).toBe('active');
 
       const double = await request(httpServer())
-        .patch(`/api/platform/tenants/${secondTenant.tenantId}/reactivate`)
+        .patch(`/api/platform/companies/${secondTenant.companyId}/reactivate`)
         .set('Authorization', `Bearer ${superAdmin.token}`);
       assertStatus(double, 409);
 
@@ -431,10 +439,10 @@ describe('Phase 9 release gate', () => {
     });
   });
 
-  describe('org settings', () => {
-    it('returns the tenant settings and updates the name as OrgAdmin', async () => {
+  describe('company settings', () => {
+    it('returns the tenant settings and updates the name as CompanyAdmin', async () => {
       const settings = await request(httpServer())
-        .get('/api/org')
+        .get('/api/company')
         .set('Authorization', `Bearer ${tenant.token}`);
       const org = assertEnvelope<{
         name: string;
@@ -447,7 +455,7 @@ describe('Phase 9 release gate', () => {
 
       const updated = assertEnvelope<{ name: string }>(
         await request(httpServer())
-          .patch('/api/org')
+          .patch('/api/company')
           .set('Authorization', `Bearer ${tenant.token}`)
           .send({ name: 'Phase 9 Renamed' }),
         200,
@@ -462,7 +470,7 @@ describe('Phase 9 release gate', () => {
       const password = `Phase9Rc!${randomUUID().slice(0, 16)}`;
 
       const invited = await request(httpServer())
-        .post('/api/org/users/invite')
+        .post('/api/company/users/invite')
         .set('Authorization', `Bearer ${tenant.token}`)
         .send({ email, role: 'Recruiter', password });
       const user = assertEnvelope<{ id: string; email: string; role: string }>(
@@ -477,14 +485,14 @@ describe('Phase 9 release gate', () => {
       recruiterToken = tokens.accessToken;
 
       const duplicate = await request(httpServer())
-        .post('/api/org/users/invite')
+        .post('/api/company/users/invite')
         .set('Authorization', `Bearer ${tenant.token}`)
         .send({ email, role: 'Recruiter', password });
       assertStatus(duplicate, 409);
 
       const roleChanged = assertEnvelope<{ role: string }>(
         await request(httpServer())
-          .patch(`/api/org/users/${user.id}/role`)
+          .patch(`/api/company/users/${user.id}/role`)
           .set('Authorization', `Bearer ${tenant.token}`)
           .send({ role: 'HiringManager' }),
         200,
@@ -492,7 +500,7 @@ describe('Phase 9 release gate', () => {
       expect(roleChanged.role).toBe('HiringManager');
 
       const list = await request(httpServer())
-        .get('/api/org/users')
+        .get('/api/company/users')
         .set('Authorization', `Bearer ${tenant.token}`);
       const users = assertEnvelope<Array<{ id: string; role: string }>>(
         list,
@@ -502,7 +510,7 @@ describe('Phase 9 release gate', () => {
 
       assertEnvelope<{ id: string }>(
         await request(httpServer())
-          .delete(`/api/org/users/${user.id}`)
+          .delete(`/api/company/users/${user.id}`)
           .set('Authorization', `Bearer ${tenant.token}`),
         200,
       );
@@ -513,18 +521,18 @@ describe('Phase 9 release gate', () => {
 
     it('blocks self role change, self removal, and recruiter management actions', async () => {
       await request(httpServer())
-        .patch(`/api/org/users/${tenant.userId}/role`)
+        .patch(`/api/company/users/${tenant.userId}/role`)
         .set('Authorization', `Bearer ${tenant.token}`)
         .send({ role: 'Recruiter' })
         .expect(403);
 
       await request(httpServer())
-        .delete(`/api/org/users/${tenant.userId}`)
+        .delete(`/api/company/users/${tenant.userId}`)
         .set('Authorization', `Bearer ${tenant.token}`)
         .expect(403);
 
       await request(httpServer())
-        .post('/api/org/users/invite')
+        .post('/api/company/users/invite')
         .set('Authorization', `Bearer ${recruiterToken}`)
         .send({
           email: `phase9-nope-${runId}@example.test`,
@@ -534,7 +542,7 @@ describe('Phase 9 release gate', () => {
         .expect(403);
 
       await request(httpServer())
-        .patch(`/api/org/users/${tenant.userId}/role`)
+        .patch(`/api/company/users/${tenant.userId}/role`)
         .set('Authorization', `Bearer ${recruiterToken}`)
         .send({ role: 'Recruiter' })
         .expect(403);
@@ -546,19 +554,19 @@ describe('Phase 9 release gate', () => {
 
       const platformActions = await pool.query(
         `SELECT action FROM public.audit_logs
-         WHERE tenant_id = $1`,
-        [secondTenant.tenantId],
+         WHERE company_id = $1`,
+        [secondTenant.companyId],
       );
       const platformRows = (
         platformActions.rows as Array<{ action: string }>
       ).map((row) => row.action);
-      expect(platformRows).toContain('tenant.suspend');
-      expect(platformRows).toContain('tenant.reactivate');
+      expect(platformRows).toContain('company.suspend');
+      expect(platformRows).toContain('company.reactivate');
 
       const orgActions = await pool.query(
         `SELECT action FROM public.audit_logs
-         WHERE tenant_id = $1`,
-        [tenant.tenantId],
+         WHERE company_id = $1`,
+        [tenant.companyId],
       );
       const orgRows = (orgActions.rows as Array<{ action: string }>).map(
         (row) => row.action,

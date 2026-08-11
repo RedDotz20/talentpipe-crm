@@ -129,7 +129,10 @@ describe('PlatformService', () => {
         status: 'active',
       });
       await service.setCompanyStatus('t1', 'active');
-      expect(userRepo.setAllStatus).toHaveBeenCalledWith('active', 'company_t1');
+      expect(userRepo.setAllStatus).toHaveBeenCalledWith(
+        'active',
+        'company_t1',
+      );
     });
   });
 

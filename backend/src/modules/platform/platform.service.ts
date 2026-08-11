@@ -7,6 +7,7 @@ import { AuditService } from '../../common/audit/audit.service';
 import { CompanyRepository } from '../../repositories/company.repository';
 import { UserRepository } from '../../repositories/user.repository';
 import { UsageRepository } from '../../repositories/usage.repository';
+import type { ListQueryDto } from '../../common/dto/list-query.dto';
 
 @Injectable()
 export class PlatformService {
@@ -17,8 +18,8 @@ export class PlatformService {
     private readonly auditService: AuditService,
   ) {}
 
-  async listCompanies() {
-    return this.tenantRepo.findAll();
+  async listCompanies(query: ListQueryDto & { status?: string }) {
+    return this.tenantRepo.findPaginated(query);
   }
 
   async getCompany(id: string) {
