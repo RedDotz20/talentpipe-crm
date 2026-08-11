@@ -12,6 +12,7 @@ export interface Job {
   requiredSkills?: { id: string; name: string; category?: string | null }[];
   requirements?: string;
   benefits?: string;
+  createdAt?: string;
 }
 
 export interface Application {

@@ -21,14 +21,14 @@ export function JobMetaBadges({
 }: JobMetaBadgesProps) {
   return (
     <Group gap="xs">
-      <Badge variant="light" size="sm">
+      <Badge variant="light" color="indigo" size="sm">
         {formatLabel(employmentType)}
       </Badge>
-      <Badge variant="light" size="sm">
-        {formatLabel(location)}
-      </Badge>
-      <Badge variant="light" size="sm">
+      <Badge variant="light" color="teal" size="sm">
         {formatLabel(workSetup)}
+      </Badge>
+      <Badge variant="light" color="grape" size="sm">
+        {formatLabel(location)}
       </Badge>
     </Group>
   );
