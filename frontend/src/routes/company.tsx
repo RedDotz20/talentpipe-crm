@@ -9,7 +9,7 @@ export const Route = createFileRoute('/company')({
     }
     const { role } = useAuthStore.getState();
     if (role === 'Candidate') throw redirect({ to: '/dashboard' });
-    if (role === 'SuperAdmin') throw redirect({ to: '/admin' });
+    if (role === 'SuperAdmin') throw redirect({ to: '/admin/dashboard' });
   },
   component: CompanyPlatform,
 });

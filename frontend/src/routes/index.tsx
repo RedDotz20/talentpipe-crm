@@ -11,7 +11,7 @@ export const Route = createFileRoute('/')({
       throw redirect({ to: '/dashboard' });
     }
     if (role === 'SuperAdmin') {
-      throw redirect({ to: '/admin' });
+      throw redirect({ to: '/admin/dashboard' });
     }
     throw redirect({ to: '/company/dashboard' });
   },

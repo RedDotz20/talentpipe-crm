@@ -8,7 +8,7 @@ export const Route = createFileRoute('/_candidate')({
       throw redirect({ to: '/auth/signin' });
     }
     const { role } = useAuthStore.getState();
-    if (role === 'SuperAdmin') throw redirect({ to: '/admin' });
+    if (role === 'SuperAdmin') throw redirect({ to: '/admin/dashboard' });
     if (role !== 'Candidate') throw redirect({ to: '/company/dashboard' });
   },
   component: CandidatePlatform,

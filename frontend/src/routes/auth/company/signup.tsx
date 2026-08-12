@@ -7,7 +7,7 @@ export const Route = createFileRoute('/auth/company/signup')({
     if (useAuthStore.getState().isAuthenticated()) {
       const { role } = useAuthStore.getState();
       if (role === 'Candidate') throw redirect({ to: '/dashboard' });
-      if (role === 'SuperAdmin') throw redirect({ to: '/admin' });
+      if (role === 'SuperAdmin') throw redirect({ to: '/admin/dashboard' });
       throw redirect({ to: '/company/dashboard' });
     }
   },
