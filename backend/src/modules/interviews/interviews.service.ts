@@ -63,13 +63,7 @@ export class InterviewsService {
       query,
     );
     return toCsv(
-      [
-        'candidateName',
-        'jobTitle',
-        'scheduledAt',
-        'interviewerEmail',
-        'status',
-      ],
+      ['candidate', 'job', 'interviewer', 'scheduledAt', 'status'],
       rows,
     );
   }
