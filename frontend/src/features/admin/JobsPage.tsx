@@ -20,6 +20,7 @@ import type { PlatformJob } from '@/api/platformApi'
 import { platformApi } from '@/api/platformApi'
 import { RequiredSkillsPicker } from '@/features/company/job-postings/RequiredSkillsPicker'
 import { ListControls } from '@/shared/components/ListControls'
+import { ExportCsvButton } from '@/shared/components/ExportCsvButton'
 import { TableSkeleton } from '@/shared/components/Skeletons'
 import { useListQuery } from '@/shared/hooks/useListQuery'
 import { TableAction } from '@/shared/components/TableAction'
@@ -217,6 +218,18 @@ export function JobsPage() {
         }}
         sortDir={listQuery.sortDir}
         onToggleSortDir={listQuery.toggleSortDir}
+        actions={
+          <ExportCsvButton
+            resource="jobs"
+            request={() =>
+              platformApi.exportJobs({
+                search: listQuery.search || undefined,
+                companyId: companyFilter ?? undefined,
+                status: statusFilter ?? undefined,
+              })
+            }
+          />
+        }
       />
 
       {jobsQuery.isLoading ? (

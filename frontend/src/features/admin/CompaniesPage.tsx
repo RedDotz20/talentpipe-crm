@@ -14,10 +14,12 @@ import {
 } from '@mantine/core'
 import { Link } from '@tanstack/react-router'
 import dayjs from 'dayjs'
+import { platformApi } from '@/api/platformApi'
 import { ListControls } from '@/shared/components/ListControls'
 import { TableSkeleton } from '@/shared/components/Skeletons'
 import { useListQuery } from '@/shared/hooks/useListQuery'
 import { TableAction } from '@/shared/components/TableAction'
+import { ExportCsvButton } from '@/shared/components/ExportCsvButton'
 import { IconPlayerPause, IconPlayerPlay, IconTrash } from '@tabler/icons-react'
 import {
   useDeleteCompany,
@@ -120,6 +122,17 @@ export function CompaniesPage() {
         }}
         sortDir={listQuery.sortDir}
         onToggleSortDir={listQuery.toggleSortDir}
+        actions={
+          <ExportCsvButton
+            resource="companies"
+            request={() =>
+              platformApi.exportCompanies({
+                search: listQuery.search || undefined,
+                status: statusFilter ?? undefined,
+              })
+            }
+          />
+        }
       />
 
       {companiesQuery.isLoading ? (

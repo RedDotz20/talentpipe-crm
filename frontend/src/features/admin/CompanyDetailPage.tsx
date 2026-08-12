@@ -20,6 +20,7 @@ import {
 import { useNavigate } from '@tanstack/react-router'
 import dayjs from 'dayjs'
 import { INTERNAL_USER_ROLES } from '@/api/companyUsersApi'
+import { platformApi } from '@/api/platformApi'
 import type {
   PlatformApplication,
   PlatformInterview,
@@ -27,6 +28,7 @@ import type {
 } from '@/api/platformApi'
 import { DetailSkeleton, TableSkeleton } from '@/shared/components/Skeletons'
 import { TableAction } from '@/shared/components/TableAction'
+import { ExportCsvButton } from '@/shared/components/ExportCsvButton'
 import {
   IconBan,
   IconCalendarClock,
@@ -161,9 +163,15 @@ function UsersTab({ companyId }: { companyId: string }) {
     <>
       <Group justify="space-between" mb="md">
         <Title order={4}>Team</Title>
-        <Button size="xs" onClick={() => setCreateOpen(true)}>
-          Add user
-        </Button>
+        <Group gap="xs">
+          <ExportCsvButton
+            resource="users"
+            request={() => platformApi.exportUsers({ companyId })}
+          />
+          <Button size="xs" onClick={() => setCreateOpen(true)}>
+            Add user
+          </Button>
+        </Group>
       </Group>
 
       {usersQuery.isLoading ? (
@@ -365,6 +373,13 @@ function ApplicationsTab({ companyId }: { companyId: string }) {
 
   return (
     <>
+      <Group justify="space-between" mb="md">
+        <Title order={4}>Applications</Title>
+        <ExportCsvButton
+          resource="applications"
+          request={() => platformApi.exportApplications({ companyId })}
+        />
+      </Group>
       {applicationsQuery.isLoading ? (
         <TableSkeleton headers={['Candidate', 'Job', 'Stage', 'Applied', 'Match']} />
       ) : applications.length === 0 ? (
@@ -462,6 +477,13 @@ function InterviewsTab({ companyId }: { companyId: string }) {
 
   return (
     <>
+      <Group justify="space-between" mb="md">
+        <Title order={4}>Interviews</Title>
+        <ExportCsvButton
+          resource="interviews"
+          request={() => platformApi.exportInterviews({ companyId })}
+        />
+      </Group>
       {interviewsQuery.isLoading ? (
         <TableSkeleton
           headers={['Candidate', 'Job', 'Interviewer', 'Scheduled', 'Status', 'Actions']}

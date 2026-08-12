@@ -12,8 +12,9 @@ import {
 } from '@mantine/core'
 import { Link } from '@tanstack/react-router'
 import dayjs from 'dayjs'
-import type { PlatformApplication } from '@/api/platformApi'
+import { platformApi, type PlatformApplication } from '@/api/platformApi'
 import { ListControls } from '@/shared/components/ListControls'
+import { ExportCsvButton } from '@/shared/components/ExportCsvButton'
 import { TableSkeleton } from '@/shared/components/Skeletons'
 import { useListQuery } from '@/shared/hooks/useListQuery'
 import { TableAction } from '@/shared/components/TableAction'
@@ -87,6 +88,17 @@ export function ApplicationsPage() {
         }}
         sortDir={listQuery.sortDir}
         onToggleSortDir={listQuery.toggleSortDir}
+        actions={
+          <ExportCsvButton
+            resource="applications"
+            request={() =>
+              platformApi.exportApplications({
+                search: listQuery.search || undefined,
+                companyId: companyFilter ?? undefined,
+              })
+            }
+          />
+        }
       />
 
       {applicationsQuery.isLoading ? (

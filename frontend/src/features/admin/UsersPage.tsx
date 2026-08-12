@@ -22,6 +22,7 @@ import { platformApi, type PlatformUser } from '@/api/platformApi'
 import { queryKeys } from '@/api/queryKeys'
 import { useApiMutation } from '@/hooks/useApiMutation'
 import { ListControls } from '@/shared/components/ListControls'
+import { ExportCsvButton } from '@/shared/components/ExportCsvButton'
 import { TableSkeleton } from '@/shared/components/Skeletons'
 import { useListQuery } from '@/shared/hooks/useListQuery'
 import { TableAction } from '@/shared/components/TableAction'
@@ -260,6 +261,19 @@ export function UsersPage() {
         }}
         sortDir={listQuery.sortDir}
         onToggleSortDir={listQuery.toggleSortDir}
+        actions={
+          <ExportCsvButton
+            resource="users"
+            request={() =>
+              platformApi.exportUsers({
+                search: listQuery.search || undefined,
+                type: typeFilter ?? undefined,
+                companyId: companyFilter ?? undefined,
+                role: roleFilter ?? undefined,
+              })
+            }
+          />
+        }
       />
 
       {usersQuery.isLoading ? (
