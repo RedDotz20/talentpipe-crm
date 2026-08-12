@@ -229,3 +229,21 @@ Auth endpoints return an explicit envelope, e.g. `{ "data": { "accessToken": "..
 Standard `code` values: `VALIDATION_ERROR` (400 + 413), `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT` (409), `UNPROCESSABLE` (422), `RATE_LIMITED`, `SERVICE_UNAVAILABLE`, `INTERNAL_ERROR`.
 
 Note: a company mismatch is logged server-side with detail (for audit purposes, per `05_DATA_ISOLATION_STRATEGY.md` Layer 8) but is always returned to the client as `NOT_FOUND` — there is no client-facing `COMPANY_MISMATCH` code, to avoid leaking that the resource exists elsewhere.
+
+## CSV Export Endpoints (M16)
+
+All export endpoints return `text/csv` as a file download (`Content-Disposition: attachment; filename="{resource}-YYYY-MM-DD.csv"`). The body is RFC 4180 CSV with a UTF-8 BOM, cells starting with `= + - @` (or tab/CR) are prefixed with `'` to neutralize spreadsheet formula injection, and values are RFC 4180-escaped. Query params mirror the matching list endpoint (`search` plus the page's filters); pagination and sort params are accepted but ignored.
+
+| Method | Path | Filters |
+|---|---|---|
+| GET | /platform/companies/export | search, status |
+| GET | /platform/users/export | search, type, companyId, role |
+| GET | /platform/applications/export | search, companyId, status |
+| GET | /platform/interviews/export | search, companyId, status |
+| GET | /platform/jobs/export | search, companyId, status |
+| GET | /company/users/export | — |
+| GET | /job-postings/export | search, status |
+| GET | /candidates/export | search |
+| GET | /interviews/export | search, status, assignedToMe |
+
+All are protected by the same guards as their list endpoints (SuperAdmin for /platform/*; the VIEW/PICKER role sets for company endpoints).
