@@ -266,7 +266,7 @@ export function UsersPage() {
             resource="users"
             request={() =>
               platformApi.exportUsers({
-                search: listQuery.search || undefined,
+                search: listQuery.params.search,
                 type: typeFilter ?? undefined,
                 companyId: companyFilter ?? undefined,
                 role: roleFilter ?? undefined,

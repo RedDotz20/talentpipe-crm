@@ -93,7 +93,7 @@ export function ApplicationsPage() {
             resource="applications"
             request={() =>
               platformApi.exportApplications({
-                search: listQuery.search || undefined,
+                search: listQuery.params.search,
                 companyId: companyFilter ?? undefined,
               })
             }

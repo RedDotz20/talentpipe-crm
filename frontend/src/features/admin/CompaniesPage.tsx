@@ -127,7 +127,7 @@ export function CompaniesPage() {
             resource="companies"
             request={() =>
               platformApi.exportCompanies({
-                search: listQuery.search || undefined,
+                search: listQuery.params.search,
                 status: statusFilter ?? undefined,
               })
             }

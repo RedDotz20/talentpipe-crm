@@ -21,7 +21,7 @@ export function ExportCsvButton({ resource, request }: ExportCsvButtonProps) {
       anchor.href = url;
       anchor.download = `${resource}-${new Date().toISOString().slice(0, 10)}.csv`;
       anchor.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 0);
     } catch {
       setError(true);
     } finally {

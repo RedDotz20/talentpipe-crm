@@ -223,7 +223,7 @@ export function JobsPage() {
             resource="jobs"
             request={() =>
               platformApi.exportJobs({
-                search: listQuery.search || undefined,
+                search: listQuery.params.search,
                 companyId: companyFilter ?? undefined,
                 status: statusFilter ?? undefined,
               })
