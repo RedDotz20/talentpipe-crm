@@ -106,7 +106,8 @@ export class PlatformAccountsController {
     @Res() res: Response,
     @Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto,
     @Query('type') type?: string,
-    @Query('companyId') companyId?: string,
+    @Query('companyId', new ParseUUIDPipe({ optional: true }))
+    companyId?: string,
     @Query('role') role?: string,
   ) {
     const csv = await this.accountsService.exportAllUsers({

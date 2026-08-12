@@ -10,7 +10,10 @@ describe('toCsv', () => {
   it('escapes commas, quotes, and newlines', () => {
     const csv = toCsv(
       ['a', 'b'],
-      [{ a: 'x,y', b: 'say "hi"' }, { a: 'multi\nline', b: 'ok' }],
+      [
+        { a: 'x,y', b: 'say "hi"' },
+        { a: 'multi\nline', b: 'ok' },
+      ],
     );
     expect(csv).toContain('"x,y"');
     expect(csv).toContain('"say ""hi"""');
@@ -32,8 +35,16 @@ describe('toCsv', () => {
 
   it('quotes injection-prefixed cells containing commas', () => {
     const csv = toCsv(['a'], [{ a: '=x,y' }]);
-    expect(csv).toContain("\"'=x,y\"");
+    expect(csv).toContain('"\'=x,y"');
   });
+
+  it.each(['+SUM(A1:A9)', '-1+2', '@SUM(A1:A9)', '\t=1+1', '\r=1+1'])(
+    'neutralizes %j',
+    (value) => {
+      const csv = toCsv(['a'], [{ a: value }]);
+      expect(csv).toContain(`'${value}`);
+    },
+  );
 });
 
 describe('csvFilename', () => {
