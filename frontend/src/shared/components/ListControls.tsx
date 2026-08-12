@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { ActionIcon, Group, Select, TextInput } from '@mantine/core';
 import {
   IconSortAscending,
@@ -24,6 +25,7 @@ interface ListControlsProps {
   onSortByChange: (value: string | null) => void;
   sortDir: 'asc' | 'desc';
   onToggleSortDir: () => void;
+  actions?: ReactNode;
 }
 
 export function ListControls({
@@ -36,6 +38,7 @@ export function ListControls({
   onSortByChange,
   sortDir,
   onToggleSortDir,
+  actions,
 }: ListControlsProps) {
   return (
     <Group mb="md" wrap="wrap">
@@ -75,6 +78,7 @@ export function ListControls({
           <IconSortDescending size="1rem" />
         )}
       </ActionIcon>
+      {actions}
     </Group>
   );
 }

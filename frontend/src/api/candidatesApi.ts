@@ -29,6 +29,10 @@ export const candidatesApi = {
     const { data } = await apiClient.get('/candidates', { params });
     return unwrap(data as ApiEnvelope<Paginated<Candidate>>);
   },
+  exportCsv: async (params?: { search?: string }): Promise<Blob> => {
+    const { data } = await apiClient.get('/candidates/export', { params, responseType: 'blob' });
+    return data as Blob;
+  },
   get: async (id: string): Promise<Candidate> => {
     const { data } = await apiClient.get(`/candidates/${id}`);
     return unwrap(data as ApiEnvelope<Candidate>);

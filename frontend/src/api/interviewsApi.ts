@@ -45,6 +45,10 @@ export const interviewsApi = {
     const { data } = await apiClient.get('/interviews', { params });
     return unwrap(data as ApiEnvelope<Paginated<Interview>>);
   },
+  exportCsv: async (params?: { search?: string; status?: string }): Promise<Blob> => {
+    const { data } = await apiClient.get('/interviews/export', { params, responseType: 'blob' });
+    return data as Blob;
+  },
   get: async (id: string): Promise<Interview> => {
     const { data } = await apiClient.get(`/interviews/${id}`);
     return unwrap(data as ApiEnvelope<Interview>);

@@ -40,6 +40,10 @@ export const jobPostingsApi = {
     const { data } = await apiClient.get('/job-postings', { params });
     return unwrap(data as ApiEnvelope<Paginated<JobPosting>>);
   },
+  exportCsv: async (params?: { search?: string; status?: string }): Promise<Blob> => {
+    const { data } = await apiClient.get('/job-postings/export', { params, responseType: 'blob' });
+    return data as Blob;
+  },
   get: async (id: string): Promise<JobPosting> => {
     const { data } = await apiClient.get(`/job-postings/${id}`);
     return unwrap(data as ApiEnvelope<JobPosting>);

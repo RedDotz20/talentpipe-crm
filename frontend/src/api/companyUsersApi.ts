@@ -31,6 +31,10 @@ export const companyUsersApi = {
     const { data } = await apiClient.get('/company/users');
     return unwrap(data as ApiEnvelope<CompanyUser[]>);
   },
+  exportCsv: async (): Promise<Blob> => {
+    const { data } = await apiClient.get('/company/users/export', { responseType: 'blob' });
+    return data as Blob;
+  },
   create: async (input: CreateUserInput): Promise<ApiEnvelope<CompanyUser>> => {
     const { data } = await apiClient.post('/company/users', input);
     return data as ApiEnvelope<CompanyUser>;

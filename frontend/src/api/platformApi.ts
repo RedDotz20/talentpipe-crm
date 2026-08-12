@@ -113,6 +113,26 @@ export const platformApi = {
     const { data } = await apiClient.get('/platform/companies', { params });
     return unwrap(data as ApiEnvelope<Paginated<PlatformCompany>>);
   },
+  exportCompanies: async (params?: { search?: string; status?: string }): Promise<Blob> => {
+    const { data } = await apiClient.get('/platform/companies/export', { params, responseType: 'blob' });
+    return data as Blob;
+  },
+  exportUsers: async (params?: { search?: string; type?: string; companyId?: string; role?: string }): Promise<Blob> => {
+    const { data } = await apiClient.get('/platform/users/export', { params, responseType: 'blob' });
+    return data as Blob;
+  },
+  exportApplications: async (params?: { search?: string; companyId?: string }): Promise<Blob> => {
+    const { data } = await apiClient.get('/platform/applications/export', { params, responseType: 'blob' });
+    return data as Blob;
+  },
+  exportInterviews: async (params?: { search?: string; companyId?: string }): Promise<Blob> => {
+    const { data } = await apiClient.get('/platform/interviews/export', { params, responseType: 'blob' });
+    return data as Blob;
+  },
+  exportJobs: async (params?: { search?: string; companyId?: string; status?: string }): Promise<Blob> => {
+    const { data } = await apiClient.get('/platform/jobs/export', { params, responseType: 'blob' });
+    return data as Blob;
+  },
   getCompany: async (id: string): Promise<CompanyDetail> => {
     const { data } = await apiClient.get(`/platform/companies/${id}`);
     return unwrap(data as ApiEnvelope<CompanyDetail>);
