@@ -31,6 +31,12 @@ export const CATEGORY_AXIS_PROPS = {
   tickFormatter: truncateLabel,
 };
 
+export const CHART_HEIGHT = {
+  area: 260,
+  bar: 280,
+  stacked: 300,
+} as const;
+
 export function ChartCard({
   title,
   actions,
@@ -51,9 +57,24 @@ export function ChartCard({
   );
 }
 
-export function ChartEmpty({ label = 'No data yet' }: { label?: string }) {
+export function ChartEmpty({
+  label = 'No data yet',
+  height = CHART_HEIGHT.area,
+}: {
+  label?: string;
+  height?: number;
+}) {
   return (
-    <Text c="dimmed" ta="center" py={48}>
+    <Text
+      c="dimmed"
+      ta="center"
+      style={{
+        height,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
       {label}
     </Text>
   );

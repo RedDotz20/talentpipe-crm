@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Alert,
+  Grid,
   Paper,
   SimpleGrid,
   Skeleton,
@@ -15,6 +16,7 @@ import { queryKeys } from '@/api/queryKeys';
 import type { TimeUnit } from '@/shared/types/dashboard';
 import {
   CATEGORY_AXIS_PROPS,
+  CHART_HEIGHT,
   ChartCard,
   ChartEmpty,
   countFormatter,
@@ -92,99 +94,113 @@ export function PlatformDashboardPage() {
         <StatCard label="Jobs" value={data.jobs} />
       </SimpleGrid>
 
-      <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
-        <ChartCard
-          title="Companies over time"
-          actions={<UnitSelector value={unit} onChange={setUnit} />}
-        >
-          {overTime.every((point) => point.count === 0) ? (
-            <ChartEmpty />
-          ) : (
-            <AreaChart
-              h={260}
-              data={overTime}
-              dataKey="label"
-              series={[{ name: 'count', color: 'indigo.6' }]}
-              curveType="monotone"
-              withGradient
-              xAxisProps={{ interval: 'preserveStartEnd' }}
-              valueFormatter={countFormatter}
-            />
-          )}
-        </ChartCard>
+      <Grid gap="lg">
+        <Grid.Col span={{ base: 12, lg: 9 }}>
+          <ChartCard
+            title="Companies over time"
+            actions={<UnitSelector value={unit} onChange={setUnit} />}
+          >
+            {overTime.every((point) => point.count === 0) ? (
+              <ChartEmpty height={CHART_HEIGHT.area} />
+            ) : (
+              <AreaChart
+                h={CHART_HEIGHT.area}
+                data={overTime}
+                dataKey="label"
+                series={[{ name: 'count', color: 'indigo.6' }]}
+                curveType="monotone"
+                withGradient
+                xAxisProps={{ interval: 'preserveStartEnd' }}
+                valueFormatter={countFormatter}
+              />
+            )}
+          </ChartCard>
+        </Grid.Col>
 
-        <ChartCard title="Tenant status">
-          {data.activeCompanies + data.suspendedCompanies === 0 ? (
-            <ChartEmpty />
-          ) : (
-            <DonutChart
-              h={260}
-              data={[
-                { name: 'Active', value: data.activeCompanies, color: 'green.6' },
-                {
-                  name: 'Suspended',
-                  value: data.suspendedCompanies,
-                  color: 'red.6',
-                },
-              ]}
-              withLegend
-            />
-          )}
-        </ChartCard>
+        <Grid.Col span={{ base: 12, lg: 3 }}>
+          <ChartCard title="Tenant status">
+            {data.activeCompanies + data.suspendedCompanies === 0 ? (
+              <ChartEmpty height={CHART_HEIGHT.area} />
+            ) : (
+              <DonutChart
+                h={CHART_HEIGHT.area}
+                data={[
+                  {
+                    name: 'Active',
+                    value: data.activeCompanies,
+                    color: 'green.6',
+                  },
+                  {
+                    name: 'Suspended',
+                    value: data.suspendedCompanies,
+                    color: 'red.6',
+                  },
+                ]}
+                withLegend
+              />
+            )}
+          </ChartCard>
+        </Grid.Col>
 
-        <ChartCard title="Applications per company (top 10)">
-          {data.applicationsPerCompany.length === 0 ? (
-            <ChartEmpty />
-          ) : (
-            <BarChart
-              h={280}
-              data={data.applicationsPerCompany}
-              dataKey="companyName"
-              series={[{ name: 'count', color: 'indigo.6' }]}
-              withLegend={false}
-              xAxisProps={CATEGORY_AXIS_PROPS}
-              valueFormatter={countFormatter}
-            />
-          )}
-        </ChartCard>
+        <Grid.Col span={{ base: 12, lg: 6 }}>
+          <ChartCard title="Applications per company (top 10)">
+            {data.applicationsPerCompany.length === 0 ? (
+              <ChartEmpty height={CHART_HEIGHT.bar} />
+            ) : (
+              <BarChart
+                h={CHART_HEIGHT.bar}
+                data={data.applicationsPerCompany}
+                dataKey="companyName"
+                series={[{ name: 'count', color: 'indigo.6' }]}
+                withLegend={false}
+                xAxisProps={CATEGORY_AXIS_PROPS}
+                valueFormatter={countFormatter}
+              />
+            )}
+          </ChartCard>
+        </Grid.Col>
 
-        <ChartCard title="Users per company (top 10)">
-          {data.usersPerCompany.length === 0 ? (
-            <ChartEmpty />
-          ) : (
-            <BarChart
-              h={280}
-              data={data.usersPerCompany}
-              dataKey="companyName"
-              series={[{ name: 'count', color: 'teal.6' }]}
-              withLegend={false}
-              xAxisProps={CATEGORY_AXIS_PROPS}
-              valueFormatter={countFormatter}
-            />
-          )}
-        </ChartCard>
+        <Grid.Col span={{ base: 12, lg: 6 }}>
+          <ChartCard title="Users per company (top 10)">
+            {data.usersPerCompany.length === 0 ? (
+              <ChartEmpty height={CHART_HEIGHT.bar} />
+            ) : (
+              <BarChart
+                h={CHART_HEIGHT.bar}
+                data={data.usersPerCompany}
+                dataKey="companyName"
+                series={[{ name: 'count', color: 'teal.6' }]}
+                withLegend={false}
+                xAxisProps={CATEGORY_AXIS_PROPS}
+                valueFormatter={countFormatter}
+              />
+            )}
+          </ChartCard>
+        </Grid.Col>
 
-        <ChartCard title="Jobs by status per company (top 10)">
-          {data.jobsByStatusPerCompany.length === 0 ? (
-            <ChartEmpty />
-          ) : (
-            <BarChart
-              h={300}
-              data={data.jobsByStatusPerCompany}
-              dataKey="companyName"
-              type="stacked"
-              series={[
-                { name: 'open', color: 'green.6', stackId: 'a' },
-                { name: 'draft', color: 'gray.5', stackId: 'a' },
-                { name: 'closed', color: 'red.6', stackId: 'a' },
-              ]}
-              withLegend
-              xAxisProps={CATEGORY_AXIS_PROPS}
-              valueFormatter={countFormatter}
-            />
-          )}
-        </ChartCard>
-      </SimpleGrid>
+        <Grid.Col span={12}>
+          <ChartCard title="Jobs by status per company (top 10)">
+            {data.jobsByStatusPerCompany.length === 0 ? (
+              <ChartEmpty height={CHART_HEIGHT.stacked} />
+            ) : (
+              <BarChart
+                h={CHART_HEIGHT.stacked}
+                data={data.jobsByStatusPerCompany}
+                dataKey="companyName"
+                type="stacked"
+                series={[
+                  { name: 'open', color: 'green.6', stackId: 'a' },
+                  { name: 'draft', color: 'gray.5', stackId: 'a' },
+                  { name: 'closed', color: 'red.6', stackId: 'a' },
+                ]}
+                withLegend
+                xAxisProps={CATEGORY_AXIS_PROPS}
+                valueFormatter={countFormatter}
+              />
+            )}
+          </ChartCard>
+        </Grid.Col>
+      </Grid>
     </Stack>
   );
 }

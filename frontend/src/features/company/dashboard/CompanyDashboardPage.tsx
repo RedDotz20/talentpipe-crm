@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   Alert,
+  Grid,
   Paper,
   SimpleGrid,
   Skeleton,
@@ -15,6 +16,7 @@ import type { TimeUnit } from '@/shared/types/dashboard';
 import {
   CATEGORICAL_PALETTE,
   CATEGORY_AXIS_PROPS,
+  CHART_HEIGHT,
   ChartCard,
   ChartEmpty,
   countFormatter,
@@ -100,112 +102,126 @@ export function CompanyDashboardPage() {
         </Paper>
       </SimpleGrid>
 
-      <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
-        <ChartCard
-          title="Applications over time"
-          actions={<UnitSelector value={unit} onChange={setUnit} />}
-        >
-          {overTime.every((point) => point.count === 0) ? (
-            <ChartEmpty />
-          ) : (
-            <AreaChart
-              h={260}
-              data={overTime}
-              dataKey="label"
-              series={[{ name: 'count', color: 'indigo.6' }]}
-              curveType="monotone"
-              withGradient
-              xAxisProps={{ interval: 'preserveStartEnd' }}
-              valueFormatter={countFormatter}
-            />
-          )}
-        </ChartCard>
+      <Grid gap="lg">
+        <Grid.Col span={{ base: 12, lg: 9 }}>
+          <ChartCard
+            title="Applications over time"
+            actions={<UnitSelector value={unit} onChange={setUnit} />}
+          >
+            {overTime.every((point) => point.count === 0) ? (
+              <ChartEmpty height={CHART_HEIGHT.area} />
+            ) : (
+              <AreaChart
+                h={CHART_HEIGHT.area}
+                data={overTime}
+                dataKey="label"
+                series={[{ name: 'count', color: 'indigo.6' }]}
+                curveType="monotone"
+                withGradient
+                xAxisProps={{ interval: 'preserveStartEnd' }}
+                valueFormatter={countFormatter}
+              />
+            )}
+          </ChartCard>
+        </Grid.Col>
 
-        <ChartCard title="Applications by stage">
-          {summary.applicationsByStage.length === 0 ? (
-            <ChartEmpty />
-          ) : (
-            <DonutChart
-              h={260}
-              data={summary.applicationsByStage.map((stage, index) => ({
-                name: stage.stageName,
-                value: stage.count,
-                color: CATEGORICAL_PALETTE[index % CATEGORICAL_PALETTE.length],
-              }))}
-              withLegend
-            />
-          )}
-        </ChartCard>
+        <Grid.Col span={{ base: 12, lg: 3 }}>
+          <ChartCard title="Applications by stage">
+            {summary.applicationsByStage.length === 0 ? (
+              <ChartEmpty height={CHART_HEIGHT.area} />
+            ) : (
+              <DonutChart
+                h={CHART_HEIGHT.area}
+                data={summary.applicationsByStage.map((stage, index) => ({
+                  name: stage.stageName,
+                  value: stage.count,
+                  color:
+                    CATEGORICAL_PALETTE[index % CATEGORICAL_PALETTE.length],
+                }))}
+                withLegend
+              />
+            )}
+          </ChartCard>
+        </Grid.Col>
 
-        <ChartCard title="Top jobs by applications">
-          {summary.topJobsByApplications.length === 0 ? (
-            <ChartEmpty />
-          ) : (
-            <BarChart
-              h={280}
-              data={summary.topJobsByApplications}
-              dataKey="title"
-              series={[{ name: 'count', color: 'teal.6' }]}
-              withLegend={false}
-              xAxisProps={CATEGORY_AXIS_PROPS}
-              valueFormatter={countFormatter}
-            />
-          )}
-        </ChartCard>
+        <Grid.Col span={{ base: 12, lg: 9 }}>
+          <ChartCard title="Top jobs by applications">
+            {summary.topJobsByApplications.length === 0 ? (
+              <ChartEmpty height={CHART_HEIGHT.bar} />
+            ) : (
+              <BarChart
+                h={CHART_HEIGHT.bar}
+                data={summary.topJobsByApplications}
+                dataKey="title"
+                series={[{ name: 'count', color: 'teal.6' }]}
+                withLegend={false}
+                xAxisProps={CATEGORY_AXIS_PROPS}
+                valueFormatter={countFormatter}
+              />
+            )}
+          </ChartCard>
+        </Grid.Col>
 
-        <ChartCard title="Interview status">
-          {summary.interviewStatusBreakdown.length === 0 ? (
-            <ChartEmpty />
-          ) : (
-            <DonutChart
-              h={260}
-              data={summary.interviewStatusBreakdown.map((entry) => ({
-                name: entry.status,
-                value: entry.count,
-                color:
-                  entry.status === 'scheduled'
-                    ? 'indigo.6'
-                    : entry.status === 'completed'
-                      ? 'green.6'
-                      : 'red.6',
-              }))}
-              withLegend
-            />
-          )}
-        </ChartCard>
+        <Grid.Col span={{ base: 12, lg: 3 }}>
+          <ChartCard title="Interview status">
+            {summary.interviewStatusBreakdown.length === 0 ? (
+              <ChartEmpty height={CHART_HEIGHT.area} />
+            ) : (
+              <DonutChart
+                h={CHART_HEIGHT.area}
+                data={summary.interviewStatusBreakdown.map((entry) => ({
+                  name: entry.status,
+                  value: entry.count,
+                  color:
+                    entry.status === 'scheduled'
+                      ? 'indigo.6'
+                      : entry.status === 'completed'
+                        ? 'green.6'
+                        : 'red.6',
+                }))}
+                withLegend
+              />
+            )}
+          </ChartCard>
+        </Grid.Col>
 
-        <ChartCard title="Jobs by status">
-          {summary.jobsByStatus.length === 0 ? (
-            <ChartEmpty />
-          ) : (
-            <BarChart
-              h={280}
-              data={summary.jobsByStatus}
-              dataKey="status"
-              series={[{ name: 'count', color: 'indigo.6' }]}
-              withLegend={false}
-              xAxisProps={{ interval: 0 }}
-              valueFormatter={countFormatter}
-            />
-          )}
-        </ChartCard>
+        <Grid.Col span={{ base: 12, lg: 9 }}>
+          <ChartCard title="Jobs by status">
+            {summary.jobsByStatus.length === 0 ? (
+              <ChartEmpty height={CHART_HEIGHT.bar} />
+            ) : (
+              <BarChart
+                h={CHART_HEIGHT.bar}
+                data={summary.jobsByStatus}
+                dataKey="status"
+                series={[{ name: 'count', color: 'indigo.6' }]}
+                withLegend={false}
+                xAxisProps={{ interval: 0 }}
+                valueFormatter={countFormatter}
+              />
+            )}
+          </ChartCard>
+        </Grid.Col>
 
-        <ChartCard title="Jobs by employment type">
-          {summary.jobsByEmploymentType.length === 0 ? (
-            <ChartEmpty />
-          ) : (
-            <DonutChart
-              h={260}
-              data={summary.jobsByEmploymentType.map((entry, index) => ({
-                name: entry.type,
-                value: entry.count,
-                color: CATEGORICAL_PALETTE[index % CATEGORICAL_PALETTE.length],
-              }))}
-              withLegend
-            />
-          )}
-        </ChartCard>
-      </SimpleGrid>
+        <Grid.Col span={{ base: 12, lg: 3 }}>
+          <ChartCard title="Jobs by employment type">
+            {summary.jobsByEmploymentType.length === 0 ? (
+              <ChartEmpty height={CHART_HEIGHT.area} />
+            ) : (
+              <DonutChart
+                h={CHART_HEIGHT.area}
+                data={summary.jobsByEmploymentType.map((entry, index) => ({
+                  name: entry.type,
+                  value: entry.count,
+                  color:
+                    CATEGORICAL_PALETTE[index % CATEGORICAL_PALETTE.length],
+                }))}
+                withLegend
+              />
+            )}
+          </ChartCard>
+        </Grid.Col>
+      </Grid>
     </Stack>
   );
 }
