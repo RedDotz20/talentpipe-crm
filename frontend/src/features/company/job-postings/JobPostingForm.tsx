@@ -1,8 +1,9 @@
+import { useEffect } from 'react';
 import { Button, Modal, Select, Stack, TextInput, Textarea } from '@mantine/core';
 import { useForm, schemaResolver } from '@mantine/form';
 import { z } from 'zod';
 import { RequiredSkillsPicker } from './RequiredSkillsPicker';
-import type { CreateJobPostingInput } from '../../../api/jobPostingsApi';
+import type { CreateJobPostingInput, JobPosting } from '../../../api/jobPostingsApi';
 
 const schema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -20,10 +21,11 @@ interface Props {
   opened: boolean;
   onClose: () => void;
   submitting: boolean;
+  initial?: JobPosting | null;
   onSubmit: (values: CreateJobPostingInput) => void;
 }
 
-export function JobPostingForm({ opened, onClose, submitting, onSubmit }: Props) {
+export function JobPostingForm({ opened, onClose, submitting, initial, onSubmit }: Props) {
   const form = useForm({
     initialValues: {
       title: '',
@@ -36,8 +38,24 @@ export function JobPostingForm({ opened, onClose, submitting, onSubmit }: Props)
     validate: schemaResolver(schema),
   });
 
+  useEffect(() => {
+    if (opened && initial) {
+      form.setValues({
+        title: initial.title,
+        description: initial.description ?? '',
+        employmentType: initial.employmentType ?? '',
+        location: initial.location ?? '',
+        workSetup: initial.workSetup ?? '',
+        requiredSkillIds: initial.requiredSkillIds,
+      });
+    } else if (opened && !initial) {
+      form.reset();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opened, initial]);
+
   return (
-    <Modal opened={opened} onClose={onClose} title="New Job Posting">
+    <Modal opened={opened} onClose={onClose} title={initial ? 'Edit Job Posting' : 'New Job Posting'}>
       <form
         onSubmit={form.onSubmit((values) => {
           onSubmit({
@@ -95,7 +113,7 @@ export function JobPostingForm({ opened, onClose, submitting, onSubmit }: Props)
             onChange={(v) => form.setFieldValue('requiredSkillIds', v)}
           />
           <Button type="submit" loading={submitting}>
-            Create
+            {initial ? 'Save' : 'Create'}
           </Button>
         </Stack>
       </form>

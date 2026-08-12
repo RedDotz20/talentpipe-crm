@@ -4,10 +4,10 @@ import { useAuthStore } from '../../../api/useAuth';
 import { ListControls } from '@/shared/components/ListControls';
 import { TableSkeleton } from '@/shared/components/Skeletons';
 import { TableAction } from '@/shared/components/TableAction';
-import { IconSend, IconTrash, IconX } from '@tabler/icons-react';
+import { IconPencil, IconSend, IconTrash, IconX } from '@tabler/icons-react';
 import { useListQuery } from '@/shared/hooks/useListQuery';
 import { ExportCsvButton } from '@/shared/components/ExportCsvButton';
-import { jobPostingsApi } from '@/api/jobPostingsApi';
+import { jobPostingsApi, type JobPosting } from '@/api/jobPostingsApi';
 import {
   useJobPostings,
   usePublishJobPosting,
@@ -21,7 +21,13 @@ const STATUS_COLOR: Record<string, string> = {
   closed: 'red',
 };
 
-export function JobPostingList({ onCreate }: { onCreate: () => void }) {
+export function JobPostingList({
+  onCreate,
+  onEdit,
+}: {
+  onCreate: () => void;
+  onEdit: (jp: JobPosting) => void;
+}) {
   const role = useAuthStore((s) => s.role);
   const listQuery = useListQuery({ sortBy: 'createdAt', sortDir: 'desc' });
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -45,6 +51,11 @@ export function JobPostingList({ onCreate }: { onCreate: () => void }) {
       <Table.Td>{new Date(jp.createdAt).toLocaleDateString()}</Table.Td>
       <Table.Td>
         <Group gap="xs" wrap="nowrap">
+          {canEdit && (
+            <TableAction label="Edit" onClick={() => onEdit(jp)}>
+              <IconPencil size="1rem" />
+            </TableAction>
+          )}
           {canEdit && jp.status === 'draft' && (
             <TableAction label="Publish" color="green" onClick={() => publish.mutate(jp.id)}>
               <IconSend size="1rem" />
