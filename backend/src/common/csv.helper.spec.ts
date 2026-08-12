@@ -24,6 +24,11 @@ describe('toCsv', () => {
     );
     expect(csv).toContain('\uFEFFa,b,c\r\n,,2026-01-02T03:04:05.000Z');
   });
+
+  it('neutralizes formula injection prefixes', () => {
+    const csv = toCsv(['a'], [{ a: '=SUM(A1:A9)' }]);
+    expect(csv).toContain("'=SUM(A1:A9)");
+  });
 });
 
 describe('csvFilename', () => {

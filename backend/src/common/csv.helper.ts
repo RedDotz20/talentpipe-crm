@@ -6,12 +6,15 @@ export function toCsv(
     if (value === null || value === undefined) return '';
     const text =
       value instanceof Date ? value.toISOString() : String(value);
+    // ponytail: ' prefix neutralizes Excel formula injection (=+-@);
+    // false-positives on negative numbers, acceptable for export data
+    const guarded = /^[=+\-@]/.test(text) ? `'${text}` : text;
     const needsQuotes =
-      text.includes(',') ||
-      text.includes('"') ||
-      text.includes('\n') ||
-      text.includes('\r');
-    return needsQuotes ? `"${text.replace(/"/g, '""')}"` : text;
+      guarded.includes(',') ||
+      guarded.includes('"') ||
+      guarded.includes('\n') ||
+      guarded.includes('\r');
+    return needsQuotes ? `"${guarded.replace(/"/g, '""')}"` : guarded;
   };
   const lines = [
     headers.join(','),
