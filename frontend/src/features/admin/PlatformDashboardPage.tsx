@@ -1,11 +1,8 @@
 import { useState } from 'react';
-import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Alert,
-  Group,
   Paper,
-  SegmentedControl,
   SimpleGrid,
   Skeleton,
   Stack,
@@ -16,12 +13,13 @@ import { AreaChart, BarChart, DonutChart } from '@mantine/charts';
 import { platformApi } from '@/api/platformApi';
 import { queryKeys } from '@/api/queryKeys';
 import type { TimeUnit } from '@/shared/types/dashboard';
-
-const UNIT_LABELS: Record<TimeUnit, string> = {
-  day: 'Day',
-  week: 'Week',
-  month: 'Month',
-};
+import {
+  CATEGORY_AXIS_PROPS,
+  ChartCard,
+  ChartEmpty,
+  countFormatter,
+  UnitSelector,
+} from '@/shared/components/dashboard-charts';
 
 function usePlatformDashboard() {
   return useQuery({
@@ -43,34 +41,6 @@ function StatCard({ label, value }: { label: string; value: number }) {
   );
 }
 
-function ChartCard({
-  title,
-  actions,
-  children,
-}: {
-  title: string;
-  actions?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <Paper withBorder radius="lg" p="md">
-      <Group justify="space-between" mb="md">
-        <Title order={4}>{title}</Title>
-        {actions}
-      </Group>
-      {children}
-    </Paper>
-  );
-}
-
-function ChartEmpty({ label = 'No data yet' }: { label?: string }) {
-  return (
-    <Text c="dimmed" ta="center" py={48}>
-      {label}
-    </Text>
-  );
-}
-
 export function PlatformDashboardPage() {
   const { data, isLoading, error } = usePlatformDashboard();
   const [unit, setUnit] = useState<TimeUnit>('day');
@@ -79,7 +49,7 @@ export function PlatformDashboardPage() {
     return (
       <Stack gap="xl">
         <Title order={2}>Dashboard</Title>
-        <SimpleGrid cols={{ base: 1, sm: 3, lg: 6 }} spacing="lg">
+        <SimpleGrid cols={{ base: 2, sm: 3, lg: 6 }} spacing="lg">
           {Array.from({ length: 6 }).map((_, index) => (
             <Paper key={index} withBorder p="lg" radius="lg">
               <Skeleton height={12} width="60%" mb={8} />
@@ -107,18 +77,6 @@ export function PlatformDashboardPage() {
     return <Alert color="red">Dashboard data is unavailable.</Alert>;
   }
 
-  const unitSelector = (
-    <SegmentedControl
-      size="xs"
-      value={unit}
-      onChange={(value) => setUnit(value as TimeUnit)}
-      data={Object.entries(UNIT_LABELS).map(([value, label]) => ({
-        value,
-        label,
-      }))}
-    />
-  );
-
   const overTime = data.companiesOverTime[unit];
 
   return (
@@ -135,7 +93,10 @@ export function PlatformDashboardPage() {
       </SimpleGrid>
 
       <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
-        <ChartCard title="Companies over time" actions={unitSelector}>
+        <ChartCard
+          title="Companies over time"
+          actions={<UnitSelector value={unit} onChange={setUnit} />}
+        >
           {overTime.every((point) => point.count === 0) ? (
             <ChartEmpty />
           ) : (
@@ -146,7 +107,8 @@ export function PlatformDashboardPage() {
               series={[{ name: 'count', color: 'indigo.6' }]}
               curveType="monotone"
               withGradient
-              valueFormatter={(value) => value.toLocaleString()}
+              xAxisProps={{ interval: 'preserveStartEnd' }}
+              valueFormatter={countFormatter}
             />
           )}
         </ChartCard>
@@ -165,8 +127,7 @@ export function PlatformDashboardPage() {
                   color: 'red.6',
                 },
               ]}
-              withLabelsLine
-              withTooltip
+              withLegend
             />
           )}
         </ChartCard>
@@ -181,8 +142,8 @@ export function PlatformDashboardPage() {
               dataKey="companyName"
               series={[{ name: 'count', color: 'indigo.6' }]}
               withLegend={false}
-              xAxisProps={{ angle: -20, textAnchor: 'end', height: 60 }}
-              valueFormatter={(value) => value.toLocaleString()}
+              xAxisProps={CATEGORY_AXIS_PROPS}
+              valueFormatter={countFormatter}
             />
           )}
         </ChartCard>
@@ -197,8 +158,8 @@ export function PlatformDashboardPage() {
               dataKey="companyName"
               series={[{ name: 'count', color: 'teal.6' }]}
               withLegend={false}
-              xAxisProps={{ angle: -20, textAnchor: 'end', height: 60 }}
-              valueFormatter={(value) => value.toLocaleString()}
+              xAxisProps={CATEGORY_AXIS_PROPS}
+              valueFormatter={countFormatter}
             />
           )}
         </ChartCard>
@@ -218,8 +179,8 @@ export function PlatformDashboardPage() {
                 { name: 'closed', color: 'red.6', stackId: 'a' },
               ]}
               withLegend
-              xAxisProps={{ angle: -20, textAnchor: 'end', height: 60 }}
-              valueFormatter={(value) => value.toLocaleString()}
+              xAxisProps={CATEGORY_AXIS_PROPS}
+              valueFormatter={countFormatter}
             />
           )}
         </ChartCard>

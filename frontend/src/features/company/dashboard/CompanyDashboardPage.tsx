@@ -1,10 +1,7 @@
 import { useState } from 'react';
-import type { ReactNode } from 'react';
 import {
   Alert,
-  Group,
   Paper,
-  SegmentedControl,
   SimpleGrid,
   Skeleton,
   Stack,
@@ -15,42 +12,14 @@ import { AreaChart, BarChart, DonutChart } from '@mantine/charts';
 import { TableSkeleton } from '@/shared/components/Skeletons';
 import { useDashboardSummary } from './hooks/useDashboardSummary';
 import type { TimeUnit } from '@/shared/types/dashboard';
-
-const UNIT_LABELS: Record<TimeUnit, string> = {
-  day: 'Day',
-  week: 'Week',
-  month: 'Month',
-};
-
-function ChartCard({
-  title,
-  actions,
-  children,
-}: {
-  title: string;
-  actions?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <Paper withBorder radius="lg" p="md">
-      <Group justify="space-between" mb="md">
-        <Title order={3} size="h4">
-          {title}
-        </Title>
-        {actions}
-      </Group>
-      {children}
-    </Paper>
-  );
-}
-
-function ChartEmpty({ label = 'No data yet' }: { label?: string }) {
-  return (
-    <Text c="dimmed" ta="center" py={48}>
-      {label}
-    </Text>
-  );
-}
+import {
+  CATEGORICAL_PALETTE,
+  CATEGORY_AXIS_PROPS,
+  ChartCard,
+  ChartEmpty,
+  countFormatter,
+  UnitSelector,
+} from '@/shared/components/dashboard-charts';
 
 export function CompanyDashboardPage() {
   const { data: summary, isLoading, error } = useDashboardSummary();
@@ -60,7 +29,7 @@ export function CompanyDashboardPage() {
     return (
       <Stack gap="xl">
         <Title order={2}>Dashboard</Title>
-        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
+        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="lg">
           {Array.from({ length: 4 }).map((_, index) => (
             <Paper key={index} withBorder p="lg" radius="lg">
               <Skeleton height={12} width="50%" mb={8} />
@@ -84,18 +53,6 @@ export function CompanyDashboardPage() {
     return <Alert color="red">Dashboard summary is unavailable.</Alert>;
   }
 
-  const unitSelector = (
-    <SegmentedControl
-      size="xs"
-      value={unit}
-      onChange={(value) => setUnit(value as TimeUnit)}
-      data={Object.entries(UNIT_LABELS).map(([value, label]) => ({
-        value,
-        label,
-      }))}
-    />
-  );
-
   const rejectionRate = summary.rejection.total
     ? Math.round((summary.rejection.rejected / summary.rejection.total) * 100)
     : 0;
@@ -105,7 +62,7 @@ export function CompanyDashboardPage() {
     <Stack gap="xl">
       <Title order={2}>Dashboard</Title>
 
-      <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
+      <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="lg">
         <Paper withBorder p="lg" radius="lg">
           <Text size="xs" tt="uppercase" fw={500} c="dimmed" mb={4}>
             Applications
@@ -144,7 +101,10 @@ export function CompanyDashboardPage() {
       </SimpleGrid>
 
       <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
-        <ChartCard title="Applications over time" actions={unitSelector}>
+        <ChartCard
+          title="Applications over time"
+          actions={<UnitSelector value={unit} onChange={setUnit} />}
+        >
           {overTime.every((point) => point.count === 0) ? (
             <ChartEmpty />
           ) : (
@@ -155,7 +115,8 @@ export function CompanyDashboardPage() {
               series={[{ name: 'count', color: 'indigo.6' }]}
               curveType="monotone"
               withGradient
-              valueFormatter={(value) => value.toLocaleString()}
+              xAxisProps={{ interval: 'preserveStartEnd' }}
+              valueFormatter={countFormatter}
             />
           )}
         </ChartCard>
@@ -169,10 +130,9 @@ export function CompanyDashboardPage() {
               data={summary.applicationsByStage.map((stage, index) => ({
                 name: stage.stageName,
                 value: stage.count,
-                color: ['indigo.6', 'teal.6', 'grape.6', 'orange.6', 'green.6', 'red.6'][index % 6],
+                color: CATEGORICAL_PALETTE[index % CATEGORICAL_PALETTE.length],
               }))}
-              withLabelsLine
-              withTooltip
+              withLegend
             />
           )}
         </ChartCard>
@@ -187,8 +147,8 @@ export function CompanyDashboardPage() {
               dataKey="title"
               series={[{ name: 'count', color: 'teal.6' }]}
               withLegend={false}
-              xAxisProps={{ angle: -20, textAnchor: 'end', height: 60 }}
-              valueFormatter={(value) => value.toLocaleString()}
+              xAxisProps={CATEGORY_AXIS_PROPS}
+              valueFormatter={countFormatter}
             />
           )}
         </ChartCard>
@@ -209,8 +169,7 @@ export function CompanyDashboardPage() {
                       ? 'green.6'
                       : 'red.6',
               }))}
-              withLabelsLine
-              withTooltip
+              withLegend
             />
           )}
         </ChartCard>
@@ -220,12 +179,13 @@ export function CompanyDashboardPage() {
             <ChartEmpty />
           ) : (
             <BarChart
-              h={240}
+              h={280}
               data={summary.jobsByStatus}
               dataKey="status"
               series={[{ name: 'count', color: 'indigo.6' }]}
               withLegend={false}
-              valueFormatter={(value) => value.toLocaleString()}
+              xAxisProps={{ interval: 0 }}
+              valueFormatter={countFormatter}
             />
           )}
         </ChartCard>
@@ -239,10 +199,9 @@ export function CompanyDashboardPage() {
               data={summary.jobsByEmploymentType.map((entry, index) => ({
                 name: entry.type,
                 value: entry.count,
-                color: ['indigo.6', 'teal.6', 'grape.6', 'orange.6'][index % 4],
+                color: CATEGORICAL_PALETTE[index % CATEGORICAL_PALETTE.length],
               }))}
-              withLabelsLine
-              withTooltip
+              withLegend
             />
           )}
         </ChartCard>
