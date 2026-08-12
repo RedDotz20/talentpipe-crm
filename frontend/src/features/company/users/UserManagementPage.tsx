@@ -19,11 +19,13 @@ import dayjs from 'dayjs';
 import { useAuthStore } from '@/api/useAuth';
 import { TableSkeleton } from '@/shared/components/Skeletons';
 import { TableAction } from '@/shared/components/TableAction';
+import { ExportCsvButton } from '@/shared/components/ExportCsvButton';
 import { IconKey, IconPlayerPause, IconPlayerPlay, IconUserMinus } from '@tabler/icons-react';
 import {
   INTERNAL_USER_ROLES,
   type InternalUserRole,
   type CompanyUser,
+  companyUsersApi,
 } from '@/api/companyUsersApi';
 import {
   useCreateUser,
@@ -87,7 +89,10 @@ export function UserManagementPage() {
     <>
       <Group justify="space-between" mb="md">
         <Title order={3}>Team members</Title>
-        <Button onClick={() => setCreateOpen(true)}>Add team member</Button>
+        <Group gap="xs">
+          <ExportCsvButton resource="company-users" request={companyUsersApi.exportCsv} />
+          <Button onClick={() => setCreateOpen(true)}>Add team member</Button>
+        </Group>
       </Group>
 
       {usersQuery.isLoading ? (

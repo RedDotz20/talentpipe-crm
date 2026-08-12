@@ -6,6 +6,8 @@ import { TableSkeleton } from '@/shared/components/Skeletons';
 import { TableAction } from '@/shared/components/TableAction';
 import { IconSend, IconTrash, IconX } from '@tabler/icons-react';
 import { useListQuery } from '@/shared/hooks/useListQuery';
+import { ExportCsvButton } from '@/shared/components/ExportCsvButton';
+import { jobPostingsApi } from '@/api/jobPostingsApi';
 import {
   useJobPostings,
   usePublishJobPosting,
@@ -103,6 +105,17 @@ export function JobPostingList({ onCreate }: { onCreate: () => void }) {
         }}
         sortDir={listQuery.sortDir}
         onToggleSortDir={listQuery.toggleSortDir}
+        actions={
+          <ExportCsvButton
+            resource="job-postings"
+            request={() =>
+              jobPostingsApi.exportCsv({
+                search: listQuery.params.search,
+                status: statusFilter ?? undefined,
+              })
+            }
+          />
+        }
       />
       {isLoading ? (
         <TableSkeleton headers={['Title', 'Status', 'Created', 'Actions']} />

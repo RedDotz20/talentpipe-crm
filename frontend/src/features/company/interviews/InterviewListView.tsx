@@ -16,6 +16,8 @@ import { TableSkeleton } from '@/shared/components/Skeletons';
 import { TableAction } from '@/shared/components/TableAction';
 import { IconBan, IconCalendarClock, IconStar } from '@tabler/icons-react';
 import { useListQuery } from '@/shared/hooks/useListQuery';
+import { ExportCsvButton } from '@/shared/components/ExportCsvButton';
+import { interviewsApi } from '@/api/interviewsApi';
 import {
   useInterviews,
   useScheduleInterview,
@@ -123,6 +125,17 @@ export function InterviewListView() {
         }}
         sortDir={listQuery.sortDir}
         onToggleSortDir={listQuery.toggleSortDir}
+        actions={
+          <ExportCsvButton
+            resource="interviews"
+            request={() =>
+              interviewsApi.exportCsv({
+                search: listQuery.params.search,
+                status: statusFilter ?? undefined,
+              })
+            }
+          />
+        }
       />
       {interviewsQuery.isLoading ? (
         <TableSkeleton headers={['Candidate', 'Job', 'Date', 'Interviewer', 'Status', 'Actions']} />

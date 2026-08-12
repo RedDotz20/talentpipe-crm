@@ -1,8 +1,10 @@
 import { Group, Pagination, Stack, Table, Title } from '@mantine/core';
 import { ListControls } from '@/shared/components/ListControls';
 import { TableSkeleton } from '@/shared/components/Skeletons';
+import { ExportCsvButton } from '@/shared/components/ExportCsvButton';
 import { useListQuery } from '@/shared/hooks/useListQuery';
 import { useCandidates } from './hooks/useCandidates';
+import { candidatesApi } from '@/api/candidatesApi';
 
 export function CandidateList({ onSelect }: { onSelect: (id: string) => void }) {
   const listQuery = useListQuery({ sortBy: 'createdAt', sortDir: 'desc' });
@@ -26,7 +28,17 @@ export function CandidateList({ onSelect }: { onSelect: (id: string) => void }) 
 
   return (
     <Stack>
-      <Title order={2}>Candidates</Title>
+      <Group justify="space-between">
+        <Title order={2}>Candidates</Title>
+        <ExportCsvButton
+          resource="candidates"
+          request={() =>
+            candidatesApi.exportCsv({
+              search: listQuery.params.search,
+            })
+          }
+        />
+      </Group>
       <ListControls
         searchPlaceholder="Search name or email"
         searchValue={listQuery.search}
