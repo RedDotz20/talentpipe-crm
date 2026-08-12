@@ -42,6 +42,7 @@ export const queryKeys = {
     skills: () => ['candidate', 'skills'],
   },
   publicCareers: {
+    allJobs: (params?: ListQueryParams) => ['public-careers', 'all-jobs', params],
     jobs: (companySlug: string, params?: ListQueryParams) => ['public-careers', 'jobs', companySlug, params],
     job: (companySlug: string, jobId: string) => [
       'public-careers',

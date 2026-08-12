@@ -1,11 +1,12 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { useAuthStore } from '@/api/useAuth';
+import { LandingPage } from '@/features/landing/LandingPage';
 
 export const Route = createFileRoute('/')({
   beforeLoad: () => {
     const { role, isAuthenticated } = useAuthStore.getState();
     if (!isAuthenticated()) {
-      throw redirect({ to: '/auth/signin' });
+      return;
     }
     if (role === 'Candidate') {
       throw redirect({ to: '/dashboard' });
@@ -15,4 +16,5 @@ export const Route = createFileRoute('/')({
     }
     throw redirect({ to: '/company/dashboard' });
   },
+  component: LandingPage,
 });

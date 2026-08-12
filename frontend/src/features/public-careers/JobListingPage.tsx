@@ -18,7 +18,7 @@ import { useListQuery } from '@/shared/hooks/useListQuery';
 import { usePublicJobs } from './hooks/usePublicCareers';
 
 interface JobListingPageProps {
-  companySlug: string;
+  companySlug?: string;
 }
 
 const EMPLOYMENT_TYPES = ['full-time', 'part-time', 'contract', 'intern'];
@@ -146,7 +146,7 @@ export function JobListingPage({ companySlug }: JobListingPageProps) {
                 <Text lineClamp={3}>{job.description ?? 'No description provided.'}</Text>
                 <Link
                   to="/careers/$companySlug/jobs/$jobId"
-                  params={{ companySlug, jobId: job.id }}
+                  params={{ companySlug: job.companySlug, jobId: job.id }}
                 >
                   View job details
                 </Link>

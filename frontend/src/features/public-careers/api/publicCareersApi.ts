@@ -29,6 +29,13 @@ export interface PublicJobDetail extends PublicJobListing {
 const unwrap = <T>(body: ApiEnvelope<T>): T => body.data;
 
 export const publicCareersApi = {
+  async getAllJobs(
+    params?: ListQueryParams & { employmentType?: string; workSetup?: string },
+  ): Promise<Paginated<PublicJobListing>> {
+    const { data } = await apiClient.get('/public/jobs', { params });
+    return unwrap(data as ApiEnvelope<Paginated<PublicJobListing>>);
+  },
+
   async getJobs(
     companySlug: string,
     params?: ListQueryParams & { employmentType?: string; workSetup?: string },

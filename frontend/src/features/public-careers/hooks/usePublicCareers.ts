@@ -8,13 +8,17 @@ import {
 } from '../api/publicCareersApi';
 
 export function usePublicJobs(
-  companySlug: string,
+  companySlug: string | undefined,
   params?: ListQueryParams & { employmentType?: string; workSetup?: string },
 ) {
   return useQuery<Paginated<PublicJobListing>>({
-    queryKey: queryKeys.publicCareers.jobs(companySlug, params),
-    queryFn: () => publicCareersApi.getJobs(companySlug, params),
-    enabled: Boolean(companySlug),
+    queryKey: companySlug
+      ? queryKeys.publicCareers.jobs(companySlug, params)
+      : queryKeys.publicCareers.allJobs(params),
+    queryFn: () =>
+      companySlug
+        ? publicCareersApi.getJobs(companySlug, params)
+        : publicCareersApi.getAllJobs(params),
   });
 }
 

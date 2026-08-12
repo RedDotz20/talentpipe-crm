@@ -10,6 +10,7 @@ describe('PublicCareersService', () => {
   let service: PublicCareersService;
   const tenantRepo = { findBySlug: jest.fn() };
   const indexRepo = {
+    findAll: jest.fn(),
     findOpenByCompany: jest.fn(),
     findOpenByCompanyAndJob: jest.fn(),
   };
@@ -62,7 +63,9 @@ describe('PublicCareersService', () => {
       pageSize: 10,
     });
 
-    await expect(service.list('acme', { page: 1, pageSize: 10 })).resolves.toEqual({
+    await expect(
+      service.list('acme', { page: 1, pageSize: 10 }),
+    ).resolves.toEqual({
       data: [
         expect.objectContaining({
           id: 'job-a',
@@ -78,6 +81,58 @@ describe('PublicCareersService', () => {
     expect(indexRepo.findOpenByCompany).toHaveBeenCalledWith('tenant-a', {
       page: 1,
       pageSize: 10,
+    });
+  });
+
+  it('lists open jobs across all companies with meta fields', async () => {
+    indexRepo.findAll.mockResolvedValue({
+      data: [
+        {
+          jobPostingId: 'job-a',
+          companyId: 'tenant-a',
+          companySlug: 'acme',
+          companyName: 'Acme',
+          title: 'Engineer',
+          description: 'Build things',
+          employmentType: 'full-time',
+          location: 'Remote',
+          workSetup: 'work-from-home',
+          status: 'open',
+          createdAt: new Date('2026-08-01'),
+          updatedAt: new Date('2026-08-01'),
+        },
+      ],
+      total: 1,
+      page: 1,
+      pageSize: 10,
+    });
+
+    await expect(
+      service.listAll({ page: 1, pageSize: 10, employmentType: 'full-time' }),
+    ).resolves.toEqual({
+      data: [
+        {
+          id: 'job-a',
+          companyId: 'tenant-a',
+          companySlug: 'acme',
+          companyName: 'Acme',
+          title: 'Engineer',
+          description: 'Build things',
+          employmentType: 'full-time',
+          location: 'Remote',
+          workSetup: 'work-from-home',
+          createdAt: new Date('2026-08-01'),
+          updatedAt: new Date('2026-08-01'),
+        },
+      ],
+      total: 1,
+      page: 1,
+      pageSize: 10,
+    });
+    expect(indexRepo.findAll).toHaveBeenCalledWith({
+      page: 1,
+      pageSize: 10,
+      employmentType: 'full-time',
     });
   });
 

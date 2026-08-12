@@ -18,6 +18,9 @@ export interface PublicJobListing {
   companyName: string;
   title: string;
   description: string | null;
+  employmentType: string | null;
+  location: string | null;
+  workSetup: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -47,7 +50,17 @@ export class PublicCareersService {
     const result = await this.indexRepo.findOpenByCompany(tenant.id, query);
     return {
       ...result,
-      data: result.data.map((row) => this.toPublicListing(row, tenant.id, tenant.slug)),
+      data: result.data.map((row) => this.toPublicListing(row)),
+    };
+  }
+
+  async listAll(
+    query: ListQueryDto & { employmentType?: string; workSetup?: string },
+  ) {
+    const result = await this.indexRepo.findAll(query);
+    return {
+      ...result,
+      data: result.data.map((row) => this.toPublicListing(row)),
     };
   }
 
@@ -76,7 +89,7 @@ export class PublicCareersService {
     const skills = await this.skillRepo.findByIds(requiredSkillIds);
 
     return {
-      ...this.toPublicListing(indexed, tenant.id, tenant.slug),
+      ...this.toPublicListing(indexed),
       requiredSkills: skills.map(({ id, name, category }) => ({
         id,
         name,
@@ -89,16 +102,17 @@ export class PublicCareersService {
     row: Awaited<
       ReturnType<JobListingsIndexRepository['findOpenByCompany']>
     >['data'][number],
-    companyId: string,
-    companySlug: string,
   ): PublicJobListing {
     return {
       id: row.jobPostingId,
-      companyId,
-      companySlug,
+      companyId: row.companyId,
+      companySlug: row.companySlug,
       companyName: row.companyName,
       title: row.title,
       description: row.description,
+      employmentType: row.employmentType ?? null,
+      location: row.location ?? null,
+      workSetup: row.workSetup ?? null,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
