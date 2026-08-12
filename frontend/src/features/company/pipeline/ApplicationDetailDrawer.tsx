@@ -32,7 +32,7 @@ export function ApplicationDetailDrawer({
 
   const notes = notesQuery.data ?? [];
   const interviews =
-    interviewsQuery.data?.filter((i) => i.applicationId === application.id) ??
+    interviewsQuery.data?.data?.filter((i) => i.applicationId === application.id) ??
     [];
 
   return (
