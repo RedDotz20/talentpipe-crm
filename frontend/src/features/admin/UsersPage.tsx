@@ -25,7 +25,7 @@ import { ListControls } from '@/shared/components/ListControls'
 import { TableSkeleton } from '@/shared/components/Skeletons'
 import { useListQuery } from '@/shared/hooks/useListQuery'
 import { TableAction } from '@/shared/components/TableAction'
-import { IconPencil, IconPlayerPause, IconPlayerPlay, IconTrash, IconUserMinus } from '@tabler/icons-react'
+import { IconKey, IconPencil, IconPlayerPause, IconPlayerPlay, IconTrash, IconUserMinus } from '@tabler/icons-react'
 import {
   useCreateCandidate,
   usePlatformCompanies,
@@ -95,6 +95,22 @@ export function UsersPage() {
     },
   })
 
+  const resetCompanyUserPassword = useApiMutation({
+    mutationFn: ({
+      companyId,
+      userId,
+      password,
+    }: {
+      companyId: string
+      userId: string
+      password: string
+    }) => platformApi.updateCompanyUser(companyId, userId, { password }),
+    successMessage: 'Password reset — the user must sign in with the new password',
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.users() })
+    },
+  })
+
   const listQuery = useListQuery({ sortBy: 'email', sortDir: 'asc' })
   const [typeFilter, setTypeFilter] = useState<string | null>(null)
   const [companyFilter, setCompanyFilter] = useState<string | null>(null)
@@ -117,6 +133,8 @@ export function UsersPage() {
 
   const [editing, setEditing] = useState<PlatformUser | null>(null)
   const [removing, setRemoving] = useState<PlatformUser | null>(null)
+  const [resetting, setResetting] = useState<PlatformUser | null>(null)
+  const [resetPasswordValue, setResetPasswordValue] = useState('')
 
   const users = usersQuery.data?.data ?? []
   const total = usersQuery.data?.total ?? 0
@@ -318,6 +336,16 @@ export function UsersPage() {
                           )}
                         </TableAction>
                         <TableAction
+                          label="Reset password"
+                          color="blue"
+                          onClick={() => {
+                            setResetPasswordValue('')
+                            setResetting(user)
+                          }}
+                        >
+                          <IconKey size="1rem" />
+                        </TableAction>
+                        <TableAction
                           label="Remove"
                           color="red"
                           onClick={() => setRemoving(user)}
@@ -511,6 +539,49 @@ export function UsersPage() {
               onClick={submitUpdate}
             >
               Save
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal
+        opened={resetting !== null}
+        onClose={() => setResetting(null)}
+        title="Reset password"
+      >
+        <Stack>
+          <Alert color="blue">
+            Reset the password for <b>{resetting?.email}</b>? Their current
+            sessions are revoked and they must sign in with the new password.
+          </Alert>
+          <PasswordInput
+            label="New password"
+            description="No email is sent — share the new password out-of-band."
+            required
+            value={resetPasswordValue}
+            onChange={(e) => setResetPasswordValue(e.currentTarget.value)}
+          />
+          <Group justify="flex-end">
+            <Button variant="light" onClick={() => setResetting(null)}>
+              Cancel
+            </Button>
+            <Button
+              loading={resetCompanyUserPassword.isPending}
+              disabled={resetPasswordValue.length < 8}
+              onClick={() => {
+                const target = resetting
+                if (!target || !target.companyId) return
+                resetCompanyUserPassword.mutate(
+                  {
+                    companyId: target.companyId,
+                    userId: target.id,
+                    password: resetPasswordValue,
+                  },
+                  { onSuccess: () => setResetting(null) },
+                )
+              }}
+            >
+              Reset password
             </Button>
           </Group>
         </Stack>
