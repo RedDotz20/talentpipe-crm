@@ -5,7 +5,15 @@ export function toCsv(
   const escape = (value: unknown): string => {
     if (value === null || value === undefined) return '';
     const text =
-      value instanceof Date ? value.toISOString() : String(value);
+      value instanceof Date
+        ? value.toISOString()
+        : typeof value === 'string' ||
+            typeof value === 'number' ||
+            typeof value === 'boolean' ||
+            typeof value === 'bigint' ||
+            typeof value === 'symbol'
+          ? String(value)
+          : (JSON.stringify(value) ?? '');
     // ponytail: ' prefix neutralizes Excel formula injection (=+-@);
     // false-positives on negative numbers, acceptable for export data
     const guarded = /^[=+\-@]/.test(text) ? `'${text}` : text;
