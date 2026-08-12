@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   Alert,
+  Badge,
   Button,
   Group,
   Modal,
@@ -18,20 +19,23 @@ import dayjs from 'dayjs';
 import { useAuthStore } from '@/api/useAuth';
 import { TableSkeleton } from '@/shared/components/Skeletons';
 import { TableAction } from '@/shared/components/TableAction';
-import { IconUserMinus } from '@tabler/icons-react';
+import { IconPlayerPause, IconPlayerPlay, IconUserMinus } from '@tabler/icons-react';
 import {
   INTERNAL_USER_ROLES,
   type InternalUserRole,
   type CompanyUser,
 } from '@/api/companyUsersApi';
 import {
-  useInviteUser,
+  useCreateUser,
   useCompanyUsers,
   useRemoveUser,
+  useSetUserStatus,
   useUpdateUserRole,
 } from './hooks/useCompanyUsers';
+import { useCompanySettings } from '../settings/hooks/useCompanySettings';
 
-const InviteSchema = z.object({
+const CreateSchema = z.object({
+  name: z.string().optional(),
   email: z.string().email('Invalid email'),
   role: z.enum(INTERNAL_USER_ROLES, { message: 'Invalid role' }),
   password: z.string().min(8, 'Password must be at least 8 characters'),
@@ -40,16 +44,30 @@ const InviteSchema = z.object({
 export function UserManagementPage() {
   const userId = useAuthStore((s) => s.userId);
   const usersQuery = useCompanyUsers();
-  const inviteUser = useInviteUser();
+  const settingsQuery = useCompanySettings();
+  const createUser = useCreateUser();
   const updateRole = useUpdateUserRole();
+  const setUserStatus = useSetUserStatus();
   const removeUser = useRemoveUser();
-  const [inviteOpen, setInviteOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
   const [removing, setRemoving] = useState<CompanyUser | null>(null);
 
   const form = useForm({
-    validate: schemaResolver(InviteSchema),
-    initialValues: { email: '', role: 'Recruiter' as InternalUserRole, password: '' },
+    validate: schemaResolver(CreateSchema),
+    initialValues: {
+      name: '',
+      email: '',
+      role: 'Recruiter' as InternalUserRole,
+      password: '',
+    },
   });
+
+  const slug = settingsQuery.data?.slug;
+  const deriveEmail = (name: string) => {
+    const first = name.trim().split(/\s+/)[0]?.toLowerCase().replace(/[^a-z0-9.]/g, '');
+    return first && slug ? `${first}@${slug}.com` : '';
+  };
 
   const users = usersQuery.data ?? [];
 
@@ -57,11 +75,11 @@ export function UserManagementPage() {
     <>
       <Group justify="space-between" mb="md">
         <Title order={3}>Team members</Title>
-        <Button onClick={() => setInviteOpen(true)}>Invite user</Button>
+        <Button onClick={() => setCreateOpen(true)}>Add team member</Button>
       </Group>
 
       {usersQuery.isLoading ? (
-        <TableSkeleton headers={['Email', 'Role', 'Created', 'Actions']} />
+        <TableSkeleton headers={['Email', 'Role', 'Status', 'Created', 'Actions']} />
       ) : users.length === 0 ? (
         <Text c="dimmed">No users yet.</Text>
       ) : (
@@ -70,6 +88,7 @@ export function UserManagementPage() {
             <Table.Tr>
               <Table.Th>Email</Table.Th>
               <Table.Th>Role</Table.Th>
+              <Table.Th>Status</Table.Th>
               <Table.Th>Created</Table.Th>
               <Table.Th>Actions</Table.Th>
             </Table.Tr>
@@ -96,19 +115,50 @@ export function UserManagementPage() {
                   />
                 </Table.Td>
                 <Table.Td>
+                  <Badge color={user.status === 'active' ? 'teal' : 'red'} variant="light">
+                    {user.status}
+                  </Badge>
+                </Table.Td>
+                <Table.Td>
                   {user.createdAt
                     ? dayjs(user.createdAt).format('MMM D, YYYY')
                     : '—'}
                 </Table.Td>
                 <Table.Td>
-                  <TableAction
-                    label="Remove"
-                    color="red"
-                    disabled={user.id === userId}
-                    onClick={() => setRemoving(user)}
-                  >
-                    <IconUserMinus size="1rem" />
-                  </TableAction>
+                  <Group gap="xs">
+                    {user.status === 'active' ? (
+                      <TableAction
+                        label="Suspend"
+                        color="orange"
+                        disabled={user.id === userId}
+                        loading={setUserStatus.isPending}
+                        onClick={() =>
+                          setUserStatus.mutate({ userId: user.id, status: 'suspended' })
+                        }
+                      >
+                        <IconPlayerPause size="1rem" />
+                      </TableAction>
+                    ) : (
+                      <TableAction
+                        label="Reactivate"
+                        color="teal"
+                        loading={setUserStatus.isPending}
+                        onClick={() =>
+                          setUserStatus.mutate({ userId: user.id, status: 'active' })
+                        }
+                      >
+                        <IconPlayerPlay size="1rem" />
+                      </TableAction>
+                    )}
+                    <TableAction
+                      label="Remove"
+                      color="red"
+                      disabled={user.id === userId}
+                      onClick={() => setRemoving(user)}
+                    >
+                      <IconUserMinus size="1rem" />
+                    </TableAction>
+                  </Group>
                 </Table.Td>
               </Table.Tr>
             ))}
@@ -117,25 +167,45 @@ export function UserManagementPage() {
       )}
 
       <Modal
-        opened={inviteOpen}
-        onClose={() => setInviteOpen(false)}
-        title="Invite team member"
+        opened={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title="Create account"
       >
         <form
           onSubmit={form.onSubmit((values) => {
-            inviteUser.mutate(values, {
-              onSuccess: () => {
-                form.reset();
-                setInviteOpen(false);
+            createUser.mutate(
+              { email: values.email, role: values.role, password: values.password },
+              {
+                onSuccess: () => {
+                  form.reset();
+                  setEmailTouched(false);
+                  setCreateOpen(false);
+                },
               },
-            });
+            );
           })}
         >
           <Stack>
             <TextInput
+              label="Name"
+              placeholder="John Smith"
+              description={slug ? `Email will be suggested as name@${slug}.com` : undefined}
+              onChange={(event) => {
+                const name = event.currentTarget.value;
+                form.setFieldValue('name', name);
+                if (!emailTouched) {
+                  form.setFieldValue('email', deriveEmail(name));
+                }
+              }}
+            />
+            <TextInput
               label="Email"
-              placeholder="recruiter@acme.com"
+              placeholder={slug ? `john@${slug}.com` : 'john@company.com'}
               required
+              onChange={(event) => {
+                setEmailTouched(true);
+                form.setFieldValue('email', event.currentTarget.value);
+              }}
               {...form.getInputProps('email')}
             />
             <Select
@@ -145,14 +215,14 @@ export function UserManagementPage() {
               {...form.getInputProps('role')}
             />
             <PasswordInput
-              label="Initial password"
+              label="Password"
               description="No email is sent — share the password with the user out-of-band."
               required
               {...form.getInputProps('password')}
             />
             <Group justify="flex-end">
-              <Button type="submit" loading={inviteUser.isPending}>
-                Invite
+              <Button type="submit" loading={createUser.isPending}>
+                Create account
               </Button>
             </Group>
           </Stack>

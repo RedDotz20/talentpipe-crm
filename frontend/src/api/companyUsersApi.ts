@@ -14,10 +14,11 @@ export interface CompanyUser {
   id: string;
   email: string;
   role: string;
+  status: 'active' | 'suspended';
   createdAt?: string;
 }
 
-export interface InviteUserInput {
+export interface CreateUserInput {
   email: string;
   role: InternalUserRole;
   password: string;
@@ -30,8 +31,8 @@ export const companyUsersApi = {
     const { data } = await apiClient.get('/company/users');
     return unwrap(data as ApiEnvelope<CompanyUser[]>);
   },
-  invite: async (input: InviteUserInput): Promise<ApiEnvelope<CompanyUser>> => {
-    const { data } = await apiClient.post('/company/users/invite', input);
+  create: async (input: CreateUserInput): Promise<ApiEnvelope<CompanyUser>> => {
+    const { data } = await apiClient.post('/company/users', input);
     return data as ApiEnvelope<CompanyUser>;
   },
   updateRole: async (
@@ -39,6 +40,15 @@ export const companyUsersApi = {
     role: InternalUserRole,
   ): Promise<ApiEnvelope<CompanyUser>> => {
     const { data } = await apiClient.patch(`/company/users/${userId}/role`, { role });
+    return data as ApiEnvelope<CompanyUser>;
+  },
+  setStatus: async (
+    userId: string,
+    status: 'active' | 'suspended',
+  ): Promise<ApiEnvelope<CompanyUser>> => {
+    const { data } = await apiClient.patch(
+      `/company/users/${userId}/${status === 'suspended' ? 'suspend' : 'reactivate'}`,
+    );
     return data as ApiEnvelope<CompanyUser>;
   },
   remove: async (userId: string): Promise<ApiEnvelope<{ id: string }>> => {

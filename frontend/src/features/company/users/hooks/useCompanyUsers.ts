@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { companyUsersApi } from '@/api/companyUsersApi';
-import type { InternalUserRole, InviteUserInput } from '@/api/companyUsersApi';
+import type { InternalUserRole, CreateUserInput } from '@/api/companyUsersApi';
 import { queryKeys } from '@/api/queryKeys';
 import { useApiMutation } from '@/hooks/useApiMutation';
 
@@ -11,11 +11,22 @@ export function useCompanyUsers() {
   });
 }
 
-export function useInviteUser() {
+export function useCreateUser() {
   const queryClient = useQueryClient();
-  return useApiMutation<unknown, InviteUserInput>({
-    mutationFn: companyUsersApi.invite,
-    successMessage: 'User invited',
+  return useApiMutation<unknown, CreateUserInput>({
+    mutationFn: companyUsersApi.create,
+    successMessage: 'Account created',
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.company.companyUsers() });
+    },
+  });
+}
+
+export function useSetUserStatus() {
+  const queryClient = useQueryClient();
+  return useApiMutation<unknown, { userId: string; status: 'active' | 'suspended' }>({
+    mutationFn: ({ userId, status }) => companyUsersApi.setStatus(userId, status),
+    successMessage: 'Account status updated',
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.company.companyUsers() });
     },

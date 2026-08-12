@@ -67,7 +67,7 @@ Enforced via the 8-layer strategy in §7.
 |---|---|
 | `AuthModule` | JWT access+refresh, login/signup/logout, role guards |
 | `CompaniesModule` | Company creation/settings, plan info (company-scoped) |
-| `CompanyModule` | Company settings (`GET/PATCH /company`) + user management — invite, role change, remove, audit (`modules/company/`) |
+| `CompanyModule` | Company settings (`GET/PATCH /company`) + user management — create, role change, suspend/reactivate, remove, audit (`modules/company/`) |
 | `JobPostingsModule` | CRUD, required-skills config, publish/close |
 | `CandidatesModule` | Company-scoped candidate records (company's view of who applied) |
 | `ApplicationsModule` | Pipeline — stage transitions, Kanban data, notes |
@@ -135,8 +135,9 @@ Relationships:
 | GET | `/company` | OA,R,HM,IV | Company settings (name, slug, plan, status) |
 | PATCH | `/company` | OA | Update company name (slug/plan immutable) |
 | GET | `/company/users` | OA,R,HM | List users (interviewer picker) |
-| POST | `/company/users/invite` | OA | Invite user+role+password (no mailer; duplicate → 409) |
+| POST | `/company/users` | OA | Create account (email+role+password; no mailer; duplicate → 409) |
 | PATCH | `/company/users/:userId/role` | OA | Change role (no self-change; last CompanyAdmin protected) |
+| PATCH | `/company/users/:userId/suspend` \| `/reactivate` | OA | Suspend/activate (no self-suspend; last active CompanyAdmin protected; suspend revokes refresh tokens) |
 | DELETE | `/company/users/:userId` | OA | Remove user (no self-remove; last CompanyAdmin protected) |
 | GET/POST/PATCH/DELETE | `/company/pipeline-stages[/:id]` | OA (GET —) | Manage ordered stages |
 | GET/POST | `/job-postings` | — / OA,R | List / create |

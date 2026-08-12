@@ -35,15 +35,17 @@ Legend for **Roles**: SA = SuperAdmin, OA = Company Admin, R = Recruiter, HM = H
 | GET | `/company` | OA, R, HM, IV | Get current company's settings (name, slug, plan, status) |
 | PATCH | `/company` | OA | Update company name (`{ name }`; slug and plan immutable) |
 | GET | `/company/users` | OA, R, HM | List all users in the company (interviewer picker) |
-| POST | `/company/users/invite` | OA | Invite a new user by email + role + password (no mailer — admin shares credentials out-of-band) |
+| POST | `/company/users` | OA | Create a new account by email + role + password (no mailer — admin shares credentials out-of-band; duplicate → 409) |
 | PATCH | `/company/users/:userId/role` | OA | Change a user's role (no self-change; last CompanyAdmin protected) |
+| PATCH | `/company/users/:userId/suspend` | OA | Suspend a user (no self-suspend; last active CompanyAdmin protected; revokes refresh tokens) |
+| PATCH | `/company/users/:userId/reactivate` | OA | Reactivate a suspended user |
 | DELETE | `/company/users/:userId` | OA | Remove a user from the company (no self-removal; last CompanyAdmin protected; revokes refresh tokens) |
 | GET | `/company/pipeline-stages` | — | List configured pipeline stages, ordered |
 | POST | `/company/pipeline-stages` | OA | Create a new stage |
 | PATCH | `/company/pipeline-stages/:id` | OA | Rename/reorder a stage |
 | DELETE | `/company/pipeline-stages/:id` | OA | Remove a stage (only if no applications reference it) |
 
-> `/company`, `PATCH /company`, and the user-management routes (`invite`, `role`, `delete`) are **implemented** (M9) in `backend/src/modules/company/` (`CompanyController` + `CompanyUsersController`, moved here from the interviews module in M9). User-management actions write audit rows (`user.invite`, `user.role_change`, `user.remove`). `GET /company/pipeline-stages` exists as a company-scoped repo but no controller yet.
+> `/company`, `PATCH /company`, and the user-management routes (`create`, `role`, `suspend/reactivate`, `delete`) are **implemented** (M9) in `backend/src/modules/company/` (`CompanyController` + `CompanyUsersController`, moved here from the interviews module in M9). User-management actions write audit rows (`user.create`, `user.role_change`, `user.suspend`, `user.reactivate`, `user.remove`). `GET /company/pipeline-stages` exists as a company-scoped repo but no controller yet.
 
 ## Job Postings
 
