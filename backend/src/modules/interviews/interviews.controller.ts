@@ -7,10 +7,14 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { SkipEnvelope } from '../../common/decorators/skip-envelope.decorator';
+import { csvFilename } from '../../common/csv.helper';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CompanyContext } from '../../common/context/company-context';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -55,6 +59,30 @@ export class InterviewsController {
       status,
       assignedToMe,
     });
+  }
+
+  @Get('export')
+  @UseGuards(AuthGuard('jwt'))
+  @Roles(...VIEW_ROLES)
+  @SkipEnvelope()
+  async exportCsv(
+    @CurrentUser() user: CompanyContext,
+    @Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto,
+    @Res() res: Response,
+    @Query('status') status?: string,
+    @Query('assignedToMe') assignedToMe?: string,
+  ) {
+    const csv = await this.interviewsService.exportCsv(user, {
+      ...query,
+      status,
+      assignedToMe,
+    });
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${csvFilename('interviews')}"`,
+    );
+    res.send(csv);
   }
 
   @Get(':id')

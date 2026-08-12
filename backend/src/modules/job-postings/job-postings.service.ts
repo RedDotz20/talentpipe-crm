@@ -13,6 +13,7 @@ import { SkillRepository } from '../../repositories/skill.repository';
 import { CompanyRepository } from '../../repositories/company.repository';
 import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
 import { ApplicationRepository } from '../../repositories/application.repository';
+import { toCsv } from '../../common/csv.helper';
 import { CreateJobPostingDto } from './dto/create-job-posting.dto';
 import { UpdateJobPostingDto } from './dto/update-job-posting.dto';
 import type { ListQueryDto } from '../../common/dto/list-query.dto';
@@ -30,6 +31,14 @@ export class JobPostingsService {
 
   list(status: string | undefined, query: ListQueryDto) {
     return this.jobPostingRepo.findPaginated({ ...query, status });
+  }
+
+  async exportCsv(status: string | undefined, query: ListQueryDto) {
+    const rows = await this.jobPostingRepo.findAllFiltered({
+      ...query,
+      status,
+    });
+    return toCsv(['title', 'status', 'createdAt'], rows);
   }
 
   async getOne(id: string) {

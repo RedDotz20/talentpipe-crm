@@ -12,6 +12,7 @@ import { ApplicationRepository } from '../../repositories/application.repository
 import { UserRepository } from '../../repositories/user.repository';
 import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
 import { CompanyContext } from '../../common/context/company-context';
+import { toCsv } from '../../common/csv.helper';
 import type { ListQueryDto } from '../../common/dto/list-query.dto';
 import { ApplicationsService } from '../applications/applications.service';
 import { CreateInterviewDto } from './dto/create-interview.dto';
@@ -42,6 +43,29 @@ export class InterviewsService {
       ...(query.status ? { status: query.status } : {}),
     };
     return this.interviewRepo.findPaginated(filters, query);
+  }
+
+  async exportCsv(
+    user: CompanyContext,
+    query: ListQueryDto & { status?: string; assignedToMe?: string },
+  ) {
+    const ownOnly =
+      user.role === 'Interviewer' || query.assignedToMe === 'true';
+    const filters = {
+      ...(ownOnly ? { interviewerId: user.userId } : {}),
+      ...(query.status ? { status: query.status } : {}),
+    };
+    const rows = await this.interviewRepo.findAllFiltered(filters, query);
+    return toCsv(
+      [
+        'candidateName',
+        'jobTitle',
+        'scheduledAt',
+        'interviewerEmail',
+        'status',
+      ],
+      rows,
+    );
   }
 
   async getOne(user: CompanyContext, id: string) {

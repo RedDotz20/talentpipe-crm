@@ -5,6 +5,7 @@ import { CandidateSkillRepository } from '../../repositories/candidate-skill.rep
 import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
 import { SkillRepository } from '../../repositories/skill.repository';
 import { CacheService } from '../../common/cache/cache.service';
+import { toCsv } from '../../common/csv.helper';
 import { getCompanyId } from '../../common/context/company-context';
 import { CreateCandidateDto } from './dto/create-candidate.dto';
 import type { ListQueryDto } from '../../common/dto/list-query.dto';
@@ -22,6 +23,11 @@ export class CandidatesService {
 
   list(query: ListQueryDto) {
     return this.candidateRepo.findPaginated(query);
+  }
+
+  async exportCsv(query: ListQueryDto) {
+    const rows = await this.candidateRepo.findAllFiltered(query);
+    return toCsv(['name', 'email', 'phone', 'createdAt'], rows);
   }
 
   async getOne(id: string) {
