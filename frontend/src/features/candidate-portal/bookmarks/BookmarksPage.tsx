@@ -1,5 +1,6 @@
-import { Card, Text, Title, Button, Group, Stack, Loader, Alert, Pagination } from '@mantine/core';
+import { Card, Text, Title, Button, Group, Stack, Alert, Pagination } from '@mantine/core';
 import { ListControls } from '@/shared/components/ListControls';
+import { CardGridSkeleton } from '@/shared/components/Skeletons';
 import { useListQuery } from '@/shared/hooks/useListQuery';
 import { useBookmarks, useRemoveBookmark } from '../hooks';
 import type { Bookmark } from '../types';
@@ -12,9 +13,10 @@ export function BookmarksPage() {
 
   if (bookmarksLoading) {
     return (
-      <Group justify="center" py="xl">
-        <Loader />
-      </Group>
+      <Stack>
+        <Title order={2}>My Bookmarks</Title>
+        <CardGridSkeleton count={3} cols={{ base: 1, sm: 1, xl: 1 }} />
+      </Stack>
     );
   }
 

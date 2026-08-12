@@ -5,7 +5,6 @@ import {
   Button,
   Drawer,
   Group,
-  Loader,
   Modal,
   Pagination,
   Stack,
@@ -17,6 +16,7 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { Link } from '@tanstack/react-router';
 import { ListControls } from '@/shared/components/ListControls';
+import { DetailSkeleton, TableSkeleton } from '@/shared/components/Skeletons';
 import { useListQuery } from '@/shared/hooks/useListQuery';
 import { useApplicationDetail, useApplications, useWithdrawApplication } from '../hooks';
 import type { Application } from '../types';
@@ -59,9 +59,10 @@ export function ApplicationsPage() {
 
   if (isLoading) {
     return (
-      <Group justify="center" py="xl">
-        <Loader />
-      </Group>
+      <Stack>
+        <Title order={2}>My Applications</Title>
+        <TableSkeleton headers={['Job Title', 'Company', 'Status', 'Applied Date', 'Actions']} />
+      </Stack>
     );
   }
 
@@ -187,11 +188,7 @@ export function ApplicationsPage() {
         position="right"
         size="md"
       >
-        {applicationDetail.isLoading && (
-          <Group justify="center" py="xl">
-            <Loader />
-          </Group>
-        )}
+        {applicationDetail.isLoading && <DetailSkeleton lines={5} />}
         {applicationDetail.error && (
           <Alert color="red">
             Failed to load application: {applicationDetail.error.message}

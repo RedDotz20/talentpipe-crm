@@ -3,7 +3,6 @@ import {
   Badge,
   Button,
   Group,
-  Loader,
   Pagination,
   Table,
   Text,
@@ -13,6 +12,7 @@ import dayjs from 'dayjs';
 import { useAuthStore } from '@/api/useAuth';
 import type { Interview, InterviewStatus } from '@/api/interviewsApi';
 import { ListControls } from '@/shared/components/ListControls';
+import { TableSkeleton } from '@/shared/components/Skeletons';
 import { useListQuery } from '@/shared/hooks/useListQuery';
 import {
   useInterviews,
@@ -123,7 +123,7 @@ export function InterviewListView() {
         onToggleSortDir={listQuery.toggleSortDir}
       />
       {interviewsQuery.isLoading ? (
-        <Loader />
+        <TableSkeleton headers={['Candidate', 'Job', 'Date', 'Interviewer', 'Status', 'Actions']} />
       ) : interviews.length === 0 ? (
         <Text c="dimmed">No interviews match your filters.</Text>
       ) : (

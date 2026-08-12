@@ -7,9 +7,10 @@ import {
   useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import { Group, Loader, TextInput } from '@mantine/core';
+import { Group, TextInput } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconSearch } from '@tabler/icons-react';
+import { BoardSkeleton } from '@/shared/components/Skeletons';
 import {
   useApplications,
   usePipelineStages,
@@ -44,7 +45,21 @@ export function PipelineBoard() {
     updateStage.mutate({ applicationId: appId, stageId });
   };
 
-  if (stagesLoading || appsLoading) return <Loader />;
+  if (stagesLoading || appsLoading) {
+    return (
+      <>
+        <Group mb="md">
+          <TextInput
+            placeholder="Search candidates or jobs"
+            disabled
+            leftSection={<IconSearch size="1rem" />}
+            style={{ minWidth: 240 }}
+          />
+        </Group>
+        <BoardSkeleton />
+      </>
+    );
+  }
 
   const selected = applications?.find((a) => a.id === selectedId) ?? null;
 

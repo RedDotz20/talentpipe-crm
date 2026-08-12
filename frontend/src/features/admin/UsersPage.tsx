@@ -4,7 +4,6 @@ import {
   Badge,
   Button,
   Group,
-  Loader,
   Modal,
   NativeSelect,
   Pagination,
@@ -23,6 +22,7 @@ import { platformApi, type PlatformUser } from '@/api/platformApi'
 import { queryKeys } from '@/api/queryKeys'
 import { useApiMutation } from '@/hooks/useApiMutation'
 import { ListControls } from '@/shared/components/ListControls'
+import { TableSkeleton } from '@/shared/components/Skeletons'
 import { useListQuery } from '@/shared/hooks/useListQuery'
 import {
   useCreateCandidate,
@@ -243,7 +243,9 @@ export function UsersPage() {
       />
 
       {usersQuery.isLoading ? (
-        <Loader />
+        <TableSkeleton
+          headers={['Name / Email', 'Type', 'Company', 'Role', 'Status', 'Created', 'Actions']}
+        />
       ) : users.length === 0 ? (
         <Text c="dimmed">No users match.</Text>
       ) : (

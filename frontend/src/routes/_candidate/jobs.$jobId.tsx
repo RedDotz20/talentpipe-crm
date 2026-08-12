@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { Alert, Container, Group, Loader } from '@mantine/core';
+import { Alert, Container } from '@mantine/core';
 import { useApplications, useJobDetail } from '@/features/candidate-portal/hooks';
 import { JobDetailsView } from '@/features/candidate-portal/jobs/JobDetailsView';
 import { CandidateApplyModal } from '@/features/candidate-portal/applications/CandidateApplyModal';
+import { DetailSkeleton } from '@/shared/components/Skeletons';
 
 export const Route = createFileRoute('/_candidate/jobs/$jobId')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -33,9 +34,7 @@ function CandidateJobDetailRoute() {
   if (isLoading) {
     return (
       <Container size="md" py="xl">
-        <Group justify="center">
-          <Loader />
-        </Group>
+        <DetailSkeleton lines={8} />
       </Container>
     );
   }

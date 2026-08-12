@@ -5,7 +5,6 @@ import {
   Card,
   Container,
   Group,
-  Loader,
   Pagination,
   Stack,
   Text,
@@ -13,6 +12,7 @@ import {
 } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { JobMetaBadges } from '@/shared/components/JobMetaBadges';
+import { CardGridSkeleton } from '@/shared/components/Skeletons';
 import { ListControls } from '@/shared/components/ListControls';
 import { useListQuery } from '@/shared/hooks/useListQuery';
 import { usePublicJobs } from './hooks/usePublicCareers';
@@ -42,9 +42,15 @@ export function JobListingPage({ companySlug }: JobListingPageProps) {
   if (isLoading) {
     return (
       <Container size="md" py="xl">
-        <Group justify="center">
-          <Loader />
-        </Group>
+        <Stack gap="lg">
+          <div>
+            <Title order={1}>Open positions</Title>
+            <Text c="dimmed" mt="xs">
+              Explore the latest opportunities and find your next role.
+            </Text>
+          </div>
+          <CardGridSkeleton count={3} cols={{ base: 1, sm: 1, xl: 1 }} />
+        </Stack>
       </Container>
     );
   }

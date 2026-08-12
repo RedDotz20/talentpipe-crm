@@ -4,13 +4,13 @@ import {
   Button,
   FileInput,
   Group,
-  Loader,
   MultiSelect,
   Stack,
   Text,
   TextInput,
   Title,
 } from '@mantine/core';
+import { DetailSkeleton } from '@/shared/components/Skeletons';
 import {
   useAllSkills,
   useProfile,
@@ -44,11 +44,7 @@ export function SettingsPage() {
   }, [profile]);
 
   if (isLoading) {
-    return (
-      <Group justify="center" py="xl">
-        <Loader />
-      </Group>
-    );
+    return <DetailSkeleton lines={6} />;
   }
 
   if (error) {

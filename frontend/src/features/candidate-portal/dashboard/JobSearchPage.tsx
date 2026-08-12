@@ -6,7 +6,6 @@ import {
   Button,
   Card,
   Group,
-  Loader,
   Pagination,
   SimpleGrid,
   Stack,
@@ -17,6 +16,7 @@ import {
 import { IconBookmark, IconBookmarkFilled, IconEye, IconSend } from '@tabler/icons-react';
 import { Link } from '@tanstack/react-router';
 import { JobMetaBadges } from '@/shared/components/JobMetaBadges';
+import { CardGridSkeleton } from '@/shared/components/Skeletons';
 import { ListControls } from '@/shared/components/ListControls';
 import { useListQuery } from '@/shared/hooks/useListQuery';
 import { timeAgo } from '@/shared/utils/timeAgo';
@@ -58,9 +58,10 @@ export function JobSearchPage() {
 
   if (jobsLoading) {
     return (
-      <Group justify="center" py="xl">
-        <Loader />
-      </Group>
+      <Stack>
+        <Title order={2}>Job Search</Title>
+        <CardGridSkeleton count={6} />
+      </Stack>
     );
   }
 

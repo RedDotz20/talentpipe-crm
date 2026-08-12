@@ -3,7 +3,6 @@ import {
   Badge,
   Button,
   Group,
-  Loader,
   Modal,
   Pagination,
   Select,
@@ -15,6 +14,7 @@ import { Link } from '@tanstack/react-router'
 import dayjs from 'dayjs'
 import type { PlatformApplication } from '@/api/platformApi'
 import { ListControls } from '@/shared/components/ListControls'
+import { TableSkeleton } from '@/shared/components/Skeletons'
 import { useListQuery } from '@/shared/hooks/useListQuery'
 import {
   useMoveApplicationStage,
@@ -88,7 +88,9 @@ export function ApplicationsPage() {
       />
 
       {applicationsQuery.isLoading ? (
-        <Loader />
+        <TableSkeleton
+          headers={['Candidate', 'Company', 'Job', 'Stage', 'Applied', 'Match', 'Actions']}
+        />
       ) : applications.length === 0 ? (
         <Text c="dimmed">No applications match.</Text>
       ) : (

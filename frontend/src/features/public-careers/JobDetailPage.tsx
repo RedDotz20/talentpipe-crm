@@ -1,9 +1,10 @@
-import { Alert, Button, Container, Group, Loader, Stack } from '@mantine/core';
+import { Alert, Button, Container, Stack } from '@mantine/core';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useAuthStore } from '@/api/useAuth';
 import { CandidateApplyModal } from '@/features/candidate-portal/applications/CandidateApplyModal';
 import { JobDetailsView } from '@/features/candidate-portal/jobs/JobDetailsView';
+import { DetailSkeleton } from '@/shared/components/Skeletons';
 import { getSafeCareerReturnTo } from '@/features/auth/returnTo';
 import { usePublicJob } from './hooks/usePublicCareers';
 
@@ -43,9 +44,7 @@ export function JobDetailPage({
   if (isLoading) {
     return (
       <Container size="md" py="xl">
-        <Group justify="center">
-          <Loader />
-        </Group>
+        <DetailSkeleton lines={8} />
       </Container>
     );
   }

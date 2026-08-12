@@ -1,5 +1,6 @@
-import { Group, Loader, Pagination, Stack, Table, Title } from '@mantine/core';
+import { Group, Pagination, Stack, Table, Title } from '@mantine/core';
 import { ListControls } from '@/shared/components/ListControls';
+import { TableSkeleton } from '@/shared/components/Skeletons';
 import { useListQuery } from '@/shared/hooks/useListQuery';
 import { useCandidates } from './hooks/useCandidates';
 
@@ -46,7 +47,7 @@ export function CandidateList({ onSelect }: { onSelect: (id: string) => void }) 
         onToggleSortDir={listQuery.toggleSortDir}
       />
       {isLoading ? (
-        <Loader />
+        <TableSkeleton headers={['Name', 'Email', 'Phone', 'Created']} />
       ) : (
         <Table striped highlightOnHover withTableBorder>
           <Table.Thead>

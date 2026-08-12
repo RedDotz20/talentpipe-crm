@@ -3,7 +3,6 @@ import {
   Badge,
   Button,
   Group,
-  Loader,
   Modal,
   Pagination,
   Select,
@@ -21,6 +20,7 @@ import type { PlatformJob } from '@/api/platformApi'
 import { platformApi } from '@/api/platformApi'
 import { RequiredSkillsPicker } from '@/features/company/job-postings/RequiredSkillsPicker'
 import { ListControls } from '@/shared/components/ListControls'
+import { TableSkeleton } from '@/shared/components/Skeletons'
 import { useListQuery } from '@/shared/hooks/useListQuery'
 import {
   useCloseJob,
@@ -218,7 +218,7 @@ export function JobsPage() {
       />
 
       {jobsQuery.isLoading ? (
-        <Loader />
+        <TableSkeleton headers={['Company', 'Title', 'Details', 'Status', 'Created', 'Actions']} />
       ) : jobs.length === 0 ? (
         <Text c="dimmed">No jobs match.</Text>
       ) : (

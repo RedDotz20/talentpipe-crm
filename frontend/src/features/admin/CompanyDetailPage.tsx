@@ -5,7 +5,6 @@ import {
   Button,
   Card,
   Group,
-  Loader,
   Modal,
   NativeSelect,
   PasswordInput,
@@ -26,6 +25,7 @@ import type {
   PlatformInterview,
   PlatformUser,
 } from '@/api/platformApi'
+import { DetailSkeleton, TableSkeleton } from '@/shared/components/Skeletons'
 import {
   useCreateCompanyUser,
   useMoveApplicationStage,
@@ -48,7 +48,7 @@ export function CompanyDetailPage({ companyId }: { companyId: string }) {
   const { data: company, isLoading, error } = useCompanyDetail(companyId)
   const setStatus = useSetCompanyStatus()
 
-  if (isLoading) return <Loader />
+  if (isLoading) return <DetailSkeleton lines={6} />
   if (error || !company) {
     return <Alert color="red">Company not found.</Alert>
   }
@@ -158,7 +158,7 @@ function UsersTab({ companyId }: { companyId: string }) {
       </Group>
 
       {usersQuery.isLoading ? (
-        <Loader />
+        <TableSkeleton headers={['Email', 'Role', 'Status', 'Actions']} />
       ) : users.length === 0 ? (
         <Text c="dimmed">No users yet.</Text>
       ) : (
@@ -356,7 +356,7 @@ function ApplicationsTab({ companyId }: { companyId: string }) {
   return (
     <>
       {applicationsQuery.isLoading ? (
-        <Loader />
+        <TableSkeleton headers={['Candidate', 'Job', 'Stage', 'Applied', 'Match']} />
       ) : applications.length === 0 ? (
         <Text c="dimmed">No applications yet.</Text>
       ) : (
@@ -453,7 +453,9 @@ function InterviewsTab({ companyId }: { companyId: string }) {
   return (
     <>
       {interviewsQuery.isLoading ? (
-        <Loader />
+        <TableSkeleton
+          headers={['Candidate', 'Job', 'Interviewer', 'Scheduled', 'Status', 'Actions']}
+        />
       ) : interviews.length === 0 ? (
         <Text c="dimmed">No interviews yet.</Text>
       ) : (

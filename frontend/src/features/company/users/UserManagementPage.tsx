@@ -3,7 +3,6 @@ import {
   Alert,
   Button,
   Group,
-  Loader,
   Modal,
   PasswordInput,
   Select,
@@ -17,6 +16,7 @@ import { useForm, schemaResolver } from '@mantine/form';
 import { z } from 'zod';
 import dayjs from 'dayjs';
 import { useAuthStore } from '@/api/useAuth';
+import { TableSkeleton } from '@/shared/components/Skeletons';
 import {
   INTERNAL_USER_ROLES,
   type InternalUserRole,
@@ -59,7 +59,7 @@ export function UserManagementPage() {
       </Group>
 
       {usersQuery.isLoading ? (
-        <Loader />
+        <TableSkeleton headers={['Email', 'Role', 'Created', 'Actions']} />
       ) : users.length === 0 ? (
         <Text c="dimmed">No users yet.</Text>
       ) : (

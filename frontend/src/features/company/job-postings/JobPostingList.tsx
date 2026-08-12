@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Badge, Button, Group, Loader, Pagination, Stack, Table, Title } from '@mantine/core';
+import { Badge, Button, Group, Pagination, Stack, Table, Title } from '@mantine/core';
 import { useAuthStore } from '../../../api/useAuth';
 import { ListControls } from '@/shared/components/ListControls';
+import { TableSkeleton } from '@/shared/components/Skeletons';
 import { useListQuery } from '@/shared/hooks/useListQuery';
 import {
   useJobPostings,
@@ -102,7 +103,7 @@ export function JobPostingList({ onCreate }: { onCreate: () => void }) {
         onToggleSortDir={listQuery.toggleSortDir}
       />
       {isLoading ? (
-        <Loader />
+        <TableSkeleton headers={['Title', 'Status', 'Created', 'Actions']} />
       ) : (
         <Table striped highlightOnHover withTableBorder>
           <Table.Thead>

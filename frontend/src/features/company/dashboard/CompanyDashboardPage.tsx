@@ -1,7 +1,5 @@
 import {
   Alert,
-  Group,
-  Loader,
   Stack,
   Table,
   Text,
@@ -9,7 +7,9 @@ import {
   Badge,
   SimpleGrid,
   Paper,
+  Skeleton,
 } from '@mantine/core';
+import { TableSkeleton } from '@/shared/components/Skeletons';
 import { useDashboardSummary } from './hooks/useDashboardSummary';
 
 export function CompanyDashboardPage() {
@@ -17,9 +17,21 @@ export function CompanyDashboardPage() {
 
   if (isLoading) {
     return (
-      <Group justify="center" py="xl">
-        <Loader />
-      </Group>
+      <Stack gap="xl">
+        <Title order={2}>Dashboard</Title>
+        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <Paper key={index} withBorder p="lg" radius="lg">
+              <Skeleton height={12} width="50%" mb={8} />
+              <Skeleton height={24} width="35%" />
+            </Paper>
+          ))}
+        </SimpleGrid>
+        <div>
+          <Skeleton height={20} width={200} mb="md" />
+          <TableSkeleton headers={['Stage', 'Applications']} rows={4} />
+        </div>
+      </Stack>
     );
   }
 

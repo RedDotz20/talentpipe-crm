@@ -1,6 +1,7 @@
-import { Alert, Button, Card, Group, Loader, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Button, Card, Group, Stack, Text, TextInput, Title } from '@mantine/core';
 import { useForm, schemaResolver } from '@mantine/form';
 import { z } from 'zod';
+import { DetailSkeleton } from '@/shared/components/Skeletons';
 import { useCompanySettings, useUpdateCompanySettings } from './hooks/useCompanySettings';
 
 const CompanySettingsSchema = z.object({
@@ -16,7 +17,7 @@ export function CompanySettingsPage() {
     values: { name: settings?.name ?? '' },
   });
 
-  if (isLoading) return <Loader />;
+  if (isLoading) return <DetailSkeleton lines={4} />;
   if (error || !settings) {
     return <Alert color="red">Company settings are unavailable.</Alert>;
   }

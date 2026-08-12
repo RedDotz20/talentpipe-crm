@@ -4,10 +4,10 @@ import {
   Button,
   Card,
   Group,
-  Loader,
   Modal,
   Pagination,
   SimpleGrid,
+  Skeleton,
   Table,
   Text,
   Title,
@@ -15,6 +15,7 @@ import {
 import { Link } from '@tanstack/react-router'
 import dayjs from 'dayjs'
 import { ListControls } from '@/shared/components/ListControls'
+import { TableSkeleton } from '@/shared/components/Skeletons'
 import { useListQuery } from '@/shared/hooks/useListQuery'
 import {
   useDeleteCompany,
@@ -47,7 +48,14 @@ export function CompaniesPage() {
       </Group>
 
       {statsQuery.isLoading ? (
-        <Loader />
+        <SimpleGrid cols={3} mb="lg">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <Card key={index} withBorder>
+              <Skeleton height={12} width="50%" />
+              <Skeleton height={24} width="35%" mt={8} />
+            </Card>
+          ))}
+        </SimpleGrid>
       ) : (
         <SimpleGrid cols={3} mb="lg">
           <Card withBorder>
@@ -113,7 +121,7 @@ export function CompaniesPage() {
       />
 
       {companiesQuery.isLoading ? (
-        <Loader />
+        <TableSkeleton headers={['Company', 'Slug', 'Plan', 'Status', 'Created', 'Actions']} />
       ) : companies.length === 0 ? (
         <Text c="dimmed">No companies match.</Text>
       ) : (
