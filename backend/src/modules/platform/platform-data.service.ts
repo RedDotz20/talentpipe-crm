@@ -6,6 +6,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { AuditService } from '../../common/audit/audit.service';
+import { toCsv } from '../../common/csv.helper';
 import { CacheService } from '../../common/cache/cache.service';
 import { CompanyRepository } from '../../repositories/company.repository';
 import { ApplicationRepository } from '../../repositories/application.repository';
@@ -60,7 +61,7 @@ export class PlatformDataService {
     return '';
   }
 
-  async listApplications(filters: PlatformFilters, query: ListQueryDto) {
+  private async collectApplications(filters: PlatformFilters) {
     const companies = await this.tenantRepo.findAll();
     const target = filters.companyId
       ? companies.filter((t) => t.id === filters.companyId)
@@ -75,6 +76,11 @@ export class PlatformDataService {
         rows.push({ ...app, companyName: tenant.name, companyId: tenant.id });
       }
     }
+    return rows;
+  }
+
+  async listApplications(filters: PlatformFilters, query: ListQueryDto) {
+    const rows = await this.collectApplications(filters);
     let filtered = rows;
     if (filters.status) {
       filtered = filtered.filter((row) => row.stageName === filters.status);
@@ -92,6 +98,31 @@ export class PlatformDataService {
       'desc',
     );
     return listEnvelope(sorted.data, sorted.total, query);
+  }
+
+  async exportApplications(filters: PlatformFilters, search?: string) {
+    const rows = await this.collectApplications(filters);
+    let filtered = rows;
+    if (filters.status) {
+      filtered = filtered.filter((row) => row.stageName === filters.status);
+    }
+    filtered = inMemorySearch(filtered, search, [
+      'candidateName',
+      'jobTitle',
+      'companyName',
+    ]);
+    const displayRows = filtered.map((row) => ({
+      candidate: row.candidateName,
+      company: row.companyName,
+      job: row.jobTitle,
+      stage: row.stageName,
+      appliedAt: row.appliedAt,
+      matchScore: row.matchScore ?? '',
+    }));
+    return toCsv(
+      ['candidate', 'company', 'job', 'stage', 'appliedAt', 'matchScore'],
+      displayRows,
+    );
   }
 
   async moveApplicationStage(
@@ -150,7 +181,7 @@ export class PlatformDataService {
     return this.applicationRepo.findById(applicationId, schema);
   }
 
-  async listInterviews(filters: PlatformFilters, query: ListQueryDto) {
+  private async collectInterviews(filters: PlatformFilters) {
     const companies = await this.tenantRepo.findAll();
     const target = filters.companyId
       ? companies.filter((t) => t.id === filters.companyId)
@@ -169,6 +200,11 @@ export class PlatformDataService {
         });
       }
     }
+    return rows;
+  }
+
+  async listInterviews(filters: PlatformFilters, query: ListQueryDto) {
+    const rows = await this.collectInterviews(filters);
     let filtered = rows;
     if (filters.status) {
       filtered = filtered.filter((row) => row.status === filters.status);
@@ -186,6 +222,30 @@ export class PlatformDataService {
       'asc',
     );
     return listEnvelope(sorted.data, sorted.total, query);
+  }
+
+  async exportInterviews(filters: PlatformFilters, search?: string) {
+    const rows = await this.collectInterviews(filters);
+    let filtered = rows;
+    if (filters.status) {
+      filtered = filtered.filter((row) => row.status === filters.status);
+    }
+    filtered = inMemorySearch(filtered, search, [
+      'candidateName',
+      'jobTitle',
+      'companyName',
+    ]);
+    const displayRows = filtered.map((row) => ({
+      candidate: row.candidateName,
+      job: row.jobTitle,
+      interviewer: row.interviewerEmail,
+      scheduledAt: row.scheduledAt,
+      status: row.status,
+    }));
+    return toCsv(
+      ['candidate', 'job', 'interviewer', 'scheduledAt', 'status'],
+      displayRows,
+    );
   }
 
   async rescheduleInterview(interviewId: string, dto: RescheduleInterviewDto) {
@@ -219,7 +279,7 @@ export class PlatformDataService {
     throw new NotFoundException('Interview not found');
   }
 
-  async listJobs(filters: PlatformFilters, query: ListQueryDto) {
+  private async collectJobs(filters: PlatformFilters) {
     const companies = await this.tenantRepo.findAll();
     const target = filters.companyId
       ? companies.filter((t) => t.id === filters.companyId)
@@ -234,6 +294,11 @@ export class PlatformDataService {
         rows.push({ ...job, companyName: tenant.name, companyId: tenant.id });
       }
     }
+    return rows;
+  }
+
+  async listJobs(filters: PlatformFilters, query: ListQueryDto) {
+    const rows = await this.collectJobs(filters);
     const filtered = inMemorySearch(rows, query.search, [
       'title',
       'companyName',
@@ -246,6 +311,32 @@ export class PlatformDataService {
       'desc',
     );
     return listEnvelope(sorted.data, sorted.total, query);
+  }
+
+  async exportJobs(filters: PlatformFilters, search?: string) {
+    const rows = await this.collectJobs(filters);
+    const filtered = inMemorySearch(rows, search, ['title', 'companyName']);
+    const displayRows = filtered.map((row) => ({
+      company: row.companyName,
+      title: row.title,
+      employmentType: row.employmentType ?? '',
+      location: row.location ?? '',
+      workSetup: row.workSetup ?? '',
+      status: row.status,
+      createdAt: row.createdAt,
+    }));
+    return toCsv(
+      [
+        'company',
+        'title',
+        'employmentType',
+        'location',
+        'workSetup',
+        'status',
+        'createdAt',
+      ],
+      displayRows,
+    );
   }
 
   async getJob(jobId: string) {

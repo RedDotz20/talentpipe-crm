@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { hashPassword } from '../../common/password';
+import { toCsv } from '../../common/csv.helper';
 import { AuditService } from '../../common/audit/audit.service';
 import { CompanyRepository } from '../../repositories/company.repository';
 import { UserRepository } from '../../repositories/user.repository';
@@ -270,9 +271,7 @@ export class PlatformAccountsService {
     return { id: companyId };
   }
 
-  async listAllUsers(
-    query: ListQueryDto & { type?: string; companyId?: string; role?: string },
-  ) {
+  private async collectAllUsers() {
     const companies = await this.tenantRepo.findAll();
     const companyUsers: Array<{
       type: 'company';
@@ -316,21 +315,30 @@ export class PlatformAccountsService {
       lastName: c.lastName,
       createdAt: c.createdAt,
     }));
-    let rows: Array<
+    return [...companyUsers, ...candidateRows] as Array<
       (typeof companyUsers)[number] | (typeof candidateRows)[number]
-    > = [...companyUsers, ...candidateRows];
-    if (query.type) rows = rows.filter((row) => row.type === query.type);
+    >;
+  }
+
+  async listAllUsers(
+    query: ListQueryDto & { type?: string; companyId?: string; role?: string },
+  ) {
+    const rows = await this.collectAllUsers();
+    let filtered = rows;
+    if (query.type)
+      filtered = filtered.filter((row) => row.type === query.type);
     if (query.companyId)
-      rows = rows.filter((row) => row.companyId === query.companyId);
-    if (query.role) rows = rows.filter((row) => row.role === query.role);
-    rows = inMemorySearch(rows, query.search, [
+      filtered = filtered.filter((row) => row.companyId === query.companyId);
+    if (query.role)
+      filtered = filtered.filter((row) => row.role === query.role);
+    filtered = inMemorySearch(filtered, query.search, [
       'email',
       'firstName',
       'lastName',
       'companyName',
     ]);
     const sorted = sortAndPageInMemory(
-      rows,
+      filtered,
       query,
       (row, sortBy) =>
         sortBy === 'createdAt' ? row.createdAt : row.email.toLowerCase(),
@@ -338,6 +346,41 @@ export class PlatformAccountsService {
       'asc',
     );
     return listEnvelope(sorted.data, sorted.total, query);
+  }
+
+  async exportAllUsers(
+    query: ListQueryDto & { type?: string; companyId?: string; role?: string },
+  ) {
+    const rows = await this.collectAllUsers();
+    let filtered = rows;
+    if (query.type)
+      filtered = filtered.filter((row) => row.type === query.type);
+    if (query.companyId)
+      filtered = filtered.filter((row) => row.companyId === query.companyId);
+    if (query.role)
+      filtered = filtered.filter((row) => row.role === query.role);
+    filtered = inMemorySearch(filtered, query.search, [
+      'email',
+      'firstName',
+      'lastName',
+      'companyName',
+    ]);
+    const displayRows = filtered.map((row) => ({
+      name:
+        row.type === 'candidate'
+          ? `${row.firstName ?? ''} ${row.lastName ?? ''}`.trim()
+          : row.email,
+      email: row.email,
+      type: row.type,
+      company: row.companyName ?? '',
+      role: row.role,
+      status: row.status ?? '',
+      createdAt: row.createdAt,
+    }));
+    return toCsv(
+      ['name', 'email', 'type', 'company', 'role', 'status', 'createdAt'],
+      displayRows,
+    );
   }
 
   async removeCandidate(id: string) {

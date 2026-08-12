@@ -8,11 +8,15 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import type { Response } from 'express';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { SkipEnvelope } from '../../common/decorators/skip-envelope.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { sendCsv } from '../../common/csv.helper';
 import { ListQuerySchema, ListQueryDto } from '../../common/dto/list-query.dto';
 import { PlatformAccountsService } from './platform-accounts.service';
 import {
@@ -94,6 +98,24 @@ export class PlatformAccountsController {
   @Get('companies/:id/pipeline-stages')
   listCompanyStages(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.accountsService.listCompanyStages(id);
+  }
+
+  @Get('users/export')
+  @SkipEnvelope()
+  async exportAllUsers(
+    @Res() res: Response,
+    @Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto,
+    @Query('type') type?: string,
+    @Query('companyId') companyId?: string,
+    @Query('role') role?: string,
+  ) {
+    const csv = await this.accountsService.exportAllUsers({
+      ...query,
+      type,
+      companyId,
+      role,
+    });
+    sendCsv(res, csv, 'users');
   }
 
   @Get('users')

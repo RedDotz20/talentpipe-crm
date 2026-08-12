@@ -7,6 +7,7 @@ import { AuditService } from '../../common/audit/audit.service';
 import { CompanyRepository } from '../../repositories/company.repository';
 import { UserRepository } from '../../repositories/user.repository';
 import { UsageRepository } from '../../repositories/usage.repository';
+import { toCsv } from '../../common/csv.helper';
 import type { ListQueryDto } from '../../common/dto/list-query.dto';
 
 @Injectable()
@@ -20,6 +21,11 @@ export class PlatformService {
 
   async listCompanies(query: ListQueryDto & { status?: string }) {
     return this.tenantRepo.findPaginated(query);
+  }
+
+  async exportCompanies(query: ListQueryDto & { status?: string }) {
+    const rows = await this.tenantRepo.findAllFiltered(query);
+    return toCsv(['name', 'slug', 'plan', 'status', 'createdAt'], rows);
   }
 
   async getCompany(id: string) {

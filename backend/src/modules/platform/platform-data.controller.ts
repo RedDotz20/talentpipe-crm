@@ -8,11 +8,15 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import type { Response } from 'express';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { SkipEnvelope } from '../../common/decorators/skip-envelope.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { sendCsv } from '../../common/csv.helper';
 import { PlatformDataService } from './platform-data.service';
 import {
   MoveApplicationStageSchema,
@@ -51,6 +55,22 @@ export class PlatformDataController {
     );
   }
 
+  @Get('applications/export')
+  @SkipEnvelope()
+  async exportApplications(
+    @Res() res: Response,
+    @Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto,
+    @Query('companyId', new ParseUUIDPipe({ optional: true }))
+    companyId?: string,
+    @Query('status') status?: string,
+  ) {
+    const csv = await this.dataService.exportApplications(
+      { companyId: companyId || undefined, status: status || undefined },
+      query.search,
+    );
+    sendCsv(res, csv, 'applications');
+  }
+
   @Patch('applications/:id/stage')
   moveApplicationStage(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -73,6 +93,22 @@ export class PlatformDataController {
     );
   }
 
+  @Get('interviews/export')
+  @SkipEnvelope()
+  async exportInterviews(
+    @Res() res: Response,
+    @Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto,
+    @Query('companyId', new ParseUUIDPipe({ optional: true }))
+    companyId?: string,
+    @Query('status') status?: string,
+  ) {
+    const csv = await this.dataService.exportInterviews(
+      { companyId: companyId || undefined, status: status || undefined },
+      query.search,
+    );
+    sendCsv(res, csv, 'interviews');
+  }
+
   @Patch('interviews/:id')
   rescheduleInterview(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -93,6 +129,22 @@ export class PlatformDataController {
       { companyId: companyId || undefined, status: status || undefined },
       query,
     );
+  }
+
+  @Get('jobs/export')
+  @SkipEnvelope()
+  async exportJobs(
+    @Res() res: Response,
+    @Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto,
+    @Query('companyId', new ParseUUIDPipe({ optional: true }))
+    companyId?: string,
+    @Query('status') status?: string,
+  ) {
+    const csv = await this.dataService.exportJobs(
+      { companyId: companyId || undefined, status: status || undefined },
+      query.search,
+    );
+    sendCsv(res, csv, 'jobs');
   }
 
   @Get('jobs/:id')
