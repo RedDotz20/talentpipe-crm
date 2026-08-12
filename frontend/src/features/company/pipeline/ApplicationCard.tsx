@@ -3,6 +3,25 @@ import { Card, Group, Stack, Text } from '@mantine/core';
 import type { Application } from '@/api/applicationsApi';
 import { MatchScoreBadge } from '../candidates/MatchScoreBadge';
 
+function ApplicationCardContent({ application }: { application: Application }) {
+  return (
+    <Stack gap={2}>
+      <Text size="sm" fw={600} lineClamp={1}>
+        {application.candidateName}
+      </Text>
+      <Text size="xs" c="dimmed" lineClamp={1}>
+        {application.jobTitle}
+      </Text>
+      <Group justify="space-between" mt={4}>
+        <MatchScoreBadge score={application.matchScore ?? null} />
+        <Text size="xs" c="dimmed">
+          {new Date(application.appliedAt).toLocaleDateString()}
+        </Text>
+      </Group>
+    </Stack>
+  );
+}
+
 export function ApplicationCard({
   application,
   onClick,
@@ -10,42 +29,35 @@ export function ApplicationCard({
   application: Application;
   onClick: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({
-      id: application.id,
-    });
-
-  const style = transform
-    ? {
-        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-        opacity: isDragging ? 0.6 : 1,
-        cursor: 'grab',
-      }
-    : { cursor: 'grab' };
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: application.id,
+  });
 
   return (
     <Card
       ref={setNodeRef}
-      style={style}
+      style={{ cursor: 'grab', opacity: isDragging ? 0 : 1 }}
       withBorder
       onClick={onClick}
       {...attributes}
       {...listeners}
     >
-      <Stack gap={2}>
-        <Text size="sm" fw={600} lineClamp={1}>
-          {application.candidateName}
-        </Text>
-        <Text size="xs" c="dimmed" lineClamp={1}>
-          {application.jobTitle}
-        </Text>
-        <Group justify="space-between" mt={4}>
-          <MatchScoreBadge score={application.matchScore ?? null} />
-          <Text size="xs" c="dimmed">
-            {new Date(application.appliedAt).toLocaleDateString()}
-          </Text>
-        </Group>
-      </Stack>
+      <ApplicationCardContent application={application} />
+    </Card>
+  );
+}
+
+export function ApplicationCardOverlay({
+  application,
+}: {
+  application: Application;
+}) {
+  return (
+    <Card
+      withBorder
+      style={{ cursor: 'grabbing', width: 'calc(280px - 2 * var(--mantine-spacing-md))' }}
+    >
+      <ApplicationCardContent application={application} />
     </Card>
   );
 }

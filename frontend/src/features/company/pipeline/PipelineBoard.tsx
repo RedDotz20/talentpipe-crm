@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import {
   DndContext,
+  DragOverlay,
   closestCorners,
   PointerSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from '@dnd-kit/core';
 import { Group, TextInput } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
@@ -16,6 +18,7 @@ import {
   usePipelineStages,
   useUpdateStage,
 } from './hooks/usePipeline';
+import { ApplicationCardOverlay } from './ApplicationCard';
 import { PipelineColumn } from './PipelineColumn';
 import { ApplicationDetailDrawer } from './ApplicationDetailDrawer';
 
@@ -28,12 +31,20 @@ export function PipelineBoard() {
   );
   const updateStage = useUpdateStage();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [activeApp, setActiveApp] = useState<Application | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveApp(
+      applications?.find((a) => a.id === String(event.active.id)) ?? null,
+    );
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
+    setActiveApp(null);
     const { active, over } = event;
     if (!over) return;
     const appId = String(active.id);
@@ -67,7 +78,9 @@ export function PipelineBoard() {
     <DndContext
       sensors={sensors}
       collisionDetection={closestCorners}
+      onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onDragCancel={() => setActiveApp(null)}
     >
       <Group mb="md">
         <TextInput
@@ -90,6 +103,9 @@ export function PipelineBoard() {
           />
         ))}
       </Group>
+      <DragOverlay>
+        {activeApp ? <ApplicationCardOverlay application={activeApp} /> : null}
+      </DragOverlay>
       <ApplicationDetailDrawer
         application={selected}
         onClose={() => setSelectedId(null)}
