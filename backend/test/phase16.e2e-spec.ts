@@ -339,6 +339,7 @@ describe('Phase 16 release gate', () => {
   let superAdmin: CompanyAccount;
   let tenantA: CompanyAccount;
   let tenantB: CompanyAccount;
+  let candidate: { id: string; email: string; password: string };
   let candidateToken = '';
   let jobA1: PlatformJob;
   let jobA2: PlatformJob;
@@ -367,7 +368,7 @@ describe('Phase 16 release gate', () => {
       `Phase16 Frontend Engineer ${runId}`,
     );
 
-    const candidate = await createPlatformCandidate('main');
+    candidate = await createPlatformCandidate('main');
     const signin = await signIn(candidate.email, candidate.password);
     candidateToken = assertEnvelope<Tokens>(signin, 200).accessToken;
 
@@ -427,6 +428,7 @@ describe('Phase 16 release gate', () => {
       expect(body).toContain('name,email,type,company,role,status,createdAt');
       expect(body).toContain(tenantA.email);
       expect(body).not.toContain(tenantB.email);
+      expect(body).not.toContain(candidate.email);
     });
   });
 
@@ -443,7 +445,7 @@ describe('Phase 16 release gate', () => {
       expect(body).toContain(tenantB.name);
       const dataLines = body
         .split('\r\n')
-        .filter((line) => line.startsWith('Phase 16'));
+        .filter((line) => line.includes(runId));
       expect(dataLines).toHaveLength(2);
     });
   });
