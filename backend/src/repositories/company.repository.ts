@@ -75,6 +75,21 @@ export class CompanyRepository extends BaseRepository {
     });
   }
 
+  async findAllFiltered(query: ListQueryDto & { status?: string }) {
+    return this.withDb('public', async (db) => {
+      const conditions = andConditions(
+        query.status ? [eq(companies.status, query.status)] : [],
+        toWhere(query, [companies.name, companies.slug]),
+      );
+      return db
+        .select()
+        .from(companies)
+        .where(conditions)
+        .orderBy(companies.createdAt)
+        .execute();
+    });
+  }
+
   async findSuspendedIds() {
     return this.withDb('public', (db) =>
       db

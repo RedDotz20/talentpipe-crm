@@ -55,6 +55,20 @@ export class CandidateRepository extends BaseRepository {
     });
   }
 
+  async findAllFiltered(query: ListQueryDto) {
+    return this.withDb('current', async (db) => {
+      const conditions = andConditions(
+        toWhere(query, [candidates.name, candidates.email]),
+      );
+      return db
+        .select()
+        .from(candidates)
+        .where(conditions)
+        .orderBy(desc(candidates.createdAt))
+        .execute();
+    });
+  }
+
   async findById(id: string) {
     return this.withDb('current', async (db) => {
       const rows = await db

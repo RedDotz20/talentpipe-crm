@@ -61,6 +61,21 @@ export class JobPostingRepository extends BaseRepository {
     });
   }
 
+  async findAllFiltered(query: ListQueryDto & { status?: string }) {
+    return this.withDb('current', async (db) => {
+      const conditions = andConditions(
+        query.status ? [eq(jobPostings.status, query.status)] : [],
+        toWhere(query, [jobPostings.title]),
+      );
+      return db
+        .select()
+        .from(jobPostings)
+        .where(conditions)
+        .orderBy(desc(jobPostings.createdAt))
+        .execute();
+    });
+  }
+
   async findById(id: string, schema = 'current') {
     return this.withDb(schema, async (db) => {
       const rows = await db

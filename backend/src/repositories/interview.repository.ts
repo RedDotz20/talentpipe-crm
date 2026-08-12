@@ -11,6 +11,7 @@ import {
 import { BaseRepository } from './base.repository';
 import { listEnvelope, toPagination } from './list-query.helper';
 import type { ListQueryDto } from '../common/dto/list-query.dto';
+import type { DrizzleDB } from '../database/drizzle-schema.service';
 
 const selectInterviewRow = {
   id: interviews.id,
@@ -58,6 +59,63 @@ export class InterviewRepository extends BaseRepository {
     });
   }
 
+  private buildConditions(
+    filters: {
+      interviewerId?: string;
+      applicationId?: string;
+      status?: string;
+    },
+    query: ListQueryDto,
+  ): SQL[] {
+    const conditions: SQL[] = [];
+    if (filters?.interviewerId) {
+      conditions.push(eq(interviews.interviewerId, filters.interviewerId));
+    }
+    if (filters?.applicationId) {
+      conditions.push(eq(interviews.applicationId, filters.applicationId));
+    }
+    if (filters?.status) {
+      conditions.push(eq(interviews.status, filters.status));
+    }
+    if (query.search) {
+      conditions.push(
+        or(
+          ilike(candidates.name, `%${query.search}%`),
+          ilike(jobPostings.title, `%${query.search}%`),
+        ) as SQL,
+      );
+    }
+    return conditions;
+  }
+
+  private orderByFor(query: ListQueryDto): SQL {
+    const sortBy = query.sortBy ?? 'scheduledAt';
+    const sortDir = query.sortDir ?? 'asc';
+    return sortDir === 'asc'
+      ? asc(
+          sortBy === 'candidateName' ? candidates.name : interviews.scheduledAt,
+        )
+      : desc(
+          sortBy === 'candidateName' ? candidates.name : interviews.scheduledAt,
+        );
+  }
+
+  private selectWithJoins(db: DrizzleDB, conditions: SQL[], orderBy: SQL) {
+    return db
+      .select(selectInterviewRow)
+      .from(interviews)
+      .innerJoin(applications, eq(interviews.applicationId, applications.id))
+      .innerJoin(candidates, eq(applications.candidateId, candidates.id))
+      .innerJoin(jobPostings, eq(applications.jobPostingId, jobPostings.id))
+      .innerJoin(users, eq(interviews.interviewerId, users.id))
+      .leftJoin(
+        interviewFeedbacks,
+        eq(interviews.id, interviewFeedbacks.interviewId),
+      )
+      .where(and(...conditions))
+      .orderBy(orderBy);
+  }
+
   async findPaginated(
     filters: {
       interviewerId?: string;
@@ -68,63 +126,12 @@ export class InterviewRepository extends BaseRepository {
     schema = 'current',
   ) {
     return this.withDb(schema, async (db) => {
-      // ponytail: explicit SQL[] type — TS7034 forbids capturing an
-      // evolving-any array inside a closure
-      const conditions: SQL[] = [];
-      if (filters?.interviewerId) {
-        conditions.push(eq(interviews.interviewerId, filters.interviewerId));
-      }
-      if (filters?.applicationId) {
-        conditions.push(eq(interviews.applicationId, filters.applicationId));
-      }
-      if (filters?.status) {
-        conditions.push(eq(interviews.status, filters.status));
-      }
-      if (query.search) {
-        conditions.push(
-          or(
-            ilike(candidates.name, `%${query.search}%`),
-            ilike(jobPostings.title, `%${query.search}%`),
-          ) as SQL,
-        );
-      }
-      const sortBy = query.sortBy ?? 'scheduledAt';
-      const sortDir = query.sortDir ?? 'asc';
-      const orderBy =
-        sortDir === 'asc'
-          ? asc(
-              sortBy === 'candidateName'
-                ? candidates.name
-                : interviews.scheduledAt,
-            )
-          : desc(
-              sortBy === 'candidateName'
-                ? candidates.name
-                : interviews.scheduledAt,
-            );
+      const conditions = this.buildConditions(filters, query);
       const { offset, limit } = toPagination(query);
-      // ponytail: no `let`/re-assign — drizzle builder types narrow after each
-      // call, so assigning stmt.where(...) back to the same var is a TS2741
       const base = () =>
-        db
-          .select(selectInterviewRow)
-          .from(interviews)
-          .innerJoin(
-            applications,
-            eq(interviews.applicationId, applications.id),
-          )
-          .innerJoin(candidates, eq(applications.candidateId, candidates.id))
-          .innerJoin(jobPostings, eq(applications.jobPostingId, jobPostings.id))
-          .innerJoin(users, eq(interviews.interviewerId, users.id))
-          .leftJoin(
-            interviewFeedbacks,
-            eq(interviews.id, interviewFeedbacks.interviewId),
-          )
-          .where(and(...conditions));
+        this.selectWithJoins(db, conditions, this.orderByFor(query));
       const [rows, totalRows] = await Promise.all([
-        base().orderBy(orderBy).limit(limit).offset(offset).execute(),
-        // ponytail: fresh builder (matches candidate/job-posting repos) — the
-        // joins are re-declared so the count never double-registers them
+        base().limit(limit).offset(offset).execute(),
         db
           .select({ value: count() })
           .from(interviews)
@@ -139,6 +146,25 @@ export class InterviewRepository extends BaseRepository {
           .execute(),
       ]);
       return listEnvelope(rows, Number(totalRows[0]?.value ?? 0), query);
+    });
+  }
+
+  async findAllFiltered(
+    filters: {
+      interviewerId?: string;
+      applicationId?: string;
+      status?: string;
+    },
+    query: ListQueryDto,
+    schema = 'current',
+  ) {
+    return this.withDb(schema, async (db) => {
+      const conditions = this.buildConditions(filters, query);
+      return this.selectWithJoins(
+        db,
+        conditions,
+        this.orderByFor(query),
+      ).execute();
     });
   }
 
