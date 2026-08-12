@@ -29,6 +29,11 @@ describe('toCsv', () => {
     const csv = toCsv(['a'], [{ a: '=SUM(A1:A9)' }]);
     expect(csv).toContain("'=SUM(A1:A9)");
   });
+
+  it('quotes injection-prefixed cells containing commas', () => {
+    const csv = toCsv(['a'], [{ a: '=x,y' }]);
+    expect(csv).toContain("\"'=x,y\"");
+  });
 });
 
 describe('csvFilename', () => {
