@@ -1,6 +1,7 @@
 import { apiClient } from './client';
 import type { ApiEnvelope } from '@/hooks/useApiMutation';
 import type { ListQueryParams, Paginated } from '@/shared/types/listQuery';
+import type { TimeSeries } from '@/shared/types/dashboard';
 
 export interface PlatformCompany {
   id: string;
@@ -20,6 +21,24 @@ export interface PlatformStats {
   companies: number;
   users: number;
   applications: number;
+}
+
+export interface PlatformDashboard {
+  companies: number;
+  activeCompanies: number;
+  suspendedCompanies: number;
+  users: number;
+  applications: number;
+  jobs: number;
+  companiesOverTime: TimeSeries;
+  applicationsPerCompany: Array<{ companyName: string; count: number }>;
+  usersPerCompany: Array<{ companyName: string; count: number }>;
+  jobsByStatusPerCompany: Array<{
+    companyName: string;
+    draft: number;
+    open: number;
+    closed: number;
+  }>;
 }
 
 export interface PlatformUser {
@@ -149,6 +168,10 @@ export const platformApi = {
   getStats: async (): Promise<PlatformStats> => {
     const { data } = await apiClient.get('/platform/stats');
     return unwrap(data as ApiEnvelope<PlatformStats>);
+  },
+  getDashboard: async (): Promise<PlatformDashboard> => {
+    const { data } = await apiClient.get('/platform/dashboard');
+    return unwrap(data as ApiEnvelope<PlatformDashboard>);
   },
   listUsers: async (params?: ListQueryParams & { type?: string; companyId?: string; role?: string }): Promise<Paginated<PlatformUser>> => {
     const { data } = await apiClient.get('/platform/users', { params });

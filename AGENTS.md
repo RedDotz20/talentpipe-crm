@@ -2,7 +2,7 @@
 
 **One-liner:** Schema-per-company applicant tracking system. Each company gets an isolated PostgreSQL schema for job postings, candidate pipelines, interviews, recruiter collaboration, resume parsing, skill-matching, and rate-limited public application intake.
 
-**Status:** M15 (List Search/Filter/Sort) — implemented on top of M14 (Job Post Metadata).
+**Status:** M17 (Dashboard Analytics) — implemented on top of M16 (CSV Export).
 
 ---
 
@@ -31,6 +31,7 @@
 - **M14:** Job post metadata — `employment_type` (full-time/part-time/contract/intern), `location`, `work_setup` (on-site/hybrid/work-from-home) columns on `job_postings` + `job_listings_index` (nullable, required in create forms), company `JobPostingForm` + admin `JobsPage` modal gain the fields, candidate search/detail + public careers pages show `JobMetaBadges` ("Not specified" fallback for legacy rows), candidate job detail now enriches `requiredSkills` (was missing vs public careers), migration `20260811100000_job_post_metadata`. E2e: phase13 metadata + skills round-trip assertions.
 - **M15:** Backend-driven search/filter/sort/pagination on every list surface. Shared `ListQuerySchema` (`search`, `page`, `pageSize` ≤50, `sortBy`, `sortDir`) + `repositories/list-query.helper.ts` (`toWhere`/`toOrderBy`/`toPagination`/`listEnvelope`/`inMemorySearch`/`sortAndPageInMemory`/`andConditions`); upgraded endpoints return `{ data, total, page, pageSize }`. Single-schema lists (candidate jobs/applications/bookmarks, company job-postings/candidates/interviews, platform companies, public careers) run SQL ilike/orderBy/limit-offset/count; platform aggregated lists (users/applications/jobs/interviews) filter/sort/page in-memory in the service. `GET /applications` (company, kanban/scheduler) gets search+sort only, stays a plain array. Sort columns are whitelisted per endpoint (injection-safe). Frontend: shared `useListQuery` hook + `ListControls` component (debounced search, filter Selects, sort Select + direction toggle), server-driven `Pagination` on all list pages (admin pages dropped client-side slicing). E2e: `phase14.e2e-spec.ts`.
 - **M16:** CSV export for admin tables — 9 backend export endpoints (`/platform/{companies,users,applications,jobs,interviews}/export` with `companyId` scope for the CompanyDetail tabs, `/company/users/export`, `/job-postings/export`, `/candidates/export`, `/interviews/export`) sharing `toCsv` (RFC 4180 escaping, UTF-8 BOM, CRLF, formula-injection guard) + `csvFilename` + `sendCsv` in `common/csv.helper.ts`; repo `findAllFiltered` variants (same where, no pagination) and platform in-memory `exportX` methods (search + filters respected, sort/pagination ignored); shared `ExportCsvButton` wired into all 11 admin table pages via `ListControls.actions` (main pages) or header groups (CompanyDetail tabs). E2e: `phase16.e2e-spec.ts`.
+- **M17:** Dashboard analytics — `@mantine/charts` + `recharts` charts on both admin dashboards. Company `GET /dashboard/summary` gains `applicationsOverTime` (day=30d/week=12w/month=12m buckets, zero-filled via `repositories/time-series.helper.ts` `timeBucketedCounts`), `topJobsByApplications` (top 8), `interviewStatusBreakdown`, `jobsByStatus`, `jobsByEmploymentType`, `rejection` (name-based heuristic on `%reject%` stages, `ponytail:`-documented). New `GET /platform/dashboard` (SuperAdmin): stat cards (companies/active/suspended/users/applications/jobs), `companiesOverTime` buckets, `applicationsPerCompany` + `usersPerCompany` + `jobsByStatusPerCompany` (top 10, schema-loop via `UsageRepository.countJobsByStatus`, uncached). Frontend: new `/admin/dashboard` route (login now redirects SuperAdmin to `/admin`), admin nav "Dashboard" item, `PlatformDashboardPage` + `CompanyDashboardPage` with Area/Bar/Donut charts + Day/Week/Month `SegmentedControl` slicing pre-bucketed series (no refetch), rejection-rate stat card, empty-chart guards. E2e: `phase17.e2e-spec.ts`.
 - **Not yet built:** platform email/notifications, password-change flow, pipeline-stage management endpoints, anonymous apply, and automated resume parsing. CI runs via `.github/workflows/ci.yml` (lint → typecheck → unit → e2e release gates → build). Production: self-hosted `docker-compose.prod.yml` stack (backend/frontend Dockerfiles, one-shot migrate service, env-file secrets) — see `09_IMPLEMENTATION_GUIDE.md` Phase 10 for the deploy runbook.
 
 ## Commands
@@ -174,6 +175,7 @@ frontend/src/
 | M14 | Job Post Metadata | Type/location/setup on forms, search, detail, public careers, and admin — done ✅ |
 | M15 | List Search/Filter/Sort | Backend-driven search/filter/sort/pagination on all 13 list endpoints + pages — done ✅ |
 | M16 | CSV Export | Export button on all admin tables downloads filtered CSV — done ✅ |
+| M17 | Dashboard Analytics | Charts (area/bar/donut) on company + platform dashboards with day/week/month aggregation — done ✅ |
 
 ## Documentation Index
 

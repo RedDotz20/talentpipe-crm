@@ -168,11 +168,60 @@ The public careers section is read-only in Phase 5. Apply buttons redirect anony
 ## Platform Data (SuperAdmin, M11) ✅
 
 | Method | Path | Roles | Description |
-|---|---|---|
+|---|---|---|---|
 | GET | `/platform/applications?companyId=&status=` | SA | List applications across companies (optional filters) |
 | PATCH | `/platform/applications/:id/stage` | SA | Move an application to a stage in its own company's schema (stage must belong to that company); syncs `candidate_applications_index` status — on sync failure the move rolls back and returns `503 SERVICE_UNAVAILABLE`; audit `platform.application.stage_move` (no BullMQ) |
 | GET | `/platform/interviews?companyId=&status=` | SA | List interviews across companies (optional filters) |
 | PATCH | `/platform/interviews/:id` | SA | Reschedule (`{ scheduledAt }`) / cancel (`{ status: 'cancelled' }`); audit `platform.interview.update` |
+
+## Dashboards (M17) ✅
+
+### `GET /dashboard/summary` — Company dashboard (CompanyAdmin/Recruiter/HiringManager/Interviewer)
+
+Cached 60s per company (Redis generation-based invalidation). Returns:
+
+```json
+{
+  "totalApplications": 12,
+  "totalCandidates": 8,
+  "openJobPostings": 3,
+  "applicationsByStage": [{ "stageId": "...", "stageName": "Applied", "count": 4 }],
+  "applicationsOverTime": {
+    "day":  [{ "label": "2026-08-12", "count": 1 }],
+    "week": [{ "label": "2026-08-10", "count": 2 }],
+    "month":[{ "label": "2026-08", "count": 5 }]
+  },
+  "topJobsByApplications": [{ "title": "Engineer", "count": 3 }],
+  "interviewStatusBreakdown": [{ "status": "scheduled", "count": 2 }],
+  "jobsByStatus": [{ "status": "open", "count": 2 }],
+  "jobsByEmploymentType": [{ "type": "full-time", "count": 2 }],
+  "rejection": { "rejected": 1, "total": 12 }
+}
+```
+
+- `applicationsOverTime` windows: day = last 30 days, week = last 12 weeks, month = last 12 months; buckets are zero-filled via `generate_series`.
+- `rejection` counts applications whose current stage name matches `%reject%` (name-based heuristic; no `stage_type` column yet).
+
+### `GET /platform/dashboard` — Platform dashboard (SuperAdmin)
+
+Uncached, aggregates across all tenant schemas. Returns:
+
+```json
+{
+  "companies": 2,
+  "activeCompanies": 1,
+  "suspendedCompanies": 1,
+  "users": 4,
+  "applications": 10,
+  "jobs": 6,
+  "companiesOverTime": { "day": [...], "week": [...], "month": [...] },
+  "applicationsPerCompany": [{ "companyName": "Acme", "count": 10 }],
+  "usersPerCompany": [{ "companyName": "Acme", "count": 4 }],
+  "jobsByStatusPerCompany": [{ "companyName": "Acme", "draft": 1, "open": 3, "closed": 0 }]
+}
+```
+
+- Per-company arrays are sorted desc and capped at the top 10; `applicationsPerCompany` excludes companies with zero applications.
 
 ## List Query Params (M15) ✅
 

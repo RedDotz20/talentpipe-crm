@@ -96,6 +96,7 @@ export const queryKeys = {
       params,
     ],
     stats: () => ['platform', 'stats'],
+    dashboard: () => ['platform', 'dashboard'],
     users: (params?: PlatformUsersParams) => ['platform', 'users', params],
   },
 } as const;
