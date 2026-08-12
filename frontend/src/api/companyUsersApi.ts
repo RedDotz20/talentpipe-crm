@@ -51,6 +51,15 @@ export const companyUsersApi = {
     );
     return data as ApiEnvelope<CompanyUser>;
   },
+  resetPassword: async (
+    userId: string,
+    password: string,
+  ): Promise<ApiEnvelope<{ id: string; email: string }>> => {
+    const { data } = await apiClient.patch(`/company/users/${userId}/password`, {
+      password,
+    });
+    return data as ApiEnvelope<{ id: string; email: string }>;
+  },
   remove: async (userId: string): Promise<ApiEnvelope<{ id: string }>> => {
     const { data } = await apiClient.delete(`/company/users/${userId}`);
     return data as ApiEnvelope<{ id: string }>;

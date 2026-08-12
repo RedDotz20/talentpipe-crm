@@ -33,6 +33,14 @@ export function useSetUserStatus() {
   });
 }
 
+export function useResetUserPassword() {
+  return useApiMutation<unknown, { userId: string; password: string }>({
+    mutationFn: ({ userId, password }) =>
+      companyUsersApi.resetPassword(userId, password),
+    successMessage: 'Password reset — the user must sign in with the new password',
+  });
+}
+
 export function useUpdateUserRole() {
   const queryClient = useQueryClient();
   return useApiMutation<unknown, { userId: string; role: InternalUserRole }>({

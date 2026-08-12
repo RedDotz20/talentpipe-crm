@@ -19,7 +19,7 @@ import dayjs from 'dayjs';
 import { useAuthStore } from '@/api/useAuth';
 import { TableSkeleton } from '@/shared/components/Skeletons';
 import { TableAction } from '@/shared/components/TableAction';
-import { IconPlayerPause, IconPlayerPlay, IconUserMinus } from '@tabler/icons-react';
+import { IconKey, IconPlayerPause, IconPlayerPlay, IconUserMinus } from '@tabler/icons-react';
 import {
   INTERNAL_USER_ROLES,
   type InternalUserRole,
@@ -29,6 +29,7 @@ import {
   useCreateUser,
   useCompanyUsers,
   useRemoveUser,
+  useResetUserPassword,
   useSetUserStatus,
   useUpdateUserRole,
 } from './hooks/useCompanyUsers';
@@ -41,6 +42,10 @@ const CreateSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
+const ResetSchema = z.object({
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+});
+
 export function UserManagementPage() {
   const userId = useAuthStore((s) => s.userId);
   const usersQuery = useCompanyUsers();
@@ -48,10 +53,17 @@ export function UserManagementPage() {
   const createUser = useCreateUser();
   const updateRole = useUpdateUserRole();
   const setUserStatus = useSetUserStatus();
+  const resetPassword = useResetUserPassword();
   const removeUser = useRemoveUser();
   const [createOpen, setCreateOpen] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
+  const [resetting, setResetting] = useState<CompanyUser | null>(null);
   const [removing, setRemoving] = useState<CompanyUser | null>(null);
+
+  const resetForm = useForm({
+    validate: schemaResolver(ResetSchema),
+    initialValues: { password: '' },
+  });
 
   const form = useForm({
     validate: schemaResolver(CreateSchema),
@@ -151,6 +163,17 @@ export function UserManagementPage() {
                       </TableAction>
                     )}
                     <TableAction
+                      label="Reset password"
+                      color="blue"
+                      disabled={user.id === userId}
+                      onClick={() => {
+                        resetForm.reset();
+                        setResetting(user);
+                      }}
+                    >
+                      <IconKey size="1rem" />
+                    </TableAction>
+                    <TableAction
                       label="Remove"
                       color="red"
                       disabled={user.id === userId}
@@ -223,6 +246,49 @@ export function UserManagementPage() {
             <Group justify="flex-end">
               <Button type="submit" loading={createUser.isPending}>
                 Create account
+              </Button>
+            </Group>
+          </Stack>
+        </form>
+      </Modal>
+
+      <Modal
+        opened={resetting !== null}
+        onClose={() => setResetting(null)}
+        title="Reset password"
+      >
+        <form
+          onSubmit={resetForm.onSubmit((values) => {
+            if (resetting) {
+              resetPassword.mutate(
+                { userId: resetting.id, password: values.password },
+                {
+                  onSuccess: () => {
+                    resetForm.reset();
+                    setResetting(null);
+                  },
+                },
+              );
+            }
+          })}
+        >
+          <Stack>
+            <Alert color="blue">
+              Reset the password for <b>{resetting?.email}</b>? Their current
+              sessions are revoked and they must sign in with the new password.
+            </Alert>
+            <PasswordInput
+              label="New password"
+              description="No email is sent — share the new password out-of-band."
+              required
+              {...resetForm.getInputProps('password')}
+            />
+            <Group justify="flex-end">
+              <Button variant="light" onClick={() => setResetting(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" loading={resetPassword.isPending}>
+                Reset password
               </Button>
             </Group>
           </Stack>

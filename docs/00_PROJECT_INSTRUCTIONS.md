@@ -137,6 +137,7 @@ Relationships:
 | GET | `/company/users` | OA,R,HM | List users (interviewer picker) |
 | POST | `/company/users` | OA | Create account (email+role+password; no mailer; duplicate → 409) |
 | PATCH | `/company/users/:userId/role` | OA | Change role (no self-change; last CompanyAdmin protected) |
+| PATCH | `/company/users/:userId/password` | OA | Reset password (no self-reset; revokes refresh tokens) |
 | PATCH | `/company/users/:userId/suspend` \| `/reactivate` | OA | Suspend/activate (no self-suspend; last active CompanyAdmin protected; suspend revokes refresh tokens) |
 | DELETE | `/company/users/:userId` | OA | Remove user (no self-remove; last CompanyAdmin protected) |
 | GET/POST/PATCH/DELETE | `/company/pipeline-stages[/:id]` | OA (GET —) | Manage ordered stages |
