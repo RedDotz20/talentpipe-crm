@@ -32,30 +32,36 @@ export class InterviewsService {
     private readonly applicationsService: ApplicationsService,
   ) {}
 
-  list(
+  private buildFilters(
     user: CompanyContext,
     query: ListQueryDto & { status?: string; assignedToMe?: string },
   ) {
     const ownOnly =
       user.role === 'Interviewer' || query.assignedToMe === 'true';
-    const filters = {
+    return {
       ...(ownOnly ? { interviewerId: user.userId } : {}),
       ...(query.status ? { status: query.status } : {}),
     };
-    return this.interviewRepo.findPaginated(filters, query);
+  }
+
+  list(
+    user: CompanyContext,
+    query: ListQueryDto & { status?: string; assignedToMe?: string },
+  ) {
+    return this.interviewRepo.findPaginated(
+      this.buildFilters(user, query),
+      query,
+    );
   }
 
   async exportCsv(
     user: CompanyContext,
     query: ListQueryDto & { status?: string; assignedToMe?: string },
   ) {
-    const ownOnly =
-      user.role === 'Interviewer' || query.assignedToMe === 'true';
-    const filters = {
-      ...(ownOnly ? { interviewerId: user.userId } : {}),
-      ...(query.status ? { status: query.status } : {}),
-    };
-    const rows = await this.interviewRepo.findAllFiltered(filters, query);
+    const rows = await this.interviewRepo.findAllFiltered(
+      this.buildFilters(user, query),
+      query,
+    );
     return toCsv(
       [
         'candidateName',

@@ -13,7 +13,7 @@ import type { Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { SkipEnvelope } from '../../common/decorators/skip-envelope.decorator';
-import { csvFilename } from '../../common/csv.helper';
+import { sendCsv } from '../../common/csv.helper';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { ListQuerySchema, ListQueryDto } from '../../common/dto/list-query.dto';
 import { CandidatesService } from './candidates.service';
@@ -41,16 +41,11 @@ export class CandidatesController {
   @Roles(...VIEW_ROLES)
   @SkipEnvelope()
   async exportCsv(
-    @Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto,
     @Res() res: Response,
+    @Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto,
   ) {
     const csv = await this.candidatesService.exportCsv(query);
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${csvFilename('candidates')}"`,
-    );
-    res.send(csv);
+    sendCsv(res, csv, 'candidates');
   }
 
   @Post()

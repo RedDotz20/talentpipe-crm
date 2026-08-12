@@ -1,3 +1,13 @@
+import type { Response } from 'express';
+
+// Positive narrowing: TS can't exclude objects from `unknown`/`{}` in a
+// false branch, so `no-base-to-string` requires this predicate to prove
+// `String()` only ever sees primitives here.
+const isPrimitive = (
+  v: unknown,
+): v is string | number | boolean | bigint | symbol =>
+  typeof v !== 'object' && typeof v !== 'function';
+
 export function toCsv(
   headers: string[],
   rows: Record<string, unknown>[],
@@ -7,16 +17,12 @@ export function toCsv(
     const text =
       value instanceof Date
         ? value.toISOString()
-        : typeof value === 'string' ||
-            typeof value === 'number' ||
-            typeof value === 'boolean' ||
-            typeof value === 'bigint' ||
-            typeof value === 'symbol'
+        : isPrimitive(value)
           ? String(value)
           : (JSON.stringify(value) ?? '');
-    // ponytail: ' prefix neutralizes Excel formula injection (=+-@);
+    // ponytail: ' prefix neutralizes Excel formula injection (=+-@\t\r);
     // false-positives on negative numbers, acceptable for export data
-    const guarded = /^[=+\-@]/.test(text) ? `'${text}` : text;
+    const guarded = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
     const needsQuotes =
       guarded.includes(',') ||
       guarded.includes('"') ||
@@ -33,4 +39,13 @@ export function toCsv(
 
 export function csvFilename(resource: string): string {
   return `${resource}-${new Date().toISOString().slice(0, 10)}.csv`;
+}
+
+export function sendCsv(res: Response, csv: string, resource: string) {
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="${csvFilename(resource)}"`,
+  );
+  res.send(csv);
 }
