@@ -31,7 +31,7 @@ export function SignInPage({ returnTo }: SignInPageProps) {
       } else if (currentRole === 'Candidate') {
         await navigate({ to: '/dashboard' });
       } else if (currentRole === 'SuperAdmin') {
-        await navigate({ to: '/admin' });
+        await navigate({ to: '/admin/dashboard' });
       } else {
         await navigate({ to: '/company/dashboard' });
       }
