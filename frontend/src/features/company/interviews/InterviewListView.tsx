@@ -13,6 +13,8 @@ import { useAuthStore } from '@/api/useAuth';
 import type { Interview, InterviewStatus } from '@/api/interviewsApi';
 import { ListControls } from '@/shared/components/ListControls';
 import { TableSkeleton } from '@/shared/components/Skeletons';
+import { TableAction } from '@/shared/components/TableAction';
+import { IconBan, IconCalendarClock, IconStar } from '@tabler/icons-react';
 import { useListQuery } from '@/shared/hooks/useListQuery';
 import {
   useInterviews,
@@ -160,28 +162,26 @@ export function InterviewListView() {
                         Feedback submitted
                       </Text>
                     ) : (
-                      <Button
-                        size="xs"
+                      <TableAction
+                        label="Feedback"
                         onClick={() => setFeedbackFor(interview)}
                       >
-                        Feedback
-                      </Button>
+                        <IconStar size="1rem" />
+                      </TableAction>
                     )
                   ) : (
                     <Group gap="xs">
-                      <Button
-                        size="xs"
-                        variant="light"
+                      <TableAction
+                        label="Reschedule"
                         onClick={() => {
                           setEditing(interview);
                           setSchedulerOpen(true);
                         }}
                       >
-                        Reschedule
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="light"
+                        <IconCalendarClock size="1rem" />
+                      </TableAction>
+                      <TableAction
+                        label="Cancel"
                         color="red"
                         disabled={interview.status === 'cancelled'}
                         onClick={() =>
@@ -191,8 +191,8 @@ export function InterviewListView() {
                           })
                         }
                       >
-                        Cancel
-                      </Button>
+                        <IconBan size="1rem" />
+                      </TableAction>
                     </Group>
                   )}
                 </Table.Td>

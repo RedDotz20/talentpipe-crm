@@ -16,6 +16,8 @@ import type { PlatformApplication } from '@/api/platformApi'
 import { ListControls } from '@/shared/components/ListControls'
 import { TableSkeleton } from '@/shared/components/Skeletons'
 import { useListQuery } from '@/shared/hooks/useListQuery'
+import { TableAction } from '@/shared/components/TableAction'
+import { IconArrowsRight } from '@tabler/icons-react'
 import {
   useMoveApplicationStage,
   usePlatformApplications,
@@ -130,13 +132,9 @@ export function ApplicationsPage() {
                       : '—'}
                   </Table.Td>
                   <Table.Td>
-                    <Button
-                      size="xs"
-                      variant="light"
-                      onClick={() => openMove(app)}
-                    >
-                      Move stage
-                    </Button>
+                    <TableAction label="Move stage" onClick={() => openMove(app)}>
+                      <IconArrowsRight size="1rem" />
+                    </TableAction>
                   </Table.Td>
                 </Table.Tr>
               ))}

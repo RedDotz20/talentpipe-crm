@@ -17,6 +17,8 @@ import { z } from 'zod';
 import dayjs from 'dayjs';
 import { useAuthStore } from '@/api/useAuth';
 import { TableSkeleton } from '@/shared/components/Skeletons';
+import { TableAction } from '@/shared/components/TableAction';
+import { IconUserMinus } from '@tabler/icons-react';
 import {
   INTERNAL_USER_ROLES,
   type InternalUserRole,
@@ -99,15 +101,14 @@ export function UserManagementPage() {
                     : '—'}
                 </Table.Td>
                 <Table.Td>
-                  <Button
-                    size="xs"
-                    variant="light"
+                  <TableAction
+                    label="Remove"
                     color="red"
                     disabled={user.id === userId}
                     onClick={() => setRemoving(user)}
                   >
-                    Remove
-                  </Button>
+                    <IconUserMinus size="1rem" />
+                  </TableAction>
                 </Table.Td>
               </Table.Tr>
             ))}

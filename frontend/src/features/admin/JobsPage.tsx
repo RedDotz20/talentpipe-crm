@@ -22,6 +22,8 @@ import { RequiredSkillsPicker } from '@/features/company/job-postings/RequiredSk
 import { ListControls } from '@/shared/components/ListControls'
 import { TableSkeleton } from '@/shared/components/Skeletons'
 import { useListQuery } from '@/shared/hooks/useListQuery'
+import { TableAction } from '@/shared/components/TableAction'
+import { IconPencil, IconSend, IconTrash, IconX } from '@tabler/icons-react'
 import {
   useCloseJob,
   useCreateJob,
@@ -253,46 +255,42 @@ export function JobsPage() {
                   <Table.Td>{dayjs(job.createdAt).format('MMM D, YYYY')}</Table.Td>
                   <Table.Td>
                     <Group gap="xs">
-                      <Button
-                        size="xs"
-                        variant="light"
+                      <TableAction
+                        label="Edit"
                         onClick={() => {
                           setEditing(job)
                           setFormOpen(true)
                         }}
                       >
-                        Edit
-                      </Button>
+                        <IconPencil size="1rem" />
+                      </TableAction>
                       {job.status === 'draft' && (
-                        <Button
-                          size="xs"
-                          variant="light"
+                        <TableAction
+                          label="Publish"
                           color="green"
                           loading={publish.isPending}
                           onClick={() => publish.mutate(job.id)}
                         >
-                          Publish
-                        </Button>
+                          <IconSend size="1rem" />
+                        </TableAction>
                       )}
                       {job.status === 'open' && (
-                        <Button
-                          size="xs"
-                          variant="light"
+                        <TableAction
+                          label="Close"
                           color="yellow"
                           loading={close.isPending}
                           onClick={() => close.mutate(job.id)}
                         >
-                          Close
-                        </Button>
+                          <IconX size="1rem" />
+                        </TableAction>
                       )}
-                      <Button
-                        size="xs"
-                        variant="light"
+                      <TableAction
+                        label="Delete"
                         color="red"
                         onClick={() => setDeleting(job)}
                       >
-                        Delete
-                      </Button>
+                        <IconTrash size="1rem" />
+                      </TableAction>
                     </Group>
                   </Table.Td>
                 </Table.Tr>

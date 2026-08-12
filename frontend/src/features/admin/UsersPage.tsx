@@ -24,6 +24,8 @@ import { useApiMutation } from '@/hooks/useApiMutation'
 import { ListControls } from '@/shared/components/ListControls'
 import { TableSkeleton } from '@/shared/components/Skeletons'
 import { useListQuery } from '@/shared/hooks/useListQuery'
+import { TableAction } from '@/shared/components/TableAction'
+import { IconPencil, IconPlayerPause, IconPlayerPlay, IconTrash, IconUserMinus } from '@tabler/icons-react'
 import {
   useCreateCandidate,
   usePlatformCompanies,
@@ -296,9 +298,8 @@ export function UsersPage() {
                   <Table.Td>
                     {user.type === 'company' ? (
                       <Group gap="xs">
-                        <Button
-                          size="xs"
-                          variant="light"
+                        <TableAction
+                          label={user.status === 'suspended' ? 'Reactivate' : 'Suspend'}
                           color={user.status === 'suspended' ? 'green' : 'yellow'}
                           onClick={() => {
                             if (!user.companyId) return
@@ -310,30 +311,32 @@ export function UsersPage() {
                             })
                           }}
                         >
-                          {user.status === 'suspended' ? 'Reactivate' : 'Suspend'}
-                        </Button>
-                        <Button
-                          size="xs"
-                          variant="light"
+                          {user.status === 'suspended' ? (
+                            <IconPlayerPlay size="1rem" />
+                          ) : (
+                            <IconPlayerPause size="1rem" />
+                          )}
+                        </TableAction>
+                        <TableAction
+                          label="Remove"
                           color="red"
                           onClick={() => setRemoving(user)}
                         >
-                          Remove
-                        </Button>
+                          <IconUserMinus size="1rem" />
+                        </TableAction>
                       </Group>
                     ) : (
                       <Group gap="xs">
-                        <Button size="xs" variant="light" onClick={() => openEdit(user)}>
-                          Edit
-                        </Button>
-                        <Button
-                          size="xs"
-                          variant="light"
+                        <TableAction label="Edit" onClick={() => openEdit(user)}>
+                          <IconPencil size="1rem" />
+                        </TableAction>
+                        <TableAction
+                          label="Delete"
                           color="red"
                           onClick={() => setRemoving(user)}
                         >
-                          Delete
-                        </Button>
+                          <IconTrash size="1rem" />
+                        </TableAction>
                       </Group>
                     )}
                   </Table.Td>

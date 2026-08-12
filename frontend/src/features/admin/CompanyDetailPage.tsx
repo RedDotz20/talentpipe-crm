@@ -26,6 +26,15 @@ import type {
   PlatformUser,
 } from '@/api/platformApi'
 import { DetailSkeleton, TableSkeleton } from '@/shared/components/Skeletons'
+import { TableAction } from '@/shared/components/TableAction'
+import {
+  IconBan,
+  IconCalendarClock,
+  IconKey,
+  IconPlayerPause,
+  IconPlayerPlay,
+  IconUserMinus,
+} from '@tabler/icons-react'
 import {
   useCreateCompanyUser,
   useMoveApplicationStage,
@@ -198,19 +207,17 @@ function UsersTab({ companyId }: { companyId: string }) {
                 </Table.Td>
                 <Table.Td>
                   <Group gap="xs">
-                    <Button
-                      size="xs"
-                      variant="light"
+                    <TableAction
+                      label="Reset password"
                       onClick={() => {
                         setResetTarget(user)
                         setNewPassword('')
                       }}
                     >
-                      Reset password
-                    </Button>
-                    <Button
-                      size="xs"
-                      variant="light"
+                      <IconKey size="1rem" />
+                    </TableAction>
+                    <TableAction
+                      label={user.status === 'suspended' ? 'Reactivate' : 'Suspend'}
                       color={user.status === 'suspended' ? 'green' : 'yellow'}
                       onClick={() =>
                         setUserStatus.mutate({
@@ -219,16 +226,19 @@ function UsersTab({ companyId }: { companyId: string }) {
                         })
                       }
                     >
-                      {user.status === 'suspended' ? 'Reactivate' : 'Suspend'}
-                    </Button>
-                    <Button
-                      size="xs"
-                      variant="light"
+                      {user.status === 'suspended' ? (
+                        <IconPlayerPlay size="1rem" />
+                      ) : (
+                        <IconPlayerPause size="1rem" />
+                      )}
+                    </TableAction>
+                    <TableAction
+                      label="Remove"
                       color="red"
                       onClick={() => setRemoving(user)}
                     >
-                      Remove
-                    </Button>
+                      <IconUserMinus size="1rem" />
+                    </TableAction>
                   </Group>
                 </Table.Td>
               </Table.Tr>
@@ -495,25 +505,23 @@ function InterviewsTab({ companyId }: { companyId: string }) {
                 </Table.Td>
                 <Table.Td>
                   <Group gap="xs">
-                    <Button
-                      size="xs"
-                      variant="light"
+                    <TableAction
+                      label="Reschedule"
                       onClick={() => {
                         setRescheduleTarget(interview)
                         setScheduledAt('')
                       }}
                     >
-                      Reschedule
-                    </Button>
+                      <IconCalendarClock size="1rem" />
+                    </TableAction>
                     {interview.status === 'scheduled' && (
-                      <Button
-                        size="xs"
-                        variant="light"
+                      <TableAction
+                        label="Cancel"
                         color="red"
                         onClick={() => setCancelTarget(interview)}
                       >
-                        Cancel
-                      </Button>
+                        <IconBan size="1rem" />
+                      </TableAction>
                     )}
                   </Group>
                 </Table.Td>

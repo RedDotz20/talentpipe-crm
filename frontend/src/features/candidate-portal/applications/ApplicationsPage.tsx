@@ -17,6 +17,8 @@ import { useDisclosure } from '@mantine/hooks';
 import { Link } from '@tanstack/react-router';
 import { ListControls } from '@/shared/components/ListControls';
 import { DetailSkeleton, TableSkeleton } from '@/shared/components/Skeletons';
+import { TableAction } from '@/shared/components/TableAction';
+import { IconCircleX, IconEye } from '@tabler/icons-react';
 import { useListQuery } from '@/shared/hooks/useListQuery';
 import { useApplicationDetail, useApplications, useWithdrawApplication } from '../hooks';
 import type { Application } from '../types';
@@ -113,12 +115,20 @@ export function ApplicationsPage() {
       <Table.Td>{new Date(app.appliedAt).toLocaleDateString()}</Table.Td>
       <Table.Td>
         <Group gap="xs">
-          <Button size="xs" variant="light" onClick={() => setSelectedApplicationId(app.applicationId)}>
-            Details
-          </Button>
-          <Button size="xs" variant="outline" color="red" onClick={() => openWithdraw(app)}>
-            Withdraw
-          </Button>
+          <TableAction
+            label="Details"
+            onClick={() => setSelectedApplicationId(app.applicationId)}
+          >
+            <IconEye size="1rem" />
+          </TableAction>
+          <TableAction
+            label="Withdraw"
+            color="red"
+            variant="outline"
+            onClick={() => openWithdraw(app)}
+          >
+            <IconCircleX size="1rem" />
+          </TableAction>
         </Group>
       </Table.Td>
     </Table.Tr>

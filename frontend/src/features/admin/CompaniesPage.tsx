@@ -17,6 +17,8 @@ import dayjs from 'dayjs'
 import { ListControls } from '@/shared/components/ListControls'
 import { TableSkeleton } from '@/shared/components/Skeletons'
 import { useListQuery } from '@/shared/hooks/useListQuery'
+import { TableAction } from '@/shared/components/TableAction'
+import { IconPlayerPause, IconPlayerPlay, IconTrash } from '@tabler/icons-react'
 import {
   useDeleteCompany,
   usePlatformCompanies,
@@ -161,9 +163,8 @@ export function CompaniesPage() {
                   <Table.Td>{dayjs(company.createdAt).format('MMM D, YYYY')}</Table.Td>
                   <Table.Td>
                     <Group gap="xs">
-                      <Button
-                        size="xs"
-                        variant="light"
+                      <TableAction
+                        label={company.status === 'suspended' ? 'Reactivate' : 'Suspend'}
                         color={company.status === 'suspended' ? 'green' : 'yellow'}
                         loading={setStatus.isPending}
                         onClick={() =>
@@ -174,16 +175,19 @@ export function CompaniesPage() {
                           })
                         }
                       >
-                        {company.status === 'suspended' ? 'Reactivate' : 'Suspend'}
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="light"
+                        {company.status === 'suspended' ? (
+                          <IconPlayerPlay size="1rem" />
+                        ) : (
+                          <IconPlayerPause size="1rem" />
+                        )}
+                      </TableAction>
+                      <TableAction
+                        label="Delete"
                         color="red"
                         onClick={() => setDeleting(company)}
                       >
-                        Delete
-                      </Button>
+                        <IconTrash size="1rem" />
+                      </TableAction>
                     </Group>
                   </Table.Td>
                 </Table.Tr>

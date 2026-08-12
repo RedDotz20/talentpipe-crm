@@ -3,6 +3,8 @@ import { Badge, Button, Group, Pagination, Stack, Table, Title } from '@mantine/
 import { useAuthStore } from '../../../api/useAuth';
 import { ListControls } from '@/shared/components/ListControls';
 import { TableSkeleton } from '@/shared/components/Skeletons';
+import { TableAction } from '@/shared/components/TableAction';
+import { IconSend, IconTrash, IconX } from '@tabler/icons-react';
 import { useListQuery } from '@/shared/hooks/useListQuery';
 import {
   useJobPostings,
@@ -42,19 +44,19 @@ export function JobPostingList({ onCreate }: { onCreate: () => void }) {
       <Table.Td>
         <Group gap="xs" wrap="nowrap">
           {canEdit && jp.status === 'draft' && (
-            <Button size="xs" onClick={() => publish.mutate(jp.id)}>
-              Publish
-            </Button>
+            <TableAction label="Publish" color="green" onClick={() => publish.mutate(jp.id)}>
+              <IconSend size="1rem" />
+            </TableAction>
           )}
           {canEdit && jp.status === 'open' && (
-            <Button size="xs" variant="outline" onClick={() => close.mutate(jp.id)}>
-              Close
-            </Button>
+            <TableAction label="Close" onClick={() => close.mutate(jp.id)}>
+              <IconX size="1rem" />
+            </TableAction>
           )}
           {role === 'CompanyAdmin' && jp.status !== 'open' && (
-            <Button size="xs" color="red" variant="light" onClick={() => remove.mutate(jp.id)}>
-              Delete
-            </Button>
+            <TableAction label="Delete" color="red" onClick={() => remove.mutate(jp.id)}>
+              <IconTrash size="1rem" />
+            </TableAction>
           )}
         </Group>
       </Table.Td>
