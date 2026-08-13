@@ -83,6 +83,7 @@ Applied migration order includes:
 20260808090000_platform_user_suspend
 20260808100000_platform_account_cascades
 20260812000000_permission_management
+20260814000000_preset_name_uniqueness
 ```
 
 ## Architecture

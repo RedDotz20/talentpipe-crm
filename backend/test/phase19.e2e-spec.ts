@@ -743,4 +743,92 @@ describe('phase19: permission presets', () => {
       expect(users.find((u) => u.id === userId)?.presetId).toBeNull();
     }
   });
+
+  it('rejects a custom preset named like a default (409)', async () => {
+    const res = await request(httpServer())
+      .post('/api/company/permissions')
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({
+        name: 'Recruiter Default',
+        role: 'Recruiter',
+        permissions: ['jobs.view'],
+      });
+    assertStatus(res, 409);
+  });
+
+  it('rejects duplicate custom preset names case-insensitively (409)', async () => {
+    const create = await request(httpServer())
+      .post('/api/company/permissions')
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({
+        name: 'Unique Name One',
+        role: 'Recruiter',
+        permissions: ['jobs.view'],
+      });
+    const first = assertEnvelope<{ id: string }>(create, 201);
+    createdPresetIds.push({
+      id: first.id,
+      schema: `company_${tenantA.companyId}`,
+    });
+
+    const dup = await request(httpServer())
+      .post('/api/company/permissions')
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({
+        name: 'unique name one',
+        role: 'Recruiter',
+        permissions: ['jobs.view'],
+      });
+    assertStatus(dup, 409);
+  });
+
+  it('rejects renaming a preset to a taken name (409) but allows its own name', async () => {
+    const taken = await request(httpServer())
+      .post('/api/company/permissions')
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({
+        name: 'Taken Name',
+        role: 'Recruiter',
+        permissions: ['jobs.view'],
+      });
+    const takenId = assertEnvelope<{ id: string }>(taken, 201).id;
+    createdPresetIds.push({
+      id: takenId,
+      schema: `company_${tenantA.companyId}`,
+    });
+
+    const mine = await request(httpServer())
+      .post('/api/company/permissions')
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({ name: 'My Name', role: 'Recruiter', permissions: ['jobs.view'] });
+    const mineId = assertEnvelope<{ id: string }>(mine, 201).id;
+    createdPresetIds.push({
+      id: mineId,
+      schema: `company_${tenantA.companyId}`,
+    });
+
+    const clash = await request(httpServer())
+      .patch(`/api/company/permissions/${mineId}`)
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({ name: 'taken name' });
+    assertStatus(clash, 409);
+
+    const keep = await request(httpServer())
+      .patch(`/api/company/permissions/${mineId}`)
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({ name: 'my name' });
+    assertEnvelope<{ id: string }>(keep, 200);
+  });
+
+  it('rejects a global preset named like a default (409)', async () => {
+    const res = await request(httpServer())
+      .post('/api/platform/permissions')
+      .set('Authorization', `Bearer ${superAdmin.token}`)
+      .send({
+        name: 'Company Admin Default',
+        role: 'CompanyAdmin',
+        permissions: ['jobs.view'],
+      });
+    assertStatus(res, 409);
+  });
 });

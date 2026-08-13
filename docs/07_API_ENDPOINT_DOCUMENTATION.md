@@ -200,6 +200,8 @@ Presets bind a role to a restricted permission subset. The default presets (one 
 | POST | `/platform/permissions/bulk-delete` | SA | Bulk-delete globals. Body: `{ ids: string[] }` (1-50 UUIDs, deduped). Atomic: `404` if any id is missing (nothing deleted/reverted); `400` if any id is a default preset. Revert loops all company schemas. Returns `{ deleted, revertedUsers }` — audit `platform.permissions.preset.delete` per preset |
 | PATCH | `/platform/companies/:id/users/:userId/preset` | SA | Assign a preset to any account in the company (incl. CompanyAdmins). Body: `{ presetId: string \| null }`; `404` unknown user/preset (or foreign company), `400` role mismatch — audit `platform.permissions.preset.assign` |
 
+Preset names are unique per scope, compared case-insensitively on the trimmed name: a company preset cannot match another preset in the same company or any public default/global preset; a global preset cannot match any public preset. `POST`/`PATCH` with a colliding name returns `409 CONFLICT`; renaming a preset to its own name (any casing) is allowed.
+
 Notes: `POST /company/users` accepts an optional `presetId` (defaults to the role's default preset); user list endpoints (`GET /company/users`, platform merged users) include each user's `presetId` (`null` → role default). Role-change endpoints reset `preset_id` to the new role's default preset. Assignment responses return `{ id: <userId>, presetId }`.
 
 ## Dashboards (M17) ✅
