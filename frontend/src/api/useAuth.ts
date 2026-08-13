@@ -6,6 +6,7 @@ interface AuthState {
   userId: string | null;
   companyId: string | null;
   role: string | null;
+  permissions: string[];
   setTokens: (accessToken: string, refreshToken: string) => void;
   clearTokens: () => void;
   logout: () => void;
@@ -18,6 +19,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   userId: localStorage.getItem('userId'),
   companyId: localStorage.getItem('companyId'),
   role: localStorage.getItem('role'),
+  permissions: JSON.parse(localStorage.getItem('permissions') ?? '[]'),
 
   setTokens: (accessToken, refreshToken) => {
     localStorage.setItem('accessToken', accessToken);
@@ -30,12 +32,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       localStorage.removeItem('companyId');
     }
     localStorage.setItem('role', payload.role);
+    const permissions: string[] = payload.permissions ?? [];
+    localStorage.setItem('permissions', JSON.stringify(permissions));
     set({
       accessToken,
       refreshToken,
       userId: payload.sub,
       companyId: payload.companyId ?? null,
       role: payload.role,
+      permissions,
     });
   },
 
@@ -45,7 +50,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.removeItem('userId');
     localStorage.removeItem('companyId');
     localStorage.removeItem('role');
-    set({ accessToken: null, refreshToken: null, userId: null, companyId: null, role: null });
+    localStorage.removeItem('permissions');
+    set({ accessToken: null, refreshToken: null, userId: null, companyId: null, role: null, permissions: [] });
   },
 
   logout: () => {
