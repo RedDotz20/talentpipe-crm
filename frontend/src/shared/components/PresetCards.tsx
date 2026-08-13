@@ -1,6 +1,6 @@
 import { Badge, Card, Checkbox, Divider, Group, SimpleGrid, Skeleton, Stack, Text } from '@mantine/core';
 import { IconCopy, IconEye, IconPencil, IconTrash } from '@tabler/icons-react';
-import type { PermissionPreset } from '@/api/permissionsApi';
+import { permissionLabel, type PermissionPreset } from '@/api/permissionsApi';
 import { TableAction } from './TableAction';
 
 interface PresetCardsProps {
@@ -78,7 +78,7 @@ export function PresetCards({
               <Text size="xs" c="dimmed" lineClamp={2}>
                 {preset.permissions.length === 0
                   ? 'No permissions'
-                  : preset.permissions.join(', ')}
+                  : preset.permissions.map(permissionLabel).join(', ')}
               </Text>
             </Stack>
 

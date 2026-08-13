@@ -1,17 +1,78 @@
 import { apiClient } from './client';
 import type { ApiEnvelope } from '@/hooks/useApiMutation';
 
-export const PERMISSION_GROUPS: { label: string; keys: string[] }[] = [
-  { label: 'Jobs', keys: ['jobs.view', 'jobs.create_edit', 'jobs.publish_close', 'jobs.delete'] },
-  { label: 'Candidates', keys: ['candidates.view', 'candidates.manage'] },
-  { label: 'Applications', keys: ['applications.view', 'applications.move', 'applications.note'] },
-  { label: 'Interviews', keys: ['interviews.view', 'interviews.schedule', 'interviews.feedback'] },
-  { label: 'Pipeline stages', keys: ['stages.manage'] },
-  { label: 'Company settings', keys: ['settings.manage'] },
-  { label: 'Team management', keys: ['users.manage'] },
-  { label: 'Permissions', keys: ['permissions.manage'] },
-  { label: 'Dashboard', keys: ['dashboard.view'] },
+export interface PermissionGroupItem {
+  key: string;
+  label: string;
+}
+
+export interface PermissionGroup {
+  label: string;
+  items: PermissionGroupItem[];
+}
+
+export const PERMISSION_GROUPS: PermissionGroup[] = [
+  {
+    label: 'Jobs',
+    items: [
+      { key: 'jobs.view', label: 'View job postings' },
+      { key: 'jobs.create_edit', label: 'Create and edit job postings' },
+      { key: 'jobs.publish_close', label: 'Publish and close job postings' },
+      { key: 'jobs.delete', label: 'Delete job postings' },
+    ],
+  },
+  {
+    label: 'Candidates',
+    items: [
+      { key: 'candidates.view', label: 'View candidates' },
+      { key: 'candidates.manage', label: 'Create and edit candidates' },
+    ],
+  },
+  {
+    label: 'Applications',
+    items: [
+      { key: 'applications.view', label: 'View applications' },
+      { key: 'applications.move', label: 'Move applications between stages' },
+      { key: 'applications.note', label: 'Add notes to applications' },
+    ],
+  },
+  {
+    label: 'Interviews',
+    items: [
+      { key: 'interviews.view', label: 'View interviews' },
+      { key: 'interviews.schedule', label: 'Schedule and reschedule interviews' },
+      { key: 'interviews.feedback', label: 'Submit interview feedback' },
+    ],
+  },
+  {
+    label: 'Pipeline stages',
+    items: [{ key: 'stages.manage', label: 'Manage pipeline stages' }],
+  },
+  {
+    label: 'Company settings',
+    items: [{ key: 'settings.manage', label: 'Manage company settings' }],
+  },
+  {
+    label: 'Team management',
+    items: [{ key: 'users.manage', label: 'Manage team members' }],
+  },
+  {
+    label: 'Permissions',
+    items: [{ key: 'permissions.manage', label: 'Manage permission presets' }],
+  },
+  {
+    label: 'Dashboard',
+    items: [{ key: 'dashboard.view', label: 'View dashboard' }],
+  },
 ];
+
+const PERMISSION_LABELS: Record<string, string> = Object.fromEntries(
+  PERMISSION_GROUPS.flatMap((g) => g.items).map((i) => [i.key, i.label]),
+);
+
+export function permissionLabel(key: string): string {
+  return PERMISSION_LABELS[key] ?? key;
+}
 
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
   CompanyAdmin: [

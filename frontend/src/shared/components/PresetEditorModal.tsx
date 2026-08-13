@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  Accordion,
   Button,
+  Checkbox,
   Group,
   Modal,
   Stack,
-  Switch,
   Text,
   TextInput,
 } from '@mantine/core';
@@ -89,25 +90,53 @@ export function PresetEditorModal({
             ))}
           </select>
         </div>
-        {PERMISSION_GROUPS.map((group) => {
-          const visible = group.keys.filter((k) => roleKeys.includes(k));
-          if (visible.length === 0) return null;
-          return (
-            <Stack key={group.label} gap={6}>
-              <Text size="xs" fw={600} tt="uppercase" c="dimmed">
-                {group.label}
-              </Text>
-              {visible.map((key) => (
-                <Switch
-                  key={key}
-                  label={key}
-                  checked={checked.includes(key)}
-                  onChange={() => toggle(key)}
-                />
-              ))}
-            </Stack>
-          );
-        })}
+        <Accordion multiple defaultValue={PERMISSION_GROUPS.map((g) => g.label)} variant="separated">
+          {PERMISSION_GROUPS.map((group) => {
+            const visible = group.items.filter((item) => roleKeys.includes(item.key));
+            if (visible.length === 0) return null;
+            const enabledCount = visible.filter((item) => checked.includes(item.key)).length;
+            const allChecked = enabledCount === visible.length;
+            const someChecked = enabledCount > 0 && !allChecked;
+            const toggleGroup = () => {
+              setChecked((prev) => {
+                const without = prev.filter((k) => !visible.some((i) => i.key === k));
+                return allChecked ? without : [...without, ...visible.map((i) => i.key)];
+              });
+            };
+            return (
+              <Accordion.Item key={group.label} value={group.label}>
+                <Accordion.Control>
+                  <Group justify="space-between" w="100%" wrap="nowrap" pr="sm">
+                    <Text size="sm" fw={500}>
+                      {group.label}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      {enabledCount}/{visible.length} enabled
+                    </Text>
+                  </Group>
+                </Accordion.Control>
+                <Accordion.Panel>
+                  <Stack gap={6}>
+                    <Checkbox
+                      label="Select all"
+                      checked={allChecked}
+                      indeterminate={someChecked}
+                      onChange={toggleGroup}
+                    />
+                    {visible.map((item) => (
+                      <Checkbox
+                        key={item.key}
+                        label={item.label}
+                        checked={checked.includes(item.key)}
+                        onChange={() => toggle(item.key)}
+                      />
+                    ))}
+                  </Stack>
+                </Accordion.Panel>
+              </Accordion.Item>
+            );
+          })}
+        </Accordion>
         <Group justify="flex-end">
           <Button variant="light" onClick={onClose}>
             Cancel
