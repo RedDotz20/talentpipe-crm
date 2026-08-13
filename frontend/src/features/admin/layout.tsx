@@ -18,6 +18,7 @@ import {
   IconBriefcase,
   IconLogout,
   IconLayoutDashboard,
+  IconShieldLock,
 } from '@tabler/icons-react';
 import { useLogout } from '@/hooks/auth';
 import { ColorSchemeToggle } from '@/components/ColorSchemeToggle';
@@ -40,6 +41,7 @@ export function SuperAdminPlatform() {
     { label: 'Jobs', icon: IconBriefcase, to: '/admin/jobs' },
     { label: 'Users', icon: IconUsers, to: '/admin/users' },
     { label: 'Applications', icon: IconListDetails, to: '/admin/applications' },
+    { label: 'Permissions', icon: IconShieldLock, to: '/admin/permissions' },
   ];
 
   return (
