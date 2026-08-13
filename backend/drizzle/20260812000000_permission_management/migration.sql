@@ -40,3 +40,27 @@ BEGIN
     );
   END LOOP;
 END $$;
+
+-- Seed the 4 role-default presets (idempotent — one per role). These are the
+-- fixed, read-only defaults both permissions pages depend on; custom presets
+-- are clones of these.
+
+INSERT INTO public.permission_presets (id, name, role, permissions, is_default)
+SELECT '00000000-0000-0000-0000-000000000101'::uuid, 'Company Admin Default', 'CompanyAdmin',
+  '["jobs.view","jobs.create_edit","jobs.publish_close","jobs.delete","candidates.view","candidates.manage","applications.view","applications.move","applications.note","interviews.view","interviews.schedule","stages.manage","settings.manage","users.manage","permissions.manage","dashboard.view"]'::jsonb, true
+WHERE NOT EXISTS (SELECT 1 FROM public.permission_presets WHERE role = 'CompanyAdmin' AND is_default = true);
+
+INSERT INTO public.permission_presets (id, name, role, permissions, is_default)
+SELECT '00000000-0000-0000-0000-000000000102'::uuid, 'Recruiter Default', 'Recruiter',
+  '["jobs.view","jobs.create_edit","jobs.publish_close","candidates.view","candidates.manage","applications.view","applications.move","applications.note","interviews.view","interviews.schedule","dashboard.view"]'::jsonb, true
+WHERE NOT EXISTS (SELECT 1 FROM public.permission_presets WHERE role = 'Recruiter' AND is_default = true);
+
+INSERT INTO public.permission_presets (id, name, role, permissions, is_default)
+SELECT '00000000-0000-0000-0000-000000000103'::uuid, 'Hiring Manager Default', 'HiringManager',
+  '["jobs.view","candidates.view","applications.view","applications.move","applications.note","interviews.view","interviews.schedule","dashboard.view"]'::jsonb, true
+WHERE NOT EXISTS (SELECT 1 FROM public.permission_presets WHERE role = 'HiringManager' AND is_default = true);
+
+INSERT INTO public.permission_presets (id, name, role, permissions, is_default)
+SELECT '00000000-0000-0000-0000-000000000104'::uuid, 'Interviewer Default', 'Interviewer',
+  '["interviews.view","interviews.feedback","dashboard.view"]'::jsonb, true
+WHERE NOT EXISTS (SELECT 1 FROM public.permission_presets WHERE role = 'Interviewer' AND is_default = true);
