@@ -9,8 +9,9 @@ import {
   Title,
   Tooltip,
 } from '@mantine/core';
-import { IconCopy, IconPencil, IconPlus, IconTrash } from '@tabler/icons-react';
+import { IconCopy, IconEye, IconPencil, IconPlus, IconTrash } from '@tabler/icons-react';
 import type { PermissionPreset } from '@/api/permissionsApi';
+import { PresetViewModal } from '@/shared/components/PresetViewModal';
 import { TableAction } from '@/shared/components/TableAction';
 import { TableSkeleton } from '@/shared/components/Skeletons';
 import {
@@ -39,6 +40,7 @@ export function PermissionsPage() {
     mode: 'create' | 'edit' | 'duplicate';
     preset: PlatformPreset | null;
   } | null>(null);
+  const [viewing, setViewing] = useState<PlatformPreset | null>(null);
 
   const presets = presetsQuery.data?.presets ?? [];
   const companyPresets = presets.filter((p) => p.companyId !== null);
@@ -58,6 +60,11 @@ export function PermissionsPage() {
 
   const actionRow = (preset: PlatformPreset) => (
     <Group gap="xs">
+      {preset.isDefault && (
+        <TableAction label="View" color="gray" onClick={() => setViewing(preset)}>
+          <IconEye size="1rem" />
+        </TableAction>
+      )}
       <TableAction label="Duplicate" color="blue" onClick={() => setEditor({ mode: 'duplicate', preset })}>
         <IconCopy size="1rem" />
       </TableAction>
@@ -196,6 +203,14 @@ export function PermissionsPage() {
         onClose={() => setEditor(null)}
         onSave={handleSave}
         saving={anySaving}
+      />
+
+      <PresetViewModal
+        preset={viewing}
+        onClose={() => setViewing(null)}
+        onDuplicate={() => {
+          if (viewing) setEditor({ mode: 'duplicate', preset: viewing });
+        }}
       />
     </>
   );
