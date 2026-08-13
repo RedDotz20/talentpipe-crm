@@ -14,6 +14,7 @@ export const CreateUserSchema = z.object({
     .string()
     .min(8, 'Password must be at least 8 characters')
     .max(128),
+  presetId: z.string().uuid().nullable().optional(),
 });
 
 export type CreateUserDto = z.infer<typeof CreateUserSchema>;

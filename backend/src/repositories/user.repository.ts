@@ -13,6 +13,7 @@ export class UserRepository extends BaseRepository {
           email: users.email,
           role: users.role,
           status: users.status,
+          presetId: users.presetId,
           createdAt: users.createdAt,
         })
         .from(users)
@@ -44,7 +45,13 @@ export class UserRepository extends BaseRepository {
   }
 
   async create(
-    data: { id: string; email: string; passwordHash: string; role: string },
+    data: {
+      id: string;
+      email: string;
+      passwordHash: string;
+      role: string;
+      presetId?: string | null;
+    },
     schema = 'current',
   ) {
     return this.withDb(schema, async (db) => {
@@ -57,7 +64,19 @@ export class UserRepository extends BaseRepository {
     return this.withDb(schema, async (db) => {
       const rows = await db
         .update(users)
-        .set({ role })
+        .set({ role, presetId: null })
+        .where(eq(users.id, id))
+        .returning()
+        .execute();
+      return rows[0] ?? null;
+    });
+  }
+
+  async updatePreset(id: string, presetId: string | null, schema = 'current') {
+    return this.withDb(schema, async (db) => {
+      const rows = await db
+        .update(users)
+        .set({ presetId })
         .where(eq(users.id, id))
         .returning()
         .execute();

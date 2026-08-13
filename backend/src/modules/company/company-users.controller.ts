@@ -18,18 +18,23 @@ import { SkipEnvelope } from '../../common/decorators/skip-envelope.decorator';
 import { sendCsv } from '../../common/csv.helper';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { CompanyUsersService } from './company-users.service';
+import { CompanyPermissionsService } from './company-permissions.service';
 import { CreateUserDto, CreateUserSchema } from './dto/invite-user.dto';
 import {
   ResetPasswordDto,
   ResetPasswordSchema,
 } from './dto/reset-password.dto';
 import { UpdateRoleDto, UpdateRoleSchema } from './dto/update-role.dto';
+import { AssignPresetDto, AssignPresetSchema } from './dto/assign-preset.dto';
 
 const PICKER_ROLES = ['CompanyAdmin', 'Recruiter', 'HiringManager'];
 
 @Controller('company/users')
 export class CompanyUsersController {
-  constructor(private readonly orgUsersService: CompanyUsersService) {}
+  constructor(
+    private readonly orgUsersService: CompanyUsersService,
+    private readonly permissionsService: CompanyPermissionsService,
+  ) {}
 
   @Get()
   @UseGuards(AuthGuard('jwt'))
@@ -91,6 +96,17 @@ export class CompanyUsersController {
     @Body(new ZodValidationPipe(UpdateRoleSchema)) dto: UpdateRoleDto,
   ) {
     return this.orgUsersService.updateRole(userId, dto);
+  }
+
+  @Patch(':userId/preset')
+  @UseGuards(AuthGuard('jwt'))
+  @Roles('CompanyAdmin')
+  @Permissions('permissions.manage')
+  assignPreset(
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+    @Body(new ZodValidationPipe(AssignPresetSchema)) dto: AssignPresetDto,
+  ) {
+    return this.permissionsService.assign(userId, dto);
   }
 
   @Delete(':userId')

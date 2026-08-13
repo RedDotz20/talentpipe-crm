@@ -7,6 +7,7 @@ import { UserRepository } from '../../repositories/user.repository';
 import { UserEmailRepository } from '../../repositories/user-email.repository';
 import { RefreshTokenRepository } from '../../repositories/refresh-token.repository';
 import { InterviewRepository } from '../../repositories/interview.repository';
+import { PermissionRepository } from '../../repositories/permission.repository';
 
 jest.mock('../../common/password', () => ({
   hashPassword: jest.fn().mockResolvedValue('hashed'),
@@ -41,6 +42,7 @@ describe('CompanyUsersService', () => {
   };
   const refreshTokenRepo = { deleteByUser: jest.fn() };
   const interviewRepo = { deleteByInterviewer: jest.fn() };
+  const permissionRepo = { findById: jest.fn() };
   const auditService = { log: jest.fn() };
 
   const runAs = <T>(fn: () => Promise<T>) =>
@@ -58,6 +60,7 @@ describe('CompanyUsersService', () => {
         { provide: UserEmailRepository, useValue: userEmailRepo },
         { provide: RefreshTokenRepository, useValue: refreshTokenRepo },
         { provide: InterviewRepository, useValue: interviewRepo },
+        { provide: PermissionRepository, useValue: permissionRepo },
         { provide: AuditService, useValue: auditService },
       ],
     }).compile();

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -16,6 +17,7 @@ import { UserRepository } from '../../repositories/user.repository';
 import { UserEmailRepository } from '../../repositories/user-email.repository';
 import { RefreshTokenRepository } from '../../repositories/refresh-token.repository';
 import { InterviewRepository } from '../../repositories/interview.repository';
+import { PermissionRepository } from '../../repositories/permission.repository';
 import { toCsv } from '../../common/csv.helper';
 import { CreateUserDto } from './dto/invite-user.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -28,6 +30,7 @@ export class CompanyUsersService {
     private readonly userEmailRepo: UserEmailRepository,
     private readonly refreshTokenRepo: RefreshTokenRepository,
     private readonly interviewRepo: InterviewRepository,
+    private readonly permissionRepo: PermissionRepository,
     private readonly auditService: AuditService,
   ) {}
 
@@ -49,8 +52,23 @@ export class CompanyUsersService {
     const passwordHash = await hashPassword(dto.password);
     const id = randomUUID();
     const schema = getSchema();
+    if (dto.presetId !== undefined && dto.presetId !== null) {
+      const local = await this.permissionRepo.findById(dto.presetId, schema);
+      const preset =
+        local ?? (await this.permissionRepo.findById(dto.presetId, 'public'));
+      if (!preset) throw new NotFoundException('Preset not found');
+      if (preset.role !== dto.role) {
+        throw new BadRequestException('Preset role must match the user role');
+      }
+    }
     await this.userRepo.create(
-      { id, email: dto.email, passwordHash, role: dto.role },
+      {
+        id,
+        email: dto.email,
+        passwordHash,
+        role: dto.role,
+        presetId: dto.presetId ?? null,
+      },
       schema,
     );
     await this.userEmailRepo.create({
