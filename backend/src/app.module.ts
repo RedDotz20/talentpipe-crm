@@ -14,6 +14,8 @@ import { HealthModule } from './modules/health/health.module';
 import { CompanyContextInterceptor } from './common/interceptors/company-context.interceptor';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { RolesGuard } from './common/guards/roles.guard';
+import { PermissionsGuard } from './common/guards/permissions.guard';
+import { RepositoriesModule } from './repositories/repositories.module';
 import { ApiExceptionFilter } from './common/filters/api-exception.filter';
 import { LoggerMiddleware } from './common/middlewares/logger.middleware';
 import { CacheModule } from './common/cache/cache.module';
@@ -26,6 +28,7 @@ import { PlatformModule } from './modules/platform/platform.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    RepositoriesModule,
     AuthModule,
     CandidateAccountModule,
     JobPostingsModule,
@@ -47,6 +50,7 @@ import { PlatformModule } from './modules/platform/platform.module';
     { provide: APP_INTERCEPTOR, useClass: CompanyContextInterceptor },
     { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: PermissionsGuard },
     { provide: APP_FILTER, useClass: ApiExceptionFilter },
   ],
 })
