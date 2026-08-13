@@ -307,6 +307,12 @@ export const platformApi = {
     const { data } = await apiClient.delete(`/platform/permissions/${id}`);
     return data as ApiEnvelope<{ id: string }>;
   },
+  deletePermissionPresetsMany: async (
+    ids: string[],
+  ): Promise<ApiEnvelope<{ deleted: number; revertedUsers: number }>> => {
+    const { data } = await apiClient.post('/platform/permissions/bulk-delete', { ids });
+    return data as ApiEnvelope<{ deleted: number; revertedUsers: number }>;
+  },
   assignUserPreset: async (
     companyId: string,
     userId: string,

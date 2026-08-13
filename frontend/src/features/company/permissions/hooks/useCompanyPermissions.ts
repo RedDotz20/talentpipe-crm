@@ -49,3 +49,16 @@ export function useDeletePreset() {
     },
   });
 }
+
+export function useBulkDeletePreset() {
+  const queryClient = useQueryClient();
+  return useApiMutation<unknown, string[]>({
+    mutationFn: companyPermissionsApi.removeMany,
+    successMessage: 'Presets deleted',
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.company.permissionPresets(),
+      });
+    },
+  });
+}

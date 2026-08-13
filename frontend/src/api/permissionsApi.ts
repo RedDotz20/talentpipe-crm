@@ -71,4 +71,10 @@ export const companyPermissionsApi = {
     const { data } = await apiClient.delete(`/company/permissions/${id}`);
     return data as ApiEnvelope<{ id: string }>;
   },
+  removeMany: async (
+    ids: string[],
+  ): Promise<ApiEnvelope<{ deleted: number; revertedUsers: number }>> => {
+    const { data } = await apiClient.post('/company/permissions/bulk-delete', { ids });
+    return data as ApiEnvelope<{ deleted: number; revertedUsers: number }>;
+  },
 };

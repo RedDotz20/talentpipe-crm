@@ -1,4 +1,4 @@
-import { Badge, Card, Divider, Group, SimpleGrid, Skeleton, Stack, Text } from '@mantine/core';
+import { Badge, Card, Checkbox, Divider, Group, SimpleGrid, Skeleton, Stack, Text } from '@mantine/core';
 import { IconCopy, IconEye, IconPencil, IconTrash } from '@tabler/icons-react';
 import type { PermissionPreset } from '@/api/permissionsApi';
 import { TableAction } from './TableAction';
@@ -12,6 +12,8 @@ interface PresetCardsProps {
   onDelete?: (preset: PermissionPreset) => void;
   deleting?: boolean;
   scopeLabel?: (preset: PermissionPreset) => string | null;
+  selectedIds?: string[];
+  onToggleSelect?: (id: string) => void;
 }
 
 export function PresetCards({
@@ -23,6 +25,8 @@ export function PresetCards({
   onDelete,
   deleting,
   scopeLabel,
+  selectedIds,
+  onToggleSelect,
 }: PresetCardsProps) {
   return (
     <SimpleGrid cols={{ base: 1, sm: 2, xl: 3 }} spacing="md">
@@ -48,6 +52,14 @@ export function PresetCards({
                     </Badge>
                   )}
                 </Group>
+              )}
+              {onToggleSelect && !isLocked && (
+                <Checkbox
+                  checked={selectedIds?.includes(preset.id)}
+                  onChange={() => onToggleSelect(preset.id)}
+                  aria-label={`Select ${preset.name}`}
+                  size="sm"
+                />
               )}
             </Group>
 

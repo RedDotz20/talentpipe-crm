@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   Badge,
   Button,
+  Checkbox,
   Group,
   SegmentedControl,
   Table,
@@ -12,6 +13,7 @@ import {
 import {
   IconCopy,
   IconEye,
+  IconEyeOff,
   IconLayoutGrid,
   IconPencil,
   IconPlus,
@@ -20,6 +22,7 @@ import {
 } from '@tabler/icons-react';
 import type { PermissionPreset } from '@/api/permissionsApi';
 import { PresetCards, PresetCardSkeleton } from '@/shared/components/PresetCards';
+import { PresetBulkDelete } from '@/shared/components/PresetBulkDelete';
 import { PresetViewModal } from '@/shared/components/PresetViewModal';
 import { TableAction } from '@/shared/components/TableAction';
 import { TableSkeleton } from '@/shared/components/Skeletons';
@@ -28,6 +31,7 @@ import {
   type PresetEditorValue,
 } from '@/shared/components/PresetEditorModal';
 import {
+  useBulkDeletePreset,
   useCompanyPermissionPresets,
   useCreatePreset,
   useDeletePreset,
@@ -56,6 +60,34 @@ export function PermissionPresetsPage() {
 
   const presets = presetsQuery.data?.presets ?? [];
   const anySaving = createPreset.isPending || updatePreset.isPending;
+
+  const [showDefaults, setShowDefaults] = useState(
+    () => localStorage.getItem('presetShowDefaults') === 'show',
+  );
+  const toggleDefaults = () => {
+    setShowDefaults((v) => {
+      const next = !v;
+      localStorage.setItem('presetShowDefaults', next ? 'show' : 'hide');
+      return next;
+    });
+  };
+  const visiblePresets = showDefaults
+    ? presets
+    : presets.filter((p) => !p.isDefault);
+
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const bulkDelete = useBulkDeletePreset();
+  const toggleSelect = (id: string) =>
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  const clearSelection = () => setSelectedIds([]);
+  const selectedPresets = presets.filter((p) => selectedIds.includes(p.id));
+  const inUseCount = selectedPresets.filter((p) => p.usageCount > 0).length;
+  const affectedUsers = selectedPresets.reduce((sum, p) => sum + p.usageCount, 0);
+  const confirmBulkDelete = () => {
+    bulkDelete.mutate(selectedIds, { onSuccess: clearSelection });
+  };
 
   const openCreate = () => setEditor({ mode: 'create', preset: null });
   const openDuplicate = (preset: PermissionPreset) =>
@@ -86,6 +118,13 @@ export function PermissionPresetsPage() {
           </Text>
         </div>
         <Group gap="xs">
+          <TableAction
+            label={showDefaults ? 'Hide defaults' : 'Show defaults'}
+            color="gray"
+            onClick={toggleDefaults}
+          >
+            {showDefaults ? <IconEyeOff size="1rem" /> : <IconEye size="1rem" />}
+          </TableAction>
           <SegmentedControl
             size="xs"
             value={viewMode}
@@ -101,6 +140,15 @@ export function PermissionPresetsPage() {
         </Group>
       </Group>
 
+      <PresetBulkDelete
+        selectedCount={selectedIds.length}
+        inUseCount={inUseCount}
+        affectedUsers={affectedUsers}
+        deleting={bulkDelete.isPending}
+        onConfirm={confirmBulkDelete}
+        onClear={clearSelection}
+      />
+
       {presetsQuery.isLoading ? (
         viewMode === 'cards' ? (
           <PresetCardSkeleton />
@@ -109,20 +157,25 @@ export function PermissionPresetsPage() {
         )
       ) : presets.length === 0 ? (
         <Text c="dimmed">No presets yet.</Text>
+      ) : visiblePresets.length === 0 ? (
+        <Text c="dimmed">Defaults are hidden. Click the eye icon to show them.</Text>
       ) : viewMode === 'cards' ? (
         <PresetCards
-          presets={presets}
+          presets={visiblePresets}
           locked={(p) => Boolean(p.isDefault || p.isGlobal)}
           onView={setViewing}
           onDuplicate={openDuplicate}
           onEdit={openEdit}
           onDelete={(p) => deletePreset.mutate(p.id)}
           deleting={deletePreset.isPending}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelect}
         />
       ) : (
         <Table striped highlightOnHover>
           <Table.Thead>
             <Table.Tr>
+              <Table.Th />
               <Table.Th>Name</Table.Th>
               <Table.Th>Role</Table.Th>
               <Table.Th>Permissions</Table.Th>
@@ -131,8 +184,18 @@ export function PermissionPresetsPage() {
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {presets.map((preset) => (
+            {visiblePresets.map((preset) => (
               <Table.Tr key={preset.id}>
+                <Table.Td>
+                  {!preset.isDefault && !preset.isGlobal && (
+                    <Checkbox
+                      checked={selectedIds.includes(preset.id)}
+                      onChange={() => toggleSelect(preset.id)}
+                      aria-label={`Select ${preset.name}`}
+                      size="sm"
+                    />
+                  )}
+                </Table.Td>
                 <Table.Td>
                   {preset.name}
                   {preset.isDefault && (

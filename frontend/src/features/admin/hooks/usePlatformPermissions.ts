@@ -43,3 +43,14 @@ export function useDeletePlatformPreset() {
     },
   });
 }
+
+export function useBulkDeletePlatformPreset() {
+  const queryClient = useQueryClient();
+  return useApiMutation<unknown, string[]>({
+    mutationFn: platformApi.deletePermissionPresetsMany,
+    successMessage: 'Presets deleted',
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.permissions() });
+    },
+  });
+}
