@@ -1,3 +1,4 @@
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   Anchor,
   Badge,
@@ -10,6 +11,7 @@ import {
   Text,
   ThemeIcon,
   Title,
+  Transition,
 } from '@mantine/core';
 import {
   IconBriefcase,
@@ -60,11 +62,25 @@ const FEATURES = [
   },
 ];
 
+function FadeUp({ delay = 0, children }: { delay?: number; children: ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setMounted(true), delay);
+    return () => clearTimeout(timer);
+  }, [delay]);
+  return (
+    <Transition mounted={mounted} transition="fade-up" duration={250}>
+      {(styles) => <div style={styles}>{children}</div>}
+    </Transition>
+  );
+}
+
 export function LandingPage() {
   return (
     <Container size="lg" py="xl">
       <Stack gap={80}>
-        <Group justify="space-between" mt="sm">
+        <FadeUp>
+          <Group justify="space-between" mt="sm">
           <Group gap="xs">
             <ThemeIcon size={32} radius="md" variant="light">
               <IconLayoutKanban size={18} />
@@ -86,8 +102,10 @@ export function LandingPage() {
             </Anchor>
           </Group>
         </Group>
+        </FadeUp>
 
-        <Stack gap="lg" ta="center" maw={720} mx="auto">
+        <FadeUp delay={80}>
+          <Stack gap="lg" ta="center" maw={720} mx="auto">
           <Badge size="lg" variant="light">
             Applicant tracking system
           </Badge>
@@ -120,8 +138,10 @@ export function LandingPage() {
             </Button>
           </Group>
         </Stack>
+        </FadeUp>
 
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
+        <FadeUp delay={160}>
+          <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
           {FEATURES.map(({ icon: Icon, title, description }) => (
             <Card key={title} withBorder padding="lg" radius="md">
               <Stack gap="sm">
@@ -138,8 +158,10 @@ export function LandingPage() {
             </Card>
           ))}
         </SimpleGrid>
+        </FadeUp>
 
-        <Stack gap="xs" ta="center">
+        <FadeUp delay={240}>
+          <Stack gap="xs" ta="center">
           <Title order={2}>Ready to find your next hire?</Title>
           <Text c="dimmed">
             Create a company account and post your first job in minutes.
@@ -159,6 +181,7 @@ export function LandingPage() {
             </Button>
           </Group>
         </Stack>
+        </FadeUp>
 
         <Text ta="center" c="dimmed" size="sm" pb="md">
           © {new Date().getFullYear()} TalentPipe

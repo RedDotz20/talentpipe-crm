@@ -12,6 +12,7 @@ import {
   Text,
   Title,
   Tooltip,
+  Transition,
 } from '@mantine/core';
 import { IconBookmark, IconBookmarkFilled, IconEye, IconSend } from '@tabler/icons-react';
 import { Link } from '@tanstack/react-router';
@@ -195,7 +196,20 @@ export function JobSearchPage() {
                   onClick={() => toggleBookmark(job)}
                   aria-label={bookmarked ? 'Remove bookmark' : 'Bookmark job'}
                 >
-                  {bookmarked ? <IconBookmarkFilled size="1.1rem" /> : <IconBookmark size="1.1rem" />}
+                  <Transition
+                    key={bookmarked ? 'bookmarked' : 'not-bookmarked'}
+                    mounted
+                    transition="scale"
+                    duration={150}
+                  >
+                    {(styles) =>
+                      bookmarked ? (
+                        <IconBookmarkFilled size="1.1rem" style={styles} />
+                      ) : (
+                        <IconBookmark size="1.1rem" style={styles} />
+                      )
+                    }
+                  </Transition>
                 </ActionIcon>
               </Tooltip>
               <Group gap="sm">

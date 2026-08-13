@@ -36,11 +36,20 @@ export function ApplicationCard({
   return (
     <Card
       ref={setNodeRef}
-      style={{ cursor: 'grab', opacity: isDragging ? 0 : 1 }}
       withBorder
       onClick={onClick}
       {...attributes}
       {...listeners}
+      styles={{
+        root: {
+          cursor: 'grab',
+          opacity: isDragging ? 0 : 1,
+          transition: 'box-shadow 150ms ease, transform 150ms ease',
+          '&:hover': {
+            transform: 'translateY(-2px)',
+          },
+        },
+      }}
     >
       <ApplicationCardContent application={application} />
     </Card>
@@ -55,7 +64,14 @@ export function ApplicationCardOverlay({
   return (
     <Card
       withBorder
-      style={{ cursor: 'grabbing', width: 'calc(280px - 2 * var(--mantine-spacing-md))' }}
+      styles={{
+        root: {
+          cursor: 'grabbing',
+          width: 'calc(280px - 2 * var(--mantine-spacing-md))',
+          transform: 'scale(1.02)',
+          boxShadow: 'var(--mantine-shadow-xl)',
+        },
+      }}
     >
       <ApplicationCardContent application={application} />
     </Card>

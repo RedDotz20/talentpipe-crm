@@ -21,7 +21,8 @@ export function PipelineColumn({ stage, applications, onSelect }: Props) {
       style={{
         flexShrink: 0,
         backgroundColor: isOver ? 'var(--mantine-color-gray-0)' : undefined,
-        transition: 'background-color 150ms ease',
+        borderColor: isOver ? 'var(--mantine-primary-color)' : undefined,
+        transition: 'background-color 150ms ease, border-color 150ms ease',
       }}
     >
       <Card.Section withBorder inheritPadding py="xs">

@@ -32,6 +32,7 @@ const theme = createTheme({
     dark,
   },
   primaryColor: 'indigo',
+  respectReducedMotion: true,
   fontFamily:
     "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   headings: {
@@ -58,6 +59,7 @@ const theme = createTheme({
     AppShell: {
       defaultProps: {
         padding: 'lg',
+        transitionDuration: 200,
       },
       styles: {
         main: {
@@ -72,7 +74,10 @@ const theme = createTheme({
       },
       styles: {
         root: {
-          transition: 'box-shadow 150ms ease, border-color 150ms ease',
+          transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
+          '&:hover': {
+            boxShadow: 'var(--mantine-shadow-md)',
+          },
         },
       },
     },
@@ -89,24 +94,106 @@ const theme = createTheme({
         },
       },
     },
+    ActionIcon: {
+      styles: {
+        root: {
+          transition: 'transform 100ms ease',
+          '&:active': {
+            transform: 'scale(0.92)',
+          },
+        },
+      },
+    },
+    Modal: {
+      defaultProps: {
+        transitionProps: { transition: 'pop', duration: 200 },
+      },
+    },
+    Drawer: {
+      defaultProps: {
+        transitionProps: { duration: 250 },
+      },
+    },
+    Menu: {
+      defaultProps: {
+        transitionProps: { transition: 'pop', duration: 150 },
+      },
+    },
+    Popover: {
+      defaultProps: {
+        transitionProps: { transition: 'pop', duration: 150 },
+      },
+    },
+    Tooltip: {
+      defaultProps: {
+        transitionProps: { transition: 'fade', duration: 150 },
+      },
+    },
+    Accordion: {
+      defaultProps: {
+        transitionDuration: 200,
+      },
+    },
+    SegmentedControl: {
+      defaultProps: {
+        transitionDuration: 200,
+      },
+    },
+    Burger: {
+      defaultProps: {
+        transitionDuration: 200,
+      },
+    },
     TextInput: {
       defaultProps: {
         radius: 'md',
+      },
+      styles: {
+        input: {
+          transition: 'box-shadow 150ms ease',
+          '&:focus-within': {
+            boxShadow: '0 0 0 3px var(--mantine-color-primary-light)',
+          },
+        },
       },
     },
     PasswordInput: {
       defaultProps: {
         radius: 'md',
       },
+      styles: {
+        input: {
+          transition: 'box-shadow 150ms ease',
+          '&:focus-within': {
+            boxShadow: '0 0 0 3px var(--mantine-color-primary-light)',
+          },
+        },
+      },
     },
     Textarea: {
       defaultProps: {
         radius: 'md',
       },
+      styles: {
+        input: {
+          transition: 'box-shadow 150ms ease',
+          '&:focus-within': {
+            boxShadow: '0 0 0 3px var(--mantine-color-primary-light)',
+          },
+        },
+      },
     },
     Select: {
       defaultProps: {
         radius: 'md',
+      },
+      styles: {
+        input: {
+          transition: 'box-shadow 150ms ease',
+          '&:focus-within': {
+            boxShadow: '0 0 0 3px var(--mantine-color-primary-light)',
+          },
+        },
       },
     },
     NavLink: {
@@ -121,6 +208,11 @@ const theme = createTheme({
       defaultProps: {
         horizontalSpacing: 'md',
         verticalSpacing: 'sm',
+      },
+      styles: {
+        tr: {
+          transition: 'background-color 120ms ease',
+        },
       },
     },
     Badge: {
