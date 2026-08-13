@@ -119,7 +119,8 @@ export function PresetBulkActions({
               {pending === 'delete' &&
                 (inUseCount > 0 ? (
                   <Alert color="red">
-                    {inUseCount} of the selected presets are in use and can't be deleted.
+                    {inUseCount} of the selected presets are in use: {affectedUsers} user
+                    {affectedUsers === 1 ? '' : 's'} will revert to their role default.
                   </Alert>
                 ) : (
                   <Alert color="red">This action cannot be undone.</Alert>

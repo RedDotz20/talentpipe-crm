@@ -57,7 +57,7 @@ export function PresetCards({
                   )}
                 </Group>
               )}
-              {!isLocked && preset.isEnabled === false && (
+              {preset.isEnabled === false && (
                 <Badge size="xs" variant="light" color="gray" style={{ flexShrink: 0 }}>
                   disabled
                 </Badge>
