@@ -122,4 +122,15 @@ describe('CompanyPermissionsService', () => {
     expect(permissionRepo.remove).not.toHaveBeenCalled();
     expect(userRepo.revertPreset).not.toHaveBeenCalled();
   });
+
+  it('bulk remove dedupes duplicate ids', async () => {
+    permissionRepo.findById.mockResolvedValueOnce(presetRow('p1'));
+    userRepo.revertPreset.mockResolvedValue(0);
+    const result = await service.bulkRemove(['p1', 'p1']);
+    expect(result).toEqual({ deleted: 1, revertedUsers: 0 });
+    expect(permissionRepo.findById).toHaveBeenCalledTimes(1);
+    expect(userRepo.revertPreset).toHaveBeenCalledTimes(1);
+    expect(permissionRepo.remove).toHaveBeenCalledTimes(1);
+    expect(audit.log).toHaveBeenCalledTimes(1);
+  });
 });

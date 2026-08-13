@@ -103,4 +103,21 @@ describe('PlatformPermissionsService', () => {
     expect(result).toEqual({ deleted: 2, revertedUsers: 0 });
     expect(permissionRepo.remove).toHaveBeenCalledTimes(2);
   });
+
+  it('bulk remove dedupes duplicate ids', async () => {
+    permissionRepo.findById.mockResolvedValueOnce({
+      id: 'g1',
+      isDefault: false,
+      name: 'G1',
+      role: 'Recruiter',
+      permissions: [],
+      createdBy: null,
+      createdAt: new Date(),
+    });
+    const result = await service.bulkRemove(['g1', 'g1']);
+    expect(result).toEqual({ deleted: 1, revertedUsers: 0 });
+    expect(permissionRepo.findById).toHaveBeenCalledTimes(1);
+    expect(permissionRepo.remove).toHaveBeenCalledTimes(1);
+    expect(audit.log).toHaveBeenCalledTimes(1);
+  });
 });

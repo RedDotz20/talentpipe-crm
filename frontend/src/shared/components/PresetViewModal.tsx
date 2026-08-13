@@ -16,14 +16,16 @@ export function PresetViewModal({ preset, onClose, onDuplicate }: Props) {
         <Stack>
           <Group gap="xs">
             <Badge variant="light" color="gray">
-              Locked — role default
+              {preset.isDefault ? 'Locked - role default' : 'Locked - shared preset'}
             </Badge>
             <Badge variant="light" color="indigo">
               {preset.role}
             </Badge>
           </Group>
           <Text size="sm" c="dimmed">
-            Default presets are read-only. Duplicate to create your own editable copy.
+            {preset.isDefault
+              ? 'Default presets are read-only. Duplicate to create your own editable copy.'
+              : 'Shared presets are read-only here. Duplicate to create your own editable copy.'}
           </Text>
           {PERMISSION_GROUPS.map((group) => {
             const visible = group.keys.filter((k) => roleKeys.has(k));

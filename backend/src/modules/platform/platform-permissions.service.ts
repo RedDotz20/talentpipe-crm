@@ -152,6 +152,7 @@ export class PlatformPermissionsService {
   }
 
   async bulkRemove(ids: string[]) {
+    ids = [...new Set(ids)]; // dedupe — `const ids = ...` would redeclare the param (SyntaxError)
     const presets: PermissionPresetRow[] = [];
     for (const id of ids) {
       const existing = await this.permissionRepo.findById(id, 'public');

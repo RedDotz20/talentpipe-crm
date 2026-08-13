@@ -143,6 +143,7 @@ export class CompanyPermissionsService {
   }
 
   async bulkRemove(ids: string[]) {
+    ids = [...new Set(ids)]; // dedupe — `const ids = ...` would redeclare the param (SyntaxError)
     const schema = getSchema();
     const presets: PermissionPresetRow[] = [];
     for (const id of ids) {
