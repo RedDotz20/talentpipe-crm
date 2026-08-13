@@ -54,3 +54,25 @@ export function useBulkDeletePlatformPreset() {
     },
   });
 }
+
+export function useSetPlatformPresetEnabled() {
+  const queryClient = useQueryClient();
+  return useApiMutation<unknown, { id: string; enabled: boolean }>({
+    mutationFn: ({ id, enabled }) => platformApi.setPermissionPresetEnabled(id, enabled),
+    successMessage: 'Preset updated',
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.permissions() });
+    },
+  });
+}
+
+export function useBulkSetPlatformPresetEnabled() {
+  const queryClient = useQueryClient();
+  return useApiMutation<unknown, { ids: string[]; enabled: boolean }>({
+    mutationFn: ({ ids, enabled }) => platformApi.bulkSetPermissionPresetsEnabled(ids, enabled),
+    successMessage: 'Presets updated',
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.permissions() });
+    },
+  });
+}

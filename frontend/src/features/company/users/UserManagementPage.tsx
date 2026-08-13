@@ -70,7 +70,9 @@ export function UserManagementPage() {
   const [assignValue, setAssignValue] = useState<string | null>('default');
 
   const presetsForRole = (role: string) =>
-    (presetsQuery.data?.presets ?? []).filter((p) => p.role === role);
+    (presetsQuery.data?.presets ?? []).filter(
+      (p) => p.role === role && p.isEnabled !== false,
+    );
 
   const resetForm = useForm({
     validate: schemaResolver(ResetSchema),

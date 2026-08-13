@@ -62,3 +62,25 @@ export function useBulkDeletePreset() {
     },
   });
 }
+
+export function useSetPresetEnabled() {
+  const queryClient = useQueryClient();
+  return useApiMutation<unknown, { id: string; enabled: boolean }>({
+    mutationFn: ({ id, enabled }) => companyPermissionsApi.setEnabled(id, enabled),
+    successMessage: 'Preset updated',
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.company.permissionPresets() });
+    },
+  });
+}
+
+export function useBulkSetPresetEnabled() {
+  const queryClient = useQueryClient();
+  return useApiMutation<unknown, { ids: string[]; enabled: boolean }>({
+    mutationFn: ({ ids, enabled }) => companyPermissionsApi.bulkSetEnabled(ids, enabled),
+    successMessage: 'Presets updated',
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.company.permissionPresets() });
+    },
+  });
+}

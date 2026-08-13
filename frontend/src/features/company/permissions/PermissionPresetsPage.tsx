@@ -11,6 +11,8 @@ import {
   Tooltip,
 } from '@mantine/core';
 import {
+  IconBan,
+  IconCircleCheck,
   IconCopy,
   IconEye,
   IconEyeOff,
@@ -22,7 +24,8 @@ import {
 } from '@tabler/icons-react';
 import type { PermissionPreset } from '@/api/permissionsApi';
 import { PresetCards, PresetCardSkeleton } from '@/shared/components/PresetCards';
-import { PresetBulkDelete } from '@/shared/components/PresetBulkDelete';
+import { PresetBulkActions } from '@/shared/components/PresetBulkActions';
+import { PresetStatusConfirmModal } from '@/shared/components/PresetStatusConfirmModal';
 import { PresetViewModal } from '@/shared/components/PresetViewModal';
 import { TableAction } from '@/shared/components/TableAction';
 import { TableSkeleton } from '@/shared/components/Skeletons';
@@ -32,9 +35,11 @@ import {
 } from '@/shared/components/PresetEditorModal';
 import {
   useBulkDeletePreset,
+  useBulkSetPresetEnabled,
   useCompanyPermissionPresets,
   useCreatePreset,
   useDeletePreset,
+  useSetPresetEnabled,
   useUpdatePreset,
 } from './hooks/useCompanyPermissions';
 
@@ -43,6 +48,10 @@ export function PermissionPresetsPage() {
   const createPreset = useCreatePreset();
   const updatePreset = useUpdatePreset();
   const deletePreset = useDeletePreset();
+  const setPresetEnabled = useSetPresetEnabled();
+  const bulkSetEnabled = useBulkSetPresetEnabled();
+
+  const [disablingPreset, setDisablingPreset] = useState<PermissionPreset | null>(null);
 
   const [editor, setEditor] = useState<{
     mode: 'create' | 'edit' | 'duplicate';
@@ -85,9 +94,33 @@ export function PermissionPresetsPage() {
   const selectedPresets = presets.filter((p) => selectedIds.includes(p.id));
   const inUseCount = selectedPresets.filter((p) => p.usageCount > 0).length;
   const affectedUsers = selectedPresets.reduce((sum, p) => sum + p.usageCount, 0);
+  const canDisable = selectedPresets.some((p) => p.isEnabled !== false);
+  const canEnable = selectedPresets.some((p) => p.isEnabled === false);
   const confirmBulkDelete = () => {
     bulkDelete.mutate(selectedPresets.map((p) => p.id), { onSuccess: clearSelection });
   };
+  const confirmBulkDisable = () => {
+    bulkSetEnabled.mutate(
+      { ids: selectedPresets.filter((p) => p.isEnabled !== false).map((p) => p.id), enabled: false },
+      { onSuccess: clearSelection },
+    );
+  };
+  const confirmBulkEnable = () => {
+    bulkSetEnabled.mutate(
+      { ids: selectedPresets.filter((p) => p.isEnabled === false).map((p) => p.id), enabled: true },
+      { onSuccess: clearSelection },
+    );
+  };
+  const confirmDisablePreset = () => {
+    if (disablingPreset) {
+      setPresetEnabled.mutate(
+        { id: disablingPreset.id, enabled: false },
+        { onSuccess: () => setDisablingPreset(null) },
+      );
+    }
+  };
+  const enablePreset = (preset: PermissionPreset) =>
+    setPresetEnabled.mutate({ id: preset.id, enabled: true });
 
   const openCreate = () => setEditor({ mode: 'create', preset: null });
   const openDuplicate = (preset: PermissionPreset) =>
@@ -140,12 +173,18 @@ export function PermissionPresetsPage() {
         </Group>
       </Group>
 
-      <PresetBulkDelete
+      <PresetBulkActions
         selectedCount={selectedPresets.length}
         inUseCount={inUseCount}
         affectedUsers={affectedUsers}
+        canDisable={canDisable}
+        canEnable={canEnable}
         deleting={bulkDelete.isPending}
-        onConfirm={confirmBulkDelete}
+        disabling={bulkSetEnabled.isPending}
+        enabling={bulkSetEnabled.isPending}
+        onDelete={confirmBulkDelete}
+        onDisable={confirmBulkDisable}
+        onEnable={confirmBulkEnable}
         onClear={clearSelection}
       />
 
@@ -167,6 +206,8 @@ export function PermissionPresetsPage() {
           onDuplicate={openDuplicate}
           onEdit={openEdit}
           onDelete={(p) => deletePreset.mutate(p.id)}
+          onEnable={enablePreset}
+          onDisable={setDisablingPreset}
           deleting={deletePreset.isPending}
           selectedIds={selectedIds}
           onToggleSelect={toggleSelect}
@@ -229,6 +270,15 @@ export function PermissionPresetsPage() {
                     </TableAction>
                     {!preset.isDefault && !preset.isGlobal && (
                       <>
+                        {preset.isEnabled === false ? (
+                          <TableAction label="Enable" color="teal" onClick={() => enablePreset(preset)}>
+                            <IconCircleCheck size="1rem" />
+                          </TableAction>
+                        ) : (
+                          <TableAction label="Disable" color="orange" onClick={() => setDisablingPreset(preset)}>
+                            <IconBan size="1rem" />
+                          </TableAction>
+                        )}
                         <TableAction label="Edit" onClick={() => openEdit(preset)}>
                           <IconPencil size="1rem" />
                         </TableAction>
@@ -289,6 +339,13 @@ export function PermissionPresetsPage() {
         preset={viewing}
         onClose={() => setViewing(null)}
         onDuplicate={() => openDuplicate(viewing!)}
+      />
+
+      <PresetStatusConfirmModal
+        preset={disablingPreset}
+        disabling={setPresetEnabled.isPending}
+        onConfirm={confirmDisablePreset}
+        onClose={() => setDisablingPreset(null)}
       />
     </>
   );

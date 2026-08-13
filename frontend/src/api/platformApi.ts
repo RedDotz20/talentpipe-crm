@@ -324,4 +324,18 @@ export const platformApi = {
     );
     return data as ApiEnvelope<{ id: string; presetId: string | null }>;
   },
+  setPermissionPresetEnabled: async (
+    id: string,
+    enabled: boolean,
+  ): Promise<ApiEnvelope<{ id: string; revertedUsers: number }>> => {
+    const { data } = await apiClient.patch(`/platform/permissions/${id}/${enabled ? 'enable' : 'disable'}`);
+    return data as ApiEnvelope<{ id: string; revertedUsers: number }>;
+  },
+  bulkSetPermissionPresetsEnabled: async (
+    ids: string[],
+    enabled: boolean,
+  ): Promise<ApiEnvelope<{ updated: number; revertedUsers: number }>> => {
+    const { data } = await apiClient.post('/platform/permissions/bulk-status', { ids, enabled });
+    return data as ApiEnvelope<{ updated: number; revertedUsers: number }>;
+  },
 };

@@ -1,5 +1,5 @@
 import { Badge, Card, Checkbox, Divider, Group, SimpleGrid, Skeleton, Stack, Text } from '@mantine/core';
-import { IconCopy, IconEye, IconPencil, IconTrash } from '@tabler/icons-react';
+import { IconBan, IconCopy, IconCircleCheck, IconEye, IconPencil, IconTrash } from '@tabler/icons-react';
 import { permissionLabel, type PermissionPreset } from '@/api/permissionsApi';
 import { TableAction } from './TableAction';
 
@@ -10,6 +10,8 @@ interface PresetCardsProps {
   onDuplicate?: (preset: PermissionPreset) => void;
   onEdit?: (preset: PermissionPreset) => void;
   onDelete?: (preset: PermissionPreset) => void;
+  onEnable?: (preset: PermissionPreset) => void;
+  onDisable?: (preset: PermissionPreset) => void;
   deleting?: boolean;
   scopeLabel?: (preset: PermissionPreset) => string | null;
   selectedIds?: string[];
@@ -23,6 +25,8 @@ export function PresetCards({
   onDuplicate,
   onEdit,
   onDelete,
+  onEnable,
+  onDisable,
   deleting,
   scopeLabel,
   selectedIds,
@@ -52,6 +56,11 @@ export function PresetCards({
                     </Badge>
                   )}
                 </Group>
+              )}
+              {!isLocked && preset.isEnabled === false && (
+                <Badge size="xs" variant="light" color="gray" style={{ flexShrink: 0 }}>
+                  disabled
+                </Badge>
               )}
               {onToggleSelect && !isLocked && (
                 <Checkbox
@@ -98,6 +107,17 @@ export function PresetCards({
                 >
                   <IconCopy size="1rem" />
                 </TableAction>
+              )}
+              {!isLocked && onEnable && onDisable && (
+                preset.isEnabled === false ? (
+                  <TableAction label="Enable" color="teal" onClick={() => onEnable(preset)}>
+                    <IconCircleCheck size="1rem" />
+                  </TableAction>
+                ) : (
+                  <TableAction label="Disable" color="orange" onClick={() => onDisable(preset)}>
+                    <IconBan size="1rem" />
+                  </TableAction>
+                )
               )}
               {!isLocked && onEdit && (
                 <TableAction label="Edit" onClick={() => onEdit(preset)}>

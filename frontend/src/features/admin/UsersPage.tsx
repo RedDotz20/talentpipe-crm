@@ -145,7 +145,7 @@ export function UsersPage() {
 
   const presetsForRole = (role: string) =>
     (presetsQuery.data?.presets ?? []).filter(
-      (p) => p.role === role && (p.isDefault || p.companyId === null),
+      (p) => p.role === role && p.isEnabled !== false && (p.isDefault || p.companyId === null),
     )
 
   const assignPreset = useApiMutation({

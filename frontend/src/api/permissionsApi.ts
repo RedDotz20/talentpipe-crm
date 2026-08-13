@@ -107,6 +107,7 @@ export interface PermissionPreset {
   isDefault: boolean;
   isGlobal?: boolean;
   usageCount: number;
+  isEnabled: boolean;
 }
 
 export interface PermissionPresetsResponse {
@@ -137,5 +138,19 @@ export const companyPermissionsApi = {
   ): Promise<ApiEnvelope<{ deleted: number; revertedUsers: number }>> => {
     const { data } = await apiClient.post('/company/permissions/bulk-delete', { ids });
     return data as ApiEnvelope<{ deleted: number; revertedUsers: number }>;
+  },
+  setEnabled: async (
+    id: string,
+    enabled: boolean,
+  ): Promise<ApiEnvelope<{ id: string; revertedUsers: number }>> => {
+    const { data } = await apiClient.patch(`/company/permissions/${id}/${enabled ? 'enable' : 'disable'}`);
+    return data as ApiEnvelope<{ id: string; revertedUsers: number }>;
+  },
+  bulkSetEnabled: async (
+    ids: string[],
+    enabled: boolean,
+  ): Promise<ApiEnvelope<{ updated: number; revertedUsers: number }>> => {
+    const { data } = await apiClient.post('/company/permissions/bulk-status', { ids, enabled });
+    return data as ApiEnvelope<{ updated: number; revertedUsers: number }>;
   },
 };
