@@ -13,6 +13,7 @@ import {
 import type { Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { Permissions } from '../../common/decorators/permissions.decorator';
 import { SkipEnvelope } from '../../common/decorators/skip-envelope.decorator';
 import { sendCsv } from '../../common/csv.helper';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -48,6 +49,7 @@ export class InterviewsController {
   @Get()
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
+  @Permissions('interviews.view')
   list(
     @CurrentUser() user: CompanyContext,
     @Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto,
@@ -64,6 +66,7 @@ export class InterviewsController {
   @Get('export')
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
+  @Permissions('interviews.view')
   @SkipEnvelope()
   async exportCsv(
     @Res() res: Response,
@@ -83,6 +86,7 @@ export class InterviewsController {
   @Get(':id')
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
+  @Permissions('interviews.view')
   getOne(
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: CompanyContext,
@@ -93,6 +97,7 @@ export class InterviewsController {
   @Post()
   @UseGuards(AuthGuard('jwt'))
   @Roles(...SCHEDULER_ROLES)
+  @Permissions('interviews.schedule')
   schedule(
     @Body(new ZodValidationPipe(CreateInterviewSchema)) dto: CreateInterviewDto,
     @CurrentUser() user: CompanyContext,
@@ -103,6 +108,7 @@ export class InterviewsController {
   @Patch(':id')
   @UseGuards(AuthGuard('jwt'))
   @Roles(...SCHEDULER_ROLES)
+  @Permissions('interviews.schedule')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodValidationPipe(UpdateInterviewSchema)) dto: UpdateInterviewDto,
@@ -113,6 +119,7 @@ export class InterviewsController {
   @Post(':id/feedback')
   @UseGuards(AuthGuard('jwt'))
   @Roles('Interviewer')
+  @Permissions('interviews.feedback')
   submitFeedback(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodValidationPipe(SubmitFeedbackSchema)) dto: SubmitFeedbackDto,

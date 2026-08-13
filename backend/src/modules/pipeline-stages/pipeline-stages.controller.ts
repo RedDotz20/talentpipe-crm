@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { Permissions } from '../../common/decorators/permissions.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PipelineStagesService } from './pipeline-stages.service';
 import {
@@ -43,6 +44,7 @@ export class PipelineStagesController {
   @Post()
   @UseGuards(AuthGuard('jwt'))
   @Roles('CompanyAdmin')
+  @Permissions('stages.manage')
   create(
     @Body(new ZodValidationPipe(CreatePipelineStageSchema))
     dto: CreatePipelineStageDto,
@@ -53,6 +55,7 @@ export class PipelineStagesController {
   @Patch(':id')
   @UseGuards(AuthGuard('jwt'))
   @Roles('CompanyAdmin')
+  @Permissions('stages.manage')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodValidationPipe(UpdatePipelineStageSchema))
@@ -64,6 +67,7 @@ export class PipelineStagesController {
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'))
   @Roles('CompanyAdmin')
+  @Permissions('stages.manage')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.pipelineStagesService.remove(id);
   }

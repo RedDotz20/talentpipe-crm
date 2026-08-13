@@ -10,6 +10,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import type { Response } from 'express';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { Permissions } from '../../common/decorators/permissions.decorator';
 import { SkipEnvelope } from '../../common/decorators/skip-envelope.decorator';
 import { CandidateRepository } from '../../repositories/candidate.repository';
 import { ResumesService } from './resumes.service';
@@ -26,6 +27,7 @@ export class ResumesController {
   @Get()
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
+  @Permissions('candidates.view')
   async get(@Param('candidateId', new ParseUUIDPipe()) candidateId: string) {
     const candidate = await this.candidateRepo.findById(candidateId);
     if (!candidate?.candidateAccountId) {
@@ -37,6 +39,7 @@ export class ResumesController {
   @Get('file')
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
+  @Permissions('candidates.view')
   @SkipEnvelope()
   async downloadFile(
     @Param('candidateId', new ParseUUIDPipe()) candidateId: string,

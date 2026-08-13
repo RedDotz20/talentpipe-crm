@@ -13,6 +13,7 @@ import {
 import type { Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { Permissions } from '../../common/decorators/permissions.decorator';
 import { SkipEnvelope } from '../../common/decorators/skip-envelope.decorator';
 import { sendCsv } from '../../common/csv.helper';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -49,6 +50,7 @@ export class CompanyUsersController {
   @Post()
   @UseGuards(AuthGuard('jwt'))
   @Roles('CompanyAdmin')
+  @Permissions('users.manage')
   create(@Body(new ZodValidationPipe(CreateUserSchema)) dto: CreateUserDto) {
     return this.orgUsersService.create(dto);
   }
@@ -56,6 +58,7 @@ export class CompanyUsersController {
   @Patch(':userId/password')
   @UseGuards(AuthGuard('jwt'))
   @Roles('CompanyAdmin')
+  @Permissions('users.manage')
   resetPassword(
     @Param('userId', new ParseUUIDPipe()) userId: string,
     @Body(new ZodValidationPipe(ResetPasswordSchema)) dto: ResetPasswordDto,
@@ -66,6 +69,7 @@ export class CompanyUsersController {
   @Patch(':userId/suspend')
   @UseGuards(AuthGuard('jwt'))
   @Roles('CompanyAdmin')
+  @Permissions('users.manage')
   suspend(@Param('userId', new ParseUUIDPipe()) userId: string) {
     return this.orgUsersService.setStatus(userId, 'suspended');
   }
@@ -73,6 +77,7 @@ export class CompanyUsersController {
   @Patch(':userId/reactivate')
   @UseGuards(AuthGuard('jwt'))
   @Roles('CompanyAdmin')
+  @Permissions('users.manage')
   reactivate(@Param('userId', new ParseUUIDPipe()) userId: string) {
     return this.orgUsersService.setStatus(userId, 'active');
   }
@@ -80,6 +85,7 @@ export class CompanyUsersController {
   @Patch(':userId/role')
   @UseGuards(AuthGuard('jwt'))
   @Roles('CompanyAdmin')
+  @Permissions('users.manage')
   updateRole(
     @Param('userId', new ParseUUIDPipe()) userId: string,
     @Body(new ZodValidationPipe(UpdateRoleSchema)) dto: UpdateRoleDto,
@@ -90,6 +96,7 @@ export class CompanyUsersController {
   @Delete(':userId')
   @UseGuards(AuthGuard('jwt'))
   @Roles('CompanyAdmin')
+  @Permissions('users.manage')
   remove(@Param('userId', new ParseUUIDPipe()) userId: string) {
     return this.orgUsersService.remove(userId);
   }

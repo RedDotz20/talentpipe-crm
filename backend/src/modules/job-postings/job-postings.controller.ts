@@ -14,6 +14,7 @@ import {
 import type { Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { Permissions } from '../../common/decorators/permissions.decorator';
 import { SkipEnvelope } from '../../common/decorators/skip-envelope.decorator';
 import { sendCsv } from '../../common/csv.helper';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -40,6 +41,7 @@ export class JobPostingsController {
   @Get()
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
+  @Permissions('jobs.view')
   list(
     @Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto,
     @Query('status') status?: string,
@@ -50,6 +52,7 @@ export class JobPostingsController {
   @Get('export')
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
+  @Permissions('jobs.view')
   @SkipEnvelope()
   async exportCsv(
     @Res() res: Response,
@@ -63,6 +66,7 @@ export class JobPostingsController {
   @Post()
   @UseGuards(AuthGuard('jwt'))
   @Roles(...EDIT_ROLES)
+  @Permissions('jobs.create_edit')
   create(
     @Body(new ZodValidationPipe(CreateJobPostingSchema))
     dto: CreateJobPostingDto,
@@ -74,6 +78,7 @@ export class JobPostingsController {
   @Get(':id')
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
+  @Permissions('jobs.view')
   getOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.jobPostingsService.getOne(id);
   }
@@ -81,6 +86,7 @@ export class JobPostingsController {
   @Patch(':id')
   @UseGuards(AuthGuard('jwt'))
   @Roles(...EDIT_ROLES)
+  @Permissions('jobs.create_edit')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodValidationPipe(UpdateJobPostingSchema))
@@ -92,6 +98,7 @@ export class JobPostingsController {
   @Post(':id/publish')
   @UseGuards(AuthGuard('jwt'))
   @Roles(...EDIT_ROLES)
+  @Permissions('jobs.publish_close')
   publish(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.jobPostingsService.publish(id);
   }
@@ -99,6 +106,7 @@ export class JobPostingsController {
   @Post(':id/close')
   @UseGuards(AuthGuard('jwt'))
   @Roles(...EDIT_ROLES)
+  @Permissions('jobs.publish_close')
   close(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.jobPostingsService.close(id);
   }
@@ -106,6 +114,7 @@ export class JobPostingsController {
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'))
   @Roles('CompanyAdmin')
+  @Permissions('jobs.delete')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.jobPostingsService.remove(id);
   }

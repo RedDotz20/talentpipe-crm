@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { Permissions } from '../../common/decorators/permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CompanyContext } from '../../common/context/company-context';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -28,6 +29,7 @@ export class ApplicationsController {
   @Get()
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
+  @Permissions('applications.view')
   list(
     @Query(new ZodValidationPipe(ListQuerySchema)) query: ListQueryDto,
     @Query('jobPostingId', new ParseUUIDPipe({ optional: true }))
@@ -40,6 +42,7 @@ export class ApplicationsController {
   @Get(':id')
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
+  @Permissions('applications.view')
   getOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.applicationsService.getOne(id);
   }
@@ -47,6 +50,7 @@ export class ApplicationsController {
   @Patch(':id/stage')
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
+  @Permissions('applications.move')
   updateStage(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodValidationPipe(UpdateStageSchema)) dto: UpdateStageDto,
@@ -58,6 +62,7 @@ export class ApplicationsController {
   @Post(':id/notes')
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
+  @Permissions('applications.note')
   addNote(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodValidationPipe(CreateNoteSchema)) dto: CreateNoteDto,
@@ -69,6 +74,7 @@ export class ApplicationsController {
   @Get(':id/notes')
   @UseGuards(AuthGuard('jwt'))
   @Roles(...VIEW_ROLES)
+  @Permissions('applications.view')
   listNotes(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.applicationsService.listNotes(id);
   }
