@@ -20,6 +20,7 @@ import {
   IconCalendarEvent,
   IconSettings,
   IconUserPlus,
+  IconShieldLock,
   IconLogout,
 } from '@tabler/icons-react';
 import { useAuthStore } from '../../api/useAuth';
@@ -51,6 +52,7 @@ export function CompanyPlatform() {
     role === 'CompanyAdmin'
       ? [
           { label: 'Team', icon: IconUserPlus, to: '/company/users' },
+          { label: 'Permissions', icon: IconShieldLock, to: '/company/permissions' },
           { label: 'Settings', icon: IconSettings, to: '/company/settings' },
         ]
       : [];
