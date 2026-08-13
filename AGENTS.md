@@ -2,7 +2,7 @@
 
 **One-liner:** Schema-per-company applicant tracking system. Each company gets an isolated PostgreSQL schema for job postings, candidate pipelines, interviews, recruiter collaboration, resume parsing, skill-matching, and rate-limited public application intake.
 
-**Status:** M18 (Landing Page + Public Jobs) — implemented on top of M17 (Dashboard Analytics).
+**Status:** M18 (Permission Management) — implemented on top of M18 (Landing Page + Public Jobs).
 
 ---
 
@@ -33,6 +33,7 @@
 - **M16:** CSV export for admin tables — 9 backend export endpoints (`/platform/{companies,users,applications,jobs,interviews}/export` with `companyId` scope for the CompanyDetail tabs, `/company/users/export`, `/job-postings/export`, `/candidates/export`, `/interviews/export`) sharing `toCsv` (RFC 4180 escaping, UTF-8 BOM, CRLF, formula-injection guard) + `csvFilename` + `sendCsv` in `common/csv.helper.ts`; repo `findAllFiltered` variants (same where, no pagination) and platform in-memory `exportX` methods (search + filters respected, sort/pagination ignored); shared `ExportCsvButton` wired into all 11 admin table pages via `ListControls.actions` (main pages) or header groups (CompanyDetail tabs). E2e: `phase16.e2e-spec.ts`.
 - **M17:** Dashboard analytics — `@mantine/charts` + `recharts` charts on both admin dashboards. Company `GET /dashboard/summary` gains `applicationsOverTime` (day=30d/week=12w/month=12m buckets, zero-filled via `repositories/time-series.helper.ts` `timeBucketedCounts`), `topJobsByApplications` (top 8), `interviewStatusBreakdown`, `jobsByStatus`, `jobsByEmploymentType`, `rejection` (name-based heuristic on `%reject%` stages, `ponytail:`-documented). New `GET /platform/dashboard` (SuperAdmin): stat cards (companies/active/suspended/users/applications/jobs), `companiesOverTime` buckets, `applicationsPerCompany` + `usersPerCompany` + `jobsByStatusPerCompany` (top 10, schema-loop via `UsageRepository.countJobsByStatus`, uncached). Frontend: new `/admin/dashboard` route (login now redirects SuperAdmin to `/admin`), admin nav "Dashboard" item, `PlatformDashboardPage` + `CompanyDashboardPage` with Area/Bar/Donut charts + Day/Week/Month `SegmentedControl` slicing pre-bucketed series (no refetch), rejection-rate stat card, empty-chart guards. E2e: `phase17.e2e-spec.ts`.
 - **M18:** Landing page + public jobs — unauthenticated visitors hitting `/` now see a static `LandingPage` (`features/landing/`) instead of being redirected to sign-in (authenticated users keep role redirects: Candidate → `/dashboard`, SuperAdmin → `/admin/dashboard`, else → `/company/dashboard`). Hero CTAs: "Browse open positions" → new public `GET /public/jobs` (new `PublicJobsController`, `PublicCareersService.listAll` reusing `JobListingsIndexRepository.findAll` — open jobs of active companies only, `companySlug` + meta fields now in every public listing mapping) and "Sign in" → `/auth/signin`. New public `/jobs` route reuses `JobListingPage` with optional `companySlug` (link targets use `job.companySlug`); `usePublicJobs` branches to `publicCareersApi.getAllJobs` when no slug. Landing sections: header anchors (Browse jobs / Sign in / Register / For companies), hero, 6 feature cards, CTA + footer. E2e: `phase18.e2e-spec.ts`.
+- **M18:** Permission management — role-bound permission presets. `permission_presets` tables (public: 4 read-only seeded defaults + SuperAdmin globals; per-company: CompanyAdmin customs) + `users.preset_id` (null → role default; role change resets), ceiling rule (a preset is always a subset of its role's default — `ROLE_PERMISSIONS` in `common/permissions/permissions.ts` is the single source of truth; assignment requires role match). New `@Permissions('key')` decorator + global `PermissionsGuard` (stacks after `@Roles`, narrows it), 17-key catalog, effective set resolved per-request (preset join, no cache) + mirrored as a JWT claim. Company `/company/permissions` (CompanyAdmin) + platform `/platform/permissions` (SuperAdmin) pages, preset assignment in both users pages (company: non-CA rows; platform: all rows incl. CA). Phase18 e2e caught + fixed the new-company schema provision leak (`permission_presets` now cloned via the company template). Design: `docs/superpowers/specs/2026-08-12-permission-management-design.md`. E2e: `phase18.e2e-spec.ts`.
 - **Not yet built:** platform email/notifications, password-change flow, pipeline-stage management endpoints, anonymous apply, and automated resume parsing. CI runs via `.github/workflows/ci.yml` (lint → typecheck → unit → e2e release gates → build). Production: self-hosted `docker-compose.prod.yml` stack (backend/frontend Dockerfiles, one-shot migrate service, env-file secrets) — see `09_IMPLEMENTATION_GUIDE.md` Phase 10 for the deploy runbook.
 
 ## Commands
@@ -81,6 +82,7 @@ Applied migration order includes:
 20260807090000_scheduled_at_timezone
 20260808090000_platform_user_suspend
 20260808100000_platform_account_cascades
+20260812000000_permission_management
 ```
 
 ## Architecture
@@ -178,6 +180,7 @@ frontend/src/
 | M16 | CSV Export | Export button on all admin tables downloads filtered CSV — done ✅ |
 | M17 | Dashboard Analytics | Charts (area/bar/donut) on company + platform dashboards with day/week/month aggregation — done ✅ |
 | M18 | Landing Page + Public Jobs | Public landing at `/` + platform-wide public jobs listing with hero CTAs — done ✅ |
+| M18 | Permission Management | Presets CRUD + assignment + enforcement — done ✅ |
 
 ## Documentation Index
 

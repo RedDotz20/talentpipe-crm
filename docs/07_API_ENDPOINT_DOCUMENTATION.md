@@ -174,6 +174,32 @@ The public careers section is read-only in Phase 5. Apply buttons redirect anony
 | GET | `/platform/interviews?companyId=&status=` | SA | List interviews across companies (optional filters) |
 | PATCH | `/platform/interviews/:id` | SA | Reschedule (`{ scheduledAt }`) / cancel (`{ status: 'cancelled' }`); audit `platform.interview.update` |
 
+## Permission Presets (M18) ✅
+
+Presets bind a role to a restricted permission subset. The default presets (one per internal role) are seeded read-only; SuperAdmin manages global presets, CompanyAdmin manages company-scoped customs. The ceiling rule is enforced server-side on every write: `permissions` must be a subset of the preset role's default (`ROLE_PERMISSIONS`) — else `400 VALIDATION_ERROR`; assignment requires the preset's role to match the user's role — else `400`. All preset routes require `permissions.manage` in the caller's effective set. Effective permissions are mirrored as a `permissions` claim in the JWT access token (SuperAdmin/Candidate get `[]`). Design: `docs/superpowers/specs/2026-08-12-permission-management-design.md`.
+
+### Company presets (CompanyAdmin, own company)
+
+| Method | Path | Roles | Description |
+|---|---|---|---|
+| GET | `/company/permissions` | OA | List defaults + globals + own customs — `{ presets: [{ id, name, role, permissions, isDefault, usageCount }] }`; defaults/globals have `usageCount: 0` |
+| POST | `/company/permissions` | OA | Create a custom preset. Body: `{ name, role, permissions: string[] }` (subset validated) — audit `permissions.preset.create` |
+| PATCH | `/company/permissions/:id` | OA | Update a custom preset (defaults live in the public schema and are not addressable here → `404`). Body: `{ name?, permissions? }` (subset validated) — audit `permissions.preset.update` |
+| DELETE | `/company/permissions/:id` | OA | Delete a custom preset; defaults not addressable → `404`; **`409` if assigned to users** (reassign first) — audit `permissions.preset.delete` |
+| PATCH | `/company/users/:userId/preset` | OA | Assign a preset to a non-CA user. Body: `{ presetId: string \| null }` (`null` → role default); `403` on CompanyAdmin targets, `404` unknown preset/user, `400` role mismatch — audit `permissions.preset.assign` |
+
+### Platform presets (SuperAdmin, cross-company)
+
+| Method | Path | Roles | Description |
+|---|---|---|---|
+| GET | `/platform/permissions` | SA | List defaults + globals + every company's customs — `{ presets: [{ id, name, role, permissions, isDefault, companyId, companyName, usageCount }] }` (`companyId`/`companyName` null for defaults/globals) |
+| POST | `/platform/permissions` | SA | Create a global preset. Body: `{ name, role, permissions: string[] }` (subset validated) — audit `platform.permissions.preset.create` |
+| PATCH | `/platform/permissions/:id` | SA | Update a global preset (defaults → `400`). Body: `{ name?, permissions? }` (subset validated) — audit `platform.permissions.preset.update` |
+| DELETE | `/platform/permissions/:id` | SA | Delete a global preset; defaults → `400`; **`409` if assigned in any company** — audit `platform.permissions.preset.delete` |
+| PATCH | `/platform/companies/:id/users/:userId/preset` | SA | Assign a preset to any account in the company (incl. CompanyAdmins). Body: `{ presetId: string \| null }`; `404` unknown user/preset (or foreign company), `400` role mismatch — audit `platform.permissions.preset.assign` |
+
+Notes: `POST /company/users` accepts an optional `presetId` (defaults to the role's default preset); user list endpoints (`GET /company/users`, platform merged users) include each user's `presetId` (`null` → role default). Role-change endpoints reset `preset_id` to the new role's default preset. Assignment responses return `{ id: <userId>, presetId }`.
+
 ## Dashboards (M17) ✅
 
 ### `GET /dashboard/summary` — Company dashboard (CompanyAdmin/Recruiter/HiringManager/Interviewer)

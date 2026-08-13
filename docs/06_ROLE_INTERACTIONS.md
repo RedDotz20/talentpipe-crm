@@ -31,6 +31,44 @@ Six roles: **SuperAdmin, Company Admin, Recruiter, Hiring Manager, Interviewer, 
 | Manage profile | — | — | — | — | — | ✅ |
 | Login to candidate account | — | — | — | — | — | ✅ |
 
+## Permission Presets (M18)
+
+Roles remain the anchor for routing/context, but each internal account's **effective permissions** come from the **permission preset** assigned to it (`users.preset_id`; `NULL` = the role's default preset). Presets can only ever **restrict** a role, never grant beyond its default — the ceiling rule. Design: `docs/superpowers/specs/2026-08-12-permission-management-design.md`.
+
+**Catalog (17 keys, single source of truth = `ROLE_PERMISSIONS` in `common/permissions/permissions.ts`):** the ✅ columns below are the seeded default preset per role; SuperAdmin is not in the catalog (nothing controls SuperAdmin) and Candidate is out of scope.
+
+| Permission | CA | Recruiter | Hiring Mgr | Interviewer |
+|---|:-:|:-:|:-:|:-:|
+| `jobs.view` | ✅ | ✅ | ✅ | — |
+| `jobs.create_edit` | ✅ | ✅ | — | — |
+| `jobs.publish_close` | ✅ | ✅ | — | — |
+| `jobs.delete` | ✅ | — | — | — |
+| `candidates.view` | ✅ | ✅ | ✅ | — |
+| `candidates.manage` | ✅ | ✅ | — | — |
+| `applications.view` | ✅ | ✅ | ✅ | — |
+| `applications.move` | ✅ | ✅ | ✅ | — |
+| `applications.note` | ✅ | ✅ | ✅ | — |
+| `interviews.view` | ✅ | ✅ | ✅ | ✅ (assigned) |
+| `interviews.schedule` | ✅ | ✅ | ✅ | — |
+| `interviews.feedback` | — | — | — | ✅ (assigned) |
+| `stages.manage` | ✅ | — | — | — |
+| `settings.manage` | ✅ | — | — | — |
+| `users.manage` | ✅ | — | — | — |
+| `permissions.manage` | ✅ | — | — | — |
+| `dashboard.view` | ✅ | ✅ | ✅ | ✅ |
+
+**Preset model:** default presets (one per internal role) are seeded read-only in the public schema (Duplicate only); SuperAdmin manages **global presets** (public schema, full CRUD, available to every company); CompanyAdmin manages **company presets** (company schema, full CRUD, own company only). CSV exports ride on their resource's view permission.
+
+**Hierarchy rules:**
+
+1. **SuperAdmin** — full control: global preset CRUD, preset assignment for every account in every company (incl. CompanyAdmins), sees company presets read-only.
+2. **CompanyAdmin** — preset CRUD scoped to own company; assignment only for Recruiter / HiringManager / Interviewer accounts in own company (403 on CA targets, 404 on other companies' users). Requires own `permissions.manage` (always in the CA default).
+3. **Ceiling rule** — a preset's permissions are always a subset of its bound role's default (`permissions ⊆ ROLE_PERMISSIONS[role]`, validated server-side, 400 on violation); assignment requires the preset's role to **match the user's role** (400 otherwise).
+4. **Lockout safety** — a CompanyAdmin's `permissions.manage` / `users.manage` can only be removed by assigning a CA preset lacking them, which only SuperAdmin can do (CA cannot assign to CA accounts).
+5. **Role change resets the preset** to the new role's default preset.
+
+**Enforcement:** `@Permissions('permission.key', ...)` decorator + global `PermissionsGuard` stacks **after** `@Roles(...)` — role check passes first, the permission guard narrows. The guard resolves the user's effective set per request (preset join, no cache): `preset_id` set → `preset.permissions`; else `ROLE_PERMISSIONS[role]`. SuperAdmin bypasses. The effective set is also mirrored as a `permissions` claim in the JWT access token (SuperAdmin/Candidate get `[]`).
+
 ## 1. SuperAdmin
 
 **Frontend:** `/admin/*` route tree, separate `PlatformShell` layout (not the company dashboard). Sees `CompaniesPage` (platform stats cards + company table), `CompanyDetail` (usage counts + suspend/reactivate + **Users / Applications / Interviews tabs**), and `CandidatesPage` (cross-company candidate table with create/edit/delete).
