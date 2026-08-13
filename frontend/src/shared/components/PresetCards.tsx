@@ -38,7 +38,29 @@ export function PresetCards({
         const isLocked = locked(preset);
         const scope = scopeLabel?.(preset) ?? null;
         return (
-          <Card key={preset.id} withBorder radius="md" padding="md">
+          <Card
+            key={preset.id}
+            withBorder
+            radius="md"
+            padding="md"
+            onClick={onView ? () => onView(preset) : undefined}
+            style={onView ? { cursor: 'pointer' } : undefined}
+            styles={
+              onView
+                ? {
+                    root: {
+                      transition:
+                        'transform 180ms ease-out, box-shadow 180ms ease-out, border-color 180ms ease-out',
+                      '&:hover': {
+                        transform: 'translateY(-2px)',
+                        boxShadow: 'var(--mantine-shadow-md)',
+                        borderColor: 'var(--mantine-color-default-border)',
+                      },
+                    },
+                  }
+                : undefined
+            }
+          >
             <Group justify="space-between" align="flex-start" wrap="nowrap">
               <Text fw={600} size="sm" lineClamp={2} style={{ flex: 1 }}>
                 {preset.name}
@@ -66,6 +88,7 @@ export function PresetCards({
                 <Checkbox
                   checked={selectedIds?.includes(preset.id)}
                   onChange={() => onToggleSelect(preset.id)}
+                  onClick={(e) => e.stopPropagation()}
                   aria-label={`Select ${preset.name}`}
                   size="sm"
                 />
@@ -93,8 +116,8 @@ export function PresetCards({
 
             <Divider my="sm" />
 
-            <Group justify="flex-end" gap="xs">
-              {isLocked && onView && (
+            <Group justify="flex-end" gap="xs" onClick={(e) => e.stopPropagation()}>
+              {onView && (
                 <TableAction label="View" color="gray" onClick={() => onView(preset)}>
                   <IconEye size="1rem" />
                 </TableAction>

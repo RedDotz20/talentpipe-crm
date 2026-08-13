@@ -1,14 +1,12 @@
 import { Accordion, Badge, Button, Checkbox, Group, Modal, Stack, Text } from '@mantine/core';
-import { IconCopy } from '@tabler/icons-react';
 import { PERMISSION_GROUPS, type PermissionPreset } from '@/api/permissionsApi';
 
 interface Props {
   preset: PermissionPreset | null;
   onClose: () => void;
-  onDuplicate: () => void;
 }
 
-export function PresetViewModal({ preset, onClose, onDuplicate }: Props) {
+export function PresetViewModal({ preset, onClose }: Props) {
   const roleKeys = preset ? new Set(preset.permissions) : new Set<string>();
   return (
     <Modal opened={preset !== null} onClose={onClose} title={preset?.name ?? ''} size="lg">
@@ -57,15 +55,6 @@ export function PresetViewModal({ preset, onClose, onDuplicate }: Props) {
           <Group justify="flex-end">
             <Button variant="light" onClick={onClose}>
               Close
-            </Button>
-            <Button
-              leftSection={<IconCopy size="1rem" />}
-              onClick={() => {
-                onClose();
-                onDuplicate();
-              }}
-            >
-              Duplicate
             </Button>
           </Group>
         </Stack>

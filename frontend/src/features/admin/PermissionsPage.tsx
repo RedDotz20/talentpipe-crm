@@ -144,11 +144,9 @@ export function PermissionsPage() {
 
   const actionRow = (preset: PlatformPreset) => (
     <Group gap="xs">
-      {preset.isDefault && (
-        <TableAction label="View" color="gray" onClick={() => setViewing(preset)}>
-          <IconEye size="1rem" />
-        </TableAction>
-      )}
+      <TableAction label="View" color="gray" onClick={() => setViewing(preset)}>
+        <IconEye size="1rem" />
+      </TableAction>
       <TableAction label="Duplicate" color="blue" onClick={() => setEditor({ mode: 'duplicate', preset })}>
         <IconCopy size="1rem" />
       </TableAction>
@@ -272,8 +270,12 @@ export function PermissionsPage() {
         </Table.Thead>
         <Table.Tbody>
           {visiblePresets.map((preset) => (
-              <Table.Tr key={preset.id}>
-                <Table.Td>
+              <Table.Tr
+                key={preset.id}
+                onClick={() => setViewing(preset)}
+                style={{ cursor: 'pointer' }}
+              >
+                <Table.Td onClick={(e) => e.stopPropagation()}>
                   {!preset.isDefault && (
                     <Checkbox
                       checked={selectedIds.includes(preset.id)}
@@ -302,7 +304,7 @@ export function PermissionsPage() {
                     {preset.permissions.join(', ') || 'No permissions'}
                   </Text>
                 </Table.Td>
-                <Table.Td>{actionRow(preset)}</Table.Td>
+                <Table.Td onClick={(e) => e.stopPropagation()}>{actionRow(preset)}</Table.Td>
               </Table.Tr>
             ))}
         </Table.Tbody>
@@ -319,6 +321,7 @@ export function PermissionsPage() {
             <PresetCards
               presets={companyPresets}
               locked={() => true}
+              onView={(preset) => setViewing(preset as PlatformPreset)}
               scopeLabel={(p) => (p as PlatformPreset).companyName}
             />
           ) : (
@@ -333,7 +336,11 @@ export function PermissionsPage() {
             </Table.Thead>
             <Table.Tbody>
               {companyPresets.map((preset) => (
-                <Table.Tr key={preset.id}>
+                <Table.Tr
+                  key={preset.id}
+                  onClick={() => setViewing(preset)}
+                  style={{ cursor: 'pointer' }}
+                >
                   <Table.Td>{preset.name}</Table.Td>
                   <Table.Td>{preset.companyName ?? '—'}</Table.Td>
                   <Table.Td>{preset.role}</Table.Td>
@@ -373,13 +380,7 @@ export function PermissionsPage() {
         saving={anySaving}
       />
 
-      <PresetViewModal
-        preset={viewing}
-        onClose={() => setViewing(null)}
-        onDuplicate={() => {
-          if (viewing) setEditor({ mode: 'duplicate', preset: viewing });
-        }}
-      />
+      <PresetViewModal preset={viewing} onClose={() => setViewing(null)} />
 
       <PresetStatusConfirmModal
         preset={disablingPreset}

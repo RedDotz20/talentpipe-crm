@@ -226,8 +226,12 @@ export function PermissionPresetsPage() {
           </Table.Thead>
           <Table.Tbody>
             {visiblePresets.map((preset) => (
-              <Table.Tr key={preset.id}>
-                <Table.Td>
+              <Table.Tr
+                key={preset.id}
+                onClick={() => setViewing(preset)}
+                style={{ cursor: 'pointer' }}
+              >
+                <Table.Td onClick={(e) => e.stopPropagation()}>
                   {!preset.isDefault && !preset.isGlobal && (
                     <Checkbox
                       checked={selectedIds.includes(preset.id)}
@@ -254,13 +258,11 @@ export function PermissionPresetsPage() {
                   </Text>
                 </Table.Td>
                 <Table.Td>{preset.usageCount}</Table.Td>
-                <Table.Td>
+                <Table.Td onClick={(e) => e.stopPropagation()}>
                   <Group gap="xs">
-                    {(preset.isDefault || preset.isGlobal) && (
-                      <TableAction label="View" color="gray" onClick={() => setViewing(preset)}>
-                        <IconEye size="1rem" />
-                      </TableAction>
-                    )}
+                    <TableAction label="View" color="gray" onClick={() => setViewing(preset)}>
+                      <IconEye size="1rem" />
+                    </TableAction>
                     <TableAction
                       label="Duplicate"
                       color="blue"
@@ -335,11 +337,7 @@ export function PermissionPresetsPage() {
         saving={anySaving}
       />
 
-      <PresetViewModal
-        preset={viewing}
-        onClose={() => setViewing(null)}
-        onDuplicate={() => openDuplicate(viewing!)}
-      />
+      <PresetViewModal preset={viewing} onClose={() => setViewing(null)} />
 
       <PresetStatusConfirmModal
         preset={disablingPreset}
