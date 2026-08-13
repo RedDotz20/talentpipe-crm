@@ -5,6 +5,7 @@ import * as argon2 from 'argon2';
 import { RefreshTokenRepository } from '../../../repositories/refresh-token.repository';
 import { CompanyRepository } from '../../../repositories/company.repository';
 import { UserRepository } from '../../../repositories/user.repository';
+import { PermissionRepository } from '../../../repositories/permission.repository';
 
 const ACCESS_TTL = '15m';
 const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -14,12 +15,14 @@ export interface TokenSubject {
   id: string;
   companyId: string | null | undefined;
   role: string;
+  permissions?: string[];
 }
 
 interface TokenPayload {
   sub: string;
   role: string;
   companyId?: string;
+  permissions: string[];
 }
 
 @Injectable()
@@ -30,14 +33,26 @@ export class TokenService {
     private refreshTokenRepo: RefreshTokenRepository,
     private tenantRepo: CompanyRepository,
     private userRepo: UserRepository,
+    private permissionRepo: PermissionRepository,
   ) {}
 
   async issueTokens(subject: TokenSubject) {
     const companyId = subject.companyId ?? NIL_TENANT_ID;
+    const permissions =
+      subject.permissions ??
+      (subject.role === 'SuperAdmin' ||
+      subject.role === 'Candidate' ||
+      !subject.companyId
+        ? []
+        : await this.permissionRepo.findEffectivePermissions(
+            subject.id,
+            `company_${subject.companyId}`,
+          ));
     const payload: TokenPayload = {
       sub: subject.id,
       role: subject.role,
       companyId: subject.companyId ?? undefined,
+      permissions,
     };
 
     const accessToken = this.jwtService.sign(payload, {
@@ -97,6 +112,7 @@ export class TokenService {
       id: payload.sub,
       companyId: payload.companyId,
       role: payload.role,
+      permissions: payload.permissions ?? [],
     });
   }
 
@@ -108,12 +124,14 @@ export class TokenService {
     sub: string;
     companyId: string | null | undefined;
     role: string;
+    permissions?: string[];
   } {
     try {
       return this.jwtService.verify<{
         sub: string;
         companyId: string | null | undefined;
         role: string;
+        permissions?: string[];
       }>(refreshToken, {
         secret: this.configService.get<string>('JWT_REFRESH_SECRET')!,
       });

@@ -6,6 +6,7 @@ import { TokenService } from './token.service';
 import { RefreshTokenRepository } from '../../../repositories/refresh-token.repository';
 import { CompanyRepository } from '../../../repositories/company.repository';
 import { UserRepository } from '../../../repositories/user.repository';
+import { PermissionRepository } from '../../../repositories/permission.repository';
 
 jest.mock('argon2', () => ({
   hash: jest.fn().mockResolvedValue('hashed-value'),
@@ -26,6 +27,7 @@ describe('TokenService', () => {
   };
   const tenantRepo = { findById: jest.fn() };
   const userRepo = { findById: jest.fn() };
+  const permissionRepo = { findEffectivePermissions: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -37,6 +39,7 @@ describe('TokenService', () => {
         { provide: RefreshTokenRepository, useValue: refreshTokenRepo },
         { provide: CompanyRepository, useValue: tenantRepo },
         { provide: UserRepository, useValue: userRepo },
+        { provide: PermissionRepository, useValue: permissionRepo },
       ],
     }).compile();
     service = module.get<TokenService>(TokenService);
@@ -57,7 +60,11 @@ describe('TokenService', () => {
       expect(result).toEqual({ accessToken: 'token', refreshToken: 'token' });
       expect(jwtService.sign).toHaveBeenCalledTimes(2);
       expect(jwtService.sign).toHaveBeenLastCalledWith(
-        { sub: 'u1', companyId: 't1', role: 'CompanyAdmin' },
+        expect.objectContaining({
+          sub: 'u1',
+          companyId: 't1',
+          role: 'CompanyAdmin',
+        }),
         expect.objectContaining({ secret: 'refresh-secret' }),
       );
       expect(refreshTokenRepo.deleteByUser).toHaveBeenCalledWith('u1');
@@ -187,6 +194,42 @@ describe('TokenService', () => {
     it('deletes stored tokens for the user', async () => {
       await service.logout('u1');
       expect(refreshTokenRepo.deleteByUser).toHaveBeenCalledWith('u1');
+    });
+  });
+
+  describe('permissions claim', () => {
+    it('resolves effective permissions for a company user into the payload', async () => {
+      permissionRepo.findEffectivePermissions.mockResolvedValue(['jobs.view']);
+      await service.issueTokens({
+        id: 'u1',
+        companyId: 'c1',
+        role: 'Recruiter',
+      });
+      expect(permissionRepo.findEffectivePermissions).toHaveBeenCalledWith(
+        'u1',
+        'company_c1',
+      );
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sub: 'u1',
+          role: 'Recruiter',
+          permissions: ['jobs.view'],
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('uses an empty permissions array for SuperAdmin (no lookup)', async () => {
+      await service.issueTokens({
+        id: 'sa',
+        companyId: undefined,
+        role: 'SuperAdmin',
+      });
+      expect(permissionRepo.findEffectivePermissions).not.toHaveBeenCalled();
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ role: 'SuperAdmin', permissions: [] }),
+        expect.anything(),
+      );
     });
   });
 });
