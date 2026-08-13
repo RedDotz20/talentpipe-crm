@@ -74,6 +74,7 @@ export const queryKeys = {
     interview: (id: string) => ['company', 'interviews', id],
     companyUsers: () => ['company', 'users'],
     companySettings: () => ['company', 'settings'],
+    permissionPresets: () => ['company', 'permissions'],
   },
   platform: {
     companies: (params?: PlatformCompaniesParams) => ['platform', 'companies', params],
@@ -99,6 +100,7 @@ export const queryKeys = {
     stats: () => ['platform', 'stats'],
     dashboard: () => ['platform', 'dashboard'],
     users: (params?: PlatformUsersParams) => ['platform', 'users', params],
+    permissions: () => ['platform', 'permissions'],
   },
 } as const;
 

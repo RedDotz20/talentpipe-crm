@@ -15,6 +15,7 @@ export interface CompanyUser {
   email: string;
   role: string;
   status: 'active' | 'suspended';
+  presetId: string | null;
   createdAt?: string;
 }
 
@@ -67,5 +68,14 @@ export const companyUsersApi = {
   remove: async (userId: string): Promise<ApiEnvelope<{ id: string }>> => {
     const { data } = await apiClient.delete(`/company/users/${userId}`);
     return data as ApiEnvelope<{ id: string }>;
+  },
+  assignPreset: async (
+    userId: string,
+    presetId: string | null,
+  ): Promise<ApiEnvelope<{ id: string; presetId: string | null }>> => {
+    const { data } = await apiClient.patch(`/company/users/${userId}/preset`, {
+      presetId,
+    });
+    return data as ApiEnvelope<{ id: string; presetId: string | null }>;
   },
 };

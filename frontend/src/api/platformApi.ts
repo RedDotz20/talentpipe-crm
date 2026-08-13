@@ -2,6 +2,7 @@ import { apiClient } from './client';
 import type { ApiEnvelope } from '@/hooks/useApiMutation';
 import type { ListQueryParams, Paginated } from '@/shared/types/listQuery';
 import type { TimeSeries } from '@/shared/types/dashboard';
+import type { PermissionPreset } from './permissionsApi';
 
 export interface PlatformCompany {
   id: string;
@@ -52,6 +53,7 @@ export interface PlatformUser {
   firstName: string | null;
   lastName: string | null;
   createdAt: string;
+  presetId: string | null;
 }
 
 export interface PlatformCandidate {
@@ -288,5 +290,32 @@ export const platformApi = {
   deleteJob: async (id: string): Promise<ApiEnvelope<{ id: string }>> => {
     const { data } = await apiClient.delete(`/platform/jobs/${id}`);
     return data as ApiEnvelope<{ id: string }>;
+  },
+  listPermissions: async (): Promise<{ presets: Array<PermissionPreset & { companyId: string | null; companyName: string | null }> }> => {
+    const { data } = await apiClient.get('/platform/permissions');
+    return unwrap(data as ApiEnvelope<{ presets: Array<PermissionPreset & { companyId: string | null; companyName: string | null }> }>);
+  },
+  createPermissionPreset: async (body: { name: string; role: string; permissions: string[] }): Promise<ApiEnvelope<PermissionPreset>> => {
+    const { data } = await apiClient.post('/platform/permissions', body);
+    return data as ApiEnvelope<PermissionPreset>;
+  },
+  updatePermissionPreset: async (id: string, body: { name?: string; permissions?: string[] }): Promise<ApiEnvelope<PermissionPreset>> => {
+    const { data } = await apiClient.patch(`/platform/permissions/${id}`, body);
+    return data as ApiEnvelope<PermissionPreset>;
+  },
+  deletePermissionPreset: async (id: string): Promise<ApiEnvelope<{ id: string }>> => {
+    const { data } = await apiClient.delete(`/platform/permissions/${id}`);
+    return data as ApiEnvelope<{ id: string }>;
+  },
+  assignUserPreset: async (
+    companyId: string,
+    userId: string,
+    presetId: string | null,
+  ): Promise<ApiEnvelope<{ id: string; presetId: string | null }>> => {
+    const { data } = await apiClient.patch(
+      `/platform/companies/${companyId}/users/${userId}/preset`,
+      { presetId },
+    );
+    return data as ApiEnvelope<{ id: string; presetId: string | null }>;
   },
 };
