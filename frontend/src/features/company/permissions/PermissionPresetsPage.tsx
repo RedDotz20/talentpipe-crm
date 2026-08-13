@@ -3,13 +3,23 @@ import {
   Badge,
   Button,
   Group,
+  SegmentedControl,
   Table,
   Text,
   Title,
   Tooltip,
 } from '@mantine/core';
-import { IconCopy, IconEye, IconPencil, IconPlus, IconTrash } from '@tabler/icons-react';
+import {
+  IconCopy,
+  IconEye,
+  IconLayoutGrid,
+  IconPencil,
+  IconPlus,
+  IconTable,
+  IconTrash,
+} from '@tabler/icons-react';
 import type { PermissionPreset } from '@/api/permissionsApi';
+import { PresetCards, PresetCardSkeleton } from '@/shared/components/PresetCards';
 import { PresetViewModal } from '@/shared/components/PresetViewModal';
 import { TableAction } from '@/shared/components/TableAction';
 import { TableSkeleton } from '@/shared/components/Skeletons';
@@ -35,6 +45,14 @@ export function PermissionPresetsPage() {
     preset: PermissionPreset | null;
   } | null>(null);
   const [viewing, setViewing] = useState<PermissionPreset | null>(null);
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>(() =>
+    localStorage.getItem('presetViewMode') === 'table' ? 'table' : 'cards',
+  );
+  const changeViewMode = (mode: string | null) => {
+    const next = mode === 'table' ? 'table' : 'cards';
+    setViewMode(next);
+    localStorage.setItem('presetViewMode', next);
+  };
 
   const presets = presetsQuery.data?.presets ?? [];
   const anySaving = createPreset.isPending || updatePreset.isPending;
@@ -67,15 +85,40 @@ export function PermissionPresetsPage() {
             are scoped to this company.
           </Text>
         </div>
-        <Button leftSection={<IconPlus size="1rem" />} onClick={openCreate}>
-          Create preset
-        </Button>
+        <Group gap="xs">
+          <SegmentedControl
+            size="xs"
+            value={viewMode}
+            onChange={changeViewMode}
+            data={[
+              { value: 'cards', label: <Group gap={6}><IconLayoutGrid size="0.9rem" />Cards</Group> },
+              { value: 'table', label: <Group gap={6}><IconTable size="0.9rem" />Table</Group> },
+            ]}
+          />
+          <Button leftSection={<IconPlus size="1rem" />} onClick={openCreate}>
+            Create preset
+          </Button>
+        </Group>
       </Group>
 
       {presetsQuery.isLoading ? (
-        <TableSkeleton headers={['Name', 'Role', 'Permissions', 'In use', 'Actions']} />
+        viewMode === 'cards' ? (
+          <PresetCardSkeleton />
+        ) : (
+          <TableSkeleton headers={['Name', 'Role', 'Permissions', 'In use', 'Actions']} />
+        )
       ) : presets.length === 0 ? (
         <Text c="dimmed">No presets yet.</Text>
+      ) : viewMode === 'cards' ? (
+        <PresetCards
+          presets={presets}
+          locked={(p) => Boolean(p.isDefault || p.isGlobal)}
+          onView={setViewing}
+          onDuplicate={openDuplicate}
+          onEdit={openEdit}
+          onDelete={(p) => deletePreset.mutate(p.id)}
+          deleting={deletePreset.isPending}
+        />
       ) : (
         <Table striped highlightOnHover>
           <Table.Thead>

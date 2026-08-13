@@ -4,13 +4,23 @@ import {
   Button,
   Divider,
   Group,
+  SegmentedControl,
   Table,
   Text,
   Title,
   Tooltip,
 } from '@mantine/core';
-import { IconCopy, IconEye, IconPencil, IconPlus, IconTrash } from '@tabler/icons-react';
+import {
+  IconCopy,
+  IconEye,
+  IconLayoutGrid,
+  IconPencil,
+  IconPlus,
+  IconTable,
+  IconTrash,
+} from '@tabler/icons-react';
 import type { PermissionPreset } from '@/api/permissionsApi';
+import { PresetCards, PresetCardSkeleton } from '@/shared/components/PresetCards';
 import { PresetViewModal } from '@/shared/components/PresetViewModal';
 import { TableAction } from '@/shared/components/TableAction';
 import { TableSkeleton } from '@/shared/components/Skeletons';
@@ -41,6 +51,14 @@ export function PermissionsPage() {
     preset: PlatformPreset | null;
   } | null>(null);
   const [viewing, setViewing] = useState<PlatformPreset | null>(null);
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>(() =>
+    localStorage.getItem('presetViewMode') === 'table' ? 'table' : 'cards',
+  );
+  const changeViewMode = (mode: string | null) => {
+    const next = mode === 'table' ? 'table' : 'cards';
+    setViewMode(next);
+    localStorage.setItem('presetViewMode', next);
+  };
 
   const presets = presetsQuery.data?.presets ?? [];
   const companyPresets = presets.filter((p) => p.companyId !== null);
@@ -92,7 +110,11 @@ export function PermissionsPage() {
   );
 
   if (presetsQuery.isLoading) {
-    return <TableSkeleton headers={['Name', 'Role', 'Permissions', 'Actions']} />;
+    return viewMode === 'cards' ? (
+      <PresetCardSkeleton />
+    ) : (
+      <TableSkeleton headers={['Name', 'Role', 'Permissions', 'Actions']} />
+    );
   }
 
   return (
@@ -104,12 +126,35 @@ export function PermissionsPage() {
             Global presets are available to every company. Default presets are read-only.
           </Text>
         </div>
-        <Button leftSection={<IconPlus size="1rem" />} onClick={() => setEditor({ mode: 'create', preset: null })}>
-          Create global preset
-        </Button>
+        <Group gap="xs">
+          <SegmentedControl
+            size="xs"
+            value={viewMode}
+            onChange={changeViewMode}
+            data={[
+              { value: 'cards', label: <Group gap={6}><IconLayoutGrid size="0.9rem" />Cards</Group> },
+              { value: 'table', label: <Group gap={6}><IconTable size="0.9rem" />Table</Group> },
+            ]}
+          />
+          <Button leftSection={<IconPlus size="1rem" />} onClick={() => setEditor({ mode: 'create', preset: null })}>
+            Create global preset
+          </Button>
+        </Group>
       </Group>
 
-      <Table striped highlightOnHover>
+      {viewMode === 'cards' ? (
+        <PresetCards
+          presets={presets.filter((p) => p.isDefault || p.companyId === null)}
+          locked={(p) => p.isDefault}
+          onView={(preset) => setViewing(preset as PlatformPreset)}
+          onDuplicate={(preset) => setEditor({ mode: 'duplicate', preset: preset as PlatformPreset })}
+          onEdit={(preset) => setEditor({ mode: 'edit', preset: preset as PlatformPreset })}
+          onDelete={(preset) => deletePreset.mutate(preset.id)}
+          deleting={deletePreset.isPending}
+          scopeLabel={(p) => (p.isDefault ? 'System' : 'Global')}
+        />
+      ) : (
+        <Table striped highlightOnHover>
         <Table.Thead>
           <Table.Tr>
             <Table.Th>Name</Table.Th>
@@ -148,6 +193,7 @@ export function PermissionsPage() {
             ))}
         </Table.Tbody>
       </Table>
+      )}
 
       {companyPresets.length > 0 && (
         <>
@@ -155,7 +201,15 @@ export function PermissionsPage() {
           <Title order={4} mb="md">
             Company presets
           </Title>
-          <Table striped highlightOnHover>
+          {viewMode === 'cards' ? (
+            <PresetCards
+              presets={companyPresets}
+              locked={() => true}
+              onDuplicate={() => {}}
+              scopeLabel={(p) => (p as PlatformPreset).companyName}
+            />
+          ) : (
+            <Table striped highlightOnHover>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Name</Table.Th>
@@ -175,6 +229,7 @@ export function PermissionsPage() {
               ))}
             </Table.Tbody>
           </Table>
+          )}
         </>
       )}
 
