@@ -11,6 +11,7 @@ import {
 } from '../../common/context/company-context';
 import { AuditService } from '../../common/audit/audit.service';
 import { PermissionRepository } from '../../repositories/permission.repository';
+import type { PermissionPresetRow } from '../../repositories/permission.repository';
 import { UserRepository } from '../../repositories/user.repository';
 import { permissionsSubsetOfRole } from '../../common/permissions/permissions';
 import type { InternalRole } from '../../common/permissions/permissions';
@@ -139,6 +140,31 @@ export class CompanyPermissionsService {
       name: existing.name,
     });
     return { id };
+  }
+
+  async bulkRemove(ids: string[]) {
+    const schema = getSchema();
+    const presets: PermissionPresetRow[] = [];
+    for (const id of ids) {
+      const existing = await this.permissionRepo.findById(id, schema);
+      if (!existing) throw new NotFoundException('Preset not found');
+      presets.push(existing);
+    }
+    const reverted: Record<string, number> = {};
+    for (const id of ids) {
+      reverted[id] = await this.userRepo.revertPreset(id, schema);
+    }
+    for (const id of ids) {
+      await this.permissionRepo.remove(id, schema);
+    }
+    for (const p of presets) {
+      await this.auditService.log('permissions.preset.delete', p.id, {
+        name: p.name,
+        revertedUsers: reverted[p.id] ?? 0,
+      });
+    }
+    const revertedUsers = Object.values(reverted).reduce((a, b) => a + b, 0);
+    return { deleted: ids.length, revertedUsers };
   }
 
   async assign(userId: string, dto: AssignPresetDto) {

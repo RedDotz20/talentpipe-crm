@@ -22,6 +22,10 @@ import {
   UpdatePermissionPresetSchema,
   UpdatePermissionPresetDto,
 } from './dto/update-permission-preset.dto';
+import {
+  BulkDeletePresetsSchema,
+  BulkDeletePresetsDto,
+} from './dto/bulk-delete-presets.dto';
 
 @Controller('company/permissions')
 @UseGuards(AuthGuard('jwt'))
@@ -55,5 +59,13 @@ export class CompanyPermissionsController {
   @Delete(':id')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.permissionsService.remove(id);
+  }
+
+  @Post('bulk-delete')
+  bulkRemove(
+    @Body(new ZodValidationPipe(BulkDeletePresetsSchema))
+    dto: BulkDeletePresetsDto,
+  ) {
+    return this.permissionsService.bulkRemove(dto.ids);
   }
 }

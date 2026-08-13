@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { CompanyPermissionsService } from './company-permissions.service';
 import { PermissionRepository } from '../../repositories/permission.repository';
 import { UserRepository } from '../../repositories/user.repository';
@@ -24,7 +24,11 @@ describe('CompanyPermissionsService', () => {
     remove: jest.fn(),
     countUsersWithPreset: jest.fn(),
   };
-  const userRepo = { findById: jest.fn(), updatePreset: jest.fn() };
+  const userRepo = {
+    findById: jest.fn(),
+    updatePreset: jest.fn(),
+    revertPreset: jest.fn(),
+  };
   const audit = { log: jest.fn() };
 
   beforeEach(() => {
@@ -85,5 +89,37 @@ describe('CompanyPermissionsService', () => {
     permissionRepo.countUsersWithPreset.mockResolvedValue(2);
     await expect(service.remove('p1')).rejects.toThrow();
     expect(permissionRepo.remove).not.toHaveBeenCalled();
+  });
+
+  const presetRow = (id: string) => ({
+    id,
+    isDefault: false,
+    name: `Preset ${id}`,
+    role: 'Recruiter',
+    permissions: [],
+    createdBy: null,
+    createdAt: new Date(),
+  });
+
+  it('bulk remove reverts assigned users then deletes', async () => {
+    permissionRepo.findById
+      .mockResolvedValueOnce(presetRow('p1'))
+      .mockResolvedValueOnce(presetRow('p2'));
+    userRepo.revertPreset.mockResolvedValueOnce(2).mockResolvedValueOnce(0);
+    const result = await service.bulkRemove(['p1', 'p2']);
+    expect(result).toEqual({ deleted: 2, revertedUsers: 2 });
+    expect(permissionRepo.remove).toHaveBeenCalledTimes(2);
+    expect(audit.log).toHaveBeenCalledTimes(2);
+  });
+
+  it('bulk remove rejects when any id is missing (atomic)', async () => {
+    permissionRepo.findById
+      .mockResolvedValueOnce(presetRow('p1'))
+      .mockResolvedValueOnce(null);
+    await expect(service.bulkRemove(['p1', 'missing'])).rejects.toThrow(
+      NotFoundException,
+    );
+    expect(permissionRepo.remove).not.toHaveBeenCalled();
+    expect(userRepo.revertPreset).not.toHaveBeenCalled();
   });
 });

@@ -84,6 +84,18 @@ export class UserRepository extends BaseRepository {
     });
   }
 
+  async revertPreset(presetId: string, schema = 'current'): Promise<number> {
+    return this.withDb(schema, async (db) => {
+      const rows = await db
+        .update(users)
+        .set({ presetId: null })
+        .where(eq(users.presetId, presetId))
+        .returning({ id: users.id })
+        .execute();
+      return rows.length;
+    });
+  }
+
   async updateStatus(
     id: string,
     status: 'active' | 'suspended',

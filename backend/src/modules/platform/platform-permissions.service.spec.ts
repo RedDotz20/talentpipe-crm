@@ -17,11 +17,12 @@ describe('PlatformPermissionsService', () => {
     countUsersWithPreset: jest.fn(),
   };
   const tenantRepo = { findAll: jest.fn() };
-  const userRepo = { findById: jest.fn() };
+  const userRepo = { findById: jest.fn(), revertPreset: jest.fn() };
   const audit = { log: jest.fn() };
 
   beforeEach(() => {
     jest.clearAllMocks();
+    tenantRepo.findAll.mockResolvedValue([]);
     service = new PlatformPermissionsService(
       permissionRepo as unknown as PermissionRepository,
       tenantRepo as unknown as CompanyRepository,
@@ -60,5 +61,46 @@ describe('PlatformPermissionsService', () => {
         permissions: ['jobs.create_edit'],
       }),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  it('bulk remove rejects when any id is a default preset', async () => {
+    permissionRepo.findById.mockResolvedValue({
+      id: 'd1',
+      isDefault: true,
+      name: 'Recruiter Default',
+      role: 'Recruiter',
+      permissions: [],
+      createdBy: null,
+      createdAt: new Date(),
+    });
+    await expect(service.bulkRemove(['d1'])).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(permissionRepo.remove).not.toHaveBeenCalled();
+  });
+
+  it('bulk remove deletes globals (no companies, nothing to revert)', async () => {
+    permissionRepo.findById
+      .mockResolvedValueOnce({
+        id: 'g1',
+        isDefault: false,
+        name: 'G1',
+        role: 'Recruiter',
+        permissions: [],
+        createdBy: null,
+        createdAt: new Date(),
+      })
+      .mockResolvedValueOnce({
+        id: 'g2',
+        isDefault: false,
+        name: 'G2',
+        role: 'Recruiter',
+        permissions: [],
+        createdBy: null,
+        createdAt: new Date(),
+      });
+    const result = await service.bulkRemove(['g1', 'g2']);
+    expect(result).toEqual({ deleted: 2, revertedUsers: 0 });
+    expect(permissionRepo.remove).toHaveBeenCalledTimes(2);
   });
 });

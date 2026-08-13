@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { AuditService } from '../../common/audit/audit.service';
 import { PermissionRepository } from '../../repositories/permission.repository';
+import type { PermissionPresetRow } from '../../repositories/permission.repository';
 import { CompanyRepository } from '../../repositories/company.repository';
 import { UserRepository } from '../../repositories/user.repository';
 import { permissionsSubsetOfRole } from '../../common/permissions/permissions';
@@ -148,6 +149,38 @@ export class PlatformPermissionsService {
       name: existing.name,
     });
     return { id };
+  }
+
+  async bulkRemove(ids: string[]) {
+    const presets: PermissionPresetRow[] = [];
+    for (const id of ids) {
+      const existing = await this.permissionRepo.findById(id, 'public');
+      if (!existing) throw new NotFoundException('Preset not found');
+      if (existing.isDefault) {
+        throw new BadRequestException('Default presets cannot be deleted');
+      }
+      presets.push(existing);
+    }
+    const companies = await this.tenantRepo.findAll();
+    const reverted: Record<string, number> = {};
+    for (const id of ids) {
+      let count = 0;
+      for (const tenant of companies) {
+        count += await this.userRepo.revertPreset(id, `company_${tenant.id}`);
+      }
+      reverted[id] = count;
+    }
+    for (const id of ids) {
+      await this.permissionRepo.remove(id, 'public');
+    }
+    for (const p of presets) {
+      await this.auditService.log('platform.permissions.preset.delete', p.id, {
+        name: p.name,
+        revertedUsers: reverted[p.id] ?? 0,
+      });
+    }
+    const revertedUsers = Object.values(reverted).reduce((a, b) => a + b, 0);
+    return { deleted: ids.length, revertedUsers };
   }
 
   async assign(companyId: string, userId: string, presetId: string | null) {
