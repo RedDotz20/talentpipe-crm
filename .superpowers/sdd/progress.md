@@ -1,1 +1,0 @@
-# M18 Permission Management — progress ledger
