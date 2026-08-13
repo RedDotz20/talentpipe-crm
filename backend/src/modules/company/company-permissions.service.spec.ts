@@ -1,4 +1,8 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CompanyPermissionsService } from './company-permissions.service';
 import { PermissionRepository } from '../../repositories/permission.repository';
 import { UserRepository } from '../../repositories/user.repository';
@@ -19,6 +23,7 @@ describe('CompanyPermissionsService', () => {
     findDefaults: jest.fn(),
     findAll: jest.fn(),
     findById: jest.fn(),
+    findByName: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     remove: jest.fn(),
@@ -132,5 +137,81 @@ describe('CompanyPermissionsService', () => {
     expect(userRepo.revertPreset).toHaveBeenCalledTimes(1);
     expect(permissionRepo.remove).toHaveBeenCalledTimes(1);
     expect(audit.log).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a preset name that matches a company custom', async () => {
+    permissionRepo.findById.mockResolvedValue(null);
+    permissionRepo.findByName.mockResolvedValueOnce({
+      id: 'other',
+      isDefault: false,
+      name: 'Recruiter Light',
+      role: 'Recruiter',
+      permissions: [],
+      createdBy: null,
+      createdAt: new Date(),
+    });
+    await expect(
+      service.create({
+        name: 'recruiter light',
+        role: 'Recruiter',
+        permissions: [],
+      }),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('rejects a preset name that matches a public default', async () => {
+    permissionRepo.findByName
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: 'def',
+        isDefault: true,
+        name: 'Recruiter Default',
+        role: 'Recruiter',
+        permissions: [],
+        createdBy: null,
+        createdAt: new Date(),
+      });
+    await expect(
+      service.create({
+        name: 'Recruiter Default',
+        role: 'Recruiter',
+        permissions: [],
+      }),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('allows an update that keeps its own name', async () => {
+    permissionRepo.findById.mockResolvedValue({
+      id: 'p1',
+      isDefault: false,
+      name: 'Recruiter Light',
+      role: 'Recruiter',
+      permissions: ['jobs.view'],
+      createdBy: null,
+      createdAt: new Date(),
+    });
+    permissionRepo.findByName
+      .mockResolvedValueOnce({
+        id: 'p1',
+        isDefault: false,
+        name: 'Recruiter Light',
+        role: 'Recruiter',
+        permissions: ['jobs.view'],
+        createdBy: null,
+        createdAt: new Date(),
+      })
+      .mockResolvedValueOnce(null);
+    permissionRepo.update.mockResolvedValue({
+      id: 'p1',
+      isDefault: false,
+      name: 'Recruiter Light',
+      role: 'Recruiter',
+      permissions: ['jobs.view'],
+      createdBy: null,
+      createdAt: new Date(),
+    });
+    await expect(
+      service.update('p1', { name: 'recruiter light' }),
+    ).resolves.toBeTruthy();
   });
 });

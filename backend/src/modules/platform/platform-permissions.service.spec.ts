@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PlatformPermissionsService } from './platform-permissions.service';
 import { PermissionRepository } from '../../repositories/permission.repository';
 import { CompanyRepository } from '../../repositories/company.repository';
@@ -11,6 +15,7 @@ describe('PlatformPermissionsService', () => {
     findDefaults: jest.fn(),
     findAll: jest.fn(),
     findById: jest.fn(),
+    findByName: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     remove: jest.fn(),
@@ -119,5 +124,57 @@ describe('PlatformPermissionsService', () => {
     expect(permissionRepo.findById).toHaveBeenCalledTimes(1);
     expect(permissionRepo.remove).toHaveBeenCalledTimes(1);
     expect(audit.log).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a global whose name matches a default', async () => {
+    permissionRepo.findByName.mockResolvedValue({
+      id: 'def',
+      isDefault: true,
+      name: 'Company Admin Default',
+      role: 'CompanyAdmin',
+      permissions: [],
+      createdBy: null,
+      createdAt: new Date(),
+    });
+    await expect(
+      service.create({
+        name: 'Company Admin Default',
+        role: 'CompanyAdmin',
+        permissions: [],
+      }),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('allows a global update that keeps its own name', async () => {
+    permissionRepo.findById.mockResolvedValue({
+      id: 'g1',
+      isDefault: false,
+      name: 'Global Light',
+      role: 'Recruiter',
+      permissions: ['jobs.view'],
+      createdBy: null,
+      createdAt: new Date(),
+    });
+    permissionRepo.findByName.mockResolvedValue({
+      id: 'g1',
+      isDefault: false,
+      name: 'Global Light',
+      role: 'Recruiter',
+      permissions: ['jobs.view'],
+      createdBy: null,
+      createdAt: new Date(),
+    });
+    permissionRepo.update.mockResolvedValue({
+      id: 'g1',
+      isDefault: false,
+      name: 'Global Light',
+      role: 'Recruiter',
+      permissions: ['jobs.view'],
+      createdBy: null,
+      createdAt: new Date(),
+    });
+    await expect(
+      service.update('g1', { name: 'global light' }),
+    ).resolves.toBeTruthy();
   });
 });

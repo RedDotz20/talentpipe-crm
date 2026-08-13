@@ -76,6 +76,21 @@ export class PermissionRepository extends BaseRepository {
     });
   }
 
+  async findByName(
+    name: string,
+    schema: string,
+  ): Promise<PermissionPresetRow | null> {
+    return this.withDb(schema, async (db) => {
+      const rows = await db
+        .select()
+        .from(permissionPresets)
+        .where(sql`lower(${permissionPresets.name}) = lower(${name})`)
+        .limit(1)
+        .execute();
+      return rows.map(toPresetRow)[0] ?? null;
+    });
+  }
+
   async create(
     data: {
       name: string;

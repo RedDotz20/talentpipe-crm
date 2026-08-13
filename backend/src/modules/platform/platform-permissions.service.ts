@@ -79,8 +79,16 @@ export class PlatformPermissionsService {
         'Permissions must be a subset of the role default',
       );
     }
+    const trimmedName = dto.name.trim();
+    const existing = await this.permissionRepo.findByName(
+      trimmedName,
+      'public',
+    );
+    if (existing) {
+      throw new ConflictException('A preset with this name already exists');
+    }
     const preset = await this.permissionRepo.create(
-      { name: dto.name, role: dto.role, permissions: dto.permissions },
+      { name: trimmedName, role: dto.role, permissions: dto.permissions },
       'public',
     );
     await this.auditService.log(
@@ -113,7 +121,21 @@ export class PlatformPermissionsService {
         'Permissions must be a subset of the role default',
       );
     }
-    const updated = await this.permissionRepo.update(id, dto, 'public');
+    if (dto.name !== undefined) {
+      const trimmedName = dto.name.trim();
+      const existingName = await this.permissionRepo.findByName(
+        trimmedName,
+        'public',
+      );
+      if (existingName && existingName.id !== id) {
+        throw new ConflictException('A preset with this name already exists');
+      }
+    }
+    const updated = await this.permissionRepo.update(
+      id,
+      { ...dto, name: dto.name?.trim() },
+      'public',
+    );
     await this.auditService.log('platform.permissions.preset.update', id, {
       name: updated?.name,
       permissions: updated?.permissions,
