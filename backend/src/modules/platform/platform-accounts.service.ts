@@ -84,6 +84,9 @@ export class PlatformAccountsService {
       if (preset.role !== dto.role) {
         throw new BadRequestException('Preset role must match the user role');
       }
+      if (!preset.isEnabled) {
+        throw new BadRequestException('This preset is disabled');
+      }
     }
     const passwordHash = await hashPassword(dto.password);
     const id = randomUUID();

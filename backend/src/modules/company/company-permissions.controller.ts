@@ -26,6 +26,10 @@ import {
   BulkDeletePresetsSchema,
   BulkDeletePresetsDto,
 } from './dto/bulk-delete-presets.dto';
+import {
+  BulkSetEnabledSchema,
+  BulkSetEnabledDto,
+} from './dto/bulk-set-enabled.dto';
 
 @Controller('company/permissions')
 @UseGuards(AuthGuard('jwt'))
@@ -67,5 +71,22 @@ export class CompanyPermissionsController {
     dto: BulkDeletePresetsDto,
   ) {
     return this.permissionsService.bulkRemove(dto.ids);
+  }
+
+  @Patch(':id/disable')
+  disable(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.permissionsService.disable(id);
+  }
+
+  @Patch(':id/enable')
+  enable(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.permissionsService.enable(id);
+  }
+
+  @Post('bulk-status')
+  bulkSetEnabled(
+    @Body(new ZodValidationPipe(BulkSetEnabledSchema)) dto: BulkSetEnabledDto,
+  ) {
+    return this.permissionsService.bulkSetEnabled(dto.ids, dto.enabled);
   }
 }

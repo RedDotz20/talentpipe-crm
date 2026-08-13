@@ -69,6 +69,9 @@ export class CompanyUsersService {
       if (preset.role !== dto.role) {
         throw new BadRequestException('Preset role must match the user role');
       }
+      if (!preset.isEnabled) {
+        throw new BadRequestException('This preset is disabled');
+      }
     }
     await this.userRepo.create(
       {

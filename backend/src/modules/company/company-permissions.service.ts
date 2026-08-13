@@ -39,6 +39,7 @@ export class CompanyPermissionsService {
         role: p.role,
         permissions: p.permissions,
         isDefault: false,
+        isEnabled: p.isEnabled,
         isGlobal: false,
         usageCount: await this.permissionRepo.countUsersWithPreset(
           p.id,
@@ -54,6 +55,7 @@ export class CompanyPermissionsService {
           role: p.role,
           permissions: p.permissions,
           isDefault: true,
+          isEnabled: true,
           isGlobal: false,
           usageCount: 0,
         })),
@@ -63,6 +65,7 @@ export class CompanyPermissionsService {
           role: p.role,
           permissions: p.permissions,
           isDefault: false,
+          isEnabled: p.isEnabled,
           isGlobal: true,
           usageCount: 0,
         })),
@@ -201,6 +204,59 @@ export class CompanyPermissionsService {
     return { deleted: ids.length, revertedUsers };
   }
 
+  async disable(id: string) {
+    const schema = getSchema();
+    const existing = await this.permissionRepo.findById(id, schema);
+    if (!existing) throw new NotFoundException('Preset not found');
+    const revertedUsers = await this.userRepo.revertPreset(id, schema);
+    await this.permissionRepo.setEnabled(id, false, schema);
+    await this.auditService.log('permissions.preset.disable', id, {
+      name: existing.name,
+      revertedUsers,
+    });
+    return { id, revertedUsers };
+  }
+
+  async enable(id: string) {
+    const schema = getSchema();
+    const existing = await this.permissionRepo.findById(id, schema);
+    if (!existing) throw new NotFoundException('Preset not found');
+    await this.permissionRepo.setEnabled(id, true, schema);
+    await this.auditService.log('permissions.preset.enable', id, {
+      name: existing.name,
+    });
+    return { id };
+  }
+
+  async bulkSetEnabled(ids: string[], enabled: boolean) {
+    ids = [...new Set(ids)]; // dedupe — `const ids = ...` would redeclare the param (SyntaxError)
+    const schema = getSchema();
+    const presets: PermissionPresetRow[] = [];
+    for (const id of ids) {
+      const existing = await this.permissionRepo.findById(id, schema);
+      if (!existing) throw new NotFoundException('Preset not found');
+      presets.push(existing);
+    }
+    const reverted: Record<string, number> = {};
+    if (!enabled) {
+      for (const id of ids) {
+        reverted[id] = await this.userRepo.revertPreset(id, schema);
+      }
+    }
+    for (const id of ids) {
+      await this.permissionRepo.setEnabled(id, enabled, schema);
+    }
+    const action = enabled ? 'enable' : 'disable';
+    for (const p of presets) {
+      await this.auditService.log(`permissions.preset.${action}`, p.id, {
+        name: p.name,
+        revertedUsers: reverted[p.id] ?? 0,
+      });
+    }
+    const revertedUsers = Object.values(reverted).reduce((a, b) => a + b, 0);
+    return { updated: ids.length, revertedUsers };
+  }
+
   async assign(userId: string, dto: AssignPresetDto) {
     const schema = getSchema();
     const target = await this.userRepo.findById(userId);
@@ -218,6 +274,9 @@ export class CompanyPermissionsService {
       if (!preset) throw new NotFoundException('Preset not found');
       if (preset.role !== target.role) {
         throw new BadRequestException('Preset role must match the user role');
+      }
+      if (!preset.isEnabled) {
+        throw new BadRequestException('This preset is disabled');
       }
     }
 

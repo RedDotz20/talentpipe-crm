@@ -37,6 +37,7 @@ export class PlatformPermissionsService {
           role: p.role,
           permissions: p.permissions,
           isDefault: false,
+          isEnabled: p.isEnabled,
           companyId: tenant.id,
           companyName: tenant.name,
           usageCount: await this.permissionRepo.countUsersWithPreset(
@@ -54,6 +55,7 @@ export class PlatformPermissionsService {
           role: p.role,
           permissions: p.permissions,
           isDefault: true,
+          isEnabled: true,
           companyId: null,
           companyName: null,
           usageCount: 0,
@@ -64,6 +66,7 @@ export class PlatformPermissionsService {
           role: p.role,
           permissions: p.permissions,
           isDefault: false,
+          isEnabled: p.isEnabled,
           companyId: null,
           companyName: null,
           usageCount: 0,
@@ -206,6 +209,83 @@ export class PlatformPermissionsService {
     return { deleted: ids.length, revertedUsers };
   }
 
+  async disable(id: string) {
+    const existing = await this.permissionRepo.findById(id, 'public');
+    if (!existing) throw new NotFoundException('Preset not found');
+    if (existing.isDefault) {
+      throw new BadRequestException('Default presets cannot be disabled');
+    }
+    const companies = await this.tenantRepo.findAll();
+    let revertedUsers = 0;
+    for (const tenant of companies) {
+      revertedUsers += await this.userRepo.revertPreset(
+        id,
+        `company_${tenant.id}`,
+      );
+    }
+    await this.permissionRepo.setEnabled(id, false, 'public');
+    await this.auditService.log('platform.permissions.preset.disable', id, {
+      name: existing.name,
+      revertedUsers,
+    });
+    return { id, revertedUsers };
+  }
+
+  async enable(id: string) {
+    const existing = await this.permissionRepo.findById(id, 'public');
+    if (!existing) throw new NotFoundException('Preset not found');
+    if (existing.isDefault) {
+      throw new BadRequestException('Default presets cannot be enabled');
+    }
+    await this.permissionRepo.setEnabled(id, true, 'public');
+    await this.auditService.log('platform.permissions.preset.enable', id, {
+      name: existing.name,
+    });
+    return { id };
+  }
+
+  async bulkSetEnabled(ids: string[], enabled: boolean) {
+    ids = [...new Set(ids)]; // dedupe — `const ids = ...` would redeclare the param (SyntaxError)
+    const presets: PermissionPresetRow[] = [];
+    for (const id of ids) {
+      const existing = await this.permissionRepo.findById(id, 'public');
+      if (!existing) throw new NotFoundException('Preset not found');
+      if (existing.isDefault) {
+        throw new BadRequestException(
+          'Default presets cannot be enabled or disabled',
+        );
+      }
+      presets.push(existing);
+    }
+    const companies = await this.tenantRepo.findAll();
+    const reverted: Record<string, number> = {};
+    if (!enabled) {
+      for (const id of ids) {
+        let count = 0;
+        for (const tenant of companies) {
+          count += await this.userRepo.revertPreset(id, `company_${tenant.id}`);
+        }
+        reverted[id] = count;
+      }
+    }
+    for (const id of ids) {
+      await this.permissionRepo.setEnabled(id, enabled, 'public');
+    }
+    const action = enabled ? 'enable' : 'disable';
+    for (const p of presets) {
+      await this.auditService.log(
+        `platform.permissions.preset.${action}`,
+        p.id,
+        {
+          name: p.name,
+          revertedUsers: reverted[p.id] ?? 0,
+        },
+      );
+    }
+    const revertedUsers = Object.values(reverted).reduce((a, b) => a + b, 0);
+    return { updated: ids.length, revertedUsers };
+  }
+
   async assign(companyId: string, userId: string, presetId: string | null) {
     const schema = `company_${companyId}`;
     const target = await this.userRepo.findById(userId, schema);
@@ -218,6 +298,9 @@ export class PlatformPermissionsService {
       if (!preset) throw new NotFoundException('Preset not found');
       if (preset.role !== target.role) {
         throw new BadRequestException('Preset role must match the user role');
+      }
+      if (!preset.isEnabled) {
+        throw new BadRequestException('This preset is disabled');
       }
     }
 

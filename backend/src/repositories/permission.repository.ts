@@ -10,6 +10,7 @@ export interface PermissionPresetRow {
   role: string;
   permissions: string[];
   isDefault: boolean;
+  isEnabled: boolean;
   createdBy: string | null;
   createdAt: Date;
 }
@@ -144,6 +145,22 @@ export class PermissionRepository extends BaseRepository {
         .delete(permissionPresets)
         .where(eq(permissionPresets.id, id))
         .execute();
+    });
+  }
+
+  async setEnabled(
+    id: string,
+    enabled: boolean,
+    schema: string,
+  ): Promise<PermissionPresetRow | null> {
+    return this.withDb(schema, async (db) => {
+      const rows = await db
+        .update(permissionPresets)
+        .set({ isEnabled: enabled })
+        .where(eq(permissionPresets.id, id))
+        .returning()
+        .execute();
+      return rows[0] ? toPresetRow(rows[0]) : null;
     });
   }
 

@@ -99,6 +99,7 @@ export const permissionPresets = pgTable('permission_presets', {
   role: varchar('role', { length: 50 }).notNull(),
   permissions: jsonb('permissions').notNull(),
   isDefault: boolean('is_default').default(false).notNull(),
+  isEnabled: boolean('is_enabled').default(true).notNull(),
   createdBy: uuid('created_by'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
@@ -28,6 +29,7 @@ describe('CompanyPermissionsService', () => {
     update: jest.fn(),
     remove: jest.fn(),
     countUsersWithPreset: jest.fn(),
+    setEnabled: jest.fn(),
   };
   const userRepo = {
     findById: jest.fn(),
@@ -85,6 +87,7 @@ describe('CompanyPermissionsService', () => {
     permissionRepo.findById.mockResolvedValue({
       id: 'p1',
       isDefault: false,
+      isEnabled: true,
       name: 'X',
       role: 'Recruiter',
       permissions: [],
@@ -99,6 +102,7 @@ describe('CompanyPermissionsService', () => {
   const presetRow = (id: string) => ({
     id,
     isDefault: false,
+    isEnabled: true,
     name: `Preset ${id}`,
     role: 'Recruiter',
     permissions: [],
@@ -137,6 +141,76 @@ describe('CompanyPermissionsService', () => {
     expect(userRepo.revertPreset).toHaveBeenCalledTimes(1);
     expect(permissionRepo.remove).toHaveBeenCalledTimes(1);
     expect(audit.log).toHaveBeenCalledTimes(1);
+  });
+
+  it('disable reverts users and disables', async () => {
+    permissionRepo.findById.mockResolvedValue(presetRow('p1'));
+    userRepo.revertPreset.mockResolvedValue(2);
+    const result = await service.disable('p1');
+    expect(result).toEqual({ id: 'p1', revertedUsers: 2 });
+    expect(permissionRepo.setEnabled).toHaveBeenCalledWith(
+      'p1',
+      false,
+      'company_c1',
+    );
+    expect(audit.log).toHaveBeenCalledWith(
+      'permissions.preset.disable',
+      'p1',
+      expect.anything(),
+    );
+  });
+
+  it('enable flips the flag', async () => {
+    permissionRepo.findById.mockResolvedValue(presetRow('p1'));
+    const result = await service.enable('p1');
+    expect(result).toEqual({ id: 'p1' });
+    expect(permissionRepo.setEnabled).toHaveBeenCalledWith(
+      'p1',
+      true,
+      'company_c1',
+    );
+    expect(audit.log).toHaveBeenCalledWith(
+      'permissions.preset.enable',
+      'p1',
+      expect.anything(),
+    );
+  });
+
+  it('assign rejects a disabled preset', async () => {
+    userRepo.findById.mockResolvedValue({
+      id: 't1',
+      role: 'Recruiter',
+      email: 'r@acme.com',
+    });
+    permissionRepo.findById.mockResolvedValue({
+      ...presetRow('p1'),
+      isEnabled: false,
+    });
+    await expect(service.assign('t1', { presetId: 'p1' })).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(userRepo.updatePreset).not.toHaveBeenCalled();
+  });
+
+  it('bulkSetEnabled disables and reverts', async () => {
+    permissionRepo.findById
+      .mockResolvedValueOnce(presetRow('p1'))
+      .mockResolvedValueOnce(presetRow('p2'));
+    userRepo.revertPreset.mockResolvedValueOnce(2).mockResolvedValueOnce(0);
+    const result = await service.bulkSetEnabled(['p1', 'p2'], false);
+    expect(result).toEqual({ updated: 2, revertedUsers: 2 });
+    expect(permissionRepo.setEnabled).toHaveBeenCalledTimes(2);
+    expect(permissionRepo.setEnabled).toHaveBeenCalledWith(
+      'p1',
+      false,
+      'company_c1',
+    );
+    expect(audit.log).toHaveBeenCalledTimes(2);
+    expect(audit.log).toHaveBeenCalledWith(
+      'permissions.preset.disable',
+      'p1',
+      expect.anything(),
+    );
   });
 
   it('rejects a preset name that matches a company custom', async () => {
