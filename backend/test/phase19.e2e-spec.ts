@@ -181,7 +181,7 @@ const DEFAULT_PRESETS: {
   permissions: string[];
 }[] = [
   {
-    id: '00000000-0000-0000-0000-000000000001',
+    id: '00000000-0000-0000-0000-000000000101',
     name: 'Company Admin Default',
     role: 'CompanyAdmin',
     permissions: [
@@ -204,7 +204,7 @@ const DEFAULT_PRESETS: {
     ],
   },
   {
-    id: '00000000-0000-0000-0000-000000000002',
+    id: '00000000-0000-0000-0000-000000000102',
     name: 'Recruiter Default',
     role: 'Recruiter',
     permissions: [
@@ -222,7 +222,7 @@ const DEFAULT_PRESETS: {
     ],
   },
   {
-    id: '00000000-0000-0000-0000-000000000003',
+    id: '00000000-0000-0000-0000-000000000103',
     name: 'Hiring Manager Default',
     role: 'HiringManager',
     permissions: [
@@ -237,7 +237,7 @@ const DEFAULT_PRESETS: {
     ],
   },
   {
-    id: '00000000-0000-0000-0000-000000000004',
+    id: '00000000-0000-0000-0000-000000000104',
     name: 'Interviewer Default',
     role: 'Interviewer',
     permissions: ['interviews.view', 'interviews.feedback', 'dashboard.view'],
@@ -295,10 +295,10 @@ afterAll(async () => {
   await cleanupPool!.query(
     `DELETE FROM public.permission_presets
      WHERE id IN (
-       '00000000-0000-0000-0000-000000000001',
-       '00000000-0000-0000-0000-000000000002',
-       '00000000-0000-0000-0000-000000000003',
-       '00000000-0000-0000-0000-000000000004'
+       '00000000-0000-0000-0000-000000000101',
+       '00000000-0000-0000-0000-000000000102',
+       '00000000-0000-0000-0000-000000000103',
+       '00000000-0000-0000-0000-000000000104'
      )`,
   );
   for (const companyId of createdCompanyIds) {
@@ -617,5 +617,136 @@ describe('phase19: permission presets', () => {
       )
       .set('Authorization', `Bearer ${superAdmin.token}`)
       .send({ presetId: null });
+  });
+
+  it('bulk deletes presets and reverts assigned users to their role default', async () => {
+    const created: string[] = [];
+    for (const name of ['Bulk One', 'Bulk Two']) {
+      const res = await request(httpServer())
+        .post('/api/company/permissions')
+        .set('Authorization', `Bearer ${tenantA.token}`)
+        .send({
+          name,
+          role: 'Recruiter',
+          permissions: ['jobs.view', 'dashboard.view'],
+        });
+      const preset = assertEnvelope<{ id: string }>(res, 201);
+      created.push(preset.id);
+      createdPresetIds.push({
+        id: preset.id,
+        schema: `company_${tenantA.companyId}`,
+      });
+    }
+
+    const recruiter = await createCompanyUser(tenantA.token, {
+      email: `bulk-${runId}@acme.test`,
+      role: 'Recruiter',
+      password: 'Recruiter123!',
+    });
+    createdOrgUserIds.push(recruiter.id);
+    const assign = await request(httpServer())
+      .patch(`/api/company/users/${recruiter.id}/preset`)
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({ presetId: created[0] });
+    assertEnvelope<{ id: string }>(assign, 200);
+
+    const del = await request(httpServer())
+      .post('/api/company/permissions/bulk-delete')
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({ ids: created });
+    const result = assertEnvelope<{ deleted: number; revertedUsers: number }>(
+      del,
+      201,
+    );
+    expect(result).toEqual({ deleted: 2, revertedUsers: 1 });
+
+    const users = assertEnvelope<
+      Array<{ id: string; presetId: string | null }>
+    >(
+      await request(httpServer())
+        .get('/api/company/users')
+        .set('Authorization', `Bearer ${tenantA.token}`),
+      200,
+    );
+    expect(users.find((u) => u.id === recruiter.id)?.presetId).toBeNull();
+
+    const presets = await listPresets(tenantA.token);
+    expect(presets.find((p) => p.id === created[0])).toBeUndefined();
+    expect(presets.find((p) => p.id === created[1])).toBeUndefined();
+  });
+
+  it('bulk delete is atomic: a missing id returns 404 and deletes nothing', async () => {
+    const res = await request(httpServer())
+      .post('/api/company/permissions/bulk-delete')
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({ ids: [randomUUID()] });
+    assertStatus(res, 404);
+  });
+
+  it('platform bulk delete rejects default presets', async () => {
+    const res = await request(httpServer())
+      .post('/api/platform/permissions/bulk-delete')
+      .set('Authorization', `Bearer ${superAdmin.token}`)
+      .send({ ids: [DEFAULT_PRESETS[0].id, DEFAULT_PRESETS[1].id] });
+    assertStatus(res, 400);
+  });
+
+  it('platform bulk delete reverts users across companies', async () => {
+    const create = await request(httpServer())
+      .post('/api/platform/permissions')
+      .set('Authorization', `Bearer ${superAdmin.token}`)
+      .send({
+        name: 'Global Bulk Revert',
+        role: 'Recruiter',
+        permissions: ['jobs.view'],
+      });
+    const global = assertEnvelope<{ id: string }>(create, 201);
+    createdPresetIds.push({ id: global.id, schema: 'public' });
+
+    const recA = await createCompanyUser(tenantA.token, {
+      email: `gbr-a-${runId}@acme.test`,
+      role: 'Recruiter',
+      password: 'Recruiter123!',
+    });
+    createdOrgUserIds.push(recA.id);
+    const recB = await createCompanyUser(tenantB.token, {
+      email: `gbr-b-${runId}@acme.test`,
+      role: 'Recruiter',
+      password: 'Recruiter123!',
+    });
+    createdOrgUserIds.push(recB.id);
+    await request(httpServer())
+      .patch(`/api/company/users/${recA.id}/preset`)
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({ presetId: global.id });
+    await request(httpServer())
+      .patch(`/api/company/users/${recB.id}/preset`)
+      .set('Authorization', `Bearer ${tenantB.token}`)
+      .send({ presetId: global.id });
+
+    const del = await request(httpServer())
+      .post('/api/platform/permissions/bulk-delete')
+      .set('Authorization', `Bearer ${superAdmin.token}`)
+      .send({ ids: [global.id] });
+    const result = assertEnvelope<{ deleted: number; revertedUsers: number }>(
+      del,
+      201,
+    );
+    expect(result).toEqual({ deleted: 1, revertedUsers: 2 });
+
+    for (const [company, userId] of [
+      [tenantA, recA.id],
+      [tenantB, recB.id],
+    ] as const) {
+      const users = assertEnvelope<
+        Array<{ id: string; presetId: string | null }>
+      >(
+        await request(httpServer())
+          .get('/api/company/users')
+          .set('Authorization', `Bearer ${company.token}`),
+        200,
+      );
+      expect(users.find((u) => u.id === userId)?.presetId).toBeNull();
+    }
   });
 });
