@@ -44,7 +44,7 @@ export function PresetEditorModal({
     setName(initial?.name ?? '');
     setRole(initial?.role ?? 'Recruiter');
     setChecked(initial ? initial.permissions : ROLE_PERMISSIONS['Recruiter']);
-  }, [opened, initial]);
+  }, [opened]);
 
   const roleKeys = useMemo(() => ROLE_PERMISSIONS[role] ?? [], [role]);
 
