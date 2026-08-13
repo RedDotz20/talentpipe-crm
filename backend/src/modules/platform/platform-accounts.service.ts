@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -18,6 +19,7 @@ import { CandidateApplicationsIndexRepository } from '../../repositories/candida
 import { ApplicationRepository } from '../../repositories/application.repository';
 import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
 import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
+import { PermissionRepository } from '../../repositories/permission.repository';
 import {
   inMemorySearch,
   listEnvelope,
@@ -43,6 +45,7 @@ export class PlatformAccountsService {
     private readonly applicationRepo: ApplicationRepository,
     private readonly pipelineStageRepo: PipelineStageRepository,
     private readonly jobListingsIndexRepo: JobListingsIndexRepository,
+    private readonly permissionRepo: PermissionRepository,
     private readonly auditService: AuditService,
   ) {}
 
@@ -72,11 +75,27 @@ export class PlatformAccountsService {
     if (candidateAccount) {
       throw new ConflictException('A user with this email already exists');
     }
+    const schema = this.schemaOf(companyId);
+    if (dto.presetId !== undefined && dto.presetId !== null) {
+      const local = await this.permissionRepo.findById(dto.presetId, schema);
+      const preset =
+        local ?? (await this.permissionRepo.findById(dto.presetId, 'public'));
+      if (!preset) throw new NotFoundException('Preset not found');
+      if (preset.role !== dto.role) {
+        throw new BadRequestException('Preset role must match the user role');
+      }
+    }
     const passwordHash = await hashPassword(dto.password);
     const id = randomUUID();
     await this.userRepo.create(
-      { id, email, passwordHash, role: dto.role },
-      this.schemaOf(companyId),
+      {
+        id,
+        email,
+        passwordHash,
+        role: dto.role,
+        presetId: dto.presetId ?? null,
+      },
+      schema,
     );
     await this.userEmailRepo.create({
       email,
@@ -279,6 +298,7 @@ export class PlatformAccountsService {
       email: string;
       role: string;
       status: string;
+      presetId: string | null;
       companyId: string;
       companyName: string;
       firstName: null;
@@ -294,6 +314,7 @@ export class PlatformAccountsService {
           email: user.email,
           role: user.role,
           status: user.status,
+          presetId: user.presetId,
           companyId: tenant.id,
           companyName: tenant.name,
           firstName: null,

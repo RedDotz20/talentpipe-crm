@@ -12,6 +12,7 @@ import { ApplicationRepository } from '../../repositories/application.repository
 import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
 import { AuditService } from '../../common/audit/audit.service';
 import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
+import { PermissionRepository } from '../../repositories/permission.repository';
 
 jest.mock('../../common/password', () => ({
   hashPassword: jest.fn().mockResolvedValue('hashed'),
@@ -77,6 +78,7 @@ function makeDeps() {
     jobListingsIndexRepo: {
       deleteByCompany: jest.fn(),
     },
+    permissionRepo: { findById: jest.fn() },
     auditService: { log: jest.fn() },
   };
 }
@@ -99,6 +101,7 @@ function makeService(
     merged.applicationRepo as ApplicationRepository,
     merged.pipelineStageRepo as PipelineStageRepository,
     merged.jobListingsIndexRepo as JobListingsIndexRepository,
+    merged.permissionRepo as PermissionRepository,
     merged.auditService as AuditService,
   );
 }
@@ -333,6 +336,7 @@ describe('PlatformAccountsService', () => {
           email: 'a@acme.com',
           role: 'Recruiter',
           status: 'active',
+          presetId: null,
           createdAt: new Date('2026-01-01'),
         },
       ]);
@@ -355,6 +359,7 @@ describe('PlatformAccountsService', () => {
         email: 'a@acme.com',
         role: 'Recruiter',
         status: 'active',
+        presetId: null,
         companyId: 'tenant-a',
         companyName: 'Acme',
         firstName: null,

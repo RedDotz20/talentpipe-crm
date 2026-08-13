@@ -35,12 +35,20 @@ import {
   UpdateCandidateSchema,
   UpdateCandidateDto,
 } from './dto/update-candidate.dto';
+import {
+  AssignPresetSchema,
+  AssignPresetDto,
+} from '../company/dto/assign-preset.dto';
+import { PlatformPermissionsService } from './platform-permissions.service';
 
 @Controller('platform')
 @UseGuards(AuthGuard('jwt'))
 @Roles('SuperAdmin')
 export class PlatformAccountsController {
-  constructor(private readonly accountsService: PlatformAccountsService) {}
+  constructor(
+    private readonly accountsService: PlatformAccountsService,
+    private readonly permissionsService: PlatformPermissionsService,
+  ) {}
 
   @Get('companies/:id/users')
   listCompanyUsers(@Param('id', new ParseUUIDPipe()) id: string) {
@@ -64,6 +72,15 @@ export class PlatformAccountsController {
     body: UpdateCompanyUserDto,
   ) {
     return this.accountsService.updateCompanyUser(id, userId, body);
+  }
+
+  @Patch('companies/:id/users/:userId/preset')
+  assignPreset(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+    @Body(new ZodValidationPipe(AssignPresetSchema)) body: AssignPresetDto,
+  ) {
+    return this.permissionsService.assign(id, userId, body.presetId);
   }
 
   @Patch('companies/:id/users/:userId/suspend')

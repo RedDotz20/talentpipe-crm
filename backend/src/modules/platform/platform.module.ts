@@ -9,6 +9,8 @@ import { PlatformAccountsController } from './platform-accounts.controller';
 import { PlatformAccountsService } from './platform-accounts.service';
 import { PlatformDataController } from './platform-data.controller';
 import { PlatformDataService } from './platform-data.service';
+import { PlatformPermissionsController } from './platform-permissions.controller';
+import { PlatformPermissionsService } from './platform-permissions.service';
 
 @Module({
   imports: [AuthCoreModule, RepositoriesModule, AuditModule, CacheModule],
@@ -16,7 +18,13 @@ import { PlatformDataService } from './platform-data.service';
     PlatformController,
     PlatformAccountsController,
     PlatformDataController,
+    PlatformPermissionsController,
   ],
-  providers: [PlatformService, PlatformAccountsService, PlatformDataService],
+  providers: [
+    PlatformService,
+    PlatformAccountsService,
+    PlatformDataService,
+    PlatformPermissionsService,
+  ],
 })
 export class PlatformModule {}

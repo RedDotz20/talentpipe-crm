@@ -8,6 +8,7 @@ export const CreateCompanyUserSchema = z.object({
     .string()
     .min(8, 'Password must be at least 8 characters')
     .max(128),
+  presetId: z.string().uuid().nullable().optional(),
 });
 
 export type CreateCompanyUserDto = z.infer<typeof CreateCompanyUserSchema>;
