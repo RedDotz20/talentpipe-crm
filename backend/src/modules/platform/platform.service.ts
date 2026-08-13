@@ -79,4 +79,91 @@ export class PlatformService {
       applications: totalApplications,
     };
   }
+
+  async getDashboard() {
+    const tenants = await this.tenantRepo.findAll();
+
+    const [overTime, perCompany] = await Promise.all([
+      this.tenantRepo.findCompaniesOverTime(),
+      this.collectPerCompany(tenants),
+    ]);
+
+    const totalApplications = perCompany.reduce(
+      (sum, tenant) => sum + tenant.applications,
+      0,
+    );
+    const totalUsers = perCompany.reduce(
+      (sum, tenant) => sum + tenant.users,
+      0,
+    );
+    const totalJobs = perCompany.reduce(
+      (sum, tenant) => sum + tenant.totalJobs,
+      0,
+    );
+    const activeCompanies = tenants.filter(
+      (tenant) => tenant.status === 'active',
+    ).length;
+
+    return {
+      companies: tenants.length,
+      activeCompanies,
+      suspendedCompanies: tenants.length - activeCompanies,
+      users: totalUsers,
+      applications: totalApplications,
+      jobs: totalJobs,
+      companiesOverTime: overTime,
+      applicationsPerCompany: perCompany
+        .filter((tenant) => tenant.applications > 0)
+        .sort((a, b) => b.applications - a.applications)
+        .slice(0, 10)
+        .map((tenant) => ({
+          companyName: tenant.name,
+          count: tenant.applications,
+        })),
+      usersPerCompany: perCompany
+        .sort((a, b) => b.users - a.users)
+        .slice(0, 10)
+        .map((tenant) => ({ companyName: tenant.name, count: tenant.users })),
+      jobsByStatusPerCompany: perCompany
+        .sort((a, b) => b.totalJobs - a.totalJobs)
+        .slice(0, 10)
+        .map((tenant) => ({
+          companyName: tenant.name,
+          draft: tenant.jobsByStatus.draft ?? 0,
+          open: tenant.jobsByStatus.open ?? 0,
+          closed: tenant.jobsByStatus.closed ?? 0,
+        })),
+    };
+  }
+
+  private async collectPerCompany(
+    tenants: Awaited<ReturnType<CompanyRepository['findAll']>>,
+  ) {
+    const rows: Array<{
+      name: string;
+      users: number;
+      applications: number;
+      totalJobs: number;
+      jobsByStatus: Record<string, number>;
+    }> = [];
+    for (const tenant of tenants) {
+      const schema = `company_${tenant.id}`;
+      const [users, applications, jobStatuses] = await Promise.all([
+        this.usageRepo.countUsers(schema),
+        this.usageRepo.countApplications(schema),
+        this.usageRepo.countJobsByStatus(schema),
+      ]);
+      const jobsByStatus = Object.fromEntries(
+        jobStatuses.map((entry) => [entry.status, entry.count]),
+      );
+      rows.push({
+        name: tenant.name,
+        users,
+        applications,
+        totalJobs: jobStatuses.reduce((sum, entry) => sum + entry.count, 0),
+        jobsByStatus,
+      });
+    }
+    return rows;
+  }
 }

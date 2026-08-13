@@ -13,10 +13,12 @@ describe('PlatformService', () => {
     findPaginated: jest.fn(),
     findById: jest.fn(),
     updateStatus: jest.fn(),
+    findCompaniesOverTime: jest.fn(),
   };
   const usageRepo = {
     countUsers: jest.fn().mockResolvedValue(2),
     countApplications: jest.fn().mockResolvedValue(5),
+    countJobsByStatus: jest.fn().mockResolvedValue([]),
   };
   const userRepo = { setAllStatus: jest.fn() };
   const auditService = { log: jest.fn() };
@@ -142,6 +144,73 @@ describe('PlatformService', () => {
       tenantRepo.findAll.mockResolvedValue([{ id: 't1' }, { id: 't2' }]);
       const result = await service.getStats();
       expect(result).toEqual({ companies: 2, users: 4, applications: 10 });
+    });
+  });
+
+  describe('getDashboard', () => {
+    const overTime = {
+      day: [{ label: '2026-08-12', count: 1 }],
+      week: [{ label: '2026-08-10', count: 1 }],
+      month: [{ label: '2026-08', count: 1 }],
+    };
+
+    beforeEach(() => {
+      tenantRepo.findAll.mockResolvedValue([
+        { id: 't1', name: 'Acme', status: 'active' },
+        { id: 't2', name: 'Globex', status: 'suspended' },
+      ]);
+      tenantRepo.findCompaniesOverTime.mockResolvedValue(overTime);
+      usageRepo.countUsers.mockResolvedValueOnce(4).mockResolvedValueOnce(2);
+      usageRepo.countApplications
+        .mockResolvedValueOnce(10)
+        .mockResolvedValueOnce(0);
+      usageRepo.countJobsByStatus
+        .mockResolvedValueOnce([
+          { status: 'open', count: 3 },
+          { status: 'draft', count: 1 },
+        ])
+        .mockResolvedValueOnce([{ status: 'closed', count: 2 }]);
+    });
+
+    it('aggregates tenants, filters empty application companies, and sorts desc', async () => {
+      const result = await service.getDashboard();
+      expect(result).toEqual({
+        companies: 2,
+        activeCompanies: 1,
+        suspendedCompanies: 1,
+        users: 6,
+        applications: 10,
+        jobs: 6,
+        companiesOverTime: overTime,
+        applicationsPerCompany: [{ companyName: 'Acme', count: 10 }],
+        usersPerCompany: [
+          { companyName: 'Acme', count: 4 },
+          { companyName: 'Globex', count: 2 },
+        ],
+        jobsByStatusPerCompany: [
+          { companyName: 'Acme', draft: 1, open: 3, closed: 0 },
+          { companyName: 'Globex', draft: 0, open: 0, closed: 2 },
+        ],
+      });
+    });
+
+    it('caps per-company charts at ten rows', async () => {
+      const many = Array.from({ length: 12 }, (_, index) => ({
+        id: `t${index}`,
+        name: `Tenant ${index}`,
+        status: 'active',
+      }));
+      tenantRepo.findAll.mockResolvedValue(many);
+      usageRepo.countUsers.mockResolvedValue(1);
+      usageRepo.countApplications.mockResolvedValue(1);
+      usageRepo.countJobsByStatus.mockResolvedValue([
+        { status: 'open', count: 1 },
+      ]);
+
+      const result = await service.getDashboard();
+      expect(result.usersPerCompany).toHaveLength(10);
+      expect(result.jobsByStatusPerCompany).toHaveLength(10);
+      expect(result.applicationsPerCompany).toHaveLength(10);
     });
   });
 

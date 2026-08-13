@@ -16,7 +16,7 @@ export abstract class BaseRepository {
     if (schema === 'public') {
       handle = await this.drizzleSchema.forPublic();
     } else if (schema === 'current') {
-      handle = await this.drizzleSchema.forCurrentTenant();
+      handle = await this.drizzleSchema.forCurrentCompany();
     } else {
       handle = await this.drizzleSchema.forSchema(schema);
     }

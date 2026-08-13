@@ -8,7 +8,7 @@ export const NOTIFICATION_QUEUE_NAME = 'notifications';
 export const STAGE_CHANGE_JOB = 'stage-change';
 
 export interface StageChangeNotificationPayload {
-  tenantId: string;
+  companyId: string;
   actorUserId: string;
   applicationId: string;
   jobPostingId: string | null;

@@ -2,7 +2,7 @@ import { Injectable, Inject } from '@nestjs/common';
 import { Pool } from 'pg';
 import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DRIZZLE_PROVIDER } from './drizzle.provider';
-import { getSchema } from '../common/context/tenant-context';
+import { getSchema } from '../common/context/company-context';
 
 export type DrizzleDB = NodePgDatabase;
 
@@ -10,7 +10,7 @@ export type DrizzleDB = NodePgDatabase;
 export class DrizzleSchemaService {
   constructor(@Inject(DRIZZLE_PROVIDER) private pool: Pool) {}
 
-  async forCurrentTenant(): Promise<{ db: DrizzleDB; release: () => void }> {
+  async forCurrentCompany(): Promise<{ db: DrizzleDB; release: () => void }> {
     const schemaName = getSchema();
     const client = await this.pool.connect();
     await client.query(`SET search_path TO "${schemaName}", public`);

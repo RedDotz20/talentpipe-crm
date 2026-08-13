@@ -3,10 +3,10 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { PipelineStagesService } from './pipeline-stages.service';
 import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
 import { CacheService } from '../../common/cache/cache.service';
-import { asyncStorage } from '../../common/context/tenant-context';
+import { asyncStorage } from '../../common/context/company-context';
 
 const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
-  asyncStorage.run({ tenantId: 't1', userId: 'u1', role: 'OrgAdmin' }, fn);
+  asyncStorage.run({ companyId: 't1', userId: 'u1', role: 'CompanyAdmin' }, fn);
 
 describe('PipelineStagesService', () => {
   let service: PipelineStagesService;
@@ -18,7 +18,7 @@ describe('PipelineStagesService', () => {
     delete: jest.fn(),
     countApplicationsForStage: jest.fn(),
   };
-  const cacheService = { invalidateTenantDashboard: jest.fn() };
+  const cacheService = { invalidateCompanyDashboard: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -59,7 +59,7 @@ describe('PipelineStagesService', () => {
       name: 'New',
       order: 2,
     });
-    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
+    expect(cacheService.invalidateCompanyDashboard).toHaveBeenCalledWith('t1');
   });
 
   it('update throws NotFoundException when missing', async () => {
@@ -78,7 +78,7 @@ describe('PipelineStagesService', () => {
     expect(pipelineStageRepo.update).toHaveBeenCalledWith('s1', {
       name: 'Screening',
     });
-    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
+    expect(cacheService.invalidateCompanyDashboard).toHaveBeenCalledWith('t1');
   });
 
   it('remove throws when stage is referenced by applications', async () => {
@@ -94,6 +94,6 @@ describe('PipelineStagesService', () => {
       id: 's1',
     });
     expect(pipelineStageRepo.delete).toHaveBeenCalledWith('s1');
-    expect(cacheService.invalidateTenantDashboard).toHaveBeenCalledWith('t1');
+    expect(cacheService.invalidateCompanyDashboard).toHaveBeenCalledWith('t1');
   });
 });

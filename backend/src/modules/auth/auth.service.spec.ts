@@ -1,13 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { TenantProvisioningService } from './services/tenant-provisioning.service';
+import { CompanyProvisioningService } from './services/company-provisioning.service';
 import { TokenService } from './services/token.service';
 import { UserEmailRepository } from '../../repositories/user-email.repository';
 import { UserRepository } from '../../repositories/user.repository';
 import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
 import { SuperAdminRepository } from '../../repositories/super-admin.repository';
-import { TenantRepository } from '../../repositories/tenant.repository';
+import { CompanyRepository } from '../../repositories/company.repository';
 
 jest.mock('argon2', () => ({
   hash: jest.fn(),
@@ -29,13 +29,13 @@ describe('AuthService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
-        { provide: TenantProvisioningService, useValue: tenantProvisioning },
+        { provide: CompanyProvisioningService, useValue: tenantProvisioning },
         { provide: TokenService, useValue: tokenService },
         { provide: UserEmailRepository, useValue: userEmailRepo },
         { provide: UserRepository, useValue: userRepo },
         { provide: CandidateAccountRepository, useValue: candidateAccountRepo },
         { provide: SuperAdminRepository, useValue: superAdminRepo },
-        { provide: TenantRepository, useValue: tenantRepo },
+        { provide: CompanyRepository, useValue: tenantRepo },
       ],
     }).compile();
     service = module.get<AuthService>(AuthService);
@@ -45,10 +45,10 @@ describe('AuthService', () => {
     expect(service).toBeDefined();
   });
 
-  describe('orgSignup', () => {
-    it('provisions tenant and issues OrgAdmin tokens', async () => {
+  describe('companySignup', () => {
+    it('provisions tenant and issues CompanyAdmin tokens', async () => {
       tenantProvisioning.createTenant.mockResolvedValue({
-        tenantId: 't1',
+        companyId: 't1',
         userId: 'u1',
       });
       tokenService.issueTokens.mockResolvedValue({
@@ -56,7 +56,7 @@ describe('AuthService', () => {
         refreshToken: 'r',
       });
 
-      const result = await service.orgSignup({
+      const result = await service.companySignup({
         companyName: 'Acme',
         slug: 'acme',
         email: 'admin@acme.com',
@@ -65,8 +65,8 @@ describe('AuthService', () => {
 
       expect(tokenService.issueTokens).toHaveBeenCalledWith({
         id: 'u1',
-        tenantId: 't1',
-        role: 'OrgAdmin',
+        companyId: 't1',
+        role: 'CompanyAdmin',
       });
       expect(result).toEqual({
         data: { accessToken: 'a', refreshToken: 'r' },
@@ -78,14 +78,14 @@ describe('AuthService', () => {
   describe('signin', () => {
     it('signs in an org user found via the email index', async () => {
       userEmailRepo.findByEmail.mockResolvedValue({
-        tenantId: 't1',
+        companyId: 't1',
         userId: 'u1',
       });
       userRepo.findByEmail.mockResolvedValue({
         id: 'u1',
         email: 'admin@acme.com',
         passwordHash: 'hash',
-        role: 'OrgAdmin',
+        role: 'CompanyAdmin',
       });
       tenantRepo.findById.mockResolvedValue({
         id: 't1',
@@ -103,12 +103,12 @@ describe('AuthService', () => {
 
       expect(userRepo.findByEmail).toHaveBeenCalledWith(
         'admin@acme.com',
-        'tenant_t1',
+        'company_t1',
       );
       expect(tokenService.issueTokens).toHaveBeenCalledWith({
         id: 'u1',
-        tenantId: 't1',
-        role: 'OrgAdmin',
+        companyId: 't1',
+        role: 'CompanyAdmin',
       });
       expect(result).toEqual({
         data: { accessToken: 'a', refreshToken: 'r' },
@@ -128,14 +128,14 @@ describe('AuthService', () => {
 
     it('throws ForbiddenException when the tenant is suspended', async () => {
       userEmailRepo.findByEmail.mockResolvedValue({
-        tenantId: 't1',
+        companyId: 't1',
         userId: 'u1',
       });
       userRepo.findByEmail.mockResolvedValue({
         id: 'u1',
         email: 'admin@acme.com',
         passwordHash: 'hash',
-        role: 'OrgAdmin',
+        role: 'CompanyAdmin',
       });
       tenantRepo.findById.mockResolvedValue({
         id: 't1',
@@ -149,14 +149,14 @@ describe('AuthService', () => {
 
     it('throws ForbiddenException when the user is suspended', async () => {
       userEmailRepo.findByEmail.mockResolvedValue({
-        tenantId: 't1',
+        companyId: 't1',
         userId: 'u1',
       });
       userRepo.findByEmail.mockResolvedValue({
         id: 'u1',
         email: 'admin@acme.com',
         passwordHash: 'hash',
-        role: 'OrgAdmin',
+        role: 'CompanyAdmin',
         status: 'suspended',
       });
       tenantRepo.findById.mockResolvedValue({

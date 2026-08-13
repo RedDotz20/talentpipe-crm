@@ -5,7 +5,7 @@ import { BaseRepository } from './base.repository';
 @Injectable()
 export class AuditLogRepository extends BaseRepository {
   async create(data: {
-    tenantId: string;
+    companyId: string;
     userId: string;
     action: string;
     resourceId?: string | null;

@@ -1,13 +1,13 @@
 import { z } from 'zod';
 
 export const INTERNAL_USER_ROLES = [
-  'OrgAdmin',
+  'CompanyAdmin',
   'Recruiter',
   'HiringManager',
   'Interviewer',
 ] as const;
 
-export const InviteUserSchema = z.object({
+export const CreateUserSchema = z.object({
   email: z.string().email('Invalid email').max(255),
   role: z.enum(INTERNAL_USER_ROLES, { message: 'Invalid role' }),
   password: z
@@ -16,4 +16,4 @@ export const InviteUserSchema = z.object({
     .max(128),
 });
 
-export type InviteUserDto = z.infer<typeof InviteUserSchema>;
+export type CreateUserDto = z.infer<typeof CreateUserSchema>;

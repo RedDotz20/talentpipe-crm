@@ -23,13 +23,13 @@ import {
 } from './dto/update-pipeline-stage.dto';
 
 const INTERNAL_ROLES = [
-  'OrgAdmin',
+  'CompanyAdmin',
   'Recruiter',
   'HiringManager',
   'Interviewer',
 ];
 
-@Controller('org/pipeline-stages')
+@Controller('company/pipeline-stages')
 export class PipelineStagesController {
   constructor(private readonly pipelineStagesService: PipelineStagesService) {}
 
@@ -42,7 +42,7 @@ export class PipelineStagesController {
 
   @Post()
   @UseGuards(AuthGuard('jwt'))
-  @Roles('OrgAdmin')
+  @Roles('CompanyAdmin')
   create(
     @Body(new ZodValidationPipe(CreatePipelineStageSchema))
     dto: CreatePipelineStageDto,
@@ -52,7 +52,7 @@ export class PipelineStagesController {
 
   @Patch(':id')
   @UseGuards(AuthGuard('jwt'))
-  @Roles('OrgAdmin')
+  @Roles('CompanyAdmin')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodValidationPipe(UpdatePipelineStageSchema))
@@ -63,7 +63,7 @@ export class PipelineStagesController {
 
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'))
-  @Roles('OrgAdmin')
+  @Roles('CompanyAdmin')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.pipelineStagesService.remove(id);
   }

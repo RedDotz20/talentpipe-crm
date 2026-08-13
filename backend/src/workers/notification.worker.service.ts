@@ -61,7 +61,7 @@ export class NotificationWorkerService
     payload: StageChangeNotificationPayload,
   ): Promise<void> {
     await this.auditLogRepo.create({
-      tenantId: payload.tenantId,
+      companyId: payload.companyId,
       userId: payload.actorUserId,
       action: 'notification.stage_change',
       resourceId: payload.applicationId,

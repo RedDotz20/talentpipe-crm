@@ -1,27 +1,27 @@
 import { AsyncLocalStorage } from 'async_hooks';
 
-export interface TenantContext {
-  tenantId: string;
+export interface CompanyContext {
+  companyId: string;
   userId: string;
   role: string;
 }
 
-export const asyncStorage = new AsyncLocalStorage<TenantContext>();
+export const asyncStorage = new AsyncLocalStorage<CompanyContext>();
 
-export function getTenantId(): string {
+export function getCompanyId(): string {
   const ctx = asyncStorage.getStore();
-  if (!ctx) throw new Error('No tenant context');
-  return ctx.tenantId;
+  if (!ctx) throw new Error('No company context');
+  return ctx.companyId;
 }
 
 export function getSchema(): string {
-  const tenantId = getTenantId();
-  if (tenantId === 'public') return 'public';
-  return `tenant_${tenantId}`;
+  const companyId = getCompanyId();
+  if (companyId === 'public') return 'public';
+  return `company_${companyId}`;
 }
 
-export function getCurrentUser(): TenantContext {
+export function getCurrentUser(): CompanyContext {
   const ctx = asyncStorage.getStore();
-  if (!ctx) throw new Error('No tenant context');
+  if (!ctx) throw new Error('No company context');
   return ctx;
 }

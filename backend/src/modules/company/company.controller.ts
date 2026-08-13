@@ -2,19 +2,22 @@ import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { OrgService } from './org.service';
-import { UpdateOrgDto, UpdateOrgSchema } from './dto/update-org.dto';
+import { CompanyService } from './company.service';
+import {
+  UpdateCompanyDto,
+  UpdateCompanySchema,
+} from './dto/update-company.dto';
 
 const INTERNAL_ROLES = [
-  'OrgAdmin',
+  'CompanyAdmin',
   'Recruiter',
   'HiringManager',
   'Interviewer',
 ];
 
-@Controller('org')
-export class OrgController {
-  constructor(private readonly orgService: OrgService) {}
+@Controller('company')
+export class CompanyController {
+  constructor(private readonly orgService: CompanyService) {}
 
   @Get()
   @UseGuards(AuthGuard('jwt'))
@@ -25,9 +28,9 @@ export class OrgController {
 
   @Patch()
   @UseGuards(AuthGuard('jwt'))
-  @Roles('OrgAdmin')
+  @Roles('CompanyAdmin')
   updateSettings(
-    @Body(new ZodValidationPipe(UpdateOrgSchema)) dto: UpdateOrgDto,
+    @Body(new ZodValidationPipe(UpdateCompanySchema)) dto: UpdateCompanyDto,
   ) {
     return this.orgService.updateSettings(dto);
   }

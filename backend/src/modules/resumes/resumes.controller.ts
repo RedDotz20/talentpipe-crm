@@ -14,7 +14,7 @@ import { SkipEnvelope } from '../../common/decorators/skip-envelope.decorator';
 import { CandidateRepository } from '../../repositories/candidate.repository';
 import { ResumesService } from './resumes.service';
 
-const VIEW_ROLES = ['OrgAdmin', 'Recruiter', 'HiringManager'];
+const VIEW_ROLES = ['CompanyAdmin', 'Recruiter', 'HiringManager'];
 
 @Controller('candidates/:candidateId/resume')
 export class ResumesController {

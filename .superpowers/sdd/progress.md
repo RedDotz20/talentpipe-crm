@@ -1,8 +1,1 @@
-Task 1: complete (commits 2ab3af0..32ce66e, review clean)
-Task 2: complete (commits bc26513..989149f, review clean)
-Task 3: complete (commits 61eb6ac..f8bde31, review clean)
-Task 4: complete (commits 5349100..c091b98, review clean)
-Task 5: complete (commits 2b5a1ff..b8c3b0f, review clean)
-Task 6: complete (commits 83e535a..ed27d9b, review clean)
-Task 7: complete (commit de1b604, review clean)
-Task 8: complete (commits 1976c3a..cf2a200, review clean)
+# M18 Permission Management — progress ledger

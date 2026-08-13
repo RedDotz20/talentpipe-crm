@@ -64,4 +64,9 @@ export class PlatformController {
   getStats() {
     return this.platformService.getStats();
   }
+
+  @Get('dashboard')
+  getDashboard() {
+    return this.platformService.getDashboard();
+  }
 }

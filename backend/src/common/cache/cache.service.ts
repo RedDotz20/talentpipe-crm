@@ -47,38 +47,40 @@ export class CacheService {
     }
   }
 
-  async invalidateTenantDashboard(tenantId: string): Promise<void> {
+  async invalidateCompanyDashboard(companyId: string): Promise<void> {
     try {
       await this.redis.advanceDashboardGeneration(
-        dashboardGenerationKey(tenantId),
-        dashboardSummaryKey(tenantId),
+        dashboardGenerationKey(companyId),
+        dashboardSummaryKey(companyId),
       );
     } catch (error) {
       this.logger.error(
-        `Tenant dashboard cache invalidation failed for tenant "${tenantId}"`,
+        `Company dashboard cache invalidation failed for company "${companyId}"`,
         error instanceof Error ? error.stack : String(error),
       );
     }
   }
 
-  async getTenantDashboardGeneration(tenantId: string): Promise<number | null> {
+  async getCompanyDashboardGeneration(
+    companyId: string,
+  ): Promise<number | null> {
     try {
-      const value = await this.redis.get(dashboardGenerationKey(tenantId));
+      const value = await this.redis.get(dashboardGenerationKey(companyId));
       if (value === null) return 0;
 
       const generation = Number(value);
       return Number.isFinite(generation) ? generation : null;
     } catch (error) {
       this.logger.error(
-        `Tenant dashboard generation read failed for tenant "${tenantId}"`,
+        `Company dashboard generation read failed for company "${companyId}"`,
         error instanceof Error ? error.stack : String(error),
       );
       return null;
     }
   }
 
-  async setTenantDashboardIfGeneration<T>(
-    tenantId: string,
+  async setCompanyDashboardIfGeneration<T>(
+    companyId: string,
     generation: number,
     value: T,
     ttlSeconds: number,
@@ -89,15 +91,15 @@ export class CacheService {
         throw new Error('Cache value could not be serialized');
       }
       return await this.redis.setIfGenerationMatches(
-        dashboardGenerationKey(tenantId),
-        dashboardSummaryKey(tenantId),
+        dashboardGenerationKey(companyId),
+        dashboardSummaryKey(companyId),
         generation,
         serialized,
         ttlSeconds,
       );
     } catch (error) {
       this.logger.error(
-        `Tenant dashboard compare-and-set failed for tenant "${tenantId}"`,
+        `Company dashboard compare-and-set failed for company "${companyId}"`,
         error instanceof Error ? error.stack : String(error),
       );
       return false;

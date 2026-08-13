@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as argon2 from 'argon2';
 import { RefreshTokenRepository } from '../../../repositories/refresh-token.repository';
-import { TenantRepository } from '../../../repositories/tenant.repository';
+import { CompanyRepository } from '../../../repositories/company.repository';
 import { UserRepository } from '../../../repositories/user.repository';
 
 const ACCESS_TTL = '15m';
@@ -12,14 +12,14 @@ export const NIL_TENANT_ID = '00000000-0000-0000-0000-000000000000';
 
 export interface TokenSubject {
   id: string;
-  tenantId: string | null | undefined;
+  companyId: string | null | undefined;
   role: string;
 }
 
 interface TokenPayload {
   sub: string;
   role: string;
-  tenantId?: string;
+  companyId?: string;
 }
 
 @Injectable()
@@ -28,16 +28,16 @@ export class TokenService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private refreshTokenRepo: RefreshTokenRepository,
-    private tenantRepo: TenantRepository,
+    private tenantRepo: CompanyRepository,
     private userRepo: UserRepository,
   ) {}
 
   async issueTokens(subject: TokenSubject) {
-    const tenantId = subject.tenantId ?? NIL_TENANT_ID;
+    const companyId = subject.companyId ?? NIL_TENANT_ID;
     const payload: TokenPayload = {
       sub: subject.id,
       role: subject.role,
-      tenantId: subject.tenantId ?? undefined,
+      companyId: subject.companyId ?? undefined,
     };
 
     const accessToken = this.jwtService.sign(payload, {
@@ -56,7 +56,7 @@ export class TokenService {
     await this.refreshTokenRepo.deleteByUser(subject.id);
     await this.refreshTokenRepo.create({
       userId: subject.id,
-      tenantId,
+      companyId,
       tokenHash,
       expiresAt,
     });
@@ -78,15 +78,15 @@ export class TokenService {
     const tokenMatches = await argon2.verify(stored.tokenHash, refreshToken);
     if (!tokenMatches) throw new UnauthorizedException('Invalid refresh token');
 
-    if (payload.tenantId) {
-      const tenant = await this.tenantRepo.findById(payload.tenantId);
+    if (payload.companyId) {
+      const tenant = await this.tenantRepo.findById(payload.companyId);
       if (tenant?.status === 'suspended') {
         throw new UnauthorizedException('This company account is suspended');
       }
 
       const user = await this.userRepo.findById(
         payload.sub,
-        `tenant_${payload.tenantId}`,
+        `company_${payload.companyId}`,
       );
       if (!user || user.status === 'suspended') {
         throw new UnauthorizedException('This account is suspended');
@@ -95,7 +95,7 @@ export class TokenService {
 
     return this.issueTokens({
       id: payload.sub,
-      tenantId: payload.tenantId,
+      companyId: payload.companyId,
       role: payload.role,
     });
   }
@@ -106,13 +106,13 @@ export class TokenService {
 
   private verifyRefreshToken(refreshToken: string): {
     sub: string;
-    tenantId: string | null | undefined;
+    companyId: string | null | undefined;
     role: string;
   } {
     try {
       return this.jwtService.verify<{
         sub: string;
-        tenantId: string | null | undefined;
+        companyId: string | null | undefined;
         role: string;
       }>(refreshToken, {
         secret: this.configService.get<string>('JWT_REFRESH_SECRET')!,

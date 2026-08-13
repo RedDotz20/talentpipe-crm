@@ -1,93 +1,208 @@
-## Task 1: Lock the Phase 5b Route Boundary
+### Task 1: Permission catalog constants
 
 **Files:**
-- Modify: `backend/src/modules/candidate-account/candidate-account.controller.ts:38-49`
-- Modify: `backend/src/modules/candidate-account/candidate-account.service.ts:37-47`
-- Modify: `backend/src/repositories/job-listings-index.repository.ts:46-62`
-- Test: `backend/src/modules/candidate-account/candidate-account.service.spec.ts`
-- Test: `backend/src/common/guards/candidate-auth.guard.spec.ts` (create if absent)
+- Create: `backend/src/common/permissions/permissions.ts`
+- Test: `backend/src/common/permissions/permissions.spec.ts`
 
 **Interfaces:**
-- Consumes: `AuthGuard('jwt')`, `CandidateAuthGuard`, `JobListingsIndexRepository.findOpenByTenantAndJob(tenantId, jobPostingId)`.
-- Produces: Candidate job list/detail routes that reject unauthenticated users and candidate detail that returns only open indexed jobs.
+- Consumes: nothing.
+- Produces:
+  - `export const INTERNAL_ROLES = ['CompanyAdmin', 'Recruiter', 'HiringManager', 'Interviewer'] as const;`
+  - `export type InternalRole = (typeof INTERNAL_ROLES)[number];`
+  - `export type Permission = 'jobs.view' | 'jobs.create_edit' | ...` (all 17 keys)
+  - `export const ALL_PERMISSIONS: Permission[]`
+  - `export const ROLE_PERMISSIONS: Record<InternalRole, Permission[]>`
+  - `export function isInternalRole(role: string): role is InternalRole`
+  - `export function isPermission(value: string): value is Permission`
+  - `export function defaultPresetFor(role: InternalRole): Permission[]` (returns a copy of `ROLE_PERMISSIONS[role]`)
+  - `export function permissionsSubsetOfRole(role: InternalRole, permissions: string[]): permissions is Permission[]`
 
-- [ ] **Step 1: Add failing service tests for closed and draft candidate jobs.**
+- [ ] **Step 1: Write the failing test**
 
-Add cases to `candidate-account.service.spec.ts` that configure `jobListingsIndexRepo.findOpenByTenantAndJob` to return `null` for a closed or draft row and assert `service.getJobDetail('t1', 'j1')` rejects with `NotFoundException`. Add a case asserting an open row is returned.
+`backend/src/common/permissions/permissions.spec.ts`:
 
 ```ts
-it('hides non-open jobs from candidate detail', async () => {
-  jobListingsIndexRepo.findOpenByTenantAndJob.mockResolvedValue(null);
+import {
+  ALL_PERMISSIONS,
+  INTERNAL_ROLES,
+  ROLE_PERMISSIONS,
+  defaultPresetFor,
+  isInternalRole,
+  isPermission,
+} from './permissions';
 
-  await expect(service.getJobDetail('t1', 'j1')).rejects.toThrow(
-    NotFoundException,
-  );
+describe('permissions catalog', () => {
+  it('exposes 17 permissions and 4 roles', () => {
+    expect(ALL_PERMISSIONS).toHaveLength(17);
+    expect(INTERNAL_ROLES).toEqual([
+      'CompanyAdmin',
+      'Recruiter',
+      'HiringManager',
+      'Interviewer',
+    ]);
+  });
+
+  it('every role preset is a subset of ALL_PERMISSIONS and non-empty', () => {
+    for (const role of INTERNAL_ROLES) {
+      for (const perm of ROLE_PERMISSIONS[role]) {
+        expect(ALL_PERMISSIONS).toContain(perm);
+      }
+      expect(ROLE_PERMISSIONS[role].length).toBeGreaterThan(0);
+    }
+  });
+
+  it('role presets shrink with seniority (CA >= Recruiter >= HM >= Interviewer)', () => {
+    const count = (r: (typeof INTERNAL_ROLES)[number]) =>
+      ROLE_PERMISSIONS[r].length;
+    expect(count('CompanyAdmin')).toBeGreaterThan(count('Recruiter'));
+    expect(count('Recruiter')).toBeGreaterThan(count('HiringManager'));
+    expect(count('HiringManager')).toBeGreaterThan(count('Interviewer'));
+  });
+
+  it('CA default contains the management permissions', () => {
+    for (const p of ['users.manage', 'settings.manage', 'permissions.manage', 'stages.manage']) {
+      expect(ROLE_PERMISSIONS.CompanyAdmin).toContain(p);
+    }
+  });
+
+  it('defaultPresetFor returns a fresh copy', () => {
+    const a = defaultPresetFor('Recruiter');
+    a.push('jobs.delete' as never);
+    expect(defaultPresetFor('Recruiter')).not.toContain('jobs.delete');
+  });
+
+  it('type guards work', () => {
+    expect(isInternalRole('Recruiter')).toBe(true);
+    expect(isInternalRole('Candidate')).toBe(false);
+    expect(isPermission('jobs.view')).toBe(true);
+    expect(isPermission('everything')).toBe(false);
+  });
 });
 ```
 
-- [ ] **Step 2: Run the focused test and verify it fails.**
+- [ ] **Step 2: Run test to verify it fails**
 
-Run:
+Run: `npx jest src/common/permissions/permissions.spec.ts`
+Expected: FAIL — module not found.
 
-```text
-cd backend && npm test -- --runInBand src/modules/candidate-account/candidate-account.service.spec.ts
-```
+- [ ] **Step 3: Write the catalog**
 
-Expected: FAIL because `getJobDetail` currently uses `findById` without requiring `status = 'open'`.
-
-- [ ] **Step 3: Implement the open-job lookup.**
-
-Use the existing repository method:
+`backend/src/common/permissions/permissions.ts`:
 
 ```ts
-async findOpenByTenantAndJob(tenantId: string, jobPostingId: string) {
-  return this.withDb('public', async (db) => {
-    const rows = await db
-      .select()
-      .from(jobListingsIndex)
-      .where(
-        and(
-          eq(jobListingsIndex.tenantId, tenantId),
-          eq(jobListingsIndex.jobPostingId, jobPostingId),
-          eq(jobListingsIndex.status, 'open'),
-        ),
-      )
-      .limit(1)
-      .execute();
-    return rows[0] ?? null;
-  });
+export const INTERNAL_ROLES = [
+  'CompanyAdmin',
+  'Recruiter',
+  'HiringManager',
+  'Interviewer',
+] as const;
+
+export type InternalRole = (typeof INTERNAL_ROLES)[number];
+
+export type Permission =
+  | 'jobs.view'
+  | 'jobs.create_edit'
+  | 'jobs.publish_close'
+  | 'jobs.delete'
+  | 'candidates.view'
+  | 'candidates.manage'
+  | 'applications.view'
+  | 'applications.move'
+  | 'applications.note'
+  | 'interviews.view'
+  | 'interviews.schedule'
+  | 'interviews.feedback'
+  | 'stages.manage'
+  | 'settings.manage'
+  | 'users.manage'
+  | 'permissions.manage'
+  | 'dashboard.view';
+
+export const ALL_PERMISSIONS: Permission[] = [
+  'jobs.view',
+  'jobs.create_edit',
+  'jobs.publish_close',
+  'jobs.delete',
+  'candidates.view',
+  'candidates.manage',
+  'applications.view',
+  'applications.move',
+  'applications.note',
+  'interviews.view',
+  'interviews.schedule',
+  'interviews.feedback',
+  'stages.manage',
+  'settings.manage',
+  'users.manage',
+  'permissions.manage',
+  'dashboard.view',
+];
+
+export const ROLE_PERMISSIONS: Record<InternalRole, Permission[]> = {
+  CompanyAdmin: [...ALL_PERMISSIONS],
+  Recruiter: [
+    'jobs.view',
+    'jobs.create_edit',
+    'jobs.publish_close',
+    'candidates.view',
+    'candidates.manage',
+    'applications.view',
+    'applications.move',
+    'applications.note',
+    'interviews.view',
+    'interviews.schedule',
+    'dashboard.view',
+  ],
+  HiringManager: [
+    'jobs.view',
+    'candidates.view',
+    'applications.view',
+    'applications.move',
+    'applications.note',
+    'interviews.view',
+    'interviews.schedule',
+    'dashboard.view',
+  ],
+  Interviewer: ['interviews.view', 'interviews.feedback', 'dashboard.view'],
+};
+
+export function isInternalRole(role: string): role is InternalRole {
+  return (INTERNAL_ROLES as readonly string[]).includes(role);
+}
+
+export function isPermission(value: string): value is Permission {
+  return (ALL_PERMISSIONS as readonly string[]).includes(value);
+}
+
+export function defaultPresetFor(role: InternalRole): Permission[] {
+  return [...ROLE_PERMISSIONS[role]];
+}
+
+export function permissionsSubsetOfRole(
+  role: InternalRole,
+  permissions: string[],
+): permissions is Permission[] {
+  return permissions.every((p) =>
+    ROLE_PERMISSIONS[role].includes(p as Permission),
+  );
 }
 ```
 
-Change `getJobDetail` to call `findOpenByTenantAndJob` and throw `NotFoundException('Job posting not found')` for `null`. Use the same open lookup in bookmark creation and apply rather than relying on a possibly stale non-open index row.
+- [ ] **Step 4: Run test to verify it passes**
 
-- [ ] **Step 4: Add guards to candidate job list and detail routes.**
+Run: `npx jest src/common/permissions/permissions.spec.ts`
+Expected: PASS (6 tests).
 
-Apply both guards to `GET /candidate/jobs` and `GET /candidate/jobs/:tenantId/:jobId`:
+- [ ] **Step 5: Run full backend checks**
 
-```ts
-@Get('jobs')
-@UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
-async listJobs(@Query('search') search?: string) {
-  return this.candidateAccountService.getJobs(search);
-}
-```
+Run: `cd backend && npm run typecheck && npm run lint && npm test`
+Expected: all green.
 
-Use the same decorator order and guard pattern already used by the protected candidate routes.
+- [ ] **Step 6: Commit**
 
-- [ ] **Step 5: Run focused tests and commit the boundary fix.**
-
-Run:
-
-```text
-cd backend && npm test -- --runInBand src/modules/candidate-account/candidate-account.service.spec.ts src/common/guards/candidate-auth.guard.spec.ts
-```
-
-Expected: PASS. Commit:
-
-```text
-git add backend/src/modules/candidate-account backend/src/repositories/job-listings-index.repository.ts backend/src/common/guards/candidate-auth.guard.spec.ts
-git commit -m "fix(m5b): enforce candidate job visibility boundary"
+```bash
+git add backend/src/common/permissions
+git commit -m "feat(m18): permission catalog constants"
 ```
 
 ---

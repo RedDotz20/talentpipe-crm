@@ -6,7 +6,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { DashboardController } from './dashboard.controller';
 
 const INTERNAL_ROLES = [
-  'OrgAdmin',
+  'CompanyAdmin',
   'Recruiter',
   'HiringManager',
   'Interviewer',

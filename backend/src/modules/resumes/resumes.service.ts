@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { getTenantId } from '../../common/context/tenant-context';
+import { getCompanyId } from '../../common/context/company-context';
 import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
 import { StorageService } from '../../common/storage/storage.service';
 
@@ -56,11 +56,11 @@ export class ResumesService {
     this.assertSupportedContent(file.buffer, file.mimetype);
 
     const ext = file.mimetype === PDF_MIME ? 'pdf' : 'docx';
-    const tenantId = getTenantId();
+    const companyId = getCompanyId();
     const key =
-      tenantId === 'public'
+      companyId === 'public'
         ? `candidate-resumes/${candidateAccountId}/${randomUUID()}.${ext}`
-        : `tenants/${tenantId}/resumes/${candidateAccountId}/${randomUUID()}.${ext}`;
+        : `companies/${companyId}/resumes/${candidateAccountId}/${randomUUID()}.${ext}`;
     await this.storage.upload(key, file.buffer, file.mimetype);
 
     // Delete old resume file from S3 if exists

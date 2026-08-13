@@ -1,20 +1,20 @@
-### 1. List open jobs (public) — captures first tenantId + jobPostingId for downstream requests
+### 1. List open jobs (public) — captures first companyId + jobPostingId for downstream requests
 # @name listJobs
 GET {{baseUrl}}/candidate/jobs?search=
 
 > {%
     if (response.body && response.body.length > 0) {
-        client.global.set("tenantId", response.body[0].tenantId);
+        client.global.set("companyId", response.body[0].companyId);
         client.global.set("jobPostingId", response.body[0].jobPostingId);
     }
 %}
 
 ### 2. Job detail (public)
-GET {{baseUrl}}/candidate/jobs/{{tenantId}}/{{jobPostingId}}
+GET {{baseUrl}}/candidate/jobs/{{companyId}}/{{jobPostingId}}
 
 ### 3. Apply to a job (Candidate auth)
 # @name apply
-POST {{baseUrl}}/candidate/jobs/{{tenantId}}/{{jobPostingId}}/apply
+POST {{baseUrl}}/candidate/jobs/{{companyId}}/{{jobPostingId}}/apply
 Authorization: Bearer {{candidateAccessToken}}
 Content-Type: application/json
 
@@ -39,7 +39,7 @@ Authorization: Bearer {{candidateAccessToken}}
 Content-Type: application/json
 
 {
-  "tenantId": "{{tenantId}}",
+  "companyId": "{{companyId}}",
   "jobPostingId": "{{jobPostingId}}"
 }
 

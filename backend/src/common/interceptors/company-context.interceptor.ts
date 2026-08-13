@@ -5,26 +5,28 @@ import {
   CallHandler,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
-import { asyncStorage, TenantContext } from '../context/tenant-context';
+import { asyncStorage, CompanyContext } from '../context/company-context';
 
 @Injectable()
-export class TenantContextInterceptor implements NestInterceptor {
+export class CompanyContextInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context
       .switchToHttp()
-      .getRequest<{ user?: TenantContext }>();
+      .getRequest<{ user?: CompanyContext }>();
     const user = request.user;
 
-    const tenantId =
-      user?.role === 'SuperAdmin' || !user?.tenantId ? 'public' : user.tenantId;
+    const companyId =
+      user?.role === 'SuperAdmin' || !user?.companyId
+        ? 'public'
+        : user.companyId;
 
-    const ctx: TenantContext = user
+    const ctx: CompanyContext = user
       ? {
-          tenantId,
+          companyId,
           userId: user.userId,
           role: user.role,
         }
-      : { tenantId: 'public', userId: '', role: 'anonymous' };
+      : { companyId: 'public', userId: '', role: 'anonymous' };
 
     return new Observable((subscriber) => {
       asyncStorage.run(ctx, () => {

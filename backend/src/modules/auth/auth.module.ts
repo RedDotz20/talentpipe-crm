@@ -5,7 +5,7 @@ import { RepositoriesModule } from '../../repositories/repositories.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { TokenService } from './services/token.service';
-import { TenantProvisioningService } from './services/tenant-provisioning.service';
+import { CompanyProvisioningService } from './services/company-provisioning.service';
 import { LoginRateLimiterGuard } from '../../common/middlewares/login-rate-limiter.guard';
 
 @Module({
@@ -14,7 +14,7 @@ import { LoginRateLimiterGuard } from '../../common/middlewares/login-rate-limit
   providers: [
     AuthService,
     TokenService,
-    TenantProvisioningService,
+    CompanyProvisioningService,
     LoginRateLimiterGuard,
   ],
 })

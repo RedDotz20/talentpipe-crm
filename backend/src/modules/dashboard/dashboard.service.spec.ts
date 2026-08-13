@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { asyncStorage } from '../../common/context/tenant-context';
+import { asyncStorage } from '../../common/context/company-context';
 import { CacheService } from '../../common/cache/cache.service';
 import { DashboardRepository } from '../../repositories/dashboard.repository';
 import { DashboardService } from './dashboard.service';
@@ -15,15 +15,15 @@ type DashboardSummary = {
   }>;
 };
 
-const runInTenant = <T>(fn: () => Promise<T>): Promise<T> =>
-  asyncStorage.run({ tenantId: 't1', userId: 'u1', role: 'OrgAdmin' }, fn);
+const runInCompany = <T>(fn: () => Promise<T>): Promise<T> =>
+  asyncStorage.run({ companyId: 't1', userId: 'u1', role: 'CompanyAdmin' }, fn);
 
 describe('DashboardService', () => {
   let service: DashboardService;
   const cache = {
     get: jest.fn(),
-    getTenantDashboardGeneration: jest.fn(),
-    setTenantDashboardIfGeneration: jest.fn(),
+    getCompanyDashboardGeneration: jest.fn(),
+    setCompanyDashboardIfGeneration: jest.fn(),
   };
   const repository = {
     findSummary: jest.fn(),
@@ -51,13 +51,13 @@ describe('DashboardService', () => {
 
   it('queries and caches on a miss', async () => {
     cache.get.mockResolvedValue(null);
-    cache.getTenantDashboardGeneration.mockResolvedValue(0);
+    cache.getCompanyDashboardGeneration.mockResolvedValue(0);
     repository.findSummary.mockResolvedValue(summary);
 
-    await expect(runInTenant(() => service.getSummary())).resolves.toEqual(
+    await expect(runInCompany(() => service.getSummary())).resolves.toEqual(
       summary,
     );
-    expect(cache.setTenantDashboardIfGeneration).toHaveBeenCalledWith(
+    expect(cache.setCompanyDashboardIfGeneration).toHaveBeenCalledWith(
       't1',
       0,
       summary,
@@ -67,9 +67,9 @@ describe('DashboardService', () => {
 
   it('returns a cache hit without querying the repository', async () => {
     cache.get.mockResolvedValue(summary);
-    cache.getTenantDashboardGeneration.mockResolvedValue(0);
+    cache.getCompanyDashboardGeneration.mockResolvedValue(0);
 
-    await expect(runInTenant(() => service.getSummary())).resolves.toEqual(
+    await expect(runInCompany(() => service.getSummary())).resolves.toEqual(
       summary,
     );
     expect(repository.findSummary).not.toHaveBeenCalled();
@@ -77,10 +77,10 @@ describe('DashboardService', () => {
 
   it('falls back to the repository when the cache returns no value', async () => {
     cache.get.mockResolvedValue(null);
-    cache.getTenantDashboardGeneration.mockResolvedValue(0);
+    cache.getCompanyDashboardGeneration.mockResolvedValue(0);
     repository.findSummary.mockResolvedValue(summary);
 
-    await expect(runInTenant(() => service.getSummary())).resolves.toEqual(
+    await expect(runInCompany(() => service.getSummary())).resolves.toEqual(
       summary,
     );
   });
@@ -89,34 +89,34 @@ describe('DashboardService', () => {
     cache.get.mockRejectedValue(new Error('Redis unavailable'));
     repository.findSummary.mockResolvedValue(summary);
 
-    await expect(runInTenant(() => service.getSummary())).resolves.toEqual(
+    await expect(runInCompany(() => service.getSummary())).resolves.toEqual(
       summary,
     );
   });
 
   it('returns the repository summary when caching the result fails', async () => {
     cache.get.mockResolvedValue(null);
-    cache.getTenantDashboardGeneration.mockResolvedValue(0);
-    cache.setTenantDashboardIfGeneration.mockRejectedValue(
+    cache.getCompanyDashboardGeneration.mockResolvedValue(0);
+    cache.setCompanyDashboardIfGeneration.mockRejectedValue(
       new Error('Redis unavailable'),
     );
     repository.findSummary.mockResolvedValue(summary);
 
-    await expect(runInTenant(() => service.getSummary())).resolves.toEqual(
+    await expect(runInCompany(() => service.getSummary())).resolves.toEqual(
       summary,
     );
   });
 
   it('does not cache a database result when the generation changed', async () => {
-    cache.getTenantDashboardGeneration.mockResolvedValue(2);
+    cache.getCompanyDashboardGeneration.mockResolvedValue(2);
     cache.get.mockResolvedValue(null);
     repository.findSummary.mockResolvedValue(summary);
-    cache.setTenantDashboardIfGeneration.mockResolvedValue(false);
+    cache.setCompanyDashboardIfGeneration.mockResolvedValue(false);
 
-    await expect(runInTenant(() => service.getSummary())).resolves.toEqual(
+    await expect(runInCompany(() => service.getSummary())).resolves.toEqual(
       summary,
     );
-    expect(cache.setTenantDashboardIfGeneration).toHaveBeenCalledWith(
+    expect(cache.setCompanyDashboardIfGeneration).toHaveBeenCalledWith(
       't1',
       2,
       summary,
@@ -125,26 +125,26 @@ describe('DashboardService', () => {
   });
 
   it('skips cache writes when generation state is unavailable', async () => {
-    cache.getTenantDashboardGeneration.mockResolvedValue(null);
+    cache.getCompanyDashboardGeneration.mockResolvedValue(null);
     cache.get.mockResolvedValue(null);
     repository.findSummary.mockResolvedValue(summary);
 
-    await expect(runInTenant(() => service.getSummary())).resolves.toEqual(
+    await expect(runInCompany(() => service.getSummary())).resolves.toEqual(
       summary,
     );
-    expect(cache.setTenantDashboardIfGeneration).not.toHaveBeenCalled();
+    expect(cache.setCompanyDashboardIfGeneration).not.toHaveBeenCalled();
   });
 
   it('falls back to the repository when generation reads fail', async () => {
-    cache.getTenantDashboardGeneration.mockRejectedValue(
+    cache.getCompanyDashboardGeneration.mockRejectedValue(
       new Error('Redis unavailable'),
     );
     cache.get.mockResolvedValue(null);
     repository.findSummary.mockResolvedValue(summary);
 
-    await expect(runInTenant(() => service.getSummary())).resolves.toEqual(
+    await expect(runInCompany(() => service.getSummary())).resolves.toEqual(
       summary,
     );
-    expect(cache.setTenantDashboardIfGeneration).not.toHaveBeenCalled();
+    expect(cache.setCompanyDashboardIfGeneration).not.toHaveBeenCalled();
   });
 });

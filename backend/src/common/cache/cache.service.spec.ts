@@ -74,15 +74,15 @@ describe('CacheService', () => {
   it('delegates invalidation to RedisService', async () => {
     redis.invalidate.mockResolvedValue(undefined);
 
-    await expect(cache.invalidate('tenant:*')).resolves.toBeUndefined();
+    await expect(cache.invalidate('company:*')).resolves.toBeUndefined();
 
-    expect(redis.invalidate).toHaveBeenCalledWith('tenant:*');
+    expect(redis.invalidate).toHaveBeenCalledWith('company:*');
   });
 
   it('does not throw when cache invalidation fails', async () => {
     redis.invalidate.mockRejectedValue(new Error('redis down'));
 
-    await expect(cache.invalidate('tenant:*')).resolves.toBeUndefined();
+    await expect(cache.invalidate('company:*')).resolves.toBeUndefined();
     expect(loggerError).toHaveBeenCalled();
   });
 
@@ -90,11 +90,11 @@ describe('CacheService', () => {
     redis.advanceDashboardGeneration.mockResolvedValue(1);
 
     await expect(
-      cache.invalidateTenantDashboard('tenant-1'),
+      cache.invalidateCompanyDashboard('tenant-1'),
     ).resolves.toBeUndefined();
 
     expect(redis.advanceDashboardGeneration).toHaveBeenCalledWith(
-      expect.stringContaining('tenant:tenant-1:dashboard:generation:v1'),
+      expect.stringContaining('company:tenant-1:dashboard:generation:v1'),
       dashboardSummaryKey('tenant-1'),
     );
   });
@@ -103,7 +103,7 @@ describe('CacheService', () => {
     redis.advanceDashboardGeneration.mockRejectedValue(new Error('redis down'));
 
     await expect(
-      cache.invalidateTenantDashboard('tenant-1'),
+      cache.invalidateCompanyDashboard('tenant-1'),
     ).resolves.toBeUndefined();
 
     expect(loggerError).toHaveBeenCalled();
@@ -112,7 +112,7 @@ describe('CacheService', () => {
   it('returns the current generation and defaults a missing generation to zero', async () => {
     redis.get.mockResolvedValue(null);
 
-    await expect(cache.getTenantDashboardGeneration('tenant-1')).resolves.toBe(
+    await expect(cache.getCompanyDashboardGeneration('tenant-1')).resolves.toBe(
       0,
     );
   });
@@ -121,11 +121,11 @@ describe('CacheService', () => {
     redis.setIfGenerationMatches.mockResolvedValue(true);
 
     await expect(
-      cache.setTenantDashboardIfGeneration('tenant-1', 2, { count: 1 }, 60),
+      cache.setCompanyDashboardIfGeneration('tenant-1', 2, { count: 1 }, 60),
     ).resolves.toBe(true);
 
     expect(redis.setIfGenerationMatches).toHaveBeenCalledWith(
-      expect.stringContaining('tenant:tenant-1:dashboard:generation:v1'),
+      expect.stringContaining('company:tenant-1:dashboard:generation:v1'),
       dashboardSummaryKey('tenant-1'),
       2,
       '{"count":1}',

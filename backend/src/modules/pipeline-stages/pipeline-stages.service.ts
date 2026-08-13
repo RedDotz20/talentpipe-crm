@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { CacheService } from '../../common/cache/cache.service';
-import { getTenantId } from '../../common/context/tenant-context';
+import { getCompanyId } from '../../common/context/company-context';
 import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
 import { CreatePipelineStageDto } from './dto/create-pipeline-stage.dto';
 import { UpdatePipelineStageDto } from './dto/update-pipeline-stage.dto';
@@ -27,7 +27,7 @@ export class PipelineStagesService {
       order: stages.length,
     });
     if (stage) {
-      await this.cacheService.invalidateTenantDashboard(getTenantId());
+      await this.cacheService.invalidateCompanyDashboard(getCompanyId());
     }
     return stage;
   }
@@ -37,7 +37,7 @@ export class PipelineStagesService {
     if (!stage) throw new NotFoundException('Pipeline stage not found');
     const updated = await this.pipelineStageRepo.update(id, dto);
     if (updated) {
-      await this.cacheService.invalidateTenantDashboard(getTenantId());
+      await this.cacheService.invalidateCompanyDashboard(getCompanyId());
     }
     return updated;
   }
@@ -53,7 +53,7 @@ export class PipelineStagesService {
       );
     }
     await this.pipelineStageRepo.delete(id);
-    await this.cacheService.invalidateTenantDashboard(getTenantId());
+    await this.cacheService.invalidateCompanyDashboard(getCompanyId());
     return { id };
   }
 }

@@ -1,8 +1,8 @@
-### 1. List job postings (OrgAdmin/Recruiter/HiringManager)
+### 1. List job postings (CompanyAdmin/Recruiter/HiringManager)
 GET {{baseUrl}}/job-postings?status=draft
 Authorization: Bearer {{accessToken}}
 
-### 2. Create job posting (OrgAdmin/Recruiter)
+### 2. Create job posting (CompanyAdmin/Recruiter)
 # @name createJobPosting
 POST {{baseUrl}}/job-postings
 Authorization: Bearer {{accessToken}}
@@ -24,7 +24,7 @@ Content-Type: application/json
 GET {{baseUrl}}/job-postings/{{jobPostingId}}
 Authorization: Bearer {{accessToken}}
 
-### 4. Update job posting (OrgAdmin/Recruiter)
+### 4. Update job posting (CompanyAdmin/Recruiter)
 PATCH {{baseUrl}}/job-postings/{{jobPostingId}}
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
@@ -41,6 +41,6 @@ Authorization: Bearer {{accessToken}}
 POST {{baseUrl}}/job-postings/{{jobPostingId}}/close
 Authorization: Bearer {{accessToken}}
 
-### 7. Delete posting (OrgAdmin only)
+### 7. Delete posting (CompanyAdmin only)
 DELETE {{baseUrl}}/job-postings/{{jobPostingId}}
 Authorization: Bearer {{accessToken}}

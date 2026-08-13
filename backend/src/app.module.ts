@@ -11,7 +11,7 @@ import { ResumesModule } from './modules/resumes/resumes.module';
 import { PipelineStagesModule } from './modules/pipeline-stages/pipeline-stages.module';
 import { PublicCareersModule } from './modules/public-careers/public-careers.module';
 import { HealthModule } from './modules/health/health.module';
-import { TenantContextInterceptor } from './common/interceptors/tenant-context.interceptor';
+import { CompanyContextInterceptor } from './common/interceptors/company-context.interceptor';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { RolesGuard } from './common/guards/roles.guard';
 import { ApiExceptionFilter } from './common/filters/api-exception.filter';
@@ -20,7 +20,7 @@ import { CacheModule } from './common/cache/cache.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { QueuesModule } from './queues/queues.module';
 import { InterviewsModule } from './modules/interviews/interviews.module';
-import { OrgModule } from './modules/org/org.module';
+import { CompanyModule } from './modules/company/company.module';
 import { PlatformModule } from './modules/platform/platform.module';
 
 @Module({
@@ -40,11 +40,11 @@ import { PlatformModule } from './modules/platform/platform.module';
     DashboardModule,
     QueuesModule,
     InterviewsModule,
-    OrgModule,
+    CompanyModule,
     PlatformModule,
   ],
   providers: [
-    { provide: APP_INTERCEPTOR, useClass: TenantContextInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: CompanyContextInterceptor },
     { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_FILTER, useClass: ApiExceptionFilter },

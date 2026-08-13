@@ -34,19 +34,19 @@ describe('RolesGuard', () => {
   });
 
   it('allows when req.user.role is in the allowed roles', async () => {
-    reflector.getAllAndOverride.mockReturnValue(['OrgAdmin']);
-    const ctx = makeContext({ user: { role: 'OrgAdmin' } });
+    reflector.getAllAndOverride.mockReturnValue(['CompanyAdmin']);
+    const ctx = makeContext({ user: { role: 'CompanyAdmin' } });
     await expect(guard.canActivate(ctx)).resolves.toBe(true);
   });
 
   it('denies when req.user.role is not in the allowed roles', async () => {
-    reflector.getAllAndOverride.mockReturnValue(['OrgAdmin']);
+    reflector.getAllAndOverride.mockReturnValue(['CompanyAdmin']);
     const ctx = makeContext({ user: { role: 'HiringManager' } });
     await expect(guard.canActivate(ctx)).resolves.toBe(false);
   });
 
   it('authenticates via JWT when req.user is missing (no strategy registered -> rejects)', async () => {
-    reflector.getAllAndOverride.mockReturnValue(['OrgAdmin']);
+    reflector.getAllAndOverride.mockReturnValue(['CompanyAdmin']);
     const ctx = makeContext({});
     await expect(guard.canActivate(ctx)).rejects.toThrow(
       'Unknown authentication strategy',

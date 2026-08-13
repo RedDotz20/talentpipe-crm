@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException } from '@nestjs/common';
 import { TokenService } from './token.service';
 import { RefreshTokenRepository } from '../../../repositories/refresh-token.repository';
-import { TenantRepository } from '../../../repositories/tenant.repository';
+import { CompanyRepository } from '../../../repositories/company.repository';
 import { UserRepository } from '../../../repositories/user.repository';
 
 jest.mock('argon2', () => ({
@@ -35,7 +35,7 @@ describe('TokenService', () => {
         { provide: JwtService, useValue: jwtService },
         { provide: ConfigService, useValue: configService },
         { provide: RefreshTokenRepository, useValue: refreshTokenRepo },
-        { provide: TenantRepository, useValue: tenantRepo },
+        { provide: CompanyRepository, useValue: tenantRepo },
         { provide: UserRepository, useValue: userRepo },
       ],
     }).compile();
@@ -50,36 +50,36 @@ describe('TokenService', () => {
     it('signs access + refresh, stores a hashed row, and returns both tokens', async () => {
       const result = await service.issueTokens({
         id: 'u1',
-        tenantId: 't1',
-        role: 'OrgAdmin',
+        companyId: 't1',
+        role: 'CompanyAdmin',
       });
 
       expect(result).toEqual({ accessToken: 'token', refreshToken: 'token' });
       expect(jwtService.sign).toHaveBeenCalledTimes(2);
       expect(jwtService.sign).toHaveBeenLastCalledWith(
-        { sub: 'u1', tenantId: 't1', role: 'OrgAdmin' },
+        { sub: 'u1', companyId: 't1', role: 'CompanyAdmin' },
         expect.objectContaining({ secret: 'refresh-secret' }),
       );
       expect(refreshTokenRepo.deleteByUser).toHaveBeenCalledWith('u1');
       expect(refreshTokenRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           userId: 'u1',
-          tenantId: 't1',
+          companyId: 't1',
           tokenHash: 'hashed-value',
           expiresAt: expect.any(Date) as Date,
         }),
       );
     });
 
-    it('maps a null tenantId to the nil uuid in the stored row', async () => {
+    it('maps a null companyId to the nil uuid in the stored row', async () => {
       await service.issueTokens({
         id: 'u1',
-        tenantId: null,
+        companyId: null,
         role: 'Candidate',
       });
       expect(refreshTokenRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          tenantId: '00000000-0000-0000-0000-000000000000',
+          companyId: '00000000-0000-0000-0000-000000000000',
         }),
       );
     });
@@ -89,7 +89,7 @@ describe('TokenService', () => {
     it('throws UnauthorizedException when no stored record exists', async () => {
       jwtService.verify.mockReturnValue({
         sub: 'u1',
-        tenantId: null,
+        companyId: null,
         role: 'Candidate',
       });
       refreshTokenRepo.findLatestByUser.mockResolvedValue(null);
@@ -101,8 +101,8 @@ describe('TokenService', () => {
     it('throws UnauthorizedException on an expired stored record', async () => {
       jwtService.verify.mockReturnValue({
         sub: 'u1',
-        tenantId: 't1',
-        role: 'OrgAdmin',
+        companyId: 't1',
+        role: 'CompanyAdmin',
       });
       refreshTokenRepo.findLatestByUser.mockResolvedValue({
         expiresAt: new Date(Date.now() - 1000),
@@ -117,8 +117,8 @@ describe('TokenService', () => {
     it('re-issues tokens for a valid stored record', async () => {
       jwtService.verify.mockReturnValue({
         sub: 'u1',
-        tenantId: 't1',
-        role: 'OrgAdmin',
+        companyId: 't1',
+        role: 'CompanyAdmin',
       });
       refreshTokenRepo.findLatestByUser.mockResolvedValue({
         expiresAt: new Date(Date.now() + 60_000),
@@ -133,8 +133,8 @@ describe('TokenService', () => {
     it('rejects rotation for a suspended tenant', async () => {
       jwtService.verify.mockReturnValue({
         sub: 'u1',
-        tenantId: 't1',
-        role: 'OrgAdmin',
+        companyId: 't1',
+        role: 'CompanyAdmin',
       });
       refreshTokenRepo.findLatestByUser.mockResolvedValue({
         expiresAt: new Date(Date.now() + 60_000),
@@ -149,8 +149,8 @@ describe('TokenService', () => {
     it('rejects rotation for a suspended user', async () => {
       jwtService.verify.mockReturnValue({
         sub: 'u1',
-        tenantId: 't1',
-        role: 'OrgAdmin',
+        companyId: 't1',
+        role: 'CompanyAdmin',
       });
       refreshTokenRepo.findLatestByUser.mockResolvedValue({
         expiresAt: new Date(Date.now() + 60_000),
@@ -170,7 +170,7 @@ describe('TokenService', () => {
     it('skips tenant and user checks for nil-tenant tokens', async () => {
       jwtService.verify.mockReturnValue({
         sub: 'u1',
-        tenantId: null,
+        companyId: null,
         role: 'Candidate',
       });
       refreshTokenRepo.findLatestByUser.mockResolvedValue({

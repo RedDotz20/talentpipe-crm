@@ -86,7 +86,9 @@ export class JobListingsIndexRepository extends BaseRepository {
         query.employmentType
           ? [eq(jobListingsIndex.employmentType, query.employmentType)]
           : [],
-        query.workSetup ? [eq(jobListingsIndex.workSetup, query.workSetup)] : [],
+        query.workSetup
+          ? [eq(jobListingsIndex.workSetup, query.workSetup)]
+          : [],
         toWhere(query, [jobListingsIndex.title]),
       );
       const sortOptions = {

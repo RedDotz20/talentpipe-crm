@@ -122,10 +122,10 @@ const signIn = async (
   request(httpServer()).post('/api/auth/signin').send({ email, password });
 
 const createTenant = async (suffix: string): Promise<CompanyAccount> => {
-  const email = `phase16-${suffix}-${runId}@example.test`;
-  const password = `Phase16Org!${randomUUID().slice(0, 18)}`;
-  const slug = `phase16-${suffix}-${runId}`;
-  const name = `Phase 16 ${suffix} ${runId}`;
+  const email = `phase17-${suffix}-${runId}@example.test`;
+  const password = `Phase17Org!${randomUUID().slice(0, 18)}`;
+  const slug = `phase17-${suffix}-${runId}`;
+  const name = `Phase 17 ${suffix} ${runId}`;
   const response = await request(httpServer())
     .post('/api/auth/company/signup')
     .send({
@@ -156,14 +156,14 @@ const createTenant = async (suffix: string): Promise<CompanyAccount> => {
 const createSuperAdmin = async (): Promise<CompanyAccount> => {
   const pool = cleanupPool;
   if (!pool) throw new Error('Cleanup PostgreSQL pool was not initialized');
-  const email = `phase16-superadmin-${runId}@example.test`;
-  const password = `Phase16Sa!${randomUUID().slice(0, 16)}`;
+  const email = `phase17-superadmin-${runId}@example.test`;
+  const password = `Phase17Sa!${randomUUID().slice(0, 16)}`;
   const userId = randomUUID();
   const passwordHash = (await argon2.hash(password)) as string;
   await pool.query(
     `INSERT INTO public.super_admins (id, email, password_hash, name)
      VALUES ($1, $2, $3, $4)`,
-    [userId, email, passwordHash, 'Phase 16 SuperAdmin'],
+    [userId, email, passwordHash, 'Phase 17 SuperAdmin'],
   );
   createdSuperAdminIds.push(userId);
 
@@ -176,7 +176,7 @@ const createSuperAdmin = async (): Promise<CompanyAccount> => {
     email,
     password,
     slug: 'public',
-    name: 'Phase 16 SuperAdmin',
+    name: 'Phase 17 SuperAdmin',
   };
 };
 
@@ -190,15 +190,15 @@ const superAdminToken = (): string => {
 const createPlatformCandidate = async (
   suffix: string,
 ): Promise<{ id: string; email: string; password: string }> => {
-  const email = `phase16-cand-${suffix}-${runId}@example.test`;
-  const password = `Phase16Cd!${randomUUID().slice(0, 16)}`;
+  const email = `phase17-cand-${suffix}-${runId}@example.test`;
+  const password = `Phase17Cd!${randomUUID().slice(0, 16)}`;
   const created = await request(httpServer())
     .post('/api/platform/candidates')
     .set('Authorization', `Bearer ${superAdminToken()}`)
     .send({
       email,
       password,
-      firstName: `Phase16 ${suffix}`,
+      firstName: `Phase17 ${suffix}`,
       lastName: 'Candidate',
     });
   const candidate = assertEnvelope<{ id: string; email: string }>(created, 201);
@@ -216,7 +216,7 @@ const createPlatformJob = async (
     .send({
       companyId,
       title,
-      description: 'Phase 16 description',
+      description: 'Phase 17 description',
       employmentType: 'full-time',
       location: 'Makati City',
       workSetup: 'hybrid',
@@ -235,12 +235,32 @@ const applyToJob = async (
   candidateToken: string,
   companyId: string,
   jobId: string,
-): Promise<void> => {
+): Promise<string> => {
   const response = await request(httpServer())
     .post(`/api/candidate/jobs/${companyId}/${jobId}/apply`)
     .set('Authorization', `Bearer ${candidateToken}`)
     .send({});
-  assertStatus(response, 201);
+  return assertEnvelope<{ applicationId: string }>(response, 201).applicationId;
+};
+
+const moveApplicationToRejected = async (
+  companyToken: string,
+  applicationId: string,
+  companyId: string,
+): Promise<void> => {
+  const pool = cleanupPool;
+  if (!pool) throw new Error('Cleanup PostgreSQL pool was not initialized');
+  const { rows } = await pool.query<{ id: string }>(
+    `SELECT id FROM "company_${companyId}".pipeline_stages WHERE name = 'Rejected'`,
+  );
+  const rejectedStageId = rows[0]?.id;
+  if (!rejectedStageId)
+    throw new Error('Seeded Rejected stage was not found in the schema');
+  const response = await request(httpServer())
+    .patch(`/api/applications/${applicationId}/stage`)
+    .set('Authorization', `Bearer ${companyToken}`)
+    .send({ stageId: rejectedStageId });
+  assertStatus(response, 200);
 };
 
 const cleanupDatabase = async (): Promise<void> => {
@@ -318,6 +338,223 @@ const cleanupDatabase = async (): Promise<void> => {
   }
 };
 
+describe('Phase 17 release gate', () => {
+  jest.setTimeout(30000);
+  let superAdmin: CompanyAccount;
+  let tenantA: CompanyAccount;
+  let tenantB: CompanyAccount;
+  let candidate: { id: string; email: string; password: string };
+  let candidateToken = '';
+  let jobA1: PlatformJob;
+  let jobA2: PlatformJob;
+  let baseline: Record<string, unknown>;
+
+  beforeAll(async () => {
+    await verifyInfrastructure();
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+    app = moduleFixture.createNestApplication<INestApplication<Server>>();
+    app.setGlobalPrefix('api');
+    await app.init();
+
+    superAdmin = await createSuperAdmin();
+    superAdminTokenValue = superAdmin.token;
+    const baselineResponse = await request(httpServer())
+      .get('/api/platform/dashboard')
+      .set('Authorization', `Bearer ${superAdminToken()}`);
+    baseline = assertEnvelope<Record<string, unknown>>(baselineResponse, 200);
+    tenantA = await createTenant('a');
+    tenantB = await createTenant('b');
+
+    jobA1 = await createPlatformJob(
+      tenantA.companyId,
+      `Phase17 Backend Engineer ${runId}`,
+    );
+    await publishJob(jobA1.id);
+    jobA2 = await createPlatformJob(
+      tenantA.companyId,
+      `Phase17 Frontend Engineer ${runId}`,
+    );
+
+    candidate = await createPlatformCandidate('main');
+    const signin = await signIn(candidate.email, candidate.password);
+    candidateToken = assertEnvelope<Tokens>(signin, 200).accessToken;
+
+    const applicationId = await applyToJob(
+      candidateToken,
+      tenantA.companyId,
+      jobA1.id,
+    );
+    await moveApplicationToRejected(
+      tenantA.token,
+      applicationId,
+      tenantA.companyId,
+    );
+    await request(httpServer())
+      .patch(`/api/platform/companies/${tenantB.companyId}/suspend`)
+      .set('Authorization', `Bearer ${superAdminToken()}`);
+  });
+
+  afterAll(async () => {
+    try {
+      await cleanupDatabase();
+      await cleanupRedisKeys('bull:notifications:*');
+      await cleanupRedisKeys('limiter:*');
+    } finally {
+      if (app) await app.close();
+      if (cleanupRedis) await cleanupRedis.quit();
+      if (cleanupPool) await cleanupPool.end();
+    }
+  });
+
+  describe('platform dashboard', () => {
+    it('returns tenant aggregates with bucketed company growth', async () => {
+      const response = await request(httpServer())
+        .get('/api/platform/dashboard')
+        .set('Authorization', `Bearer ${superAdminToken()}`);
+      const dashboard = assertEnvelope<Record<string, unknown>>(response, 200);
+
+      expect(dashboard.companies).toBe((baseline.companies as number) + 2);
+      expect(dashboard.activeCompanies).toBe(
+        (baseline.activeCompanies as number) + 1,
+      );
+      expect(dashboard.suspendedCompanies).toBe(
+        (baseline.suspendedCompanies as number) + 1,
+      );
+      expect(dashboard.applications).toBe(
+        (baseline.applications as number) + 1,
+      );
+      expect(dashboard.jobs).toBe((baseline.jobs as number) + 2);
+      expect(dashboard.users).toBe((baseline.users as number) + 2);
+
+      const overTime = dashboard.companiesOverTime as Record<
+        string,
+        Array<{ label: string; count: number }>
+      >;
+      expect(overTime.day).toHaveLength(30);
+      expect(overTime.week).toHaveLength(12);
+      expect(overTime.month).toHaveLength(12);
+      const baselineOverTime = baseline.companiesOverTime as Record<
+        string,
+        Array<{ label: string; count: number }>
+      >;
+      expect(overTime.day.at(-1)?.count).toBe(
+        (baselineOverTime.day.at(-1)?.count ?? 0) + 2,
+      );
+
+      const applicationsPerCompany = dashboard.applicationsPerCompany as Array<{
+        companyName: string;
+        count: number;
+      }>;
+      expect(
+        applicationsPerCompany.filter(
+          (row) => row.companyName === tenantA.name,
+        ),
+      ).toEqual([{ companyName: tenantA.name, count: 1 }]);
+
+      const usersPerCompany = dashboard.usersPerCompany as Array<{
+        companyName: string;
+        count: number;
+      }>;
+      expect(usersPerCompany).toEqual(
+        expect.arrayContaining([
+          { companyName: tenantA.name, count: 1 },
+          { companyName: tenantB.name, count: 1 },
+        ]),
+      );
+
+      const jobsByStatusPerCompany = dashboard.jobsByStatusPerCompany as Array<{
+        companyName: string;
+        draft: number;
+        open: number;
+        closed: number;
+      }>;
+      expect(
+        jobsByStatusPerCompany.filter(
+          (row) => row.companyName === tenantA.name,
+        ),
+      ).toEqual([{ companyName: tenantA.name, draft: 1, open: 1, closed: 0 }]);
+    });
+
+    it('rejects non-SuperAdmin roles', async () => {
+      const response = await request(httpServer())
+        .get('/api/platform/dashboard')
+        .set('Authorization', `Bearer ${tenantA.token}`);
+      assertStatus(response, 403);
+    });
+  });
+
+  describe('company dashboard summary', () => {
+    it('returns chart-ready aggregates for the current company', async () => {
+      const response = await request(httpServer())
+        .get('/api/dashboard/summary')
+        .set('Authorization', `Bearer ${tenantA.token}`);
+      const summary = assertEnvelope<Record<string, unknown>>(response, 200);
+
+      expect(summary.totalApplications).toBe(1);
+      expect(summary.totalCandidates).toBe(1);
+      expect(summary.openJobPostings).toBe(1);
+
+      const overTime = summary.applicationsOverTime as Record<
+        string,
+        Array<{ label: string; count: number }>
+      >;
+      expect(overTime.day).toHaveLength(30);
+      expect(overTime.week).toHaveLength(12);
+      expect(overTime.month).toHaveLength(12);
+      expect(overTime.day.at(-1)?.count).toBe(1);
+
+      const topJobs = summary.topJobsByApplications as Array<{
+        title: string;
+        count: number;
+      }>;
+      expect(topJobs).toEqual([{ title: jobA1.title, count: 1 }]);
+      expect(topJobs).not.toContainEqual(
+        expect.objectContaining({ title: jobA2.title }),
+      );
+
+      const jobsByStatus = summary.jobsByStatus as Array<{
+        status: string;
+        count: number;
+      }>;
+      expect(jobsByStatus).toContainEqual({ status: 'draft', count: 1 });
+      expect(jobsByStatus).toContainEqual({ status: 'open', count: 1 });
+
+      const jobsByEmploymentType = summary.jobsByEmploymentType as Array<{
+        type: string;
+        count: number;
+      }>;
+      expect(jobsByEmploymentType).toContainEqual({
+        type: 'full-time',
+        count: 2,
+      });
+
+      const interviewBreakdown = summary.interviewStatusBreakdown as Array<{
+        status: string;
+        count: number;
+      }>;
+      expect(interviewBreakdown).toEqual([]);
+
+      const rejection = summary.rejection as {
+        rejected: number;
+        total: number;
+      };
+      expect(rejection).toEqual({ rejected: 1, total: 1 });
+
+      const byStage = summary.applicationsByStage as Array<{
+        stageName: string;
+        count: number;
+      }>;
+      expect(byStage).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ stageName: 'Rejected', count: 1 }),
+        ]),
+      );
+    });
+  });
+});
+
 const cleanupRedisKeys = async (pattern: string): Promise<void> => {
   if (!cleanupRedis) return;
   let cursor = '0';
@@ -333,122 +570,3 @@ const cleanupRedisKeys = async (pattern: string): Promise<void> => {
     cursor = nextCursor;
   } while (cursor !== '0');
 };
-
-describe('Phase 16 release gate', () => {
-  jest.setTimeout(30000);
-  let superAdmin: CompanyAccount;
-  let tenantA: CompanyAccount;
-  let tenantB: CompanyAccount;
-  let candidate: { id: string; email: string; password: string };
-  let candidateToken = '';
-  let jobA1: PlatformJob;
-  let jobA2: PlatformJob;
-
-  beforeAll(async () => {
-    await verifyInfrastructure();
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-    app = moduleFixture.createNestApplication<INestApplication<Server>>();
-    app.setGlobalPrefix('api');
-    await app.init();
-
-    superAdmin = await createSuperAdmin();
-    superAdminTokenValue = superAdmin.token;
-    tenantA = await createTenant('a');
-    tenantB = await createTenant('b');
-
-    jobA1 = await createPlatformJob(
-      tenantA.companyId,
-      `Phase16 Backend Engineer ${runId}`,
-    );
-    await publishJob(jobA1.id);
-    jobA2 = await createPlatformJob(
-      tenantA.companyId,
-      `Phase16 Frontend Engineer ${runId}`,
-    );
-
-    candidate = await createPlatformCandidate('main');
-    const signin = await signIn(candidate.email, candidate.password);
-    candidateToken = assertEnvelope<Tokens>(signin, 200).accessToken;
-
-    await applyToJob(candidateToken, tenantA.companyId, jobA1.id);
-  });
-
-  afterAll(async () => {
-    try {
-      await cleanupDatabase();
-      await cleanupRedisKeys('bull:notifications:*');
-      await cleanupRedisKeys('limiter:*');
-    } finally {
-      if (app) await app.close();
-      if (cleanupRedis) await cleanupRedis.quit();
-      if (cleanupPool) await cleanupPool.end();
-    }
-  });
-
-  describe('company users export', () => {
-    it('downloads a CSV with BOM, header, and the current user rows', async () => {
-      const response = await request(httpServer())
-        .get('/api/company/users/export')
-        .set('Authorization', `Bearer ${tenantA.token}`);
-      assertStatus(response, 200);
-      expect(response.headers['content-type']).toContain('text/csv');
-      expect(response.headers['content-disposition']).toContain('attachment');
-      expect(response.headers['content-disposition']).toMatch(
-        /company-users-\d{4}-\d{2}-\d{2}\.csv/,
-      );
-      const body = response.text;
-      expect(body.startsWith('\uFEFF')).toBe(true);
-      expect(body).toContain('email,role,status,createdAt');
-      expect(body).toContain(tenantA.email);
-    });
-  });
-
-  describe('company job-postings export', () => {
-    it('respects the status filter', async () => {
-      const response = await request(httpServer())
-        .get('/api/job-postings/export')
-        .query({ status: 'open' })
-        .set('Authorization', `Bearer ${tenantA.token}`);
-      assertStatus(response, 200);
-      const body = response.text;
-      expect(body).toContain('title,status,createdAt');
-      expect(body).toContain(jobA1.title);
-      expect(body).not.toContain(jobA2.title);
-    });
-  });
-
-  describe('platform users export', () => {
-    it('is scoped by company filter', async () => {
-      const response = await request(httpServer())
-        .get('/api/platform/users/export')
-        .query({ type: 'company', companyId: tenantA.companyId })
-        .set('Authorization', `Bearer ${superAdminToken()}`);
-      assertStatus(response, 200);
-      const body = response.text;
-      expect(body).toContain('name,email,type,company,role,status,createdAt');
-      expect(body).toContain(tenantA.email);
-      expect(body).not.toContain(tenantB.email);
-      expect(body).not.toContain(candidate.email);
-    });
-  });
-
-  describe('platform companies export', () => {
-    it('matches the search filter', async () => {
-      const response = await request(httpServer())
-        .get('/api/platform/companies/export')
-        .query({ search: runId })
-        .set('Authorization', `Bearer ${superAdminToken()}`);
-      assertStatus(response, 200);
-      const body = response.text;
-      expect(body).toContain('name,slug,plan,status,createdAt');
-      expect(body).toContain(tenantA.name);
-      expect(body).toContain(tenantB.name);
-      const dataLines = body
-        .split('\r\n')
-        .filter((line) => line.includes(runId));
-      expect(dataLines).toHaveLength(2);
-    });
-  });
-});

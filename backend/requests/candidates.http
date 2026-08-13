@@ -1,8 +1,8 @@
-### 1. List candidates (OrgAdmin/Recruiter/HiringManager)
+### 1. List candidates (CompanyAdmin/Recruiter/HiringManager)
 GET {{baseUrl}}/candidates
 Authorization: Bearer {{accessToken}}
 
-### 2. Create candidate (OrgAdmin/Recruiter)
+### 2. Create candidate (CompanyAdmin/Recruiter)
 # @name createCandidate
 POST {{baseUrl}}/candidates
 Authorization: Bearer {{accessToken}}

@@ -32,7 +32,7 @@ describe('NotificationWorkerService', () => {
 
   it('delivers a stage-change notification to the audit log', async () => {
     const data: StageChangeNotificationPayload = {
-      tenantId: 'tenant-a',
+      companyId: 'tenant-a',
       actorUserId: 'u1',
       applicationId: 'a1',
       jobPostingId: 'j1',
@@ -48,7 +48,7 @@ describe('NotificationWorkerService', () => {
     await service.process(job);
 
     expect(auditLogRepo.create).toHaveBeenCalledWith({
-      tenantId: 'tenant-a',
+      companyId: 'tenant-a',
       userId: 'u1',
       action: 'notification.stage_change',
       resourceId: 'a1',

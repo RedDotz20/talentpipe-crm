@@ -14,7 +14,7 @@ import { sql } from 'drizzle-orm';
 
 // ── Public Schema Tables ──
 
-export const tenants = pgTable('tenants', {
+export const companies = pgTable('companies', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: varchar('name', { length: 255 }).notNull(),
   slug: varchar('slug', { length: 100 }).notNull().unique(),
@@ -33,7 +33,7 @@ export const auditLogs = pgTable(
   'audit_logs',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    tenantId: varchar('tenant_id', { length: 36 }).notNull(),
+    companyId: varchar('company_id', { length: 36 }).notNull(),
     userId: varchar('user_id', { length: 36 }).notNull(),
     action: varchar('action', { length: 100 }).notNull(),
     resourceId: varchar('resource_id', { length: 36 }),
@@ -41,8 +41,8 @@ export const auditLogs = pgTable(
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({
-    tenantActionIdx: index('idx_audit_logs_tenant_action').on(
-      table.tenantId,
+    companyActionIdx: index('idx_audit_logs_company_action').on(
+      table.companyId,
       table.action,
     ),
   }),
@@ -51,7 +51,7 @@ export const auditLogs = pgTable(
 export const userEmails = pgTable('user_emails', {
   id: uuid('id').defaultRandom().primaryKey(),
   email: varchar('email', { length: 255 }).notNull().unique(),
-  tenantId: uuid('tenant_id').notNull(),
+  companyId: uuid('company_id').notNull(),
   userId: uuid('user_id').notNull(),
 });
 
@@ -60,7 +60,7 @@ export const refreshTokens = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     userId: uuid('user_id').notNull(),
-    tenantId: uuid('tenant_id').notNull(),
+    companyId: uuid('company_id').notNull(),
     tokenHash: varchar('token_hash', { length: 255 }).notNull(),
     expiresAt: timestamp('expires_at').notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -78,13 +78,13 @@ export const superAdmins = pgTable('super_admins', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
-// ── Tenant Schema Tables (recreated per tenant) ──
+// ── Company Schema Tables (recreated per company) ──
 
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
   email: varchar('email', { length: 255 }).notNull().unique(),
   passwordHash: varchar('password_hash', { length: 255 }).notNull(),
-  role: varchar('role', { length: 50 }).default('OrgAdmin').notNull(),
+  role: varchar('role', { length: 50 }).default('CompanyAdmin').notNull(),
   status: varchar('status', { length: 20 }).default('active').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
@@ -93,6 +93,9 @@ export const jobPostings = pgTable('job_postings', {
   id: uuid('id').defaultRandom().primaryKey(),
   title: varchar('title', { length: 255 }).notNull(),
   description: text('description'),
+  employmentType: varchar('employment_type', { length: 30 }),
+  location: varchar('location', { length: 150 }),
+  workSetup: varchar('work_setup', { length: 30 }),
   status: varchar('status', { length: 50 }).default('draft').notNull(),
   createdByUserId: uuid('created_by_user_id').references(() => users.id),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -268,7 +271,7 @@ export const candidateBookmarks = pgTable(
     candidateAccountId: uuid('candidate_account_id')
       .notNull()
       .references(() => candidateAccounts.id),
-    tenantId: varchar('tenant_id', { length: 36 }).notNull(),
+    companyId: varchar('company_id', { length: 36 }).notNull(),
     jobPostingId: uuid('job_posting_id').notNull(),
     jobTitle: varchar('job_title', { length: 255 }).notNull(),
     companyName: varchar('company_name', { length: 255 }).notNull(),
@@ -278,8 +281,8 @@ export const candidateBookmarks = pgTable(
     accountIdx: index('idx_candidate_bookmarks_account').on(
       table.candidateAccountId,
     ),
-    tenantJobIdx: index('idx_candidate_bookmarks_tenant_job').on(
-      table.tenantId,
+    companyJobIdx: index('idx_candidate_bookmarks_company_job').on(
+      table.companyId,
       table.jobPostingId,
     ),
   }),
@@ -292,7 +295,7 @@ export const candidateApplicationsIndex = pgTable(
     candidateAccountId: uuid('candidate_account_id')
       .notNull()
       .references(() => candidateAccounts.id),
-    tenantId: varchar('tenant_id', { length: 36 }).notNull(),
+    companyId: varchar('company_id', { length: 36 }).notNull(),
     jobPostingId: uuid('job_posting_id').notNull(),
     applicationId: uuid('application_id').notNull(),
     jobTitle: varchar('job_title', { length: 255 }).notNull(),
@@ -304,13 +307,13 @@ export const candidateApplicationsIndex = pgTable(
     accountIdx: index('idx_candidate_applications_account').on(
       table.candidateAccountId,
     ),
-    tenantJobIdx: index('idx_candidate_applications_tenant_job').on(
-      table.tenantId,
+    companyJobIdx: index('idx_candidate_applications_company_job').on(
+      table.companyId,
       table.jobPostingId,
     ),
     uniqueCandidateApplication: uniqueIndex('unique_candidate_application').on(
       table.candidateAccountId,
-      table.tenantId,
+      table.companyId,
       table.jobPostingId,
     ),
   }),
@@ -320,10 +323,13 @@ export const jobListingsIndex = pgTable(
   'job_listings_index',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    tenantId: varchar('tenant_id', { length: 36 }).notNull(),
+    companyId: varchar('company_id', { length: 36 }).notNull(),
     jobPostingId: uuid('job_posting_id').notNull().unique(),
     title: varchar('title', { length: 255 }).notNull(),
     description: text('description'),
+    employmentType: varchar('employment_type', { length: 30 }),
+    location: varchar('location', { length: 150 }),
+    workSetup: varchar('work_setup', { length: 30 }),
     companyName: varchar('company_name', { length: 255 }).notNull(),
     companySlug: varchar('company_slug', { length: 100 }).notNull(),
     status: varchar('status', { length: 50 }).notNull(),
@@ -332,7 +338,9 @@ export const jobListingsIndex = pgTable(
   },
   (table) => ({
     statusIdx: index('idx_job_listings_status').on(table.status),
-    companyIdx: index('idx_job_listings_company').on(table.companyName),
-    tenantIdx: index('idx_job_listings_tenant').on(table.tenantId),
+    companyNameIdx: index('idx_job_listings_company_name').on(
+      table.companyName,
+    ),
+    companyIdx: index('idx_job_listings_company').on(table.companyId),
   }),
 );

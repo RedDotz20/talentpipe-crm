@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CacheService } from '../../common/cache/cache.service';
 import { dashboardSummaryKey } from '../../common/cache/cache.constants';
-import { getTenantId } from '../../common/context/tenant-context';
+import { getCompanyId } from '../../common/context/company-context';
 import {
   DashboardRepository,
   DashboardSummary,
@@ -17,28 +17,28 @@ export class DashboardService {
   ) {}
 
   async getSummary(): Promise<DashboardSummary> {
-    const tenantId = getTenantId();
+    const companyId = getCompanyId();
     let generation: number | null = null;
     try {
-      generation = await this.cache.getTenantDashboardGeneration(tenantId);
+      generation = await this.cache.getCompanyDashboardGeneration(companyId);
     } catch {
-      // A cache outage must not prevent the tenant dashboard from loading.
+      // A cache outage must not prevent the company dashboard from loading.
     }
-    const key = dashboardSummaryKey(tenantId);
+    const key = dashboardSummaryKey(companyId);
 
     let cached: DashboardSummary | null = null;
     try {
       cached = await this.cache.get<DashboardSummary>(key);
     } catch {
-      // A cache outage must not prevent the tenant dashboard from loading.
+      // A cache outage must not prevent the company dashboard from loading.
     }
     if (cached) return cached;
 
     const summary = await this.dashboardRepo.findSummary();
     if (generation !== null) {
       try {
-        await this.cache.setTenantDashboardIfGeneration(
-          tenantId,
+        await this.cache.setCompanyDashboardIfGeneration(
+          companyId,
           generation,
           summary,
           SUMMARY_TTL_SECONDS,

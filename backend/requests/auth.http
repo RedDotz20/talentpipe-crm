@@ -1,13 +1,13 @@
-### 1. Org signup — creates company + tenant, returns tokens (OrgAdmin)
-# @name orgSignup
-POST {{baseUrl}}/auth/org/signup
+### 1. Company signup — creates company + schema, returns tokens (CompanyAdmin)
+# @name companySignup
+POST {{baseUrl}}/auth/company/signup
 Content-Type: application/json
 
 {
   "companyName": "{{companyName}}",
   "slug": "{{slug}}",
-  "email": "{{orgEmail}}",
-  "password": "{{orgPassword}}"
+  "email": "{{companyEmail}}",
+  "password": "{{companyPassword}}"
 }
 
 > {%
@@ -15,14 +15,14 @@ Content-Type: application/json
     client.global.set("refreshToken", response.body.data.refreshToken);
 %}
 
-### 2. Sign in (OrgAdmin / Recruiter / HiringManager / Candidate / SuperAdmin)
-# @name orgSignin
+### 2. Sign in (CompanyAdmin / Recruiter / HiringManager / Candidate / SuperAdmin)
+# @name companySignin
 POST {{baseUrl}}/auth/signin
 Content-Type: application/json
 
 {
-  "email": "{{orgEmail}}",
-  "password": "{{orgPassword}}"
+  "email": "{{companyEmail}}",
+  "password": "{{companyPassword}}"
 }
 
 > {%

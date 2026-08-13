@@ -6,8 +6,8 @@ import {
 } from '@nestjs/common';
 import { hashPassword, verifyPassword } from '../../common/password';
 import { TokenService } from './services/token.service';
-import { TenantProvisioningService } from './services/tenant-provisioning.service';
-import { OrgSignupDto } from './dto/org-signup.dto';
+import { CompanyProvisioningService } from './services/company-provisioning.service';
+import { CompanySignupDto } from './dto/company-signup.dto';
 import { SigninDto } from './dto/signin.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { CandidateSignupDto } from './dto/candidate-auth.dto';
@@ -15,27 +15,27 @@ import { UserEmailRepository } from '../../repositories/user-email.repository';
 import { UserRepository } from '../../repositories/user.repository';
 import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
 import { SuperAdminRepository } from '../../repositories/super-admin.repository';
-import { TenantRepository } from '../../repositories/tenant.repository';
+import { CompanyRepository } from '../../repositories/company.repository';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private tenantProvisioning: TenantProvisioningService,
+    private tenantProvisioning: CompanyProvisioningService,
     private tokenService: TokenService,
     private userEmailRepo: UserEmailRepository,
     private userRepo: UserRepository,
     private candidateAccountRepo: CandidateAccountRepository,
     private superAdminRepo: SuperAdminRepository,
-    private tenantRepo: TenantRepository,
+    private tenantRepo: CompanyRepository,
   ) {}
 
-  async orgSignup(dto: OrgSignupDto) {
-    const { tenantId, userId } =
+  async companySignup(dto: CompanySignupDto) {
+    const { companyId, userId } =
       await this.tenantProvisioning.createTenant(dto);
     const tokens = await this.tokenService.issueTokens({
       id: userId,
-      tenantId,
-      role: 'OrgAdmin',
+      companyId,
+      role: 'CompanyAdmin',
     });
     return { data: tokens, message: 'Company created' };
   }
@@ -45,13 +45,13 @@ export class AuthService {
     if (emailRecord) {
       const user = await this.userRepo.findByEmail(
         dto.email,
-        `tenant_${emailRecord.tenantId}`,
+        `company_${emailRecord.companyId}`,
       );
       if (!user) throw new UnauthorizedException('Invalid credentials');
       const valid = await verifyPassword(user.passwordHash, dto.password);
       if (!valid) throw new UnauthorizedException('Invalid credentials');
 
-      const tenant = await this.tenantRepo.findById(emailRecord.tenantId);
+      const tenant = await this.tenantRepo.findById(emailRecord.companyId);
       if (tenant?.status === 'suspended') {
         throw new ForbiddenException('This company account is suspended');
       }
@@ -62,7 +62,7 @@ export class AuthService {
 
       const tokens = await this.tokenService.issueTokens({
         id: user.id,
-        tenantId: emailRecord.tenantId,
+        companyId: emailRecord.companyId,
         role: user.role,
       });
       return { data: tokens, message: 'Signed in' };
@@ -75,7 +75,7 @@ export class AuthService {
 
       const tokens = await this.tokenService.issueTokens({
         id: account.id,
-        tenantId: null,
+        companyId: null,
         role: 'Candidate',
       });
       return { data: tokens, message: 'Signed in' };
@@ -88,7 +88,7 @@ export class AuthService {
 
     const tokens = await this.tokenService.issueTokens({
       id: admin.id,
-      tenantId: null,
+      companyId: null,
       role: 'SuperAdmin',
     });
     return { data: tokens, message: 'Signed in' };
@@ -97,8 +97,8 @@ export class AuthService {
   async candidateSignup(dto: CandidateSignupDto) {
     const existing = await this.candidateAccountRepo.findByEmail(dto.email);
     if (existing) throw new ConflictException('Email already taken');
-    const orgOwner = await this.userEmailRepo.findByEmail(dto.email);
-    if (orgOwner) throw new ConflictException('Email already taken');
+    const companyOwner = await this.userEmailRepo.findByEmail(dto.email);
+    if (companyOwner) throw new ConflictException('Email already taken');
 
     const passwordHash = await hashPassword(dto.password);
     const account = await this.candidateAccountRepo.create({
@@ -111,7 +111,7 @@ export class AuthService {
 
     const tokens = await this.tokenService.issueTokens({
       id: account.id,
-      tenantId: null,
+      companyId: null,
       role: 'Candidate',
     });
     return { data: tokens, message: 'Account created' };

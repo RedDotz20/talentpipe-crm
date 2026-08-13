@@ -1,21 +1,21 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { getTenantId } from '../../common/context/tenant-context';
-import { TenantRepository } from '../../repositories/tenant.repository';
+import { getCompanyId } from '../../common/context/company-context';
+import { CompanyRepository } from '../../repositories/company.repository';
 import { JobPostingRepository } from '../../repositories/job-posting.repository';
 import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
-import { UpdateOrgDto } from './dto/update-org.dto';
+import { UpdateCompanyDto } from './dto/update-company.dto';
 
 @Injectable()
-export class OrgService {
+export class CompanyService {
   constructor(
-    private readonly tenantRepo: TenantRepository,
+    private readonly tenantRepo: CompanyRepository,
     private readonly jobPostingRepo: JobPostingRepository,
     private readonly jobListingsIndexRepo: JobListingsIndexRepository,
   ) {}
 
   async getSettings() {
-    const tenant = await this.tenantRepo.findById(getTenantId());
-    if (!tenant) throw new NotFoundException('Tenant not found');
+    const tenant = await this.tenantRepo.findById(getCompanyId());
+    if (!tenant) throw new NotFoundException('Company not found');
     return {
       id: tenant.id,
       name: tenant.name,
@@ -25,14 +25,14 @@ export class OrgService {
     };
   }
 
-  async updateSettings(dto: UpdateOrgDto) {
-    const tenant = await this.tenantRepo.updateName(getTenantId(), dto.name);
-    if (!tenant) throw new NotFoundException('Tenant not found');
+  async updateSettings(dto: UpdateCompanyDto) {
+    const tenant = await this.tenantRepo.updateName(getCompanyId(), dto.name);
+    if (!tenant) throw new NotFoundException('Company not found');
     await this.resyncListings(tenant);
     return { id: tenant.id, name: tenant.name };
   }
 
-  private async resyncListings(tenant: {
+  private async resyncListings(company: {
     id: string;
     name: string;
     slug: string;
@@ -41,12 +41,15 @@ export class OrgService {
     for (const posting of postings) {
       if (posting.status === 'draft') continue;
       await this.jobListingsIndexRepo.upsert({
-        tenantId: tenant.id,
+        companyId: company.id,
         jobPostingId: posting.id,
         title: posting.title,
         description: posting.description ?? '',
-        companyName: tenant.name,
-        companySlug: tenant.slug,
+        employmentType: posting.employmentType ?? null,
+        location: posting.location ?? null,
+        workSetup: posting.workSetup ?? null,
+        companyName: company.name,
+        companySlug: company.slug,
         status: posting.status,
       });
     }

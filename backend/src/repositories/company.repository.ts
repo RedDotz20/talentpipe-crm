@@ -9,6 +9,7 @@ import {
   toPagination,
   toWhere,
 } from './list-query.helper';
+import { timeBucketedCounts } from './time-series.helper';
 import type { ListQueryDto } from '../common/dto/list-query.dto';
 
 const COMPANY_TABLES = [
@@ -40,6 +41,12 @@ export class CompanyRepository extends BaseRepository {
     return this.withDb('public', async (db) => {
       return db.select().from(companies).orderBy(companies.createdAt).execute();
     });
+  }
+
+  async findCompaniesOverTime() {
+    return this.withDb('public', (db) =>
+      timeBucketedCounts(db, 'companies', 'created_at'),
+    );
   }
 
   async findPaginated(query: ListQueryDto & { status?: string }) {

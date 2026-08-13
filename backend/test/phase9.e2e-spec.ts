@@ -465,12 +465,12 @@ describe('Phase 9 release gate', () => {
   });
 
   describe('user management', () => {
-    it('invites a user who can sign in, updates their role, and removes them', async () => {
+    it('creates an account who can sign in, updates their role, suspends/reactivates, and removes them', async () => {
       const email = `phase9-recruiter-${runId}@example.test`;
       const password = `Phase9Rc!${randomUUID().slice(0, 16)}`;
 
       const invited = await request(httpServer())
-        .post('/api/company/users/invite')
+        .post('/api/company/users')
         .set('Authorization', `Bearer ${tenant.token}`)
         .send({ email, role: 'Recruiter', password });
       const user = assertEnvelope<{ id: string; email: string; role: string }>(
@@ -480,12 +480,8 @@ describe('Phase 9 release gate', () => {
       createdOrgUserIds.push(user.id);
       expect(user.role).toBe('Recruiter');
 
-      const signin = await signIn(email, password);
-      const tokens = assertEnvelope<Tokens>(signin, 200);
-      recruiterToken = tokens.accessToken;
-
       const duplicate = await request(httpServer())
-        .post('/api/company/users/invite')
+        .post('/api/company/users')
         .set('Authorization', `Bearer ${tenant.token}`)
         .send({ email, role: 'Recruiter', password });
       assertStatus(duplicate, 409);
@@ -498,6 +494,38 @@ describe('Phase 9 release gate', () => {
         200,
       );
       expect(roleChanged.role).toBe('HiringManager');
+
+      assertEnvelope<{ status: string }>(
+        await request(httpServer())
+          .patch(`/api/company/users/${user.id}/suspend`)
+          .set('Authorization', `Bearer ${tenant.token}`),
+        200,
+      );
+      const suspendedSignin = await signIn(email, password);
+      assertStatus(suspendedSignin, 403);
+
+      assertEnvelope<{ status: string }>(
+        await request(httpServer())
+          .patch(`/api/company/users/${user.id}/reactivate`)
+          .set('Authorization', `Bearer ${tenant.token}`),
+        200,
+      );
+      const reactivatedSignin = await signIn(email, password);
+      const reactivatedTokens = assertEnvelope<Tokens>(reactivatedSignin, 200);
+      recruiterToken = reactivatedTokens.accessToken;
+
+      const newPassword = `Phase9New!${randomUUID().slice(0, 16)}`;
+      assertEnvelope<{ id: string; email: string }>(
+        await request(httpServer())
+          .patch(`/api/company/users/${user.id}/password`)
+          .set('Authorization', `Bearer ${tenant.token}`)
+          .send({ password: newPassword }),
+        200,
+      );
+      const oldPasswordSignin = await signIn(email, password);
+      assertStatus(oldPasswordSignin, 401);
+      const newPasswordSignin = await signIn(email, newPassword);
+      assertStatus(newPasswordSignin, 200);
 
       const list = await request(httpServer())
         .get('/api/company/users')
@@ -527,12 +555,18 @@ describe('Phase 9 release gate', () => {
         .expect(403);
 
       await request(httpServer())
+        .patch(`/api/company/users/${tenant.userId}/password`)
+        .set('Authorization', `Bearer ${tenant.token}`)
+        .send({ password: 'SelfReset123!' })
+        .expect(403);
+
+      await request(httpServer())
         .delete(`/api/company/users/${tenant.userId}`)
         .set('Authorization', `Bearer ${tenant.token}`)
         .expect(403);
 
       await request(httpServer())
-        .post('/api/company/users/invite')
+        .post('/api/company/users')
         .set('Authorization', `Bearer ${recruiterToken}`)
         .send({
           email: `phase9-nope-${runId}@example.test`,
@@ -571,7 +605,10 @@ describe('Phase 9 release gate', () => {
       const orgRows = (orgActions.rows as Array<{ action: string }>).map(
         (row) => row.action,
       );
-      expect(orgRows).toContain('user.invite');
+      expect(orgRows).toContain('user.create');
+      expect(orgRows).toContain('user.suspend');
+      expect(orgRows).toContain('user.reactivate');
+      expect(orgRows).toContain('user.password_reset');
       expect(orgRows).toContain('user.role_change');
       expect(orgRows).toContain('user.remove');
     });

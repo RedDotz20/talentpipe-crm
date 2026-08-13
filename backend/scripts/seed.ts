@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-const TENANT_TABLES = [
+const COMPANY_TABLES = [
   'users', 'job_postings', 'candidates', 'pipeline_stages',
   'applications', 'job_required_skills',
   'interviews', 'interview_feedbacks', 'notes',
@@ -44,23 +44,23 @@ async function seedSuperAdmin(client: any): Promise<void> {
   console.log('[OK] SuperAdmin created: superadmin@talentpipe.com');
 }
 
-async function seedOrg(client: any): Promise<void> {
+async function seedCompany(client: any): Promise<void> {
   const existing = await client.query(
-    `SELECT id FROM public.tenants WHERE slug = $1`,
+    `SELECT id FROM public.companies WHERE slug = $1`,
     ['acme-corp'],
   );
   if (existing.rows.length > 0) {
-    const tenantId = existing.rows[0].id;
+    const companyId = existing.rows[0].id;
     const passwordHash = await hash('Admin123!');
     await client.query(
-      `UPDATE "tenant_${tenantId}"."users" SET password_hash = $1 WHERE email = $2`,
+      `UPDATE "company_${companyId}"."users" SET password_hash = $1 WHERE email = $2`,
       [passwordHash, 'admin@acme.com'],
     );
     const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_MS).toISOString();
     const rawToken = randomUUID();
     const tokenHash = await hash(rawToken);
     const userResult = await client.query(
-      `SELECT id FROM "tenant_${tenantId}"."users" WHERE email = $1`,
+      `SELECT id FROM "company_${companyId}"."users" WHERE email = $1`,
       ['admin@acme.com'],
     );
     if (userResult.rows.length > 0) {
@@ -70,51 +70,51 @@ async function seedOrg(client: any): Promise<void> {
         [userId],
       );
       await client.query(
-        `INSERT INTO public.refresh_tokens (id, user_id, tenant_id, token_hash, expires_at)
+        `INSERT INTO public.refresh_tokens (id, user_id, company_id, token_hash, expires_at)
          VALUES ($1, $2, $3, $4, $5)`,
-        [randomUUID(), userId, tenantId, tokenHash, expiresAt],
+        [randomUUID(), userId, companyId, tokenHash, expiresAt],
       );
     }
-    console.log(`[UPDATE] Org admin password reset for Acme Corp (tenant: ${tenantId})`);
+    console.log(`[UPDATE] Company admin password reset for Acme Corp (company: ${companyId})`);
     return;
   }
 
-  const tenantId = randomUUID();
+  const companyId = randomUUID();
   const userId = randomUUID();
   const passwordHash = await hash('Admin123!');
 
   await client.query(
-    `INSERT INTO public.tenants (id, name, slug)
+    `INSERT INTO public.companies (id, name, slug)
      VALUES ($1, $2, $3)`,
-    [tenantId, 'Acme Corp', 'acme-corp'],
+    [companyId, 'Acme Corp', 'acme-corp'],
   );
 
-  await client.query(`CREATE SCHEMA IF NOT EXISTS "tenant_${tenantId}"`);
+  await client.query(`CREATE SCHEMA IF NOT EXISTS "company_${companyId}"`);
 
-  for (const table of TENANT_TABLES) {
+  for (const table of COMPANY_TABLES) {
     await client.query(
-      `CREATE TABLE IF NOT EXISTS "tenant_${tenantId}"."${table}" (LIKE template."${table}" INCLUDING ALL)`,
+      `CREATE TABLE IF NOT EXISTS "company_${companyId}"."${table}" (LIKE template."${table}" INCLUDING ALL)`,
     );
   }
 
   await client.query(
-    `INSERT INTO "tenant_${tenantId}"."users" (id, email, password_hash, role)
-     VALUES ($1, $2, $3, 'OrgAdmin')`,
+    `INSERT INTO "company_${companyId}"."users" (id, email, password_hash, role)
+     VALUES ($1, $2, $3, 'CompanyAdmin')`,
     [userId, 'admin@acme.com', passwordHash],
   );
 
   for (const stage of PIPELINE_STAGES) {
     await client.query(
-      `INSERT INTO "tenant_${tenantId}"."pipeline_stages" (id, name, "order")
+      `INSERT INTO "company_${companyId}"."pipeline_stages" (id, name, "order")
        VALUES ($1, $2, $3)`,
       [randomUUID(), stage.name, stage.order],
     );
   }
 
   await client.query(
-    `INSERT INTO public.user_emails (id, email, tenant_id, user_id)
+    `INSERT INTO public.user_emails (id, email, company_id, user_id)
      VALUES ($1, $2, $3, $4)`,
-    [randomUUID(), 'admin@acme.com', tenantId, userId],
+    [randomUUID(), 'admin@acme.com', companyId, userId],
   );
 
   const refreshTokenId = randomUUID();
@@ -122,26 +122,26 @@ async function seedOrg(client: any): Promise<void> {
   const tokenHash = await hash(rawToken);
   const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_MS).toISOString();
   await client.query(
-    `INSERT INTO public.refresh_tokens (id, user_id, tenant_id, token_hash, expires_at)
+    `INSERT INTO public.refresh_tokens (id, user_id, company_id, token_hash, expires_at)
      VALUES ($1, $2, $3, $4, $5)`,
-    [refreshTokenId, userId, tenantId, tokenHash, expiresAt],
+    [refreshTokenId, userId, companyId, tokenHash, expiresAt],
   );
 
-  console.log(`[OK] Org created: Acme Corp (admin@acme.com, tenant: ${tenantId})`);
+  console.log(`[OK] Company created: Acme Corp (admin@acme.com, tenant: ${companyId})`);
 }
 
 async function seedInterviewer(client: any): Promise<void> {
   const tenant = await client.query(
-    `SELECT id FROM public.tenants WHERE slug = $1`,
+    `SELECT id FROM public.companies WHERE slug = $1`,
     ['acme-corp'],
   );
   if (tenant.rows.length === 0) {
     console.log('[SKIP] Interviewer: no Acme tenant found');
     return;
   }
-  const tenantId = tenant.rows[0].id;
+  const companyId = tenant.rows[0].id;
   const existing = await client.query(
-    `SELECT id FROM "tenant_${tenantId}"."users" WHERE email = $1`,
+    `SELECT id FROM "company_${companyId}"."users" WHERE email = $1`,
     ['interviewer@acme.com'],
   );
   if (existing.rows.length > 0) {
@@ -151,30 +151,30 @@ async function seedInterviewer(client: any): Promise<void> {
   const userId = randomUUID();
   const passwordHash = await hash('Interviewer123!');
   await client.query(
-    `INSERT INTO "tenant_${tenantId}"."users" (id, email, password_hash, role)
+    `INSERT INTO "company_${companyId}"."users" (id, email, password_hash, role)
      VALUES ($1, $2, $3, 'Interviewer')`,
     [userId, 'interviewer@acme.com', passwordHash],
   );
   await client.query(
-    `INSERT INTO public.user_emails (id, email, tenant_id, user_id)
+    `INSERT INTO public.user_emails (id, email, company_id, user_id)
      VALUES ($1, $2, $3, $4)`,
-    [randomUUID(), 'interviewer@acme.com', tenantId, userId],
+    [randomUUID(), 'interviewer@acme.com', companyId, userId],
   );
   console.log('[OK] Interviewer created: interviewer@acme.com');
 }
 
 async function seedHiringManager(client: any): Promise<void> {
   const tenant = await client.query(
-    `SELECT id FROM public.tenants WHERE slug = $1`,
+    `SELECT id FROM public.companies WHERE slug = $1`,
     ['acme-corp'],
   );
   if (tenant.rows.length === 0) {
     console.log('[SKIP] Hiring Manager: no Acme tenant found');
     return;
   }
-  const tenantId = tenant.rows[0].id;
+  const companyId = tenant.rows[0].id;
   const existing = await client.query(
-    `SELECT id FROM "tenant_${tenantId}"."users" WHERE email = $1`,
+    `SELECT id FROM "company_${companyId}"."users" WHERE email = $1`,
     ['hiring.manager@acme.com'],
   );
   if (existing.rows.length > 0) {
@@ -184,30 +184,30 @@ async function seedHiringManager(client: any): Promise<void> {
   const userId = randomUUID();
   const passwordHash = await hash('HiringManager123!');
   await client.query(
-    `INSERT INTO "tenant_${tenantId}"."users" (id, email, password_hash, role)
+    `INSERT INTO "company_${companyId}"."users" (id, email, password_hash, role)
      VALUES ($1, $2, $3, 'HiringManager')`,
     [userId, 'hiring.manager@acme.com', passwordHash],
   );
   await client.query(
-    `INSERT INTO public.user_emails (id, email, tenant_id, user_id)
+    `INSERT INTO public.user_emails (id, email, company_id, user_id)
      VALUES ($1, $2, $3, $4)`,
-    [randomUUID(), 'hiring.manager@acme.com', tenantId, userId],
+    [randomUUID(), 'hiring.manager@acme.com', companyId, userId],
   );
   console.log('[OK] Hiring Manager created: hiring.manager@acme.com');
 }
 
 async function seedRecruiter(client: any): Promise<void> {
   const tenant = await client.query(
-    `SELECT id FROM public.tenants WHERE slug = $1`,
+    `SELECT id FROM public.companies WHERE slug = $1`,
     ['acme-corp'],
   );
   if (tenant.rows.length === 0) {
     console.log('[SKIP] Recruiter: no Acme tenant found');
     return;
   }
-  const tenantId = tenant.rows[0].id;
+  const companyId = tenant.rows[0].id;
   const existing = await client.query(
-    `SELECT id FROM "tenant_${tenantId}"."users" WHERE email = $1`,
+    `SELECT id FROM "company_${companyId}"."users" WHERE email = $1`,
     ['recruiter@acme.com'],
   );
   if (existing.rows.length > 0) {
@@ -217,14 +217,14 @@ async function seedRecruiter(client: any): Promise<void> {
   const userId = randomUUID();
   const passwordHash = await hash('Recruiter123!');
   await client.query(
-    `INSERT INTO "tenant_${tenantId}"."users" (id, email, password_hash, role)
+    `INSERT INTO "company_${companyId}"."users" (id, email, password_hash, role)
      VALUES ($1, $2, $3, 'Recruiter')`,
     [userId, 'recruiter@acme.com', passwordHash],
   );
   await client.query(
-    `INSERT INTO public.user_emails (id, email, tenant_id, user_id)
+    `INSERT INTO public.user_emails (id, email, company_id, user_id)
      VALUES ($1, $2, $3, $4)`,
-    [randomUUID(), 'recruiter@acme.com', tenantId, userId],
+    [randomUUID(), 'recruiter@acme.com', companyId, userId],
   );
   console.log('[OK] Recruiter created: recruiter@acme.com');
 }
@@ -312,7 +312,7 @@ async function main(): Promise<void> {
   try {
     await client.query('BEGIN');
     await seedSuperAdmin(client);
-    await seedOrg(client);
+    await seedCompany(client);
     await seedInterviewer(client);
     await seedHiringManager(client);
     await seedRecruiter(client);

@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from '../database/database.module';
 import { UserRepository } from './user.repository';
-import { TenantRepository } from './tenant.repository';
+import { CompanyRepository } from './company.repository';
 import { RefreshTokenRepository } from './refresh-token.repository';
 import { CandidateRepository } from './candidate.repository';
 import { ApplicationRepository } from './application.repository';
@@ -24,7 +24,7 @@ import { UsageRepository } from './usage.repository';
 
 const REPOSITORIES = [
   UserRepository,
-  TenantRepository,
+  CompanyRepository,
   RefreshTokenRepository,
   CandidateRepository,
   ApplicationRepository,

@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException } from '@nestjs/common';
-import { TenantProvisioningService } from './tenant-provisioning.service';
-import { TenantRepository } from '../../../repositories/tenant.repository';
+import { CompanyProvisioningService } from './company-provisioning.service';
+import { CompanyRepository } from '../../../repositories/company.repository';
 import { UserRepository } from '../../../repositories/user.repository';
 import { UserEmailRepository } from '../../../repositories/user-email.repository';
 import { PipelineStageRepository } from '../../../repositories/pipeline-stage.repository';
@@ -12,8 +12,8 @@ jest.mock('argon2', () => ({
   verify: jest.fn(),
 }));
 
-describe('TenantProvisioningService', () => {
-  let service: TenantProvisioningService;
+describe('CompanyProvisioningService', () => {
+  let service: CompanyProvisioningService;
   const tenantRepo = {
     findBySlug: jest.fn(),
     create: jest.fn().mockResolvedValue({ id: 'uuid-1' }),
@@ -32,14 +32,16 @@ describe('TenantProvisioningService', () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        TenantProvisioningService,
-        { provide: TenantRepository, useValue: tenantRepo },
+        CompanyProvisioningService,
+        { provide: CompanyRepository, useValue: tenantRepo },
         { provide: UserRepository, useValue: userRepo },
         { provide: UserEmailRepository, useValue: userEmailRepo },
         { provide: PipelineStageRepository, useValue: pipelineStageRepo },
       ],
     }).compile();
-    service = module.get<TenantProvisioningService>(TenantProvisioningService);
+    service = module.get<CompanyProvisioningService>(
+      CompanyProvisioningService,
+    );
   });
 
   it('should be defined', () => {
@@ -67,7 +69,7 @@ describe('TenantProvisioningService', () => {
       password: 'password1',
     });
 
-    expect(result).toEqual({ tenantId: 'uuid-1', userId: 'uuid-1' });
+    expect(result).toEqual({ companyId: 'uuid-1', userId: 'uuid-1' });
     expect(tenantRepo.create).toHaveBeenCalledWith({
       id: 'uuid-1',
       name: 'Acme',
@@ -75,16 +77,19 @@ describe('TenantProvisioningService', () => {
     });
     expect(tenantRepo.provisionSchema).toHaveBeenCalledWith('uuid-1');
     expect(userRepo.create).toHaveBeenCalledWith(
-      expect.objectContaining({ email: 'admin@acme.com', role: 'OrgAdmin' }),
-      'tenant_uuid-1',
+      expect.objectContaining({
+        email: 'admin@acme.com',
+        role: 'CompanyAdmin',
+      }),
+      'company_uuid-1',
     );
     expect(pipelineStageRepo.createMany).toHaveBeenCalledWith(
       ['Applied', 'Screening', 'Interview', 'Offer', 'Hired', 'Rejected'],
-      'tenant_uuid-1',
+      'company_uuid-1',
     );
     expect(userEmailRepo.create).toHaveBeenCalledWith({
       email: 'admin@acme.com',
-      tenantId: 'uuid-1',
+      companyId: 'uuid-1',
       userId: 'uuid-1',
     });
   });

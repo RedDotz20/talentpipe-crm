@@ -1,9 +1,9 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import { TenantContext } from '../context/tenant-context';
+import { CompanyContext } from '../context/company-context';
 
 export const CurrentUser = createParamDecorator(
-  (_data: unknown, ctx: ExecutionContext): TenantContext => {
-    const request = ctx.switchToHttp().getRequest<{ user: TenantContext }>();
+  (_data: unknown, ctx: ExecutionContext): CompanyContext => {
+    const request = ctx.switchToHttp().getRequest<{ user: CompanyContext }>();
     return request.user;
   },
 );

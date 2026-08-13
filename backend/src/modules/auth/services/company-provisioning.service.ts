@@ -1,7 +1,7 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { hashPassword } from '../../../common/password';
-import { TenantRepository } from '../../../repositories/tenant.repository';
+import { CompanyRepository } from '../../../repositories/company.repository';
 import { UserRepository } from '../../../repositories/user.repository';
 import { UserEmailRepository } from '../../../repositories/user-email.repository';
 import { PipelineStageRepository } from '../../../repositories/pipeline-stage.repository';
@@ -23,9 +23,9 @@ export interface CreateTenantDto {
 }
 
 @Injectable()
-export class TenantProvisioningService {
+export class CompanyProvisioningService {
   constructor(
-    private tenantRepo: TenantRepository,
+    private tenantRepo: CompanyRepository,
     private userRepo: UserRepository,
     private userEmailRepo: UserEmailRepository,
     private pipelineStageRepo: PipelineStageRepository,
@@ -37,26 +37,26 @@ export class TenantProvisioningService {
     const emailOwner = await this.userEmailRepo.findByEmail(dto.email);
     if (emailOwner) throw new ConflictException('Email already taken');
 
-    const tenantId = randomUUID();
-    const schemaName = `tenant_${tenantId}`;
+    const companyId = randomUUID();
+    const schemaName = `company_${companyId}`;
 
     await this.tenantRepo.create({
-      id: tenantId,
+      id: companyId,
       name: dto.companyName,
       slug: dto.slug,
     });
-    await this.tenantRepo.provisionSchema(tenantId);
+    await this.tenantRepo.provisionSchema(companyId);
 
     const passwordHash = await hashPassword(dto.password);
     const userId = randomUUID();
 
     await this.userRepo.create(
-      { id: userId, email: dto.email, passwordHash, role: 'OrgAdmin' },
+      { id: userId, email: dto.email, passwordHash, role: 'CompanyAdmin' },
       schemaName,
     );
     await this.pipelineStageRepo.createMany(DEFAULT_STAGES, schemaName);
-    await this.userEmailRepo.create({ email: dto.email, tenantId, userId });
+    await this.userEmailRepo.create({ email: dto.email, companyId, userId });
 
-    return { tenantId, userId };
+    return { companyId, userId };
   }
 }

@@ -11,8 +11,11 @@ import { AuthService } from './auth.service';
 import { LoginRateLimiterGuard } from '../../common/middlewares/login-rate-limiter.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { TenantContext } from '../../common/context/tenant-context';
-import { OrgSignupSchema, OrgSignupDto } from './dto/org-signup.dto';
+import { CompanyContext } from '../../common/context/company-context';
+import {
+  CompanySignupSchema,
+  CompanySignupDto,
+} from './dto/company-signup.dto';
 import { SigninSchema, SigninDto } from './dto/signin.dto';
 import { RefreshSchema, RefreshDto } from './dto/refresh.dto';
 import {
@@ -24,11 +27,11 @@ import {
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  @Post('org/signup')
-  async orgSignup(
-    @Body(new ZodValidationPipe(OrgSignupSchema)) dto: OrgSignupDto,
+  @Post('company/signup')
+  async companySignup(
+    @Body(new ZodValidationPipe(CompanySignupSchema)) dto: CompanySignupDto,
   ) {
-    return this.authService.orgSignup(dto);
+    return this.authService.companySignup(dto);
   }
 
   @Post('signin')
@@ -54,7 +57,7 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard('jwt'))
-  async logout(@CurrentUser() user: TenantContext) {
+  async logout(@CurrentUser() user: CompanyContext) {
     await this.authService.logout(user.userId);
     return { data: null, message: 'Logged out' };
   }

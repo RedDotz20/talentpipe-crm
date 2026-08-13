@@ -6,7 +6,7 @@ import { AuthService } from './auth.service';
 import { LoginRateLimiterGuard } from '../../common/middlewares/login-rate-limiter.guard';
 
 type AuthControllerMethodName =
-  'signin' | 'signup' | 'refresh' | 'orgSignup' | 'logout';
+  'signin' | 'signup' | 'refresh' | 'companySignup' | 'logout';
 type ControllerMethod = (...args: never[]) => unknown;
 
 const getControllerMethod = (
@@ -37,7 +37,7 @@ describe('AuthController', () => {
         {
           provide: AuthService,
           useValue: {
-            orgSignup: jest.fn(),
+            companySignup: jest.fn(),
             signin: jest.fn(),
             candidateSignup: jest.fn(),
             refresh: jest.fn(),
@@ -71,9 +71,9 @@ describe('AuthController', () => {
       GUARDS_METADATA,
       getControllerMethod('refresh'),
     );
-    const orgSignupGuards = getMetadata<unknown[]>(
+    const companySignupGuards = getMetadata<unknown[]>(
       GUARDS_METADATA,
-      getControllerMethod('orgSignup'),
+      getControllerMethod('companySignup'),
     );
     const logoutGuards = getMetadata<unknown[]>(
       GUARDS_METADATA,
@@ -84,7 +84,7 @@ describe('AuthController', () => {
     expect(signinGuards).toEqual([LoginRateLimiterGuard]);
     expect(signupGuards).toBeUndefined();
     expect(refreshGuards).toBeUndefined();
-    expect(orgSignupGuards).toBeUndefined();
+    expect(companySignupGuards).toBeUndefined();
     expect(logoutGuards).not.toContain(LoginRateLimiterGuard);
   });
 });

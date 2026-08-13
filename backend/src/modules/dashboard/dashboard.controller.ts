@@ -4,7 +4,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { DashboardService } from './dashboard.service';
 
 const INTERNAL_ROLES = [
-  'OrgAdmin',
+  'CompanyAdmin',
   'Recruiter',
   'HiringManager',
   'Interviewer',

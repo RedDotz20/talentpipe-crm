@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AuditLogRepository } from '../../repositories/audit-log.repository';
-import { getCurrentUser } from '../context/tenant-context';
+import { getCurrentUser } from '../context/company-context';
 
 @Injectable()
 export class AuditService {
@@ -10,17 +10,17 @@ export class AuditService {
     action: string,
     resourceId?: string | null,
     metadata?: Record<string, unknown> | null,
-    tenantId?: string,
+    companyId?: string,
   ) {
     let user: ReturnType<typeof getCurrentUser>;
     try {
       user = getCurrentUser();
     } catch {
-      user = { tenantId: 'system', userId: 'system', role: 'system' };
+      user = { companyId: 'system', userId: 'system', role: 'system' };
     }
 
     await this.auditLogRepo.create({
-      tenantId: tenantId ?? user.tenantId,
+      companyId: companyId ?? user.companyId,
       userId: user.userId,
       action,
       resourceId: resourceId ?? null,

@@ -53,7 +53,7 @@ describe('CandidateApplicationsIndexRepository', () => {
   it('updates status only within the indexed tenant boundary', async () => {
     const expected = {
       applicationId: 'app-a',
-      tenantId: 'tenant-a',
+      companyId: 'tenant-a',
       status: 'Screening',
     };
     const execute = jest.fn().mockResolvedValue([expected]);
@@ -77,7 +77,7 @@ describe('CandidateApplicationsIndexRepository', () => {
     if (!predicate) throw new Error('Expected a where predicate');
     const query = new PgDialect().sqlToQuery(predicate);
     expect(query.sql).toContain('application_id');
-    expect(query.sql).toContain('tenant_id');
+    expect(query.sql).toContain('company_id');
     expect(query.params).toEqual(['app-a', 'tenant-a']);
     expect(execute).toHaveBeenCalled();
   });
