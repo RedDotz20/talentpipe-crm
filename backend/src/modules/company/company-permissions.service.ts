@@ -38,6 +38,7 @@ export class CompanyPermissionsService {
         role: p.role,
         permissions: p.permissions,
         isDefault: false,
+        isGlobal: false,
         usageCount: await this.permissionRepo.countUsersWithPreset(
           p.id,
           schema,
@@ -52,6 +53,7 @@ export class CompanyPermissionsService {
           role: p.role,
           permissions: p.permissions,
           isDefault: true,
+          isGlobal: false,
           usageCount: 0,
         })),
         ...globals.map((p) => ({
@@ -60,6 +62,7 @@ export class CompanyPermissionsService {
           role: p.role,
           permissions: p.permissions,
           isDefault: false,
+          isGlobal: true,
           usageCount: 0,
         })),
         ...withUsage,

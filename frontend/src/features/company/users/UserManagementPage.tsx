@@ -276,19 +276,21 @@ export function UserManagementPage() {
                 form.setFieldValue('presetId', 'default');
               }}
             />
-            <Select
-              label="Permission preset"
-              data={[
-                { value: 'default', label: 'Role default' },
-                ...presetsForRole(form.values.role).map((p) => ({
-                  value: p.id,
-                  label: `${p.name}${p.isDefault ? ' (default)' : ''}`,
-                })),
-              ]}
-              defaultValue="default"
-              key={`${form.values.role}-${createOpen}`}
-              onChange={(value) => form.setFieldValue('presetId', value ?? 'default')}
-            />
+            {form.values.role !== 'CompanyAdmin' && (
+              <Select
+                label="Permission preset"
+                data={[
+                  { value: 'default', label: 'Role default' },
+                  ...presetsForRole(form.values.role).map((p) => ({
+                    value: p.id,
+                    label: `${p.name}${p.isDefault ? ' (default)' : ''}`,
+                  })),
+                ]}
+                defaultValue="default"
+                key={`${form.values.role}-${createOpen}`}
+                onChange={(value) => form.setFieldValue('presetId', value ?? 'default')}
+              />
+            )}
             <PasswordInput
               label="Password"
               description="No email is sent — share the password with the user out-of-band."

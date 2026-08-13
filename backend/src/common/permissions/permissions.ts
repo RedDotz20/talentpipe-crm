@@ -47,7 +47,24 @@ export const ALL_PERMISSIONS: Permission[] = [
 ];
 
 export const ROLE_PERMISSIONS: Record<InternalRole, Permission[]> = {
-  CompanyAdmin: [...ALL_PERMISSIONS],
+  CompanyAdmin: [
+    'jobs.view',
+    'jobs.create_edit',
+    'jobs.publish_close',
+    'jobs.delete',
+    'candidates.view',
+    'candidates.manage',
+    'applications.view',
+    'applications.move',
+    'applications.note',
+    'interviews.view',
+    'interviews.schedule',
+    'stages.manage',
+    'settings.manage',
+    'users.manage',
+    'permissions.manage',
+    'dashboard.view',
+  ],
   Recruiter: [
     'jobs.view',
     'jobs.create_edit',

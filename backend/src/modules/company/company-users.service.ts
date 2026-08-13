@@ -52,6 +52,15 @@ export class CompanyUsersService {
     const passwordHash = await hashPassword(dto.password);
     const id = randomUUID();
     const schema = getSchema();
+    if (
+      dto.role === 'CompanyAdmin' &&
+      dto.presetId !== undefined &&
+      dto.presetId !== null
+    ) {
+      throw new BadRequestException(
+        'Company admins must use the role default preset',
+      );
+    }
     if (dto.presetId !== undefined && dto.presetId !== null) {
       const local = await this.permissionRepo.findById(dto.presetId, schema);
       const preset =

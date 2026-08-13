@@ -114,7 +114,7 @@ export function PermissionPresetsPage() {
                     >
                       <IconCopy size="1rem" />
                     </TableAction>
-                    {!preset.isDefault && (
+                    {!preset.isDefault && !preset.isGlobal && (
                       <>
                         <TableAction label="Edit" onClick={() => openEdit(preset)}>
                           <IconPencil size="1rem" />

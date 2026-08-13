@@ -14,7 +14,14 @@ export const PERMISSION_GROUPS: { label: string; keys: string[] }[] = [
 ];
 
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
-  CompanyAdmin: PERMISSION_GROUPS.flatMap((g) => g.keys),
+  CompanyAdmin: [
+    'jobs.view', 'jobs.create_edit', 'jobs.publish_close', 'jobs.delete',
+    'candidates.view', 'candidates.manage',
+    'applications.view', 'applications.move', 'applications.note',
+    'interviews.view', 'interviews.schedule',
+    'stages.manage', 'settings.manage', 'users.manage', 'permissions.manage',
+    'dashboard.view',
+  ],
   Recruiter: [
     'jobs.view', 'jobs.create_edit', 'jobs.publish_close',
     'candidates.view', 'candidates.manage',
@@ -37,6 +44,7 @@ export interface PermissionPreset {
   role: string;
   permissions: string[];
   isDefault: boolean;
+  isGlobal?: boolean;
   usageCount: number;
 }
 
