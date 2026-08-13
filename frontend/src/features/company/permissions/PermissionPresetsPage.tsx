@@ -86,7 +86,7 @@ export function PermissionPresetsPage() {
   const inUseCount = selectedPresets.filter((p) => p.usageCount > 0).length;
   const affectedUsers = selectedPresets.reduce((sum, p) => sum + p.usageCount, 0);
   const confirmBulkDelete = () => {
-    bulkDelete.mutate(selectedIds, { onSuccess: clearSelection });
+    bulkDelete.mutate(selectedPresets.map((p) => p.id), { onSuccess: clearSelection });
   };
 
   const openCreate = () => setEditor({ mode: 'create', preset: null });
@@ -141,7 +141,7 @@ export function PermissionPresetsPage() {
       </Group>
 
       <PresetBulkDelete
-        selectedCount={selectedIds.length}
+        selectedCount={selectedPresets.length}
         inUseCount={inUseCount}
         affectedUsers={affectedUsers}
         deleting={bulkDelete.isPending}
