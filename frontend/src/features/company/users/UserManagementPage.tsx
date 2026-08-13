@@ -20,14 +20,16 @@ import { useAuthStore } from '@/api/useAuth';
 import { TableSkeleton } from '@/shared/components/Skeletons';
 import { TableAction } from '@/shared/components/TableAction';
 import { ExportCsvButton } from '@/shared/components/ExportCsvButton';
-import { IconKey, IconPlayerPause, IconPlayerPlay, IconUserMinus } from '@tabler/icons-react';
+import { IconKey, IconPlayerPause, IconPlayerPlay, IconShieldLock, IconUserMinus } from '@tabler/icons-react';
 import {
   INTERNAL_USER_ROLES,
   type InternalUserRole,
+  type CreateUserInput,
   type CompanyUser,
   companyUsersApi,
 } from '@/api/companyUsersApi';
 import {
+  useAssignPreset,
   useCreateUser,
   useCompanyUsers,
   useRemoveUser,
@@ -35,6 +37,7 @@ import {
   useSetUserStatus,
   useUpdateUserRole,
 } from './hooks/useCompanyUsers';
+import { useCompanyPermissionPresets } from '../permissions/hooks/useCompanyPermissions';
 import { useCompanySettings } from '../settings/hooks/useCompanySettings';
 
 const CreateSchema = z.object({
@@ -57,10 +60,17 @@ export function UserManagementPage() {
   const setUserStatus = useSetUserStatus();
   const resetPassword = useResetUserPassword();
   const removeUser = useRemoveUser();
+  const assignPreset = useAssignPreset();
+  const presetsQuery = useCompanyPermissionPresets();
   const [createOpen, setCreateOpen] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
   const [resetting, setResetting] = useState<CompanyUser | null>(null);
   const [removing, setRemoving] = useState<CompanyUser | null>(null);
+  const [assigning, setAssigning] = useState<CompanyUser | null>(null);
+  const [assignValue, setAssignValue] = useState<string | null>('default');
+
+  const presetsForRole = (role: string) =>
+    (presetsQuery.data?.presets ?? []).filter((p) => p.role === role);
 
   const resetForm = useForm({
     validate: schemaResolver(ResetSchema),
@@ -74,6 +84,7 @@ export function UserManagementPage() {
       email: '',
       role: 'Recruiter' as InternalUserRole,
       password: '',
+      presetId: 'default',
     },
   });
 
@@ -186,6 +197,18 @@ export function UserManagementPage() {
                     >
                       <IconUserMinus size="1rem" />
                     </TableAction>
+                    {user.role !== 'CompanyAdmin' && (
+                      <TableAction
+                        label="Permissions"
+                        color="violet"
+                        onClick={() => {
+                          setAssignValue(user.presetId ?? 'default');
+                          setAssigning(user);
+                        }}
+                      >
+                        <IconShieldLock size="1rem" />
+                      </TableAction>
+                    )}
                   </Group>
                 </Table.Td>
               </Table.Tr>
@@ -202,7 +225,14 @@ export function UserManagementPage() {
         <form
           onSubmit={form.onSubmit((values) => {
             createUser.mutate(
-              { email: values.email, role: values.role, password: values.password },
+              {
+                email: values.email,
+                role: values.role,
+                password: values.password,
+                ...(values.presetId === 'default'
+                  ? {}
+                  : { presetId: values.presetId }),
+              } as CreateUserInput,
               {
                 onSuccess: () => {
                   form.reset();
@@ -241,6 +271,19 @@ export function UserManagementPage() {
               data={INTERNAL_USER_ROLES.map((r) => ({ value: r, label: r }))}
               required
               {...form.getInputProps('role')}
+            />
+            <Select
+              label="Permission preset"
+              data={[
+                { value: 'default', label: 'Role default' },
+                ...presetsForRole(form.values.role).map((p) => ({
+                  value: p.id,
+                  label: `${p.name}${p.isDefault ? ' (default)' : ''}`,
+                })),
+              ]}
+              defaultValue="default"
+              key={`${form.values.role}-${createOpen}`}
+              onChange={(value) => form.setFieldValue('presetId', value ?? 'default')}
             />
             <PasswordInput
               label="Password"
@@ -325,6 +368,48 @@ export function UserManagementPage() {
               }}
             >
               Remove
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal
+        opened={assigning !== null}
+        onClose={() => setAssigning(null)}
+        title={`Permissions — ${assigning?.email ?? ''}`}
+      >
+        <Stack>
+          <Select
+            label="Permission preset"
+            data={[
+              { value: 'default', label: 'Role default' },
+              ...(assigning ? presetsForRole(assigning.role) : []).map((p) => ({
+                value: p.id,
+                label: p.name,
+              })),
+            ]}
+            value={assignValue}
+            onChange={setAssignValue}
+          />
+          <Group justify="flex-end">
+            <Button variant="light" onClick={() => setAssigning(null)}>
+              Cancel
+            </Button>
+            <Button
+              loading={assignPreset.isPending}
+              onClick={() => {
+                if (assigning) {
+                  assignPreset.mutate(
+                    {
+                      userId: assigning.id,
+                      presetId: assignValue === 'default' ? null : assignValue,
+                    },
+                    { onSuccess: () => setAssigning(null) },
+                  );
+                }
+              }}
+            >
+              Save
             </Button>
           </Group>
         </Stack>

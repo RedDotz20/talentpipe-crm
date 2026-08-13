@@ -62,3 +62,18 @@ export function useRemoveUser() {
     },
   });
 }
+
+export function useAssignPreset() {
+  const queryClient = useQueryClient();
+  return useApiMutation<
+    unknown,
+    { userId: string; presetId: string | null }
+  >({
+    mutationFn: ({ userId, presetId }) =>
+      companyUsersApi.assignPreset(userId, presetId),
+    successMessage: 'Preset assigned',
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.company.companyUsers() });
+    },
+  });
+}

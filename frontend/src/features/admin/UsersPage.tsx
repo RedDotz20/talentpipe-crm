@@ -26,7 +26,7 @@ import { ExportCsvButton } from '@/shared/components/ExportCsvButton'
 import { TableSkeleton } from '@/shared/components/Skeletons'
 import { useListQuery } from '@/shared/hooks/useListQuery'
 import { TableAction } from '@/shared/components/TableAction'
-import { IconKey, IconPencil, IconPlayerPause, IconPlayerPlay, IconTrash, IconUserMinus } from '@tabler/icons-react'
+import { IconKey, IconPencil, IconPlayerPause, IconPlayerPlay, IconShieldLock, IconTrash, IconUserMinus } from '@tabler/icons-react'
 import {
   useCreateCandidate,
   usePlatformCompanies,
@@ -34,6 +34,7 @@ import {
   useRemoveCandidate,
   useUpdateCandidate,
 } from './hooks/usePlatform'
+import { usePlatformPermissions } from './hooks/usePlatformPermissions'
 
 const roleOptions = INTERNAL_USER_ROLES.map((r) => ({ value: r, label: r }))
 
@@ -129,6 +130,7 @@ export function UsersPage() {
   const [addRole, setAddRole] = useState('Recruiter')
   const [addEmail, setAddEmail] = useState('')
   const [addPassword, setAddPassword] = useState('')
+  const [addPreset, setAddPreset] = useState('default')
   const [candidateForm, setCandidateForm] =
     useState<CandidateForm>(emptyCandidateForm)
 
@@ -136,6 +138,31 @@ export function UsersPage() {
   const [removing, setRemoving] = useState<PlatformUser | null>(null)
   const [resetting, setResetting] = useState<PlatformUser | null>(null)
   const [resetPasswordValue, setResetPasswordValue] = useState('')
+  const [assigning, setAssigning] = useState<PlatformUser | null>(null)
+  const [assignValue, setAssignValue] = useState<string | null>('default')
+
+  const presetsQuery = usePlatformPermissions()
+
+  const presetsForRole = (role: string) =>
+    (presetsQuery.data?.presets ?? []).filter(
+      (p) => p.role === role && (p.isDefault || p.companyId === null),
+    )
+
+  const assignPreset = useApiMutation({
+    mutationFn: ({
+      companyId,
+      userId,
+      presetId,
+    }: {
+      companyId: string
+      userId: string
+      presetId: string | null
+    }) => platformApi.assignUserPreset(companyId, userId, presetId),
+    successMessage: 'Preset assigned',
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.platform.users() })
+    },
+  })
 
   const users = usersQuery.data?.data ?? []
   const total = usersQuery.data?.total ?? 0
@@ -167,6 +194,7 @@ export function UsersPage() {
     setAddRole('Recruiter')
     setAddEmail('')
     setAddPassword('')
+    setAddPreset('default')
     setCandidateForm(emptyCandidateForm)
   }
 
@@ -366,6 +394,16 @@ export function UsersPage() {
                         >
                           <IconUserMinus size="1rem" />
                         </TableAction>
+                        <TableAction
+                          label="Permissions"
+                          color="violet"
+                          onClick={() => {
+                            setAssigning(user)
+                            setAssignValue(user.presetId ?? 'default')
+                          }}
+                        >
+                          <IconShieldLock size="1rem" />
+                        </TableAction>
                       </Group>
                     ) : (
                       <Group gap="xs">
@@ -419,7 +457,22 @@ export function UsersPage() {
                 label="Role"
                 data={roleOptions}
                 value={addRole}
-                onChange={(value) => setAddRole(value ?? 'Recruiter')}
+                onChange={(value) => {
+                  setAddRole(value ?? 'Recruiter')
+                  setAddPreset('default')
+                }}
+              />
+              <Select
+                label="Permission preset"
+                data={[
+                  { value: 'default', label: 'Role default' },
+                  ...presetsForRole(addRole).map((p) => ({
+                    value: p.id,
+                    label: p.name,
+                  })),
+                ]}
+                value={addPreset}
+                onChange={(value) => setAddPreset(value ?? 'default')}
               />
               <TextInput
                 label="Email"
@@ -447,7 +500,14 @@ export function UsersPage() {
                     createCompanyUser.mutate(
                       {
                         companyId: addCompany,
-                        body: { email: addEmail, role: addRole, password: addPassword },
+                        body: {
+                          email: addEmail,
+                          role: addRole,
+                          password: addPassword,
+                          ...(addPreset === 'default'
+                            ? {}
+                            : { presetId: addPreset }),
+                        } as { email: string; role: string; password: string },
                       },
                       { onSuccess: resetAddModal },
                     )
@@ -634,6 +694,49 @@ export function UsersPage() {
               }}
             >
               {removing?.type === 'company' ? 'Remove' : 'Delete'}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal
+        opened={assigning !== null}
+        onClose={() => setAssigning(null)}
+        title={`Permissions — ${assigning?.email ?? ''}`}
+      >
+        <Stack>
+          <Select
+            label="Permission preset"
+            data={[
+              { value: 'default', label: 'Role default' },
+              ...(assigning ? presetsForRole(assigning.role) : []).map((p) => ({
+                value: p.id,
+                label: p.name,
+              })),
+            ]}
+            value={assignValue}
+            onChange={setAssignValue}
+          />
+          <Group justify="flex-end">
+            <Button variant="light" onClick={() => setAssigning(null)}>
+              Cancel
+            </Button>
+            <Button
+              loading={assignPreset.isPending}
+              onClick={() => {
+                const target = assigning
+                if (!target || !target.companyId) return
+                assignPreset.mutate(
+                  {
+                    companyId: target.companyId,
+                    userId: target.id,
+                    presetId: assignValue === 'default' ? null : assignValue,
+                  },
+                  { onSuccess: () => setAssigning(null) },
+                )
+              }}
+            >
+              Save
             </Button>
           </Group>
         </Stack>
