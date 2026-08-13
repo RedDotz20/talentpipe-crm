@@ -20,6 +20,7 @@
     "@mantine/form": "^9.4.2",
     "@mantine/hooks": "^9.4.2",
     "@mantine/notifications": "^9.4.2",
+    "@mantine/nprogress": "9.4.2",
     "@tabler/icons-react": "^3.45.0",
     "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-router": "^1.170.18",
