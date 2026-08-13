@@ -127,18 +127,18 @@ export function PermissionsPage() {
           </Text>
         </div>
         <Group gap="xs">
-          <SegmentedControl
-            size="xs"
-            value={viewMode}
-            onChange={changeViewMode}
-            data={[
-              { value: 'cards', label: <Group gap={6}><IconLayoutGrid size="0.9rem" />Cards</Group> },
-              { value: 'table', label: <Group gap={6}><IconTable size="0.9rem" />Table</Group> },
-            ]}
-          />
           <Button leftSection={<IconPlus size="1rem" />} onClick={() => setEditor({ mode: 'create', preset: null })}>
             Create global preset
           </Button>
+          <SegmentedControl
+            size="md"
+            value={viewMode}
+            onChange={changeViewMode}
+            data={[
+              { value: 'cards', label: <Group gap={2} wrap="nowrap"><IconLayoutGrid size="0.9rem" />Cards</Group> },
+              { value: 'table', label: <Group gap={2} wrap="nowrap"><IconTable size="0.9rem" />Table</Group> },
+            ]}
+          />
         </Group>
       </Group>
 
@@ -205,7 +205,6 @@ export function PermissionsPage() {
             <PresetCards
               presets={companyPresets}
               locked={() => true}
-              onDuplicate={() => {}}
               scopeLabel={(p) => (p as PlatformPreset).companyName}
             />
           ) : (

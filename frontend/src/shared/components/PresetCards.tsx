@@ -7,7 +7,7 @@ interface PresetCardsProps {
   presets: PermissionPreset[];
   locked: (preset: PermissionPreset) => boolean;
   onView?: (preset: PermissionPreset) => void;
-  onDuplicate: (preset: PermissionPreset) => void;
+  onDuplicate?: (preset: PermissionPreset) => void;
   onEdit?: (preset: PermissionPreset) => void;
   onDelete?: (preset: PermissionPreset) => void;
   deleting?: boolean;
@@ -78,13 +78,15 @@ export function PresetCards({
                   <IconEye size="1rem" />
                 </TableAction>
               )}
-              <TableAction
-                label="Duplicate"
-                color="blue"
-                onClick={() => onDuplicate(preset)}
-              >
-                <IconCopy size="1rem" />
-              </TableAction>
+              {onDuplicate && (
+                <TableAction
+                  label="Duplicate"
+                  color="blue"
+                  onClick={() => onDuplicate(preset)}
+                >
+                  <IconCopy size="1rem" />
+                </TableAction>
+              )}
               {!isLocked && onEdit && (
                 <TableAction label="Edit" onClick={() => onEdit(preset)}>
                   <IconPencil size="1rem" />
