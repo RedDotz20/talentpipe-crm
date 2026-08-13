@@ -14,6 +14,7 @@ import type { ListQueryDto } from '../common/dto/list-query.dto';
 
 const COMPANY_TABLES = [
   'users',
+  'permission_presets',
   'job_postings',
   'candidates',
   'pipeline_stages',

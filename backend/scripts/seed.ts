@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 const COMPANY_TABLES = [
-  'users', 'job_postings', 'candidates', 'pipeline_stages',
+  'users', 'permission_presets', 'job_postings', 'candidates', 'pipeline_stages',
   'applications', 'job_required_skills',
   'interviews', 'interview_feedbacks', 'notes',
 ];

@@ -29,6 +29,7 @@ export class CompanyPermissionsService {
   async list() {
     const schema = getSchema();
     const defaults = await this.permissionRepo.findDefaults();
+    const globals = await this.permissionRepo.findAll('public');
     const customs = await this.permissionRepo.findAll(schema);
     const withUsage = await Promise.all(
       customs.map(async (p) => ({
@@ -51,6 +52,14 @@ export class CompanyPermissionsService {
           role: p.role,
           permissions: p.permissions,
           isDefault: true,
+          usageCount: 0,
+        })),
+        ...globals.map((p) => ({
+          id: p.id,
+          name: p.name,
+          role: p.role,
+          permissions: p.permissions,
+          isDefault: false,
           usageCount: 0,
         })),
         ...withUsage,
