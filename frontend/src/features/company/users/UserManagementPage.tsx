@@ -270,6 +270,7 @@ export function UserManagementPage() {
               label="Role"
               data={INTERNAL_USER_ROLES.map((r) => ({ value: r, label: r }))}
               required
+              {...form.getInputProps('role')}
               onChange={(value) => {
                 form.setFieldValue('role', value ?? 'Recruiter');
                 form.setFieldValue('presetId', 'default');
