@@ -292,15 +292,9 @@ afterAll(async () => {
       [p.id],
     );
   }
-  await cleanupPool!.query(
-    `DELETE FROM public.permission_presets
-     WHERE id IN (
-       '00000000-0000-0000-0000-000000000101',
-       '00000000-0000-0000-0000-000000000102',
-       '00000000-0000-0000-0000-000000000103',
-       '00000000-0000-0000-0000-000000000104'
-     )`,
-  );
+  // The 4 migration-seeded defaults are NOT deleted here: the spec must not
+  // remove rows it doesn't own (see commit ead3218 — alignment made the
+  // beforeAll ON CONFLICT inserts no-ops on migrated DBs).
   for (const companyId of createdCompanyIds) {
     await cleanupPool!.query(
       `DROP SCHEMA IF EXISTS "company_${companyId}" CASCADE`,
