@@ -107,9 +107,18 @@ export function PresetEditorModal({
               <Accordion.Item key={group.label} value={group.label}>
                 <Accordion.Control>
                   <Group justify="space-between" w="100%" wrap="nowrap" pr="sm">
-                    <Text size="sm" fw={500}>
-                      {group.label}
-                    </Text>
+                    <Group gap="xs" wrap="nowrap">
+                      <Checkbox
+                        checked={allChecked}
+                        indeterminate={someChecked}
+                        onChange={toggleGroup}
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label={`Select all ${group.label}`}
+                      />
+                      <Text size="sm" fw={500}>
+                        {group.label}
+                      </Text>
+                    </Group>
                     <Text size="xs" c="dimmed">
                       {enabledCount}/{visible.length} enabled
                     </Text>
@@ -117,12 +126,6 @@ export function PresetEditorModal({
                 </Accordion.Control>
                 <Accordion.Panel>
                   <Stack gap={6}>
-                    <Checkbox
-                      label="Select all"
-                      checked={allChecked}
-                      indeterminate={someChecked}
-                      onChange={toggleGroup}
-                    />
                     {visible.map((item) => (
                       <Checkbox
                         key={item.key}
