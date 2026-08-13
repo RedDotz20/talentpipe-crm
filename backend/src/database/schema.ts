@@ -9,6 +9,7 @@ import {
   uniqueIndex,
   index,
   jsonb,
+  boolean,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
@@ -85,7 +86,20 @@ export const users = pgTable('users', {
   email: varchar('email', { length: 255 }).notNull().unique(),
   passwordHash: varchar('password_hash', { length: 255 }).notNull(),
   role: varchar('role', { length: 50 }).default('CompanyAdmin').notNull(),
+  presetId: uuid('preset_id'),
   status: varchar('status', { length: 20 }).default('active').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ponytail: no FK on preset_id — the referenced preset may live in the public
+// schema, and a single FK can't span schemas; integrity is app-level.
+export const permissionPresets = pgTable('permission_presets', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: varchar('name', { length: 100 }).notNull(),
+  role: varchar('role', { length: 50 }).notNull(),
+  permissions: jsonb('permissions').notNull(),
+  isDefault: boolean('is_default').default(false).notNull(),
+  createdBy: uuid('created_by'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

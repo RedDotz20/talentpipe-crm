@@ -43,3 +43,4 @@ ALTER TABLE template."notes"
   ADD CONSTRAINT notes_author_user_id_users_id_fkey
     FOREIGN KEY (author_user_id) REFERENCES template."users"("id")
     ON DELETE CASCADE;
+CREATE TABLE template."permission_presets" (LIKE public."permission_presets" INCLUDING ALL);

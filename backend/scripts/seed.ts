@@ -307,6 +307,64 @@ async function seedSkills(client: any): Promise<void> {
   console.log(`[OK] Skills seeded: ${count.rows[0].n} total`);
 }
 
+const DEFAULT_PRESETS: { name: string; role: string; permissions: string[] }[] = [
+  {
+    name: 'Company Admin Default',
+    role: 'CompanyAdmin',
+    permissions: [
+      'jobs.view', 'jobs.create_edit', 'jobs.publish_close', 'jobs.delete',
+      'candidates.view', 'candidates.manage',
+      'applications.view', 'applications.move', 'applications.note',
+      'interviews.view', 'interviews.schedule',
+      'stages.manage', 'settings.manage', 'users.manage', 'permissions.manage',
+      'dashboard.view',
+    ],
+  },
+  {
+    name: 'Recruiter Default',
+    role: 'Recruiter',
+    permissions: [
+      'jobs.view', 'jobs.create_edit', 'jobs.publish_close',
+      'candidates.view', 'candidates.manage',
+      'applications.view', 'applications.move', 'applications.note',
+      'interviews.view', 'interviews.schedule',
+      'dashboard.view',
+    ],
+  },
+  {
+    name: 'Hiring Manager Default',
+    role: 'HiringManager',
+    permissions: [
+      'jobs.view', 'candidates.view',
+      'applications.view', 'applications.move', 'applications.note',
+      'interviews.view', 'interviews.schedule',
+      'dashboard.view',
+    ],
+  },
+  {
+    name: 'Interviewer Default',
+    role: 'Interviewer',
+    permissions: ['interviews.view', 'interviews.feedback', 'dashboard.view'],
+  },
+];
+
+async function seedPermissionPresets(client: any): Promise<void> {
+  for (const preset of DEFAULT_PRESETS) {
+    await client.query(
+      `INSERT INTO public.permission_presets (id, name, role, permissions, is_default)
+       SELECT $1::uuid, $2::varchar, $3::varchar, $4::jsonb, true
+       WHERE NOT EXISTS (
+         SELECT 1 FROM public.permission_presets WHERE role = $3::varchar AND is_default = true
+       )`,
+      [randomUUID(), preset.name, preset.role, JSON.stringify(preset.permissions)],
+    );
+  }
+  const count = await client.query(
+    'SELECT count(*)::int AS n FROM public.permission_presets',
+  );
+  console.log(`[OK] Permission presets seeded: ${count.rows[0].n} total`);
+}
+
 async function main(): Promise<void> {
   const client = await pool.connect();
   try {
@@ -318,6 +376,7 @@ async function main(): Promise<void> {
     await seedRecruiter(client);
     await seedCandidate(client);
     await seedSkills(client);
+    await seedPermissionPresets(client);
     await client.query('COMMIT');
     console.log('\nSeed complete.');
   } catch (err) {
