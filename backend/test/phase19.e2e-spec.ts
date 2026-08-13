@@ -40,6 +40,7 @@ interface PresetItem {
   role: string;
   permissions: string[];
   isDefault: boolean;
+  isEnabled?: boolean;
   usageCount: number;
 }
 
@@ -830,5 +831,149 @@ describe('phase19: permission presets', () => {
         permissions: ['jobs.view'],
       });
     assertStatus(res, 409);
+  });
+
+  it('disabling a preset reverts its assigned user to the role default', async () => {
+    const create = await request(httpServer())
+      .post('/api/company/permissions')
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({
+        name: 'Disable Revert',
+        role: 'Recruiter',
+        permissions: ['jobs.view'],
+      });
+    const preset = assertEnvelope<{ id: string }>(create, 201);
+    createdPresetIds.push({
+      id: preset.id,
+      schema: `company_${tenantA.companyId}`,
+    });
+
+    const recruiter = await createCompanyUser(tenantA.token, {
+      email: `dis-${runId}@acme.test`,
+      role: 'Recruiter',
+      password: 'Recruiter123!',
+    });
+    createdOrgUserIds.push(recruiter.id);
+    await request(httpServer())
+      .patch(`/api/company/users/${recruiter.id}/preset`)
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({ presetId: preset.id });
+
+    const disable = await request(httpServer())
+      .patch(`/api/company/permissions/${preset.id}/disable`)
+      .set('Authorization', `Bearer ${tenantA.token}`);
+    const result = assertEnvelope<{ id: string; revertedUsers: number }>(
+      disable,
+      200,
+    );
+    expect(result).toEqual({ id: preset.id, revertedUsers: 1 });
+
+    const users = assertEnvelope<
+      Array<{ id: string; presetId: string | null }>
+    >(
+      await request(httpServer())
+        .get('/api/company/users')
+        .set('Authorization', `Bearer ${tenantA.token}`),
+      200,
+    );
+    expect(users.find((u) => u.id === recruiter.id)?.presetId).toBeNull();
+
+    const presets = await listPresets(tenantA.token);
+    const row = presets.find((p) => p.id === preset.id);
+    expect(row).toBeTruthy();
+    expect((row as { isEnabled?: boolean }).isEnabled).toBe(false);
+  });
+
+  it('assigning a disabled preset is rejected (400)', async () => {
+    const create = await request(httpServer())
+      .post('/api/company/permissions')
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({
+        name: 'Disabled Assign',
+        role: 'Recruiter',
+        permissions: ['jobs.view'],
+      });
+    const preset = assertEnvelope<{ id: string }>(create, 201);
+    createdPresetIds.push({
+      id: preset.id,
+      schema: `company_${tenantA.companyId}`,
+    });
+    await request(httpServer())
+      .patch(`/api/company/permissions/${preset.id}/disable`)
+      .set('Authorization', `Bearer ${tenantA.token}`);
+
+    const recruiter = await createCompanyUser(tenantA.token, {
+      email: `disa-${runId}@acme.test`,
+      role: 'Recruiter',
+      password: 'Recruiter123!',
+    });
+    createdOrgUserIds.push(recruiter.id);
+    const assign = await request(httpServer())
+      .patch(`/api/company/users/${recruiter.id}/preset`)
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({ presetId: preset.id });
+    assertStatus(assign, 400);
+
+    const enable = await request(httpServer())
+      .patch(`/api/company/permissions/${preset.id}/enable`)
+      .set('Authorization', `Bearer ${tenantA.token}`);
+    assertEnvelope<{ id: string }>(enable, 200);
+
+    const assignAgain = await request(httpServer())
+      .patch(`/api/company/users/${recruiter.id}/preset`)
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({ presetId: preset.id });
+    assertEnvelope<{ id: string }>(assignAgain, 200);
+  });
+
+  it('platform cannot disable a default preset (400)', async () => {
+    const res = await request(httpServer())
+      .patch(`/api/platform/permissions/${DEFAULT_PRESETS[1].id}/disable`)
+      .set('Authorization', `Bearer ${superAdmin.token}`);
+    assertStatus(res, 400);
+  });
+
+  it('bulk disable reverts users and marks presets disabled', async () => {
+    const created: string[] = [];
+    for (const name of ['Bulk Disable One', 'Bulk Disable Two']) {
+      const res = await request(httpServer())
+        .post('/api/company/permissions')
+        .set('Authorization', `Bearer ${tenantA.token}`)
+        .send({ name, role: 'Recruiter', permissions: ['jobs.view'] });
+      const preset = assertEnvelope<{ id: string }>(res, 201);
+      created.push(preset.id);
+      createdPresetIds.push({
+        id: preset.id,
+        schema: `company_${tenantA.companyId}`,
+      });
+    }
+
+    const recruiter = await createCompanyUser(tenantA.token, {
+      email: `bd-${runId}@acme.test`,
+      role: 'Recruiter',
+      password: 'Recruiter123!',
+    });
+    createdOrgUserIds.push(recruiter.id);
+    await request(httpServer())
+      .patch(`/api/company/users/${recruiter.id}/preset`)
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({ presetId: created[0] });
+
+    const bulk = await request(httpServer())
+      .post('/api/company/permissions/bulk-status')
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({ ids: created, enabled: false });
+    const result = assertEnvelope<{ updated: number; revertedUsers: number }>(
+      bulk,
+      201,
+    );
+    expect(result).toEqual({ updated: 2, revertedUsers: 1 });
+
+    const presets = await listPresets(tenantA.token);
+    for (const id of created) {
+      const row = presets.find((p) => p.id === id);
+      expect(row).toBeTruthy();
+      expect((row as { isEnabled?: boolean }).isEnabled).toBe(false);
+    }
   });
 });
