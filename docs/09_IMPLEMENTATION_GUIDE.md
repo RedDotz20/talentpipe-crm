@@ -64,9 +64,9 @@ DATABASE_URL=postgres://devuser:devpassword@localhost:5432/talentpipe
 REDIS_URL=redis://localhost:6379
 JWT_SECRET=dev-jwt-secret-change-in-production
 JWT_REFRESH_SECRET=dev-refresh-secret-change-in-production
-MINIO_ENDPOINT=localhost:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
+S3_ENDPOINT=localhost:9000
+S3_ACCESS_KEY=minioadmin
+S3_SECRET_KEY=minioadmin
 ```
 
 ### Step 0.6 — Drizzle config
@@ -420,10 +420,10 @@ cd frontend && npm install @mantine/dropzone
 > **Removed:** `pdf-parse`, `mammoth`, `@types/pdf-parse`, `@types/mammoth` (no longer needed)
 
 ### Step 4.2 — Storage module (MinIO/S3) — UNCHANGED
-Create `backend/src/common/storage/storage.provider.ts` — `STORAGE_PROVIDER` factory (mirrors `drizzleProvider`): `new S3Client({ region: 'us-east-1', endpoint: MINIO_ENDPOINT, forcePathStyle: true, credentials: { accessKeyId, secretAccessKey } })`.
+Create `backend/src/common/storage/storage.provider.ts` — `STORAGE_PROVIDER` factory (mirrors `drizzleProvider`): `new S3Client({ region: 'us-east-1', endpoint: S3_ENDPOINT, forcePathStyle: true, credentials: { accessKeyId, secretAccessKey } })`.
 Create `backend/src/common/storage/storage.service.ts` — `ensureBucket()` (on `onApplicationBootstrap`), `upload(key, buffer, contentType)`, `get(key)`, `delete(key)`.
 Create `backend/src/common/storage/storage.module.ts` — provides + exports `StorageService`.
-Bucket name configurable via `MINIO_BUCKET` (default `resumes`).
+Bucket name configurable via `S3_BUCKET` (default `resumes`).
 
 ### Step 4.3 — Database schema changes
 **Add to `backend/src/database/schema.ts` (public schema):**
@@ -867,7 +867,7 @@ client_max_body_size 15m;
 
 ### Step 10.3 — Production compose + env ✅
 `docker-compose.prod.yml` (project `talentpipe-prod`): services `postgres:16-alpine`, `migrate` (one-shot), `redis:7-alpine`, `minio`, `backend` (`env_file: .env`), `frontend` (ports `80:80`). All on internal network `backend`; healthchecks on postgres/redis/minio; `restart: unless-stopped`; named volumes `pgdata`/`miniodata`.
-`.env.prod.example` (committed) → copy to `.env` (gitignored) and replace all values. Keys: POSTGRES_USER/PASSWORD/DB, DATABASE_URL (`@postgres:5432`), REDIS_URL (`redis://redis:6379`), JWT_SECRET, JWT_REFRESH_SECRET, MINIO_ENDPOINT (`http://minio:9000`), MINIO_ROOT_USER/PASSWORD + MINIO_ACCESS_KEY/SECRET_KEY (**must match each other** — the app authenticates as the MinIO root user), MINIO_BUCKET, CORS_ORIGIN.
+`.env.prod.example` (committed) → copy to `.env` (gitignored) and replace all values. Keys: POSTGRES_USER/PASSWORD/DB, DATABASE_URL (`@postgres:5432`), REDIS_URL (`redis://redis:6379`), JWT_SECRET, JWT_REFRESH_SECRET, S3_ENDPOINT (`http://minio:9000`), MINIO_ROOT_USER/PASSWORD + S3_ACCESS_KEY/SECRET_KEY (**must match each other** — the app authenticates as the MinIO root user), S3_BUCKET, CORS_ORIGIN.
 `.gitattributes` — `*.sh text eol=lf` (protects the migrate script on Windows checkouts).
 
 ### Step 10.4 — First-boot migrations ✅
@@ -877,7 +877,7 @@ client_max_body_size 15m;
 ```sh
 # On the server
 git clone <repo> && cd talentpipe-crm
-cp .env.prod.example .env        # edit: strong passwords/secrets, MINIO_ACCESS_KEY = MINIO_ROOT_USER
+cp .env.prod.example .env        # edit: strong passwords/secrets, S3_ACCESS_KEY = MINIO_ROOT_USER
 docker compose -f docker-compose.prod.yml up -d --build
 docker compose -f docker-compose.prod.yml ps   # all Up / Healthy, backend not restarting
 ```
