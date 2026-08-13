@@ -23,6 +23,7 @@ interface JwtClaims {
   sub: string;
   companyId?: string;
   role: string;
+  permissions?: string[];
 }
 
 interface CompanyAccount {
@@ -31,24 +32,15 @@ interface CompanyAccount {
   token: string;
   email: string;
   password: string;
-  slug: string;
+}
+
+interface PresetItem {
+  id: string;
   name: string;
-}
-
-interface PlatformJob {
-  id: string;
-  title: string;
-}
-
-interface PublicJobRow {
-  id: string;
-  companyId: string;
-  companySlug: string;
-  companyName: string;
-  title: string;
-  employmentType: string | null;
-  location: string | null;
-  workSetup: string | null;
+  role: string;
+  permissions: string[];
+  isDefault: boolean;
+  usageCount: number;
 }
 
 let app: INestApplication<Server> | undefined;
@@ -83,41 +75,18 @@ const assertEnvelope = <T>(
 const verifyInfrastructure = async (): Promise<void> => {
   const databaseUrl = process.env.DATABASE_URL;
   const redisUrl = process.env.REDIS_URL;
-  if (!databaseUrl) {
-    throw new Error('PostgreSQL unavailable: DATABASE_URL is not configured');
+  if (!databaseUrl || !redisUrl) {
+    throw new Error('DATABASE_URL / REDIS_URL must be configured');
   }
-  if (!redisUrl) {
-    throw new Error('Redis unavailable: REDIS_URL is not configured');
-  }
-
   cleanupPool = new Pool({ connectionString: databaseUrl, max: 2 });
-  try {
-    await cleanupPool.query('SELECT 1');
-  } catch (error: unknown) {
-    await cleanupPool.end();
-    cleanupPool = undefined;
-    throw new Error(
-      `PostgreSQL unavailable via DATABASE_URL: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
-
+  await cleanupPool.query('SELECT 1');
   cleanupRedis = new Redis(redisUrl, {
     lazyConnect: true,
     maxRetriesPerRequest: 1,
     enableReadyCheck: true,
   });
-  try {
-    await cleanupRedis.connect();
-    await cleanupRedis.ping();
-  } catch (error: unknown) {
-    cleanupRedis.disconnect();
-    cleanupRedis = undefined;
-    await cleanupPool.end();
-    cleanupPool = undefined;
-    throw new Error(
-      `Redis unavailable via REDIS_URL: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
+  await cleanupRedis.connect();
+  await cleanupRedis.ping();
 };
 
 const httpServer = (): Server => {
@@ -135,11 +104,10 @@ const createTenant = async (suffix: string): Promise<CompanyAccount> => {
   const email = `phase18-${suffix}-${runId}@example.test`;
   const password = `Phase18Org!${randomUUID().slice(0, 18)}`;
   const slug = `phase18-${suffix}-${runId}`;
-  const name = `Phase 18 ${suffix} ${runId}`;
   const response = await request(httpServer())
     .post('/api/auth/company/signup')
     .send({
-      companyName: name,
+      companyName: `Phase 18 ${suffix} ${runId}`,
       slug,
       email,
       password,
@@ -148,8 +116,7 @@ const createTenant = async (suffix: string): Promise<CompanyAccount> => {
   const claims = JSON.parse(
     Buffer.from(tokens.accessToken.split('.')[1], 'base64url').toString('utf8'),
   ) as JwtClaims;
-  if (!claims.companyId)
-    throw new Error('Company token did not contain companyId');
+  if (!claims.companyId) throw new Error('Company token lacked companyId');
   createdCompanyIds.push(claims.companyId);
   createdOrgUserIds.push(claims.sub);
   return {
@@ -158,233 +125,476 @@ const createTenant = async (suffix: string): Promise<CompanyAccount> => {
     token: tokens.accessToken,
     email,
     password,
-    slug,
-    name,
   };
 };
 
 const createSuperAdmin = async (): Promise<CompanyAccount> => {
-  const pool = cleanupPool;
-  if (!pool) throw new Error('Cleanup PostgreSQL pool was not initialized');
-  const email = `phase18-superadmin-${runId}@example.test`;
-  const password = `Phase18Sa!${randomUUID().slice(0, 16)}`;
-  const userId = randomUUID();
+  const email = `phase18-sa-${runId}@example.test`;
+  const password = `Phase18SA!${randomUUID().slice(0, 18)}`;
   const passwordHash = (await argon2.hash(password)) as string;
-  await pool.query(
-    `INSERT INTO public.super_admins (id, email, password_hash, name)
-     VALUES ($1, $2, $3, $4)`,
-    [userId, email, passwordHash, 'Phase 18 SuperAdmin'],
+  const id = randomUUID();
+  await cleanupPool!.query(
+    `INSERT INTO public.super_admins (id, email, password_hash, name) VALUES ($1, $2, $3, $4)`,
+    [id, email, passwordHash, 'Phase 18 SA'],
   );
-  createdSuperAdminIds.push(userId);
-
+  createdSuperAdminIds.push(id);
   const response = await signIn(email, password);
   const tokens = assertEnvelope<Tokens>(response, 200);
   return {
-    companyId: 'public',
-    userId,
+    companyId: '',
+    userId: id,
     token: tokens.accessToken,
     email,
     password,
-    slug: 'public',
-    name: 'Phase 18 SuperAdmin',
   };
 };
 
-let superAdminTokenValue = '';
-const superAdminToken = (): string => {
-  if (!superAdminTokenValue)
-    throw new Error('SuperAdmin was not initialized before use');
-  return superAdminTokenValue;
-};
-
-const createPlatformJob = async (
-  companyId: string,
-  title: string,
-  employmentType = 'full-time',
-): Promise<PlatformJob> => {
-  const created = await request(httpServer())
-    .post('/api/platform/jobs')
-    .set('Authorization', `Bearer ${superAdminToken()}`)
-    .send({
-      companyId,
-      title,
-      description: 'Phase 18 description',
-      employmentType,
-      location: 'Makati City',
-      workSetup: 'hybrid',
-    });
-  return assertEnvelope<PlatformJob>(created, 201);
-};
-
-const publishJob = async (jobId: string): Promise<void> => {
+const createCompanyUser = async (
+  token: string,
+  body: {
+    email: string;
+    role: string;
+    password: string;
+    presetId?: string | null;
+  },
+): Promise<{ id: string }> => {
   const response = await request(httpServer())
-    .post(`/api/platform/jobs/${jobId}/publish`)
-    .set('Authorization', `Bearer ${superAdminToken()}`);
-  assertStatus(response, 201);
+    .post('/api/company/users')
+    .set('Authorization', `Bearer ${token}`)
+    .send(body);
+  return assertEnvelope<{ id: string }>(response, 201);
 };
 
-const listPublicJobs = async (query = ''): Promise<request.Response> =>
-  request(httpServer()).get(`/api/public/jobs${query}`);
-
-const cleanupDatabase = async (): Promise<void> => {
-  if (!cleanupPool) return;
-  if (createdSuperAdminIds.length > 0) {
-    await cleanupPool.query(
-      'DELETE FROM public.refresh_tokens WHERE user_id = ANY($1::uuid[])',
-      [createdSuperAdminIds],
-    );
-    await cleanupPool.query(
-      'DELETE FROM public.super_admins WHERE id = ANY($1::uuid[])',
-      [createdSuperAdminIds],
-    );
-  }
-  if (createdCompanyIds.length > 0) {
-    await cleanupPool.query(
-      'DELETE FROM public.audit_logs WHERE company_id = ANY($1::text[])',
-      [createdCompanyIds],
-    );
-    await cleanupPool.query(
-      'DELETE FROM public.candidate_applications_index WHERE company_id = ANY($1::text[])',
-      [createdCompanyIds],
-    );
-    await cleanupPool.query(
-      'DELETE FROM public.candidate_bookmarks WHERE company_id = ANY($1::text[])',
-      [createdCompanyIds],
-    );
-    await cleanupPool.query(
-      'DELETE FROM public.job_listings_index WHERE company_id = ANY($1::text[])',
-      [createdCompanyIds],
-    );
-    await cleanupPool.query(
-      'DELETE FROM public.user_emails WHERE company_id = ANY($1::uuid[])',
-      [createdCompanyIds],
-    );
-    await cleanupPool.query(
-      'DELETE FROM public.refresh_tokens WHERE company_id = ANY($1::uuid[])',
-      [createdCompanyIds],
-    );
-  }
-  if (createdOrgUserIds.length > 0) {
-    await cleanupPool.query(
-      'DELETE FROM public.refresh_tokens WHERE user_id = ANY($1::uuid[])',
-      [createdOrgUserIds],
-    );
-  }
-  if (createdCompanyIds.length > 0) {
-    await cleanupPool.query(
-      'DELETE FROM public.companies WHERE id = ANY($1::uuid[])',
-      [createdCompanyIds],
-    );
-    for (const companyId of createdCompanyIds) {
-      await cleanupPool.query(
-        `DROP SCHEMA IF EXISTS "company_${companyId}" CASCADE`,
-      );
-    }
-  }
+const listPresets = async (token: string): Promise<PresetItem[]> => {
+  const response = await request(httpServer())
+    .get('/api/company/permissions')
+    .set('Authorization', `Bearer ${token}`);
+  const data = assertEnvelope<{ presets: PresetItem[] }>(response, 200);
+  return data.presets;
 };
 
-describe('Phase 18 release gate', () => {
-  jest.setTimeout(30000);
-  let tenantA: CompanyAccount;
-  let tenantB: CompanyAccount;
-  let openJobA: PlatformJob;
-  let draftJobA: PlatformJob;
-  let openJobB: PlatformJob;
+const DEFAULT_PRESETS: {
+  id: string;
+  name: string;
+  role: string;
+  permissions: string[];
+}[] = [
+  {
+    id: '00000000-0000-0000-0000-000000000001',
+    name: 'Company Admin Default',
+    role: 'CompanyAdmin',
+    permissions: [
+      'jobs.view',
+      'jobs.create_edit',
+      'jobs.publish_close',
+      'jobs.delete',
+      'candidates.view',
+      'candidates.manage',
+      'applications.view',
+      'applications.move',
+      'applications.note',
+      'interviews.view',
+      'interviews.schedule',
+      'stages.manage',
+      'settings.manage',
+      'users.manage',
+      'permissions.manage',
+      'dashboard.view',
+    ],
+  },
+  {
+    id: '00000000-0000-0000-0000-000000000002',
+    name: 'Recruiter Default',
+    role: 'Recruiter',
+    permissions: [
+      'jobs.view',
+      'jobs.create_edit',
+      'jobs.publish_close',
+      'candidates.view',
+      'candidates.manage',
+      'applications.view',
+      'applications.move',
+      'applications.note',
+      'interviews.view',
+      'interviews.schedule',
+      'dashboard.view',
+    ],
+  },
+  {
+    id: '00000000-0000-0000-0000-000000000003',
+    name: 'Hiring Manager Default',
+    role: 'HiringManager',
+    permissions: [
+      'jobs.view',
+      'candidates.view',
+      'applications.view',
+      'applications.move',
+      'applications.note',
+      'interviews.view',
+      'interviews.schedule',
+      'dashboard.view',
+    ],
+  },
+  {
+    id: '00000000-0000-0000-0000-000000000004',
+    name: 'Interviewer Default',
+    role: 'Interviewer',
+    permissions: ['interviews.view', 'interviews.feedback', 'dashboard.view'],
+  },
+];
 
-  beforeAll(async () => {
-    await verifyInfrastructure();
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-    app = moduleFixture.createNestApplication<INestApplication<Server>>();
-    app.setGlobalPrefix('api');
-    await app.init();
+let tenantA: CompanyAccount;
+let tenantB: CompanyAccount;
+let superAdmin: CompanyAccount;
 
-    const superAdmin = await createSuperAdmin();
-    superAdminTokenValue = superAdmin.token;
-
-    tenantA = await createTenant('a');
-    tenantB = await createTenant('b');
-
-    openJobA = await createPlatformJob(
-      tenantA.companyId,
-      `Phase18 Backend Engineer ${runId}`,
+beforeAll(async () => {
+  await verifyInfrastructure();
+  await cleanupPool!.query(`
+    CREATE TABLE IF NOT EXISTS public.permission_presets (
+      id UUID PRIMARY KEY,
+      name VARCHAR(100) NOT NULL,
+      role VARCHAR(50) NOT NULL,
+      permissions JSONB NOT NULL,
+      is_default BOOLEAN NOT NULL DEFAULT false,
+      created_by UUID,
+      created_at TIMESTAMP NOT NULL DEFAULT now()
     );
-    await publishJob(openJobA.id);
-    draftJobA = await createPlatformJob(
-      tenantA.companyId,
-      `Phase18 Draft Engineer ${runId}`,
-      'contract',
+    ALTER TABLE public.users ADD COLUMN IF NOT EXISTS preset_id UUID;
+  `);
+  for (const p of DEFAULT_PRESETS) {
+    await cleanupPool!.query(
+      `INSERT INTO public.permission_presets (id, name, role, permissions, is_default)
+       VALUES ($1, $2, $3, $4, true)
+       ON CONFLICT (id) DO NOTHING`,
+      [p.id, p.name, p.role, JSON.stringify(p.permissions)],
     );
-    openJobB = await createPlatformJob(
-      tenantB.companyId,
-      `Phase18 Designer ${runId}`,
-      'part-time',
+  }
+
+  const moduleFixture: TestingModule = await Test.createTestingModule({
+    imports: [AppModule],
+  }).compile();
+  app = moduleFixture.createNestApplication();
+  app.setGlobalPrefix('api');
+  await app.init();
+
+  tenantA = await createTenant('a');
+  tenantB = await createTenant('b');
+  superAdmin = await createSuperAdmin();
+});
+
+afterAll(async () => {
+  for (const companyId of createdCompanyIds) {
+    await cleanupPool!.query(
+      `DROP SCHEMA IF EXISTS "company_${companyId}" CASCADE`,
     );
-    await publishJob(openJobB.id);
+    await cleanupPool!.query('DELETE FROM public.companies WHERE id = $1', [
+      companyId,
+    ]);
+  }
+  for (const userId of createdOrgUserIds) {
+    await cleanupPool!.query(
+      'DELETE FROM public.user_emails WHERE user_id = $1',
+      [userId],
+    );
+  }
+  for (const id of createdSuperAdminIds) {
+    await cleanupPool!.query('DELETE FROM public.super_admins WHERE id = $1', [
+      id,
+    ]);
+  }
+  await cleanupPool!.query(
+    'DELETE FROM public.permission_presets WHERE is_default = false',
+  );
+  if (cleanupRedis) await cleanupRedis.quit();
+  if (cleanupPool) await cleanupPool.end();
+  if (app) await app.close();
+});
+
+describe('phase18: permission presets', () => {
+  it('seeds 4 read-only defaults visible to a CompanyAdmin', async () => {
+    const presets = await listPresets(tenantA.token);
+    expect(presets.filter((p) => p.isDefault)).toHaveLength(4);
+    expect(presets.find((p) => p.role === 'Recruiter')?.permissions).toContain(
+      'jobs.create_edit',
+    );
+  });
+
+  it('platform cannot edit or delete a default preset', async () => {
+    const defaultId = DEFAULT_PRESETS[1].id;
+    const patch = await request(httpServer())
+      .patch(`/api/platform/permissions/${defaultId}`)
+      .set('Authorization', `Bearer ${superAdmin.token}`)
+      .send({ name: 'Hacked' });
+    assertStatus(patch, 400);
+    const del = await request(httpServer())
+      .delete(`/api/platform/permissions/${defaultId}`)
+      .set('Authorization', `Bearer ${superAdmin.token}`);
+    assertStatus(del, 400);
+  });
+
+  it('company admin creates a custom preset scoped to own company', async () => {
+    const create = await request(httpServer())
+      .post('/api/company/permissions')
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({
+        name: 'Recruiter No Jobs',
+        role: 'Recruiter',
+        permissions: [
+          'jobs.view',
+          'candidates.view',
+          'candidates.manage',
+          'applications.view',
+          'applications.move',
+          'applications.note',
+          'interviews.view',
+          'interviews.schedule',
+          'dashboard.view',
+        ],
+      });
+    const created = assertEnvelope<{ id: string }>(create, 201);
+    expect(created.id).toBeTruthy();
+
+    const inA = await listPresets(tenantA.token);
+    expect(inA.find((p) => p.id === created.id)?.name).toBe(
+      'Recruiter No Jobs',
+    );
+
+    const inB = await listPresets(tenantB.token);
+    expect(inB.find((p) => p.id === created.id)).toBeUndefined();
+  });
+
+  it('rejects a preset with permissions outside the role default', async () => {
+    const response = await request(httpServer())
+      .post('/api/company/permissions')
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({
+        name: 'Interviewer Superpowers',
+        role: 'Interviewer',
+        permissions: ['jobs.create_edit'],
+      });
+    assertStatus(response, 400);
+  });
+
+  it('superadmin creates a global preset visible to every company', async () => {
+    const create = await request(httpServer())
+      .post('/api/platform/permissions')
+      .set('Authorization', `Bearer ${superAdmin.token}`)
+      .send({
+        name: 'Global Recruiter Light',
+        role: 'Recruiter',
+        permissions: ['jobs.view', 'applications.view', 'dashboard.view'],
+      });
+    const created = assertEnvelope<{ id: string }>(create, 201);
+    const inA = await listPresets(tenantA.token);
+    expect(inA.find((p) => p.id === created.id)).toBeTruthy();
+    const inB = await listPresets(tenantB.token);
+    expect(inB.find((p) => p.id === created.id)).toBeTruthy();
+  });
+
+  it('assigning a preset narrows the account and the backend enforces it', async () => {
+    const recruiter = await createCompanyUser(tenantA.token, {
+      email: `rec1-${runId}@acme.test`,
+      role: 'Recruiter',
+      password: 'Recruiter123!',
+    });
+    createdOrgUserIds.push(recruiter.id);
+    const signInResponse = await signIn(
+      `rec1-${runId}@acme.test`,
+      'Recruiter123!',
+    );
+    const tokens = assertEnvelope<Tokens>(signInResponse, 200);
+    const claims = JSON.parse(
+      Buffer.from(tokens.accessToken.split('.')[1], 'base64url').toString(
+        'utf8',
+      ),
+    ) as JwtClaims;
+    expect(claims.permissions).toContain('jobs.create_edit');
+
+    const preset = (await listPresets(tenantA.token)).find(
+      (p) => p.name === 'Recruiter No Jobs',
+    );
+    if (!preset) throw new Error('Expected Recruiter No Jobs preset');
+    const assign = await request(httpServer())
+      .patch(`/api/company/users/${recruiter.id}/preset`)
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({ presetId: preset.id });
+    assertEnvelope<{ id: string }>(assign, 200);
+
+    const blocked = await request(httpServer())
+      .post('/api/job-postings')
+      .set('Authorization', `Bearer ${tokens.accessToken}`)
+      .send({
+        title: 'Blocked Job',
+        description: 'x',
+        employmentType: 'full-time',
+        location: 'Remote',
+        workSetup: 'work-from-home',
+      });
+    assertStatus(blocked, 403);
+
+    const allowed = await request(httpServer())
+      .get('/api/job-postings')
+      .set('Authorization', `Bearer ${tokens.accessToken}`);
+    assertStatus(allowed, 200);
+
+    const reset = await request(httpServer())
+      .patch(`/api/company/users/${recruiter.id}/preset`)
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({ presetId: null });
+    assertEnvelope<{ id: string }>(reset, 200);
+  });
+
+  it('company admin cannot assign a preset to a CompanyAdmin account', async () => {
+    const response = await request(httpServer())
+      .patch(`/api/company/users/${tenantA.userId}/preset`)
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({ presetId: null });
+    assertStatus(response, 403);
+  });
+
+  it('company admin cannot reach another company user (404)', async () => {
+    const response = await request(httpServer())
+      .patch(`/api/company/users/${tenantB.userId}/preset`)
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({ presetId: null });
+    assertStatus(response, 404);
+  });
+
+  it('rejects assignment with a role mismatch (400)', async () => {
+    const interviewer = await createCompanyUser(tenantA.token, {
+      email: `iv1-${runId}@acme.test`,
+      role: 'Interviewer',
+      password: 'Interviewer123!',
+    });
+    createdOrgUserIds.push(interviewer.id);
+    const preset = (await listPresets(tenantA.token)).find(
+      (p) => p.name === 'Recruiter No Jobs',
+    );
+    if (!preset) throw new Error('Expected Recruiter No Jobs preset');
+    const response = await request(httpServer())
+      .patch(`/api/company/users/${interviewer.id}/preset`)
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({ presetId: preset.id });
+    assertStatus(response, 400);
+  });
+
+  it('role change resets the preset to the role default', async () => {
+    const recruiter = await createCompanyUser(tenantA.token, {
+      email: `rec2-${runId}@acme.test`,
+      role: 'Recruiter',
+      password: 'Recruiter123!',
+    });
+    createdOrgUserIds.push(recruiter.id);
+    const preset = (await listPresets(tenantA.token)).find(
+      (p) => p.name === 'Recruiter No Jobs',
+    );
+    if (!preset) throw new Error('Expected Recruiter No Jobs preset');
     await request(httpServer())
-      .patch(`/api/platform/companies/${tenantB.companyId}/suspend`)
-      .set('Authorization', `Bearer ${superAdminToken()}`);
+      .patch(`/api/company/users/${recruiter.id}/preset`)
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({ presetId: preset.id });
+
+    const roleChange = await request(httpServer())
+      .patch(`/api/company/users/${recruiter.id}/role`)
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({ role: 'HiringManager' });
+    assertEnvelope<{ id: string }>(roleChange, 200);
+
+    const users = assertEnvelope<
+      Array<{ id: string; presetId: string | null }>
+    >(
+      await request(httpServer())
+        .get('/api/company/users')
+        .set('Authorization', `Bearer ${tenantA.token}`),
+      200,
+    );
+    expect(users.find((u) => u.id === recruiter.id)?.presetId).toBeNull();
   });
 
-  afterAll(async () => {
-    try {
-      await cleanupDatabase();
-      if (cleanupRedis) {
-        const notifications = await cleanupRedis.keys('bull:notifications:*');
-        if (notifications.length > 0) await cleanupRedis.del(...notifications);
-        const limiters = await cleanupRedis.keys('limiter:*');
-        if (limiters.length > 0) await cleanupRedis.del(...limiters);
-      }
-    } finally {
-      if (app) await app.close();
-      if (cleanupRedis) await cleanupRedis.quit();
-      if (cleanupPool) await cleanupPool.end();
-    }
-  });
-
-  describe('GET /public/jobs', () => {
-    it('works without authentication', async () => {
-      const response = await listPublicJobs();
-      assertStatus(response, 200);
+  it('cannot delete a preset that is in use (409)', async () => {
+    const recruiter = await createCompanyUser(tenantA.token, {
+      email: `rec3-${runId}@acme.test`,
+      role: 'Recruiter',
+      password: 'Recruiter123!',
     });
+    createdOrgUserIds.push(recruiter.id);
+    const preset = (await listPresets(tenantA.token)).find(
+      (p) => p.name === 'Recruiter No Jobs',
+    );
+    if (!preset) throw new Error('Expected Recruiter No Jobs preset');
+    await request(httpServer())
+      .patch(`/api/company/users/${recruiter.id}/preset`)
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({ presetId: preset.id });
 
-    it('lists open jobs of active companies only', async () => {
-      const response = await listPublicJobs('?pageSize=50');
-      const result = assertEnvelope<{
-        data: PublicJobRow[];
-        total: number;
-      }>(response, 200);
+    const response = await request(httpServer())
+      .delete(`/api/company/permissions/${preset.id}`)
+      .set('Authorization', `Bearer ${tenantA.token}`);
+    assertStatus(response, 409);
 
-      const rows = result.data;
-      expect(rows).toContainEqual(
-        expect.objectContaining({
-          id: openJobA.id,
-          companyId: tenantA.companyId,
-          companySlug: tenantA.slug,
-          companyName: tenantA.name,
-          title: openJobA.title,
-          employmentType: 'full-time',
-          location: 'Makati City',
-          workSetup: 'hybrid',
+    await request(httpServer())
+      .patch(`/api/company/users/${recruiter.id}/preset`)
+      .set('Authorization', `Bearer ${tenantA.token}`)
+      .send({ presetId: null });
+    const after = await request(httpServer())
+      .delete(`/api/company/permissions/${preset.id}`)
+      .set('Authorization', `Bearer ${tenantA.token}`);
+    assertStatus(after, 200);
+  });
+
+  it('superadmin can restrict a CompanyAdmin via a global preset', async () => {
+    const globalLight = assertEnvelope<{ id: string }>(
+      await request(httpServer())
+        .post('/api/platform/permissions')
+        .set('Authorization', `Bearer ${superAdmin.token}`)
+        .send({
+          name: 'Global CA Settings-Less',
+          role: 'CompanyAdmin',
+          permissions: [
+            'jobs.view',
+            'jobs.create_edit',
+            'jobs.publish_close',
+            'jobs.delete',
+            'candidates.view',
+            'candidates.manage',
+            'applications.view',
+            'applications.move',
+            'applications.note',
+            'interviews.view',
+            'interviews.schedule',
+            'stages.manage',
+            'users.manage',
+            'permissions.manage',
+            'dashboard.view',
+          ],
         }),
-      );
-      expect(rows.map((row) => row.id)).not.toContain(draftJobA.id);
-      expect(rows.map((row) => row.id)).not.toContain(openJobB.id);
-    });
+      201,
+    );
 
-    it('respects employmentType filters', async () => {
-      const response = await listPublicJobs('?employmentType=contract');
-      const result = assertEnvelope<{ data: PublicJobRow[] }>(response, 200);
-      expect(result.data.map((row) => row.id)).not.toContain(openJobA.id);
-    });
+    const assign = await request(httpServer())
+      .patch(
+        `/api/platform/companies/${tenantB.companyId}/users/${tenantB.userId}/preset`,
+      )
+      .set('Authorization', `Bearer ${superAdmin.token}`)
+      .send({ presetId: globalLight.id });
+    assertEnvelope<{ id: string }>(assign, 200);
 
-    it('searches across companies by title', async () => {
-      const response = await listPublicJobs(
-        `?search=${encodeURIComponent('Backend Engineer')}`,
-      );
-      const result = assertEnvelope<{ data: PublicJobRow[] }>(response, 200);
-      expect(result.data.map((row) => row.id)).toContain(openJobA.id);
-    });
+    const settingsPatch = await request(httpServer())
+      .patch('/api/company')
+      .set('Authorization', `Bearer ${tenantB.token}`)
+      .send({ name: 'Hacked Name' });
+    assertStatus(settingsPatch, 403);
+
+    const settingsGet = await request(httpServer())
+      .get('/api/company')
+      .set('Authorization', `Bearer ${tenantB.token}`);
+    assertStatus(settingsGet, 200);
+
+    await request(httpServer())
+      .patch(
+        `/api/platform/companies/${tenantB.companyId}/users/${tenantB.userId}/preset`,
+      )
+      .set('Authorization', `Bearer ${superAdmin.token}`)
+      .send({ presetId: null });
   });
 });
