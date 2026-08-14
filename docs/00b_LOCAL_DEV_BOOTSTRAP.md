@@ -204,21 +204,28 @@ Expect the nullable `cover_letter` column inherited from `public.applications`.
 
 ---
 
-### 10. Seed the 6 sample accounts
+### 10. Seed the accounts + demo data
 
 ```sh
 cd backend
 npm run seed
 ```
 
-**Expected output:**
+The seed is idempotent — safe to re-run. It creates:
+- **2 SuperAdmins**, **5 companies** (each with 7 users: CompanyAdmin + 2 HiringManagers + 2 Interviewers + 2 Recruiters), **10 candidate accounts**, plus the skills taxonomy and permission presets.
+- **Operational demo data per company:** 6 job postings (5 open, 1 closed) with required skills and metadata, 10 company candidates with 10 applications spread across all pipeline stages, and 3 interviews (2 upcoming, 1 past with feedback) — all synced into `job_listings_index` / `candidate_applications_index`.
+
+**Expected output (abbreviated):**
 ```
 [OK] SuperAdmin created: superadmin@talentpipe.com
-[OK] Company created: Acme Corp (admin@acme.com, company: <uuid>)
-[OK] Interviewer created: interviewer@acme.com
-[OK] Hiring Manager created: hiring.manager@acme.com
-[OK] Recruiter created: recruiter@acme.com
-[OK] Candidate created: candidate@test.com
+[OK] SuperAdmin created: platform@talentpipe.com
+[OK] Candidate created: candidate1@test.com
+...
+[OK] Company created: Acme Corp (admin@acme.com, tenant: <uuid>) — 7 users, 6 jobs, 10 candidates, 10 applications, 3 interviews
+[OK] Company created: Globex (admin@globex.com, tenant: <uuid>) — ...
+... (5 companies total)
+[OK] Skills seeded: 42 total
+[OK] Permission presets seeded: 4 total
 Seed complete.
 ```
 
@@ -266,16 +273,18 @@ npm run dev
 
 ### 13. Log in with a sample account
 
-The seed script creates exactly six accounts:
+The seed script creates 47 accounts following this convention (`<slug>` = company slug):
 
-| Role | Email | Password |
-|------|-------|----------|
-| SuperAdmin (platform-wide) | `superadmin@talentpipe.com` | `SuperAdmin123!` |
-| CompanyAdmin (Acme Corp) | `admin@acme.com` | `Admin123!` |
-| Interviewer (Acme Corp) | `interviewer@acme.com` | `Interviewer123!` |
-| HiringManager (Acme Corp) | `hiring.manager@acme.com` | `HiringManager123!` |
-| Recruiter (Acme Corp) | `recruiter@acme.com` | `Recruiter123!` |
-| Candidate (cross-company) | `candidate@test.com` | `Candidate123!` |
+| Role | Emails | Password |
+|------|--------|----------|
+| SuperAdmin (platform-wide) ×2 | `superadmin@talentpipe.com`, `platform@talentpipe.com` | `SuperAdmin123!` |
+| CompanyAdmin ×5 (one per company) | `admin@<slug>.com` (Acme keeps `admin@acme.com`) | `Admin123!` |
+| HiringManager ×2 per company | `hm1@<slug>.com`, `hm2@<slug>.com` | `HiringManager123!` |
+| Interviewer ×2 per company | `iv1@<slug>.com`, `iv2@<slug>.com` | `Interviewer123!` |
+| Recruiter ×2 per company | `rec1@<slug>.com`, `rec2@<slug>.com` | `Recruiter123!` |
+| Candidate ×10 (cross-company) | `candidate1@test.com` … `candidate10@test.com` | `Candidate123!` |
+
+Companies: **Acme Corp** (`acme-corp`), **Globex** (`globex`), **Initech** (`initech`), **Umbrella Corp** (`umbrella-corp`), **Stark Industries** (`stark-industries`).
 
 Login at `http://localhost:5173/auth/signin`. SuperAdmin and CompanyAdmin land in their company dashboard; Candidate lands in the candidate portal.
 

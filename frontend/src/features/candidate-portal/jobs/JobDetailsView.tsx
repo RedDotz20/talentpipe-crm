@@ -26,6 +26,7 @@ interface JobDetailsViewProps {
   applyLabel?: string;
   backLink?: ReactNode;
   applied?: boolean;
+  showAppliedAction?: boolean;
 }
 
 export function JobDetailsView({
@@ -34,6 +35,7 @@ export function JobDetailsView({
   applyLabel = 'Apply now',
   backLink,
   applied = false,
+  showAppliedAction = true,
 }: JobDetailsViewProps) {
   return (
     <Stack gap="xl">
@@ -81,15 +83,17 @@ export function JobDetailsView({
             )}
           </div>
           {applied ? (
-            <Button
-              component={Link}
-              to="/applications"
-              size="md"
-              variant="light"
-              color="green"
-            >
-              View my application
-            </Button>
+            showAppliedAction && (
+              <Button
+                component={Link}
+                to="/applications"
+                size="md"
+                variant="light"
+                color="green"
+              >
+                View my application
+              </Button>
+            )
           ) : (
             <Button onClick={onApply} size="md">
               {applyLabel}

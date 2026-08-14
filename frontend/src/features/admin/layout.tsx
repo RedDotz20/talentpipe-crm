@@ -37,10 +37,10 @@ export function SuperAdminPlatform() {
 
   const navItems = [
     { label: 'Dashboard', icon: IconLayoutDashboard, to: '/admin/dashboard' },
-    { label: 'Tenants', icon: IconBuildingEstate, to: '/admin/companies' },
-    { label: 'Jobs', icon: IconBriefcase, to: '/admin/jobs' },
-    { label: 'Users', icon: IconUsers, to: '/admin/users' },
-    { label: 'Applications', icon: IconListDetails, to: '/admin/applications' },
+    { label: 'Companies', icon: IconBuildingEstate, to: '/admin/companies' },
+    { label: 'Jobs List', icon: IconBriefcase, to: '/admin/jobs' },
+    { label: 'User Management', icon: IconUsers, to: '/admin/users' },
+    { label: 'Candidate Applications', icon: IconListDetails, to: '/admin/applications' },
     { label: 'Permissions', icon: IconShieldLock, to: '/admin/permissions' },
   ];
 

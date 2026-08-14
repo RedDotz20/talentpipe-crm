@@ -98,6 +98,20 @@ export function CompanyDetailPage({ companyId }: { companyId: string }) {
               Applications: <b>{company.applications}</b>
             </Text>
           </SimpleGrid>
+          <Text size="sm">Applications by stage:</Text>
+          <Group gap="xs">
+            {company.applicationsByStage.length === 0 ? (
+              <Text size="sm" c="dimmed">
+                No applications yet.
+              </Text>
+            ) : (
+              company.applicationsByStage.map((stage) => (
+                <Badge key={stage.stageName} variant="light">
+                  {stage.stageName}: {stage.count}
+                </Badge>
+              ))
+            )}
+          </Group>
         </Stack>
       </Card>
 

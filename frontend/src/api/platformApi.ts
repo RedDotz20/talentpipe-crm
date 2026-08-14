@@ -16,6 +16,7 @@ export interface PlatformCompany {
 export interface CompanyDetail extends PlatformCompany {
   users: number;
   applications: number;
+  applicationsByStage: Array<{ stageName: string; count: number }>;
 }
 
 export interface PlatformStats {

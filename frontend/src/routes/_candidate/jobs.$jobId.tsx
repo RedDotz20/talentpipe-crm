@@ -9,13 +9,15 @@ import { DetailSkeleton } from '@/shared/components/Skeletons';
 export const Route = createFileRoute('/_candidate/jobs/$jobId')({
   validateSearch: (search: Record<string, unknown>) => ({
     companyId: typeof search.companyId === 'string' ? search.companyId : '',
+    from: typeof search.from === 'string' ? search.from : '',
   }),
   component: CandidateJobDetailRoute,
 });
 
 function CandidateJobDetailRoute() {
   const { jobId } = Route.useParams();
-  const { companyId } = Route.useSearch();
+  const { companyId, from } = Route.useSearch();
+  const fromApplications = from === 'applications';
   const { data: job, isLoading, error } = useJobDetail(companyId, jobId);
   const { data: applicationsResult = { data: [], total: 0 } } = useApplications({ pageSize: 50 });
   const applications = applicationsResult.data;
@@ -58,10 +60,17 @@ function CandidateJobDetailRoute() {
     <Container size="md" py="xl">
       <JobDetailsView
         job={job}
-        backLink={<Link to="/dashboard">Back to job search</Link>}
+        backLink={
+          fromApplications ? (
+            <Link to="/applications">Back to my applications</Link>
+          ) : (
+            <Link to="/dashboard">Back to job search</Link>
+          )
+        }
         onApply={() => setApplyOpened(true)}
         applyLabel="Apply now"
         applied={applied}
+        showAppliedAction={!fromApplications}
       />
       {applyOpened && (
         <CandidateApplyModal
