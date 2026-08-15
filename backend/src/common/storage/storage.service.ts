@@ -24,7 +24,7 @@ export class StorageService implements OnApplicationBootstrap {
     @Inject(STORAGE_PROVIDER) private readonly client: S3Client,
     config: ConfigService,
   ) {
-    this.bucket = config.get<string>('MINIO_BUCKET') ?? 'resumes';
+    this.bucket = config.get<string>('S3_BUCKET') ?? 'resumes';
   }
 
   async onApplicationBootstrap() {
