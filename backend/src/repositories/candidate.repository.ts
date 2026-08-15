@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { eq, desc, count } from 'drizzle-orm';
-import { candidates } from '../database/schema';
+import { candidates, candidateAccounts } from '../database/schema';
 import { BaseRepository } from './base.repository';
 import {
   andConditions,
@@ -10,6 +10,16 @@ import {
   toWhere,
 } from './list-query.helper';
 import type { ListQueryDto } from '../common/dto/list-query.dto';
+
+const CANDIDATE_SELECT = {
+  id: candidates.id,
+  name: candidates.name,
+  email: candidates.email,
+  phone: candidates.phone,
+  candidateAccountId: candidates.candidateAccountId,
+  createdAt: candidates.createdAt,
+  avatarUrl: candidateAccounts.avatarUrl,
+};
 
 @Injectable()
 export class CandidateRepository extends BaseRepository {
@@ -38,8 +48,12 @@ export class CandidateRepository extends BaseRepository {
       const { offset, limit } = toPagination(query);
       const [rows, totalRows] = await Promise.all([
         db
-          .select()
+          .select(CANDIDATE_SELECT)
           .from(candidates)
+          .leftJoin(
+            candidateAccounts,
+            eq(candidates.candidateAccountId, candidateAccounts.id),
+          )
           .where(conditions)
           .orderBy(toOrderBy(query, sortOptions))
           .limit(limit)
@@ -61,8 +75,12 @@ export class CandidateRepository extends BaseRepository {
         toWhere(query, [candidates.name, candidates.email]),
       );
       return db
-        .select()
+        .select(CANDIDATE_SELECT)
         .from(candidates)
+        .leftJoin(
+          candidateAccounts,
+          eq(candidates.candidateAccountId, candidateAccounts.id),
+        )
         .where(conditions)
         .orderBy(desc(candidates.createdAt))
         .execute();

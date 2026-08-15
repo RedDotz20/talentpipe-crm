@@ -37,6 +37,7 @@ export class CandidateAccountRepository extends BaseRepository {
           lastName: candidateAccounts.lastName,
           phone: candidateAccounts.phone,
           resumeFileUrl: candidateAccounts.resumeFileUrl,
+          avatarUrl: candidateAccounts.avatarUrl,
           createdAt: candidateAccounts.createdAt,
         })
         .from(candidateAccounts)
@@ -109,6 +110,18 @@ export class CandidateAccountRepository extends BaseRepository {
       const rows = await db
         .update(candidateAccounts)
         .set({ resumeFileUrl: null, resumeUploadedAt: null })
+        .where(eq(candidateAccounts.id, id))
+        .returning()
+        .execute();
+      return rows[0] ?? null;
+    });
+  }
+
+  async updateAvatarUrl(id: string, avatarUrl: string | null) {
+    return this.withDb('public', async (db) => {
+      const rows = await db
+        .update(candidateAccounts)
+        .set({ avatarUrl })
         .where(eq(candidateAccounts.id, id))
         .returning()
         .execute();

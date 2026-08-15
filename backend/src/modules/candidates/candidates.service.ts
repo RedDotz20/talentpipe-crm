@@ -39,6 +39,7 @@ export class CandidatesService {
     let skills: { id: string; name: string; category: string | null }[] = [];
     let resume: { fileUrl: string | null; uploadedAt: Date | null } | null =
       null;
+    let avatarUrl: string | null = null;
 
     if (candidate.candidateAccountId) {
       const account = await this.candidateAccountRepo.findById(
@@ -63,6 +64,7 @@ export class CandidatesService {
           fileUrl: account.resumeFileUrl ?? null,
           uploadedAt: account.resumeUploadedAt ?? null,
         };
+        avatarUrl = account.avatarUrl ?? null;
       }
     } else if (candidate.email) {
       // Fallback for legacy candidates without UUID link
@@ -88,11 +90,13 @@ export class CandidatesService {
           fileUrl: account.resumeFileUrl ?? null,
           uploadedAt: account.resumeUploadedAt ?? null,
         };
+        avatarUrl = account.avatarUrl ?? null;
       }
     }
 
     return {
       ...candidate,
+      avatarUrl,
       resume,
       skills,
       applications,

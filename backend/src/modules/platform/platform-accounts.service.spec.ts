@@ -337,6 +337,8 @@ describe('PlatformAccountsService', () => {
           role: 'Recruiter',
           status: 'active',
           presetId: null,
+          name: 'Alice Acme',
+          avatarUrl: 'https://cdn.example/avatar-u1.png',
           createdAt: new Date('2026-01-01'),
         },
       ]);
@@ -348,6 +350,7 @@ describe('PlatformAccountsService', () => {
           lastName: 'Doe',
           phone: null,
           resumeFileUrl: null,
+          avatarUrl: 'https://cdn.example/avatar-c1.png',
           createdAt: new Date('2026-02-01'),
         },
       ]);
@@ -364,6 +367,8 @@ describe('PlatformAccountsService', () => {
         companyName: 'Acme',
         firstName: null,
         lastName: null,
+        name: 'Alice Acme',
+        avatarUrl: 'https://cdn.example/avatar-u1.png',
         createdAt: expect.any(Date) as Date,
       });
       expect(result.data[1]).toEqual({
@@ -376,6 +381,7 @@ describe('PlatformAccountsService', () => {
         companyName: null,
         firstName: 'Jane',
         lastName: 'Doe',
+        avatarUrl: 'https://cdn.example/avatar-c1.png',
         createdAt: expect.any(Date) as Date,
       });
       expect(deps.userRepo.findAll).toHaveBeenCalledWith('company_tenant-a');

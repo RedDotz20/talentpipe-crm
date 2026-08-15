@@ -101,6 +101,7 @@ describe('CandidatesService', () => {
       phone: '555-1234',
       resumeFileUrl: 'candidate-resumes/acc-1/uuid.pdf',
       resumeUploadedAt: new Date('2026-08-04T12:00:00Z'),
+      avatarUrl: 'https://cdn.example/avatar.png',
     });
     candidateSkillRepo.findByCandidateAccountId.mockResolvedValue([]);
     applicationRepo.findByCandidateId.mockResolvedValue([]);
@@ -111,6 +112,7 @@ describe('CandidatesService', () => {
       email: 'jane@example.com',
       phone: '555-1234',
       candidateAccountId: 'acc-1',
+      avatarUrl: 'https://cdn.example/avatar.png',
       resume: {
         fileUrl: 'candidate-resumes/acc-1/uuid.pdf',
         uploadedAt: new Date('2026-08-04T12:00:00Z'),
@@ -143,6 +145,7 @@ describe('CandidatesService', () => {
       name: 'Jane',
       email: 'jane@example.com',
       candidateAccountId: null,
+      avatarUrl: null,
       resume: { fileUrl: null, uploadedAt: null },
       skills: [],
       applications: [],
@@ -164,6 +167,7 @@ describe('CandidatesService', () => {
       name: 'Jane',
       email: 'jane@example.com',
       candidateAccountId: null,
+      avatarUrl: null,
       resume: null,
       skills: [],
       applications: [],

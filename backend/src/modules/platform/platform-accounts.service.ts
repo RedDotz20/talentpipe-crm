@@ -306,6 +306,8 @@ export class PlatformAccountsService {
       companyName: string;
       firstName: null;
       lastName: null;
+      name: string | null;
+      avatarUrl: string | null;
       createdAt: Date;
     }> = [];
     for (const tenant of companies) {
@@ -322,6 +324,8 @@ export class PlatformAccountsService {
           companyName: tenant.name,
           firstName: null,
           lastName: null,
+          name: user.name ?? null,
+          avatarUrl: user.avatarUrl ?? null,
           createdAt: user.createdAt,
         });
       }
@@ -337,6 +341,7 @@ export class PlatformAccountsService {
       companyName: null,
       firstName: c.firstName,
       lastName: c.lastName,
+      avatarUrl: c.avatarUrl ?? null,
       createdAt: c.createdAt,
     }));
     return [...companyUsers, ...candidateRows] as Array<
