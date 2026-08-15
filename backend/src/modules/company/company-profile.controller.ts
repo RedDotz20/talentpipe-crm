@@ -12,19 +12,13 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { INTERNAL_ROLES } from '../../common/permissions/permissions';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { CompanyProfileService } from './company-profile.service';
 import {
   UpdateCompanyProfileSchema,
   UpdateCompanyProfileDto,
 } from './dto/update-profile.dto';
-
-const INTERNAL_ROLES = [
-  'CompanyAdmin',
-  'Recruiter',
-  'HiringManager',
-  'Interviewer',
-];
 
 @Controller('company/profile')
 @UseGuards(AuthGuard('jwt'))

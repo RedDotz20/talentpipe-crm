@@ -77,6 +77,43 @@ describe('PlatformProfileService', () => {
     expect(result).toEqual({ avatarUrl: 'platform/avatars/s1/new.png' });
   });
 
+  it('updates the display name', async () => {
+    superAdminRepo.findById.mockResolvedValue({
+      id: 's1',
+      email: 'sa@talentpipe.com',
+      name: 'Super Admin',
+      avatarUrl: null,
+    });
+    superAdminRepo.updateName.mockResolvedValue({
+      id: 's1',
+      email: 'sa@talentpipe.com',
+      name: 'Grace Hopper',
+      avatarUrl: null,
+    });
+
+    const result = await run(() => service.update({ name: 'Grace Hopper' }));
+
+    expect(superAdminRepo.updateName).toHaveBeenCalledWith(
+      's1',
+      'Grace Hopper',
+    );
+    expect(result.name).toBe('Grace Hopper');
+  });
+
+  it('no-ops when no name is provided', async () => {
+    superAdminRepo.findById.mockResolvedValue({
+      id: 's1',
+      email: 'sa@talentpipe.com',
+      name: 'Super Admin',
+      avatarUrl: null,
+    });
+
+    const result = await run(() => service.update({}));
+
+    expect(superAdminRepo.updateName).not.toHaveBeenCalled();
+    expect(result.name).toBe('Super Admin');
+  });
+
   it('removes the avatar', async () => {
     superAdminRepo.findById.mockResolvedValue({
       id: 's1',
