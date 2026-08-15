@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
   HttpCode,
   HttpStatus,
@@ -60,5 +61,11 @@ export class AuthController {
   async logout(@CurrentUser() user: CompanyContext) {
     await this.authService.logout(user.userId);
     return { data: null, message: 'Logged out' };
+  }
+
+  @Get('me')
+  @UseGuards(AuthGuard('jwt'))
+  async me(@CurrentUser() user: CompanyContext) {
+    return this.authService.me(user);
   }
 }
