@@ -19,9 +19,11 @@ export function CompanySignupPage() {
     }
     try {
       await companySignup({ companyName: form.companyName, slug: form.slug, email: form.email, password: form.password });
-      navigate({ to: '/auth/signin' });
-    } catch {
-      setError('Signup failed');
+      await navigate({ to: '/company/dashboard' });
+    } catch (err) {
+      const message = (err as { response?: { data?: { error?: { message?: string } } } })
+        ?.response?.data?.error?.message;
+      setError(message ?? 'Signup failed');
     }
   };
 

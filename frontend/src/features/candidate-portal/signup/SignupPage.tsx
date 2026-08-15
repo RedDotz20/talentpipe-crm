@@ -38,8 +38,10 @@ export function CandidateSignupPage({ returnTo }: CandidateSignupPageProps) {
       } else {
         navigate({ to: '/dashboard' });
       }
-    } catch {
-      setError('Signup failed');
+    } catch (err) {
+      const message = (err as { response?: { data?: { error?: { message?: string } } } })
+        ?.response?.data?.error?.message;
+      setError(message ?? 'Signup failed');
     }
   };
 
