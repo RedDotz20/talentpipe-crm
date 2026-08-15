@@ -1,4 +1,5 @@
 import { ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
+import { MulterError } from 'multer';
 import { ApiExceptionFilter } from './api-exception.filter';
 
 function makeHost(): ArgumentsHost {
@@ -94,6 +95,32 @@ describe('ApiExceptionFilter', () => {
     expect(status).toHaveBeenCalledWith(500);
     expect(json).toHaveBeenCalledWith({
       error: { code: 'INTERNAL_ERROR', message: 'Internal server error' },
+    });
+  });
+
+  it('maps MulterError LIMIT_FILE_SIZE to 413 VALIDATION_ERROR', () => {
+    const host = makeHost();
+    const { status, json } = capture(host);
+    filter.catch(new MulterError('LIMIT_FILE_SIZE', 'file'), host);
+    expect(status).toHaveBeenCalledWith(413);
+    expect(json).toHaveBeenCalledWith({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Resume must be 10MB or smaller',
+      },
+    });
+  });
+
+  it('maps other MulterError to 400 VALIDATION_ERROR', () => {
+    const host = makeHost();
+    const { status, json } = capture(host);
+    filter.catch(new MulterError('LIMIT_UNEXPECTED_FILE', 'file'), host);
+    expect(status).toHaveBeenCalledWith(400);
+    expect(json).toHaveBeenCalledWith({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'File upload failed: Unexpected field',
+      },
     });
   });
 });
