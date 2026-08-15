@@ -19,31 +19,41 @@ import { STORAGE_PROVIDER } from './storage.provider';
 export class StorageService implements OnApplicationBootstrap {
   private readonly logger = new Logger(StorageService.name);
   private readonly bucket: string;
+  private readonly avatarBucket: string;
 
   constructor(
     @Inject(STORAGE_PROVIDER) private readonly client: S3Client,
     config: ConfigService,
   ) {
     this.bucket = config.get<string>('S3_BUCKET') ?? 'resumes';
+    this.avatarBucket = config.get<string>('S3_AVATAR_BUCKET') ?? 'avatars';
   }
 
   async onApplicationBootstrap() {
-    await this.ensureBucket();
+    await Promise.all([
+      this.ensureBucket(this.bucket),
+      this.ensureBucket(this.avatarBucket),
+    ]);
   }
 
-  private async ensureBucket() {
+  private async ensureBucket(bucket: string) {
     try {
-      await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
+      await this.client.send(new HeadBucketCommand({ Bucket: bucket }));
     } catch {
-      await this.client.send(new CreateBucketCommand({ Bucket: this.bucket }));
-      this.logger.log(`Created bucket "${this.bucket}"`);
+      await this.client.send(new CreateBucketCommand({ Bucket: bucket }));
+      this.logger.log(`Created bucket "${bucket}"`);
     }
   }
 
-  async upload(key: string, buffer: Buffer, contentType: string) {
+  async upload(
+    key: string,
+    buffer: Buffer,
+    contentType: string,
+    bucket = this.bucket,
+  ) {
     await this.client.send(
       new PutObjectCommand({
-        Bucket: this.bucket,
+        Bucket: bucket,
         Key: key,
         Body: buffer,
         ContentType: contentType,
@@ -51,10 +61,10 @@ export class StorageService implements OnApplicationBootstrap {
     );
   }
 
-  async get(key: string): Promise<Buffer | null> {
+  async get(key: string, bucket = this.bucket): Promise<Buffer | null> {
     try {
       const res = await this.client.send(
-        new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+        new GetObjectCommand({ Bucket: bucket, Key: key }),
       );
       const bytes = await res.Body?.transformToByteArray();
       return bytes ? Buffer.from(bytes) : null;
@@ -63,9 +73,9 @@ export class StorageService implements OnApplicationBootstrap {
     }
   }
 
-  async delete(key: string) {
+  async delete(key: string, bucket = this.bucket) {
     await this.client.send(
-      new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),
+      new DeleteObjectCommand({ Bucket: bucket, Key: key }),
     );
   }
 }
