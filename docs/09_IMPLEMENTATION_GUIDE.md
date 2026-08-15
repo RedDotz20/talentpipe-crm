@@ -167,7 +167,7 @@ backend/drizzle/20260808100000_platform_account_cascades/migration.sql # FK casc
 **Template schema** (`backend/drizzle/template-schema.sql`) — the hand-written file cloned per company at signup. Apply it once to create the `template` schema:
 ```
 Get-Content backend/drizzle/template-schema.sql |
-  docker exec -i talentpipe-crm-postgres-1 psql -U devuser -d talentpipe
+  docker exec -i talentpipe-ats-postgres-1 psql -U devuser -d talentpipe
 ```
 It defines the 9 company tables: `users, job_postings, candidates, pipeline_stages, applications, job_required_skills, interviews, interview_feedbacks, notes`.
 

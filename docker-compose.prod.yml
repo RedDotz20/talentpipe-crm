@@ -1,4 +1,4 @@
-name: talentpipe-prod
+name: talentpipe-ats-prod
 
 networks:
   backend:

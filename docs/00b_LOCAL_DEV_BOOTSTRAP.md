@@ -17,7 +17,7 @@ docker compose up -d
 **Check:**
 ```sh
 docker ps
-# Expect 3 containers: talentpipe-crm-postgres-1, talentpipe-crm-redis-1, talentpipe-crm-minio-1
+# Expect 3 containers: talentpipe-ats-postgres-1, talentpipe-ats-redis-1, talentpipe-ats-minio-1
 # All STATUS = Up
 ```
 
@@ -28,7 +28,7 @@ If any container exits or restarts, check `docker compose logs <service>` before
 ### 2. Verify Postgres is reachable
 
 ```sh
-docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "SELECT current_database();"
+docker exec talentpipe-ats-postgres-1 psql -U devuser -d talentpipe -c "SELECT current_database();"
 ```
 
 **Check:** returns `talentpipe`. If it says "database does not exist", the postgres container didn't init — wipe the volume: `docker compose down -v && docker compose up -d`.
@@ -42,12 +42,12 @@ The migrations live in `backend/drizzle/`. Run them in chronological order. **Sk
 ```sh
 # First migration — creates 16 public tables (users, user_emails, companies, etc.)
 Get-Content backend/drizzle/20260722095156_bright_iron_fist/migration.sql `
-  | docker exec -i talentpipe-crm-postgres-1 psql -U devuser -d talentpipe
+  | docker exec -i talentpipe-ats-postgres-1 psql -U devuser -d talentpipe
 ```
 
 **Check:**
 ```sh
-docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "\dt public.*"
+docker exec talentpipe-ats-postgres-1 psql -U devuser -d talentpipe -c "\dt public.*"
 ```
 Must list at least: `users`, `user_emails`, `companies`, `refresh_tokens`, `super_admins`.
 
@@ -59,15 +59,15 @@ Must list at least: `users`, `user_emails`, `companies`, `refresh_tokens`, `supe
 
 ```sh
 Get-Content backend/drizzle/20260723191416_fresh_blindfold/migration.sql `
-  | docker exec -i talentpipe-crm-postgres-1 psql -U devuser -d talentpipe
+  | docker exec -i talentpipe-ats-postgres-1 psql -U devuser -d talentpipe
 
 Get-Content backend/drizzle/20260727163000_smooth_spitfire/migration.sql `
-  | docker exec -i talentpipe-crm-postgres-1 psql -U devuser -d talentpipe
+  | docker exec -i talentpipe-ats-postgres-1 psql -U devuser -d talentpipe
 ```
 
 **Check:**
 ```sh
-docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "\dt public.*"
+docker exec talentpipe-ats-postgres-1 psql -U devuser -d talentpipe -c "\dt public.*"
 ```
 Now expect **21 tables** including `candidate_accounts`, `super_admins`, `job_listings_index`.
 
@@ -80,12 +80,12 @@ replays the schema changes chronologically.
 
 ```sh
 Get-Content backend/drizzle/20260803085856_redundant_tyrannus/migration.sql `
-  | docker exec -i talentpipe-crm-postgres-1 psql -U devuser -d talentpipe
+  | docker exec -i talentpipe-ats-postgres-1 psql -U devuser -d talentpipe
 ```
 
 **Check:**
 ```sh
-docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "\d public.candidate_skills"
+docker exec talentpipe-ats-postgres-1 psql -U devuser -d talentpipe -c "\d public.candidate_skills"
 # Expect the unique_candidate_skill index and candidate-account/skill foreign keys.
 ```
 
@@ -97,7 +97,7 @@ The current Phase 4 redesign stores resume metadata on `public.candidate_account
 
 ```sh
 Get-Content backend/drizzle/20260804101500_candidate_profile_redesign/migration.sql `
-  | docker exec -i talentpipe-crm-postgres-1 psql -U devuser -d talentpipe
+  | docker exec -i talentpipe-ats-postgres-1 psql -U devuser -d talentpipe
 ```
 
 **Check:** existing company schemas and `template` no longer contain `resumes` or `resume_skills`; `public.candidate_accounts` contains `resume_file_url` and `resume_uploaded_at`.
@@ -108,14 +108,14 @@ This migration adds the nullable `cover_letter` column to the public, template, 
 
 ```sh
 Get-Content backend/drizzle/20260805090000_candidate_application_integrity/migration.sql `
-  | docker exec -i talentpipe-crm-postgres-1 psql -U devuser -d talentpipe
+  | docker exec -i talentpipe-ats-postgres-1 psql -U devuser -d talentpipe
 ```
 
 **Check:**
 ```sh
-docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "\d public.applications"
+docker exec talentpipe-ats-postgres-1 psql -U devuser -d talentpipe -c "\d public.applications"
 # Expect a nullable cover_letter column.
-docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "\d public.candidate_applications_index"
+docker exec talentpipe-ats-postgres-1 psql -U devuser -d talentpipe -c "\d public.candidate_applications_index"
 # Expect the unique_candidate_application unique index.
 ```
 
@@ -125,12 +125,12 @@ Adds `public.companies.status` (`varchar(20)`, default `active`) for platform-le
 
 ```sh
 Get-Content backend/drizzle/20260806191320_superb_king_cobra/migration.sql `
-  | docker exec -i talentpipe-crm-postgres-1 psql -U devuser -d talentpipe
+  | docker exec -i talentpipe-ats-postgres-1 psql -U devuser -d talentpipe
 ```
 
 **Check:**
 ```sh
-docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "SELECT id, slug, status FROM public.companies;"
+docker exec talentpipe-ats-postgres-1 psql -U devuser -d talentpipe -c "SELECT id, slug, status FROM public.companies;"
 # Expect every company to have status = 'active'.
 ```
 
@@ -140,12 +140,12 @@ Converts `interviews.scheduled_at` from a naive timestamp to `TIMESTAMP WITH TIM
 
 ```sh
 Get-Content backend/drizzle/20260807090000_scheduled_at_timezone/migration.sql `
-  | docker exec -i talentpipe-crm-postgres-1 psql -U devuser -d talentpipe
+  | docker exec -i talentpipe-ats-postgres-1 psql -U devuser -d talentpipe
 ```
 
 **Check:**
 ```sh
-docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "\d public.interviews"
+docker exec talentpipe-ats-postgres-1 psql -U devuser -d talentpipe -c "\d public.interviews"
 # Expect scheduled_at as timestamp with time zone.
 ```
 
@@ -155,12 +155,12 @@ Adds `users.status` (`varchar(20)`, default `active`) to `public.users`, the `te
 
 ```sh
 Get-Content backend/drizzle/20260808090000_platform_user_suspend/migration.sql `
-  | docker exec -i talentpipe-crm-postgres-1 psql -U devuser -d talentpipe
+  | docker exec -i talentpipe-ats-postgres-1 psql -U devuser -d talentpipe
 ```
 
 **Check:**
 ```sh
-docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "\d public.users"
+docker exec talentpipe-ats-postgres-1 psql -U devuser -d talentpipe -c "\d public.users"
 # Expect a status column with default 'active'.
 ```
 
@@ -170,12 +170,12 @@ Re-creates FK constraints with delete behavior for platform account management (
 
 ```sh
 Get-Content backend/drizzle/20260808100000_platform_account_cascades/migration.sql `
-  | docker exec -i talentpipe-crm-postgres-1 psql -U devuser -d talentpipe
+  | docker exec -i talentpipe-ats-postgres-1 psql -U devuser -d talentpipe
 ```
 
 **Check:**
 ```sh
-docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "\d public.interviews"
+docker exec talentpipe-ats-postgres-1 psql -U devuser -d talentpipe -c "\d public.interviews"
 # Expect applications FK with ON DELETE CASCADE.
 ```
 
@@ -185,20 +185,20 @@ The template schema is what every new company's `company_<uuid>` schema gets clo
 
 ```sh
 Get-Content backend/drizzle/template-schema.sql `
-  | docker exec -i talentpipe-crm-postgres-1 psql -U devuser -d talentpipe
+  | docker exec -i talentpipe-ats-postgres-1 psql -U devuser -d talentpipe
 ```
 
 **Check:**
 ```sh
-docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "\dn"
+docker exec talentpipe-ats-postgres-1 psql -U devuser -d talentpipe -c "\dn"
 ```
 Expect: `public`, `template`. Then:
 ```sh
-docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "\dt template.*"
+docker exec talentpipe-ats-postgres-1 psql -U devuser -d talentpipe -c "\dt template.*"
 ```
 Expect **9 tables** (`users`, `job_postings`, `candidates`, `pipeline_stages`, `applications`, `job_required_skills`, `interviews`, `interview_feedbacks`, `notes`).
 ```sh
-docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "\d template.applications"
+docker exec talentpipe-ats-postgres-1 psql -U devuser -d talentpipe -c "\d template.applications"
 ```
 Expect the nullable `cover_letter` column inherited from `public.applications`.
 
@@ -231,13 +231,13 @@ Seed complete.
 
 **Check** (returns 1 row for each):
 ```sh
-docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe \
+docker exec talentpipe-ats-postgres-1 psql -U devuser -d talentpipe \
   -c "SELECT email FROM public.super_admins; SELECT email FROM public.user_emails; SELECT email FROM public.candidate_accounts;"
 ```
 
 Verify the same column exists on at least one existing company schema:
 ```sh
-docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "SELECT c.table_schema, c.table_name, c.column_name, c.is_nullable FROM information_schema.columns c WHERE c.table_schema = (SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE 'company_%' ORDER BY schema_name LIMIT 1) AND c.table_name = 'applications' AND c.column_name = 'cover_letter';"
+docker exec talentpipe-ats-postgres-1 psql -U devuser -d talentpipe -c "SELECT c.table_schema, c.table_name, c.column_name, c.is_nullable FROM information_schema.columns c WHERE c.table_schema = (SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE 'company_%' ORDER BY schema_name LIMIT 1) AND c.table_name = 'applications' AND c.column_name = 'cover_letter';"
 ```
 **Check:** returns one row for the discovered `company_<uuid>.applications` table with `column_name = cover_letter`.
 
@@ -358,7 +358,7 @@ Note: `POST /api/auth/signup` (without `company/`) is the **candidate** signup �
 
 After signup, verify the new schema exists:
 ```sh
-docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "\dn"
+docker exec talentpipe-ats-postgres-1 psql -U devuser -d talentpipe -c "\dn"
 # Expect: company_<uuid>
 ```
 
@@ -393,7 +393,7 @@ This creates a new directory under `backend/drizzle/<timestamp>_<name>/` contain
 ```sh
 # (Replace <timestamp>_<name> with the directory drizzle-kit just created)
 Get-Content backend/drizzle/<timestamp>_<name>/migration.sql `
-  | docker exec -i talentpipe-crm-postgres-1 psql -U devuser -d talentpipe
+  | docker exec -i talentpipe-ats-postgres-1 psql -U devuser -d talentpipe
 ```
 
 **Check** the SQL output ends in `ALTER TABLE` / `CREATE INDEX` lines, not `ERROR`.
@@ -408,13 +408,13 @@ Every new company's `company_<uuid>` schema is cloned from `template.*` at signu
 #    INCLUDING ALL), for *new columns* you need an ALTER TABLE instead:
 
 # Example: adding "score integer" to template.interview_feedbacks
-docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c \
+docker exec talentpipe-ats-postgres-1 psql -U devuser -d talentpipe -c \
   'ALTER TABLE template."interview_feedbacks" ADD COLUMN "score" integer;'
 ```
 
 **Check:**
 ```sh
-docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c "\d template.<table>"
+docker exec talentpipe-ats-postgres-1 psql -U devuser -d talentpipe -c "\d template.<table>"
 ```
 Expect the new column visible.
 
@@ -425,7 +425,7 @@ New signups from this point forward will get your change via the template. **But
 **Option 1 — Nuke all companies (dev only).** Fastest. Re-seed via `npm run seed`. Every company schema gets the latest template.
 
 ```sh
-docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c \
+docker exec talentpipe-ats-postgres-1 psql -U devuser -d talentpipe -c \
   "SELECT 'DROP SCHEMA \"' || schema_name || '\" CASCADE;' \
    FROM information_schema.schemata \
    WHERE schema_name LIKE 'company_%';"
@@ -435,7 +435,7 @@ cd backend && npm run seed
 
 **Option 2 — Apply the same ALTER to each existing company schema.** A short loop:
 ```sh
-docker exec talentpipe-crm-postgres-1 psql -U devuser -d talentpipe -c \
+docker exec talentpipe-ats-postgres-1 psql -U devuser -d talentpipe -c \
   "SELECT string_agg('ALTER SCHEMA \"' || schema_name || '\" SET search_path = \"' || schema_name || ', public\";', E'\n') \
    FROM information_schema.schemata WHERE schema_name LIKE 'company_%';"
 # Then for each company schema, run the same ALTER TABLE you ran on public/template.
