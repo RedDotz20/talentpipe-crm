@@ -26,6 +26,7 @@ import { ExportCsvButton } from '@/shared/components/ExportCsvButton'
 import { TableSkeleton } from '@/shared/components/Skeletons'
 import { useListQuery } from '@/shared/hooks/useListQuery'
 import { TableAction } from '@/shared/components/TableAction'
+import { UserAvatar } from '@/shared/components/UserAvatar'
 import { IconKey, IconPencil, IconPlayerPause, IconPlayerPlay, IconShieldLock, IconTrash, IconUserMinus } from '@tabler/icons-react'
 import {
   useCreateCandidate,
@@ -167,11 +168,6 @@ export function UsersPage() {
   const users = usersQuery.data?.data ?? []
   const total = usersQuery.data?.total ?? 0
   const companies = companiesQuery.data?.data ?? []
-
-  const displayName = (user: PlatformUser) =>
-    user.type === 'candidate'
-      ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
-      : user.email
 
   const setCandidateField = (key: keyof CandidateForm, value: string) =>
     setCandidateForm((f) => ({ ...f, [key]: value }))
@@ -328,12 +324,17 @@ export function UsersPage() {
               {users.map((user) => (
                 <Table.Tr key={`${user.type}-${user.id}`}>
                   <Table.Td>
-                    {displayName(user)}
-                    {user.type === 'candidate' && (
-                      <Text size="xs" c="dimmed">
-                        {user.email}
-                      </Text>
-                    )}
+                    <Group gap="sm">
+                      <UserAvatar
+                        name={user.type === 'company' ? user.name : `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()}
+                        avatarUrl={user.avatarUrl}
+                        size="sm"
+                      />
+                      <Stack gap={0}>
+                        <Text size="sm">{user.type === 'company' ? (user.name ?? user.email) : `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()}</Text>
+                        <Text size="xs" c="dimmed">{user.email}</Text>
+                      </Stack>
+                    </Group>
                   </Table.Td>
                   <Table.Td>
                     <Badge variant="light" color={user.type === 'company' ? 'blue' : 'violet'}>

@@ -8,14 +8,17 @@ import {
   Param,
   ParseUUIDPipe,
   Query,
+  Res,
   UseGuards,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
+import type { Response } from 'express';
 import { CandidateAuthGuard } from '../../common/guards/candidate-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { SkipEnvelope } from '../../common/decorators/skip-envelope.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { ListQuerySchema, ListQueryDto } from '../../common/dto/list-query.dto';
 import { CompanyContext } from '../../common/context/company-context';
@@ -173,6 +176,24 @@ export class CandidateAccountController {
     return this.candidateAccountService.updateProfile(user.userId, body);
   }
 
+  @Post('profile/avatar')
+  @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
+  async uploadAvatar(
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: CompanyContext,
+  ) {
+    return this.candidateAccountService.uploadAvatar(user.userId, file);
+  }
+
+  @Delete('profile/avatar')
+  @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
+  async removeAvatar(@CurrentUser() user: CompanyContext) {
+    return this.candidateAccountService.removeAvatar(user.userId);
+  }
+
   @Post('resume')
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
   @UseInterceptors(
@@ -183,6 +204,19 @@ export class CandidateAccountController {
     @CurrentUser() user: CompanyContext,
   ) {
     return this.candidateAccountService.uploadResumeFile(user.userId, file);
+  }
+
+  @Get('resume/file')
+  @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
+  @SkipEnvelope()
+  async downloadResumeFile(
+    @CurrentUser() user: CompanyContext,
+    @Res() res: Response,
+  ) {
+    const file = await this.candidateAccountService.getResumeFile(user.userId);
+    res.setHeader('Content-Type', file.contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${file.filename}"`);
+    res.send(file.buffer);
   }
 
   @Delete('resume')

@@ -9,6 +9,7 @@ export interface Candidate {
   id: string;
   name: string;
   email: string | null;
+  avatarUrl: string | null;
   phone: string | null;
   createdAt: string;
   skills: Skill[];

@@ -20,6 +20,7 @@ import { useAuthStore } from '@/api/useAuth';
 import { TableSkeleton } from '@/shared/components/Skeletons';
 import { TableAction } from '@/shared/components/TableAction';
 import { ExportCsvButton } from '@/shared/components/ExportCsvButton';
+import { UserAvatar } from '@/shared/components/UserAvatar';
 import { IconKey, IconPlayerPause, IconPlayerPlay, IconShieldLock, IconUserMinus } from '@tabler/icons-react';
 import {
   INTERNAL_USER_ROLES,
@@ -109,14 +110,14 @@ export function UserManagementPage() {
       </Group>
 
       {usersQuery.isLoading ? (
-        <TableSkeleton headers={['Email', 'Role', 'Status', 'Created', 'Actions']} />
+        <TableSkeleton headers={['User', 'Role', 'Status', 'Created', 'Actions']} />
       ) : users.length === 0 ? (
         <Text c="dimmed">No users yet.</Text>
       ) : (
         <Table striped highlightOnHover>
           <Table.Thead>
             <Table.Tr>
-              <Table.Th>Email</Table.Th>
+              <Table.Th>User</Table.Th>
               <Table.Th>Role</Table.Th>
               <Table.Th>Status</Table.Th>
               <Table.Th>Created</Table.Th>
@@ -126,7 +127,15 @@ export function UserManagementPage() {
           <Table.Tbody>
             {users.map((user) => (
               <Table.Tr key={user.id}>
-                <Table.Td>{user.email}</Table.Td>
+                <Table.Td>
+                  <Group gap="sm">
+                    <UserAvatar name={user.name} avatarUrl={user.avatarUrl} size="sm" />
+                    <Stack gap={0}>
+                      <Text size="sm">{user.name ?? '—'}</Text>
+                      <Text size="xs" c="dimmed">{user.email}</Text>
+                    </Stack>
+                  </Group>
+                </Table.Td>
                 <Table.Td>
                   <Select
                     size="xs"
@@ -228,6 +237,7 @@ export function UserManagementPage() {
           onSubmit={form.onSubmit((values) => {
             createUser.mutate(
               {
+                name: values.name || undefined,
                 email: values.email,
                 role: values.role,
                 password: values.password,
@@ -262,11 +272,11 @@ export function UserManagementPage() {
               label="Email"
               placeholder={slug ? `john@${slug}.com` : 'john@company.com'}
               required
-              onChange={(event) => {
-                setEmailTouched(true);
-                form.setFieldValue('email', event.currentTarget.value);
-              }}
-              {...form.getInputProps('email')}
+              {...form.getInputProps('email', {
+                onChange: () => {
+                  setEmailTouched(true);
+                },
+              })}
             />
             <Select
               label="Role"

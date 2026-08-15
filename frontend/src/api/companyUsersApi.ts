@@ -12,7 +12,9 @@ export type InternalUserRole = (typeof INTERNAL_USER_ROLES)[number];
 
 export interface CompanyUser {
   id: string;
+  name: string | null;
   email: string;
+  avatarUrl: string | null;
   role: string;
   status: 'active' | 'suspended';
   presetId: string | null;
@@ -20,6 +22,7 @@ export interface CompanyUser {
 }
 
 export interface CreateUserInput {
+  name?: string;
   email: string;
   role: InternalUserRole;
   password: string;

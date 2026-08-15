@@ -13,12 +13,12 @@ export const storageProvider = {
   inject: [ConfigService],
   useFactory: (config: ConfigService) => {
     return new S3Client({
-      region: config.get<string>('MINIO_REGION') ?? 'us-east-1',
-      endpoint: normalizeEndpoint(config.get<string>('MINIO_ENDPOINT')),
+      region: config.get<string>('S3_REGION') ?? 'us-east-1',
+      endpoint: normalizeEndpoint(config.get<string>('S3_ENDPOINT')),
       forcePathStyle: true,
       credentials: {
-        accessKeyId: config.get<string>('MINIO_ACCESS_KEY') ?? 'minioadmin',
-        secretAccessKey: config.get<string>('MINIO_SECRET_KEY') ?? 'minioadmin',
+        accessKeyId: config.get<string>('S3_ACCESS_KEY') ?? 'minioadmin',
+        secretAccessKey: config.get<string>('S3_SECRET_KEY') ?? 'minioadmin',
       },
     });
   },

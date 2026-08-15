@@ -16,6 +16,7 @@ import { UserRepository } from '../../repositories/user.repository';
 import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
 import { SuperAdminRepository } from '../../repositories/super-admin.repository';
 import { CompanyRepository } from '../../repositories/company.repository';
+import { CompanyContext } from '../../common/context/company-context';
 
 @Injectable()
 export class AuthService {
@@ -125,6 +126,45 @@ export class AuthService {
     return {
       data: await this.tokenService.rotate(dto.refreshToken),
       message: 'Signed in',
+    };
+  }
+
+  async me(ctx: CompanyContext) {
+    if (ctx.role === 'Candidate') {
+      const account = await this.candidateAccountRepo.findById(ctx.userId);
+      if (!account) throw new UnauthorizedException('Account not found');
+      return {
+        id: account.id,
+        role: 'Candidate',
+        companyId: null,
+        email: account.email,
+        name: `${account.firstName} ${account.lastName}`.trim(),
+        avatarUrl: account.avatarUrl ?? null,
+      };
+    }
+
+    if (ctx.role === 'SuperAdmin') {
+      const admin = await this.superAdminRepo.findById(ctx.userId);
+      if (!admin) throw new UnauthorizedException('Account not found');
+      return {
+        id: admin.id,
+        role: 'SuperAdmin',
+        companyId: null,
+        email: admin.email,
+        name: admin.name ?? null,
+        avatarUrl: admin.avatarUrl ?? null,
+      };
+    }
+
+    const user = await this.userRepo.findById(ctx.userId);
+    if (!user) throw new UnauthorizedException('Account not found');
+    return {
+      id: user.id,
+      role: user.role,
+      companyId: ctx.companyId,
+      email: user.email,
+      name: user.name ?? null,
+      avatarUrl: user.avatarUrl ?? null,
     };
   }
 }

@@ -117,8 +117,9 @@ Note: resume upload is an authenticated candidate profile operation (`POST /cand
 | GET | `/candidate/bookmarks` | CANDIDATE | List bookmarks |
 | GET | `/candidate/profile` | CANDIDATE | View profile |
 | PUT | `/candidate/profile` | CANDIDATE | Update profile |
-| POST | `/candidate/resume` | CANDIDATE | Upload or replace the candidate profile resume (PDF/DOCX, max 10MB) |
+| POST | `/candidate/resume` | CANDIDATE | Upload or replace the candidate profile resume (PDF/DOCX, max 10MB). `400` for wrong type/content, `413` when >10MB (both `VALIDATION_ERROR`) |
 | DELETE | `/candidate/resume` | CANDIDATE | Remove the candidate profile resume |
+| GET | `/candidate/resume/file` | CANDIDATE | Download/preview own resume — `Content-Disposition: inline`; PDF renders in-tab, DOCX downloads (browser limitation). `404` when no resume |
 | GET | `/candidate/skills` | CANDIDATE | List candidate's declared skills (returns `[{ id, name, category }]`) |
 | PUT | `/candidate/skills` | CANDIDATE | Replace all skills. Body: `{ skillIds: string[] }` |
 

@@ -8,11 +8,11 @@ import {
   Pagination,
   SimpleGrid,
   Skeleton,
+  Stack,
   Table,
   Text,
   Title,
 } from '@mantine/core'
-import { Link } from '@tanstack/react-router'
 import dayjs from 'dayjs'
 import { platformApi } from '@/api/platformApi'
 import { ListControls } from '@/shared/components/ListControls'
@@ -22,6 +22,7 @@ import { TableAction } from '@/shared/components/TableAction'
 import { ExportCsvButton } from '@/shared/components/ExportCsvButton'
 import { IconPlayerPause, IconPlayerPlay, IconTrash } from '@tabler/icons-react'
 import {
+  useCompanyDetail,
   useDeleteCompany,
   usePlatformCompanies,
   usePlatformStats,
@@ -41,6 +42,7 @@ export function CompaniesPage() {
   const deleteCompany = useDeleteCompany()
 
   const [deleting, setDeleting] = useState<PlatformCompany | null>(null)
+  const [viewing, setViewing] = useState<PlatformCompany | null>(null)
 
   const companies = companiesQuery.data?.data ?? []
   const total = companiesQuery.data?.total ?? 0
@@ -136,7 +138,7 @@ export function CompaniesPage() {
       />
 
       {companiesQuery.isLoading ? (
-        <TableSkeleton headers={['Company', 'Slug', 'Plan', 'Status', 'Created', 'Actions']} />
+        <TableSkeleton headers={['Company', 'Slug', 'Status', 'Created', 'Actions']} />
       ) : companies.length === 0 ? (
         <Text c="dimmed">No companies match.</Text>
       ) : (
@@ -146,7 +148,6 @@ export function CompaniesPage() {
               <Table.Tr>
                 <Table.Th>Company</Table.Th>
                 <Table.Th>Slug</Table.Th>
-                <Table.Th>Plan</Table.Th>
                 <Table.Th>Status</Table.Th>
                 <Table.Th>Created</Table.Th>
                 <Table.Th>Actions</Table.Th>
@@ -154,17 +155,17 @@ export function CompaniesPage() {
             </Table.Thead>
             <Table.Tbody>
               {companies.map((company) => (
-                <Table.Tr key={company.id}>
-                  <Table.Td>
-                    <Link
-                      to="/admin/companies/$companyId"
-                      params={{ companyId: company.id }}
-                    >
-                      {company.name}
-                    </Link>
-                  </Table.Td>
+                <Table.Tr
+                  key={company.id}
+                  onClick={() => setViewing(company)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') setViewing(company)
+                  }}
+                  tabIndex={0}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <Table.Td>{company.name}</Table.Td>
                   <Table.Td>{company.slug}</Table.Td>
-                  <Table.Td>{company.plan}</Table.Td>
                   <Table.Td>
                     <Badge
                       variant="light"
@@ -174,7 +175,7 @@ export function CompaniesPage() {
                     </Badge>
                   </Table.Td>
                   <Table.Td>{dayjs(company.createdAt).format('MMM D, YYYY')}</Table.Td>
-                  <Table.Td>
+                  <Table.Td onClick={(e) => e.stopPropagation()}>
                     <Group gap="xs">
                       <TableAction
                         label={company.status === 'suspended' ? 'Reactivate' : 'Suspend'}
@@ -219,6 +220,14 @@ export function CompaniesPage() {
       )}
 
       <Modal
+        opened={viewing !== null}
+        onClose={() => setViewing(null)}
+        title={viewing?.name ?? 'Company'}
+      >
+        <CompanyInfo company={viewing} />
+      </Modal>
+
+      <Modal
         opened={deleting !== null}
         onClose={() => setDeleting(null)}
         title="Delete company"
@@ -248,5 +257,52 @@ export function CompaniesPage() {
         </Group>
       </Modal>
     </>
+  )
+}
+
+function CompanyInfo({ company }: { company: PlatformCompany | null }) {
+  const { data, isLoading, error } = useCompanyDetail(company?.id ?? '')
+
+  return (
+    <Stack gap="xs">
+      {isLoading || !data ? (
+        <Text c="dimmed">{error ? 'Failed to load company.' : 'Loading…'}</Text>
+      ) : (
+        <>
+          <Text size="sm">
+            Slug: <b>{data.slug}</b>
+          </Text>
+          <Badge
+            variant="light"
+            color={data.status === 'suspended' ? 'red' : 'green'}
+            w="fit-content"
+          >
+            {data.status}
+          </Badge>
+          <SimpleGrid cols={2}>
+            <Text size="sm">
+              Users: <b>{data.users}</b>
+            </Text>
+            <Text size="sm">
+              Applications: <b>{data.applications}</b>
+            </Text>
+          </SimpleGrid>
+          <Text size="sm">Applications by stage:</Text>
+          <Group gap="xs">
+            {data.applicationsByStage.length === 0 ? (
+              <Text size="sm" c="dimmed">
+                No applications yet.
+              </Text>
+            ) : (
+              data.applicationsByStage.map((stage) => (
+                <Badge key={stage.stageName} variant="light">
+                  {stage.stageName}: {stage.count}
+                </Badge>
+              ))
+            )}
+          </Group>
+        </>
+      )}
+    </Stack>
   )
 }

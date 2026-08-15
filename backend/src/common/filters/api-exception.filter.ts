@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import { MulterError } from 'multer';
 import type { Request, Response } from 'express';
 
 const STATUS_TO_CODE: Record<number, string> = {
@@ -52,6 +53,16 @@ export class ApiExceptionFilter implements ExceptionFilter {
             .join(', ');
         }
       }
+    } else if (exception instanceof MulterError) {
+      status =
+        exception.code === 'LIMIT_FILE_SIZE'
+          ? HttpStatus.PAYLOAD_TOO_LARGE
+          : HttpStatus.BAD_REQUEST;
+      code = 'VALIDATION_ERROR';
+      message =
+        exception.code === 'LIMIT_FILE_SIZE'
+          ? 'Resume must be 10MB or smaller'
+          : `File upload failed: ${exception.message}`;
     } else if (exception instanceof Error) {
       message = exception.message;
       this.logger.error(exception.stack);

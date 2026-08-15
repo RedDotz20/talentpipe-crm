@@ -127,7 +127,7 @@ cd backend && npm run build        # nest build
 
 # Frontend
 cd frontend && npm run dev         # Vite dev server on :5173
-cd frontend && npm run build       # tsc -b && vite build
+cd frontend && npm run build       # vite build (typecheck is the separate npm run typecheck)
 cd frontend && npm run lint        # oxlint
 ```
 

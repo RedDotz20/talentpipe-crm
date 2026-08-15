@@ -19,9 +19,13 @@ describe('AuthService', () => {
   const tenantProvisioning = { createTenant: jest.fn() };
   const tokenService = { issueTokens: jest.fn() };
   const userEmailRepo = { findByEmail: jest.fn() };
-  const userRepo = { findByEmail: jest.fn() };
-  const candidateAccountRepo = { findByEmail: jest.fn(), create: jest.fn() };
-  const superAdminRepo = { findByEmail: jest.fn() };
+  const userRepo = { findByEmail: jest.fn(), findById: jest.fn() };
+  const candidateAccountRepo = {
+    findByEmail: jest.fn(),
+    create: jest.fn(),
+    findById: jest.fn(),
+  };
+  const superAdminRepo = { findByEmail: jest.fn(), findById: jest.fn() };
   const tenantRepo = { findById: jest.fn() };
 
   beforeEach(async () => {
@@ -184,6 +188,76 @@ describe('AuthService', () => {
       expect(result).toEqual({
         data: { accessToken: 'a', refreshToken: 'r' },
         message: 'Signed in',
+      });
+    });
+  });
+
+  describe('me', () => {
+    it('returns a candidate profile composed from first/last name', async () => {
+      candidateAccountRepo.findById.mockResolvedValue({
+        id: 'c1',
+        email: 'jane@test.com',
+        firstName: 'Jane',
+        lastName: 'Doe',
+        avatarUrl: 'candidate-avatars/c1/x.png',
+      });
+      const result = await service.me({
+        companyId: 'public',
+        userId: 'c1',
+        role: 'Candidate',
+      });
+      expect(result).toMatchObject({
+        id: 'c1',
+        role: 'Candidate',
+        companyId: null,
+        email: 'jane@test.com',
+        name: 'Jane Doe',
+        avatarUrl: 'candidate-avatars/c1/x.png',
+      });
+    });
+
+    it('returns a company user profile with the users.name column', async () => {
+      userRepo.findById.mockResolvedValue({
+        id: 'u1',
+        email: 'rec@acme.com',
+        role: 'Recruiter',
+        name: 'Ada Lovelace',
+        avatarUrl: null,
+      });
+      const result = await service.me({
+        companyId: 't1',
+        userId: 'u1',
+        role: 'Recruiter',
+      });
+      expect(result).toMatchObject({
+        id: 'u1',
+        role: 'Recruiter',
+        companyId: 't1',
+        email: 'rec@acme.com',
+        name: 'Ada Lovelace',
+        avatarUrl: null,
+      });
+    });
+
+    it('returns a super admin profile', async () => {
+      superAdminRepo.findById.mockResolvedValue({
+        id: 's1',
+        email: 'sa@talentpipe.com',
+        name: 'Super Admin',
+        avatarUrl: 'platform/avatars/s1/x.png',
+      });
+      const result = await service.me({
+        companyId: 'public',
+        userId: 's1',
+        role: 'SuperAdmin',
+      });
+      expect(result).toMatchObject({
+        id: 's1',
+        role: 'SuperAdmin',
+        companyId: null,
+        email: 'sa@talentpipe.com',
+        name: 'Super Admin',
+        avatarUrl: 'platform/avatars/s1/x.png',
       });
     });
   });

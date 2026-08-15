@@ -76,6 +76,7 @@ export const superAdmins = pgTable('super_admins', {
   email: varchar('email', { length: 255 }).notNull().unique(),
   passwordHash: varchar('password_hash', { length: 255 }).notNull(),
   name: varchar('name', { length: 100 }),
+  avatarUrl: varchar('avatar_url', { length: 512 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -88,6 +89,8 @@ export const users = pgTable('users', {
   role: varchar('role', { length: 50 }).default('CompanyAdmin').notNull(),
   presetId: uuid('preset_id'),
   status: varchar('status', { length: 20 }).default('active').notNull(),
+  name: varchar('name', { length: 100 }),
+  avatarUrl: varchar('avatar_url', { length: 512 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -254,6 +257,7 @@ export const candidateAccounts = pgTable('candidate_accounts', {
   phone: varchar('phone', { length: 50 }),
   resumeFileUrl: varchar('resume_file_url', { length: 512 }),
   resumeUploadedAt: timestamp('resume_uploaded_at', { withTimezone: true }),
+  avatarUrl: varchar('avatar_url', { length: 512 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

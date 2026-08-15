@@ -12,7 +12,7 @@ export function useProfile() {
   });
 }
 
-type ProfileUpdate = Omit<Profile, 'id' | 'skills' | 'resumeFileUrl' | 'resumeUploadedAt' | 'createdAt'>;
+type ProfileUpdate = Omit<Profile, 'id' | 'skills' | 'resumeFileUrl' | 'resumeUploadedAt' | 'avatarUrl' | 'createdAt'>;
 
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
@@ -38,5 +38,29 @@ export function useRemoveResume() {
     mutationFn: () => candidateApi.removeResume().then(() => ({ data: undefined, message: 'Resume removed' })),
     successMessage: 'Resume removed',
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.candidate.profile() }),
+  });
+}
+
+export function useUploadAvatar() {
+  const queryClient = useQueryClient();
+  return useApiMutation({
+    mutationFn: (file: File) => candidateApi.uploadAvatar(file),
+    successMessage: 'Avatar updated',
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.candidate.profile() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.auth.me() });
+    },
+  });
+}
+
+export function useRemoveAvatar() {
+  const queryClient = useQueryClient();
+  return useApiMutation({
+    mutationFn: () => candidateApi.removeAvatar().then(() => ({ data: undefined, message: 'Avatar removed' })),
+    successMessage: 'Avatar removed',
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.candidate.profile() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.auth.me() });
+    },
   });
 }

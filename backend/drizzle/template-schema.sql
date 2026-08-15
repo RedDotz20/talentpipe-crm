@@ -1,6 +1,8 @@
 DROP SCHEMA IF EXISTS template CASCADE;
 CREATE SCHEMA template;
 CREATE TABLE template."users" (LIKE public."users" INCLUDING ALL);
+ALTER TABLE template."users" ADD COLUMN IF NOT EXISTS name VARCHAR(100);
+ALTER TABLE template."users" ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(512);
 CREATE TABLE template."job_postings" (LIKE public."job_postings" INCLUDING ALL);
 ALTER TABLE template."job_postings"
   ADD CONSTRAINT job_postings_created_by_user_id_users_id_fkey

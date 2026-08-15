@@ -7,10 +7,18 @@ interface AuthState {
   companyId: string | null;
   role: string | null;
   permissions: string[];
+  profile: AuthProfile | null;
   setTokens: (accessToken: string, refreshToken: string) => void;
+  setProfile: (profile: AuthProfile) => void;
   clearTokens: () => void;
   logout: () => void;
   isAuthenticated: () => boolean;
+}
+
+export interface AuthProfile {
+  name: string | null;
+  email: string | null;
+  avatarUrl: string | null;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -20,6 +28,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   companyId: localStorage.getItem('companyId'),
   role: localStorage.getItem('role'),
   permissions: JSON.parse(localStorage.getItem('permissions') ?? '[]'),
+  profile: null,
 
   setTokens: (accessToken, refreshToken) => {
     localStorage.setItem('accessToken', accessToken);
@@ -44,6 +53,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
   },
 
+  setProfile: (profile) => set({ profile }),
+
   clearTokens: () => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
@@ -51,7 +62,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.removeItem('companyId');
     localStorage.removeItem('role');
     localStorage.removeItem('permissions');
-    set({ accessToken: null, refreshToken: null, userId: null, companyId: null, role: null, permissions: [] });
+    set({ accessToken: null, refreshToken: null, userId: null, companyId: null, role: null, permissions: [], profile: null });
   },
 
   logout: () => {

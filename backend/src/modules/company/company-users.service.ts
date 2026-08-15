@@ -40,7 +40,7 @@ export class CompanyUsersService {
 
   async exportCsv() {
     const rows = await this.userRepo.findAll();
-    return toCsv(['email', 'role', 'status', 'createdAt'], rows);
+    return toCsv(['name', 'email', 'role', 'status', 'createdAt'], rows);
   }
 
   async create(dto: CreateUserDto) {

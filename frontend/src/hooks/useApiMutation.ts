@@ -12,7 +12,7 @@ interface ApiErrorBody {
 }
 
 export type UseApiMutationOptions<TData, TVariables, TContext> = Omit<
-  UseMutationOptions<ApiEnvelope<TData>, unknown, TVariables, TContext>,
+  UseMutationOptions<ApiEnvelope<TData>, Error, TVariables, TContext>,
   'mutationFn' | 'onSuccess' | 'onError'
 > & {
   mutationFn: (variables: TVariables) => Promise<ApiEnvelope<TData>>;
@@ -50,7 +50,7 @@ export function useApiMutation<
     ...rest
   } = options;
 
-  return useMutation<ApiEnvelope<TData>, unknown, TVariables, TContext>({
+  return useMutation<ApiEnvelope<TData>, Error, TVariables, TContext>({
     ...rest,
     mutationFn,
     onSuccess: (data, vars, onMutateResult, ctx) => {

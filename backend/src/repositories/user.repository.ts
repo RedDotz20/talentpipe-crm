@@ -14,6 +14,8 @@ export class UserRepository extends BaseRepository {
           role: users.role,
           status: users.status,
           presetId: users.presetId,
+          name: users.name,
+          avatarUrl: users.avatarUrl,
           createdAt: users.createdAt,
         })
         .from(users)
@@ -51,12 +53,41 @@ export class UserRepository extends BaseRepository {
       passwordHash: string;
       role: string;
       presetId?: string | null;
+      name?: string | null;
     },
     schema = 'current',
   ) {
     return this.withDb(schema, async (db) => {
       const rows = await db.insert(users).values(data).returning().execute();
       return rows[0];
+    });
+  }
+
+  async updateName(id: string, name: string, schema = 'current') {
+    return this.withDb(schema, async (db) => {
+      const rows = await db
+        .update(users)
+        .set({ name })
+        .where(eq(users.id, id))
+        .returning()
+        .execute();
+      return rows[0] ?? null;
+    });
+  }
+
+  async updateAvatarUrl(
+    id: string,
+    avatarUrl: string | null,
+    schema = 'current',
+  ) {
+    return this.withDb(schema, async (db) => {
+      const rows = await db
+        .update(users)
+        .set({ avatarUrl })
+        .where(eq(users.id, id))
+        .returning()
+        .execute();
+      return rows[0] ?? null;
     });
   }
 

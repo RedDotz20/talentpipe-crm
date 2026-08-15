@@ -15,4 +15,39 @@ export class SuperAdminRepository extends BaseRepository {
       return rows[0] ?? null;
     });
   }
+
+  async findById(id: string) {
+    return this.withDb('public', async (db) => {
+      const rows = await db
+        .select()
+        .from(superAdmins)
+        .where(eq(superAdmins.id, id))
+        .execute();
+      return rows[0] ?? null;
+    });
+  }
+
+  async updateName(id: string, name: string) {
+    return this.withDb('public', async (db) => {
+      const rows = await db
+        .update(superAdmins)
+        .set({ name })
+        .where(eq(superAdmins.id, id))
+        .returning()
+        .execute();
+      return rows[0] ?? null;
+    });
+  }
+
+  async updateAvatarUrl(id: string, avatarUrl: string | null) {
+    return this.withDb('public', async (db) => {
+      const rows = await db
+        .update(superAdmins)
+        .set({ avatarUrl })
+        .where(eq(superAdmins.id, id))
+        .returning()
+        .execute();
+      return rows[0] ?? null;
+    });
+  }
 }
