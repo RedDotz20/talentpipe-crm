@@ -14,7 +14,7 @@ Two deployment paths for TalentPipe, sharing one CI gate. Local (dev + self-host
 `.github/workflows/ci.yml` runs on push/PR to `main`:
 
 - **Backend** (postgres:16 + redis:7 + minio as service containers, migrations applied): lint → typecheck → unit tests → e2e release gates → build
-- **Frontend**: lint (oxlint) → build (`tsc -b && vite build`)
+- **Frontend**: lint (oxlint) → build (vite build; `npm run typecheck` is a separate gate)
 
 No changes needed — this gate protects both paths.
 

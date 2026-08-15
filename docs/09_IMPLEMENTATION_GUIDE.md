@@ -867,7 +867,7 @@ client_max_body_size 15m;
 
 ### Step 10.3 — Production compose + env ✅
 `docker-compose.prod.yml` (project `talentpipe-prod`): services `postgres:16-alpine`, `migrate` (one-shot), `redis:7-alpine`, `minio`, `backend` (`env_file: .env`), `frontend` (ports `80:80`). All on internal network `backend`; healthchecks on postgres/redis/minio; `restart: unless-stopped`; named volumes `pgdata`/`miniodata`.
-`.env.prod.example` (committed) → copy to `.env` (gitignored) and replace all values. Keys: POSTGRES_USER/PASSWORD/DB, DATABASE_URL (`@postgres:5432`), REDIS_URL (`redis://redis:6379`), JWT_SECRET, JWT_REFRESH_SECRET, S3_ENDPOINT (`http://minio:9000`), MINIO_ROOT_USER/PASSWORD + S3_ACCESS_KEY/SECRET_KEY (**must match each other** — the app authenticates as the MinIO root user), S3_BUCKET, CORS_ORIGIN.
+`.env.prod.example` (committed) → copy to `.env` (gitignored) and replace all values. Keys: POSTGRES_USER/PASSWORD/DB, DATABASE_URL (`@postgres:5432`), REDIS_URL (`redis://redis:6379`), JWT_SECRET, JWT_REFRESH_SECRET, S3_ENDPOINT (`http://minio:9000`), MINIO_ROOT_USER/PASSWORD + S3_ACCESS_KEY/SECRET_KEY (**must match each other** — the app authenticates as the MinIO root user), S3_BUCKET (resumes), S3_AVATAR_BUCKET (avatars), CORS_ORIGIN.
 `.gitattributes` — `*.sh text eol=lf` (protects the migrate script on Windows checkouts).
 
 ### Step 10.4 — First-boot migrations ✅
