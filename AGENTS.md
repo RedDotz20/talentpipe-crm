@@ -86,6 +86,7 @@ Applied migration order includes:
 20260812000000_permission_management
 20260814000000_preset_name_uniqueness
 20260815000000_preset_enable_disable
+20260816000000_profile_avatars
 ```
 
 ## Architecture
