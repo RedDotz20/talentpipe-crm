@@ -97,6 +97,7 @@ export function SettingsPage() {
 
   const handleViewResume = async () => {
     try {
+      setResumeError(null);
       const url = await candidateApi.getResumeFile();
       window.open(url, '_blank', 'noopener,noreferrer');
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
