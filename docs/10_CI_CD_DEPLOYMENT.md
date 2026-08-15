@@ -66,9 +66,9 @@ docker compose -f docker-compose.prod.yml exec -T postgres pg_dump -U $POSTGRES_
 
 BullMQ worker runs in-process (`onModuleInit`) → one Render service suffices; no separate worker.
 
-### Required code changes (only one)
+### Required code changes (none — already committed)
 
-- `frontend/public/_redirects` with `/* /index.html 200` (Pages SPA fallback — there is no nginx proxy here).
+- `frontend/public/_redirects` with `/* /index.html 200` (Pages SPA fallback — there is no nginx proxy here) is already in the repo.
 
 Storage needs **no code change**: `storage.provider.ts` is generic `@aws-sdk/client-s3` with `forcePathStyle: true`, which R2 accepts.
 
@@ -84,8 +84,8 @@ Storage needs **no code change**: `storage.provider.ts` is generic `@aws-sdk/cli
    ```
    Caveat: the script's idempotency guard checks `public.tenants` (stale since the rename migration) — harmless for a one-shot run, just don't re-run it.
 4. **Upstash:** create DB → `REDIS_URL=rediss://default:<token>@<db>.upstash.io:6379`.
-5. **Cloudflare R2:** create bucket `resumes` → R2 API token → `S3_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com`, `S3_REGION=auto`, `S3_ACCESS_KEY`/`S3_SECRET_KEY` = R2 token creds, `S3_BUCKET=resumes`.
-6. **Render backend:** New Web Service → GitHub repo → root dir `backend` → Docker runtime → free instance. Env vars: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET` (generate: `openssl rand -base64 48`), the 4 R2 vars, `S3_BUCKET`, `CORS_ORIGIN=https://<project>.pages.dev`. Health check path `/api/health` (`main.ts` reads `process.env.PORT` ✓).
+5. **Cloudflare R2:** two buckets are needed — `resumes` and `avatars`. The backend auto-creates them on boot (`ensureBucket`), so the R2 API token needs bucket-create permission — or pre-create both buckets manually and use a read/write-only token. Token creds: `S3_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com`, `S3_REGION=auto`, `S3_ACCESS_KEY`/`S3_SECRET_KEY`, `S3_BUCKET=resumes`, `S3_AVATAR_BUCKET=avatars`.
+6. **Render backend:** New Web Service → GitHub repo → root dir `backend` → Docker runtime → free instance. Env vars: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET` (generate: `openssl rand -base64 48`), the 4 R2 vars, `S3_BUCKET`, `S3_AVATAR_BUCKET`, `CORS_ORIGIN=https://<project>.pages.dev`. Health check path `/api/health` (`main.ts` reads `process.env.PORT` ✓).
 7. **Cloudflare Pages:** connect repo → build `npm run build`, output `dist`, env `VITE_API_URL=https://<backend>.onrender.com` (absolute — no same-origin proxy), Node 20.
 8. **Verify:** `/api/health` → signup → post + publish a job → apply → resume upload + "View Resume" → 6 bad logins → 429 → move a candidate stage → confirm an `audit_logs` row appears (proves BullMQ works on Upstash).
 
@@ -143,6 +143,7 @@ Storage needs **no code change**: `storage.provider.ts` is generic `@aws-sdk/cli
 | `S3_REGION` | `auto` |
 | `S3_ACCESS_KEY` / `S3_SECRET_KEY` | R2 API token |
 | `S3_BUCKET` | `resumes` |
+| `S3_AVATAR_BUCKET` | `avatars` |
 | `CORS_ORIGIN` | `https://<project>.pages.dev` |
 | `VITE_API_URL` | `https://<backend>.onrender.com` (absolute — no nginx proxy) |
 
