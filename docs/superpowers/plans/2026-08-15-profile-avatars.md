@@ -720,23 +720,18 @@ const CANDIDATE_SELECT = {
 
 - [ ] **Step 5: candidates.service.ts — getOne gains avatarUrl**
 
-In `getOne`, both `account` branches already build `resume`; add the avatar alongside. After the `if (candidate.candidateAccountId) {...}` block and the `else if` block, add before the final `return`:
+In `getOne`, both `account` branches already build `resume`; add the avatar alongside. Declare before the branches (after the `let resume` declaration):
 
 ```ts
-    const avatarUrl =
-      (candidate.candidateAccountId
-        ? await this.candidateAccountRepo
-            .findById(candidate.candidateAccountId)
-            .then((a) => a?.avatarUrl ?? null)
-            .catch(() => null)
-        : null) ??
-      (candidate.email
-        ? await this.candidateAccountRepo
-            .findByEmail(candidate.email)
-            .then((a) => a?.avatarUrl ?? null)
-            .catch(() => null)
-        : null);
+    let avatarUrl: string | null = null;
 ```
+
+Inside BOTH `account` branches (the `if (candidate.candidateAccountId)` block and the `else if (candidate.email)` block), right after `resume = {...}`:
+
+```ts
+        avatarUrl = account.avatarUrl ?? null;
+```
+
 Then extend the return object:
 ```ts
     return {
@@ -747,7 +742,6 @@ Then extend the return object:
       applications,
     };
 ```
-(ponytail: the getOne avatar lookup duplicates the account fetch — fine, it's a per-row modal fetch, not a hot path.)
 
 - [ ] **Step 6: platform-accounts.service.ts — collectAllUsers gains name/avatarUrl**
 
