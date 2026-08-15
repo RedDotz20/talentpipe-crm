@@ -398,7 +398,7 @@ export class PlatformAccountsService {
       name:
         row.type === 'candidate'
           ? `${row.firstName ?? ''} ${row.lastName ?? ''}`.trim()
-          : row.email,
+          : (row.name ?? row.email),
       email: row.email,
       type: row.type,
       company: row.companyName ?? '',

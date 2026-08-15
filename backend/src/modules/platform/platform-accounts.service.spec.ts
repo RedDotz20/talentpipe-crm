@@ -386,6 +386,51 @@ describe('PlatformAccountsService', () => {
       });
       expect(deps.userRepo.findAll).toHaveBeenCalledWith('company_tenant-a');
     });
+
+    it('exports users csv with display name preferred over email', async () => {
+      deps.tenantRepo.findAll.mockResolvedValue([
+        { id: 'tenant-a', name: 'Acme' },
+      ]);
+      deps.userRepo.findAll.mockResolvedValue([
+        {
+          id: 'u1',
+          email: 'a@acme.com',
+          role: 'Recruiter',
+          status: 'active',
+          presetId: null,
+          name: 'Alice Acme',
+          avatarUrl: null,
+          createdAt: new Date('2026-01-01'),
+        },
+        {
+          id: 'u2',
+          email: 'nameless@acme.com',
+          role: 'Interviewer',
+          status: 'active',
+          presetId: null,
+          name: null,
+          avatarUrl: null,
+          createdAt: new Date('2026-01-02'),
+        },
+      ]);
+      deps.candidateAccountRepo.findAll.mockResolvedValue([
+        {
+          id: 'c1',
+          email: 'c@x.com',
+          firstName: 'Jane',
+          lastName: 'Doe',
+          phone: null,
+          resumeFileUrl: null,
+          avatarUrl: null,
+          createdAt: new Date('2026-02-01'),
+        },
+      ]);
+      const service = makeService();
+      const csv = await service.exportAllUsers({ page: 1, pageSize: 10 });
+      const rows = csv.split('\r\n').map((line) => line.split(','));
+      const names = rows.slice(1).map((r) => r[0]);
+      expect(names).toEqual(['Alice Acme', 'nameless@acme.com', 'Jane Doe']);
+    });
   });
 
   describe('setCompanyUserStatus', () => {
