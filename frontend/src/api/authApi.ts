@@ -19,6 +19,8 @@ export const authApi = {
     password: string;
   }) => apiClient.post('/auth/company/signup', data),
 
+  me: () => apiClient.get('/auth/me'),
+
   logout: () => apiClient.post('/auth/logout'),
 
   refreshAuth: (refreshToken: string) =>

@@ -32,6 +32,7 @@ export const queryKeys = {
   skills: {
     all: () => ['skills', 'all'],
   },
+  avatar: (key: string) => ['avatar', key],
   candidate: {
     jobs: (params?: CandidateJobsParams) => ['candidate', 'jobs', params],
     jobDetail: (companyId: string, jobId: string) => ['candidate', 'jobs', companyId, jobId],
@@ -75,6 +76,7 @@ export const queryKeys = {
     companyUsers: () => ['company', 'users'],
     companySettings: () => ['company', 'settings'],
     permissionPresets: () => ['company', 'permissions'],
+    profile: () => ['company', 'profile'],
   },
   platform: {
     companies: (params?: PlatformCompaniesParams) => ['platform', 'companies', params],
@@ -101,6 +103,7 @@ export const queryKeys = {
     dashboard: () => ['platform', 'dashboard'],
     users: (params?: PlatformUsersParams) => ['platform', 'users', params],
     permissions: () => ['platform', 'permissions'],
+    profile: () => ['platform', 'profile'],
   },
 } as const;
 
