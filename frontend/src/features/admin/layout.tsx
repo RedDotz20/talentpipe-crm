@@ -1,4 +1,4 @@
-import { Outlet, Link, useNavigate, useMatchRoute } from '@tanstack/react-router';
+import { Outlet, Link, useMatchRoute } from '@tanstack/react-router';
 import {
   AppShell,
   Burger,
@@ -7,8 +7,6 @@ import {
   NavLink,
   Divider,
   ScrollArea,
-  UnstyledButton,
-  Avatar,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import {
@@ -16,24 +14,21 @@ import {
   IconUsers,
   IconListDetails,
   IconBriefcase,
-  IconLogout,
   IconLayoutDashboard,
   IconShieldLock,
 } from '@tabler/icons-react';
-import { useLogout } from '@/hooks/auth';
 import { ColorSchemeToggle } from '@/components/ColorSchemeToggle';
 import { PageTransition } from '@/components/PageTransition';
+import { useAuthStore } from '@/api/useAuth';
+import { useMe } from '@/hooks/useMe';
+import { UserMenu } from '@/shared/components/UserMenu';
+import { UserAvatar } from '@/shared/components/UserAvatar';
 
 export function SuperAdminPlatform() {
   const [opened, { toggle }] = useDisclosure();
-  const { mutateAsync: logout } = useLogout();
-  const navigate = useNavigate();
+  const profile = useAuthStore((s) => s.profile);
+  useMe();
   const matchRoute = useMatchRoute();
-
-  const handleLogout = async () => {
-    await logout();
-    navigate({ to: '/auth/signin' });
-  };
 
   const navItems = [
     { label: 'Dashboard', icon: IconLayoutDashboard, to: '/admin/dashboard' },
@@ -62,13 +57,7 @@ export function SuperAdminPlatform() {
           </Group>
           <Group gap="xs">
             <ColorSchemeToggle />
-            <UnstyledButton
-              onClick={handleLogout}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 8 }}
-            >
-              <IconLogout size="1rem" stroke={1.5} />
-              <Text size="sm" hiddenFrom="sm">Logout</Text>
-            </UnstyledButton>
+            <UserMenu profilePath="/admin/profile" roleLabel="SuperAdmin" />
           </Group>
         </Group>
       </AppShell.Header>
@@ -98,12 +87,10 @@ export function SuperAdminPlatform() {
         <AppShell.Section>
           <Divider mb="sm" />
           <Group gap="sm">
-            <Avatar color="red" size="sm" radius="xl">
-              S
-            </Avatar>
+            <UserAvatar name={profile?.name} avatarUrl={profile?.avatarUrl} color="red" />
             <div style={{ flex: 1, minWidth: 0 }}>
               <Text size="sm" fw={500} truncate>
-                SuperAdmin
+                {profile?.name ?? 'SuperAdmin'}
               </Text>
             </div>
           </Group>

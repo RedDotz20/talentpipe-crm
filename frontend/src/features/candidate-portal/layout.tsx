@@ -3,18 +3,16 @@ import {
   Group,
   Text,
   UnstyledButton,
-  Avatar,
-  Menu,
 } from '@mantine/core';
-import { Outlet, useNavigate, useMatchRoute, Link } from '@tanstack/react-router';
-import { useLogout } from '@/hooks/auth';
+import { Outlet, useMatchRoute, Link } from '@tanstack/react-router';
 import { ColorSchemeToggle } from '@/components/ColorSchemeToggle';
 import { PageTransition } from '@/components/PageTransition';
-import { IconLogout, IconUser, IconBookmark, IconBriefcase, IconFileText } from '@tabler/icons-react';
+import { IconBookmark, IconBriefcase, IconFileText } from '@tabler/icons-react';
+import { useMe } from '@/hooks/useMe';
+import { UserMenu } from '@/shared/components/UserMenu';
 
 export function CandidatePlatform() {
-  const navigate = useNavigate();
-  const { mutateAsync: logout } = useLogout();
+  useMe();
   const matchRoute = useMatchRoute();
 
   const navLinks = [
@@ -65,34 +63,7 @@ export function CandidatePlatform() {
 
           <Group gap="xs">
             <ColorSchemeToggle />
-            <Menu shadow="md" width={200} position="bottom-end">
-              <Menu.Target>
-                <UnstyledButton style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Avatar color="indigo" size="sm" radius="xl">
-                    C
-                  </Avatar>
-                </UnstyledButton>
-              </Menu.Target>
-              <Menu.Dropdown>
-                <Menu.Label>Candidate</Menu.Label>
-                <Menu.Item
-                  leftSection={<IconUser size="0.9rem" />}
-                  onClick={() => navigate({ to: '/settings' })}
-                >
-                  Settings
-                </Menu.Item>
-                <Menu.Item
-                  leftSection={<IconLogout size="0.9rem" />}
-                  color="red"
-                  onClick={async () => {
-                    await logout();
-                    navigate({ to: '/auth/signin' });
-                  }}
-                >
-                  Logout
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
+            <UserMenu profilePath="/settings" roleLabel="Candidate" />
           </Group>
         </Group>
       </AppShell.Header>
