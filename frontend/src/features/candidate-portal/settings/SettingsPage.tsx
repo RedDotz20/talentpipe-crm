@@ -51,6 +51,7 @@ export function SettingsPage() {
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumeError, setResumeError] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [uploadedAvatarName, setUploadedAvatarName] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -150,7 +151,15 @@ export function SettingsPage() {
                 )}
               </FileButton>
               {profile.avatarUrl && (
-                <Button variant="subtle" color="red" loading={removeAvatar.isPending} onClick={() => removeAvatar.mutate()}>
+                <Button
+                  variant="subtle"
+                  color="red"
+                  loading={removeAvatar.isPending}
+                  onClick={() => {
+                    setUploadedAvatarName(null);
+                    removeAvatar.mutate();
+                  }}
+                >
                   Remove
                 </Button>
               )}
@@ -159,18 +168,31 @@ export function SettingsPage() {
               <Button
                 size="xs"
                 onClick={async () => {
-                  await uploadAvatar.mutateAsync(avatarFile);
-                  setAvatarFile(null);
+                  if (!avatarFile) return;
+                  try {
+                    await uploadAvatar.mutateAsync(avatarFile);
+                    setUploadedAvatarName(avatarFile.name);
+                    setAvatarFile(null);
+                  } catch {
+                    // error text renders from uploadAvatar.error; keep the file for retry
+                  }
                 }}
                 loading={uploadAvatar.isPending}
-                disabled={!avatarFile}
               >
                 Upload
               </Button>
             )}
+            {avatarFile && (
+              <Text size="xs" c="dimmed">Selected: {avatarFile.name}</Text>
+            )}
+            {uploadedAvatarName && (
+              <Text size="xs" c="teal">Uploaded: {uploadedAvatarName}</Text>
+            )}
+            {/* ponytail: filename is session-local — the server stores a UUID key;
+                persist original_filename only if it must survive a reload */}
             {avatarError && <Text size="xs" c="red">{avatarError}</Text>}
             {uploadAvatar.error && (
-              <Text size="xs" c="red">Upload failed: {(uploadAvatar.error as Error).message}</Text>
+              <Text size="xs" c="red">Upload failed: {uploadAvatar.error.message}</Text>
             )}
           </Stack>
         </Group>
