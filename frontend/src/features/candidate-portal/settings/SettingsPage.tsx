@@ -96,9 +96,13 @@ export function SettingsPage() {
   };
 
   const handleViewResume = async () => {
-    const url = await candidateApi.getResumeFile();
-    window.open(url, '_blank', 'noopener,noreferrer');
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    try {
+      const url = await candidateApi.getResumeFile();
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      setResumeError('Could not load resume preview. Please try again.');
+    }
   };
 
   return (
@@ -145,7 +149,7 @@ export function SettingsPage() {
           />
           <Button onClick={handleResumeUpload} loading={uploadResume.isPending} disabled={!resumeFile}>Upload</Button>
           {profile.resumeFileUrl && (
-            <Button variant="subtle" onClick={handleViewResume} loading={false}>
+            <Button variant="subtle" onClick={handleViewResume}>
               View
             </Button>
           )}
