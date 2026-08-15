@@ -19,6 +19,10 @@ describe('PlatformService', () => {
     countUsers: jest.fn().mockResolvedValue(2),
     countApplications: jest.fn().mockResolvedValue(5),
     countJobsByStatus: jest.fn().mockResolvedValue([]),
+    countApplicationsByStage: jest.fn().mockResolvedValue([
+      { stageName: 'Applied', count: 3 },
+      { stageName: 'Interviewing', count: 2 },
+    ]),
   };
   const userRepo = { setAllStatus: jest.fn() };
   const auditService = { log: jest.fn() };
@@ -50,9 +54,16 @@ describe('PlatformService', () => {
         name: 'Acme',
         users: 2,
         applications: 5,
+        applicationsByStage: [
+          { stageName: 'Applied', count: 3 },
+          { stageName: 'Interviewing', count: 2 },
+        ],
       });
       expect(usageRepo.countUsers).toHaveBeenCalledWith('company_t1');
       expect(usageRepo.countApplications).toHaveBeenCalledWith('company_t1');
+      expect(usageRepo.countApplicationsByStage).toHaveBeenCalledWith(
+        'company_t1',
+      );
     });
 
     it('throws NotFoundException for an unknown tenant', async () => {

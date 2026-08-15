@@ -33,11 +33,12 @@ export class PlatformService {
     if (!tenant) throw new NotFoundException('Company not found');
 
     const schema = `company_${id}`;
-    const [users, applications] = await Promise.all([
+    const [users, applications, applicationsByStage] = await Promise.all([
       this.usageRepo.countUsers(schema),
       this.usageRepo.countApplications(schema),
+      this.usageRepo.countApplicationsByStage(schema),
     ]);
-    return { ...tenant, users, applications };
+    return { ...tenant, users, applications, applicationsByStage };
   }
 
   async setCompanyStatus(id: string, status: 'active' | 'suspended') {
