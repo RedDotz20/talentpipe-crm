@@ -11,6 +11,7 @@ import {
   Title,
 } from '@mantine/core';
 import { DetailSkeleton } from '@/shared/components/Skeletons';
+import { candidateApi } from '../api/candidateApi';
 import {
   useAllSkills,
   useProfile,
@@ -19,6 +20,12 @@ import {
   useUpdateProfile,
   useUploadResume,
 } from '../hooks';
+
+const RESUME_MAX_BYTES = 10 * 1024 * 1024;
+const RESUME_ACCEPT = [
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+];
 
 export function SettingsPage() {
   const { data: profile, isLoading, error } = useProfile();
@@ -33,6 +40,7 @@ export function SettingsPage() {
   const [phone, setPhone] = useState('');
   const [skillIds, setSkillIds] = useState<string[]>([]);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [resumeError, setResumeError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profile) return;
@@ -66,10 +74,31 @@ export function SettingsPage() {
     await setSkills.mutateAsync(skillIds);
   };
 
+  const handleResumeFileChange = (file: File | null) => {
+    setResumeFile(file);
+    setResumeError(null);
+    if (!file) return;
+    if (!RESUME_ACCEPT.includes(file.type)) {
+      setResumeError('Only PDF and DOCX files are allowed.');
+      setResumeFile(null);
+      return;
+    }
+    if (file.size > RESUME_MAX_BYTES) {
+      setResumeError('Resume must be 10MB or smaller.');
+      setResumeFile(null);
+    }
+  };
+
   const handleResumeUpload = async () => {
     if (!resumeFile) return;
     await uploadResume.mutateAsync(resumeFile);
     setResumeFile(null);
+  };
+
+  const handleViewResume = async () => {
+    const url = await candidateApi.getResumeFile();
+    window.open(url, '_blank', 'noopener,noreferrer');
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
   return (
@@ -97,16 +126,29 @@ export function SettingsPage() {
         ) : (
           <Text size="sm" c="dimmed">No resume uploaded</Text>
         )}
+        {resumeError && (
+          <Alert color="red" size="sm">{resumeError}</Alert>
+        )}
+        {uploadResume.error && (
+          <Alert color="red" size="sm">
+            Upload failed: {(uploadResume.error as Error).message}
+          </Alert>
+        )}
         <Group align="end">
           <FileInput
             flex={1}
             value={resumeFile}
-            onChange={setResumeFile}
+            onChange={handleResumeFileChange}
             accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             placeholder="Choose PDF or DOCX"
             clearable
           />
           <Button onClick={handleResumeUpload} loading={uploadResume.isPending} disabled={!resumeFile}>Upload</Button>
+          {profile.resumeFileUrl && (
+            <Button variant="subtle" onClick={handleViewResume} loading={false}>
+              View
+            </Button>
+          )}
           {profile.resumeFileUrl && (
             <Button variant="subtle" color="red" onClick={() => removeResume.mutate()} loading={removeResume.isPending}>
               Remove

@@ -115,4 +115,11 @@ export const candidateApi = {
   removeResume: async (): Promise<void> => {
     await apiClient.delete('/candidate/resume');
   },
+
+  getResumeFile: async (): Promise<string> => {
+    const { data } = await apiClient.get('/candidate/resume/file', {
+      responseType: 'blob',
+    });
+    return URL.createObjectURL(data as Blob);
+  },
 };
