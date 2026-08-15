@@ -17,20 +17,20 @@ export const companyProfileApi = {
     const { data } = await apiClient.get('/company/profile');
     return unwrap(data as ApiEnvelope<CompanyProfile>);
   },
-  update: async (name: string): Promise<CompanyProfile> => {
+  update: async (name: string): Promise<ApiEnvelope<CompanyProfile>> => {
     const { data } = await apiClient.put('/company/profile', { name });
-    return unwrap(data as ApiEnvelope<CompanyProfile>);
+    return data as ApiEnvelope<CompanyProfile>;
   },
-  uploadAvatar: async (file: File): Promise<{ avatarUrl: string | null }> => {
+  uploadAvatar: async (file: File): Promise<ApiEnvelope<{ avatarUrl: string | null }>> => {
     const formData = new FormData();
     formData.append('file', file);
     const { data } = await apiClient.post('/company/profile/avatar', formData, {
       headers: { 'Content-Type': undefined },
     });
-    return unwrap(data as ApiEnvelope<{ avatarUrl: string | null }>);
+    return data as ApiEnvelope<{ avatarUrl: string | null }>;
   },
-  removeAvatar: async (): Promise<{ avatarUrl: null }> => {
+  removeAvatar: async (): Promise<ApiEnvelope<{ avatarUrl: null }>> => {
     const { data } = await apiClient.delete('/company/profile/avatar');
-    return unwrap(data as ApiEnvelope<{ avatarUrl: null }>);
+    return data as ApiEnvelope<{ avatarUrl: null }>;
   },
 };
