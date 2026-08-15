@@ -57,6 +57,14 @@ export interface PlatformUser {
   presetId: string | null;
 }
 
+export interface PlatformProfile {
+  id: string;
+  email: string;
+  role: string;
+  name: string | null;
+  avatarUrl: string | null;
+}
+
 export interface PlatformCandidate {
   id: string;
   email: string;
@@ -338,5 +346,25 @@ export const platformApi = {
   ): Promise<ApiEnvelope<{ updated: number; revertedUsers: number }>> => {
     const { data } = await apiClient.post('/platform/permissions/bulk-status', { ids, enabled });
     return data as ApiEnvelope<{ updated: number; revertedUsers: number }>;
+  },
+  getProfile: async (): Promise<PlatformProfile> => {
+    const { data } = await apiClient.get('/platform/profile');
+    return unwrap(data as ApiEnvelope<PlatformProfile>);
+  },
+  updateProfile: async (name: string): Promise<ApiEnvelope<PlatformProfile>> => {
+    const { data } = await apiClient.put('/platform/profile', { name });
+    return data as ApiEnvelope<PlatformProfile>;
+  },
+  uploadAvatar: async (file: File): Promise<ApiEnvelope<{ avatarUrl: string | null }>> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data } = await apiClient.post('/platform/profile/avatar', formData, {
+      headers: { 'Content-Type': undefined },
+    });
+    return data as ApiEnvelope<{ avatarUrl: string | null }>;
+  },
+  removeAvatar: async (): Promise<ApiEnvelope<{ avatarUrl: null }>> => {
+    const { data } = await apiClient.delete('/platform/profile/avatar');
+    return data as ApiEnvelope<{ avatarUrl: null }>;
   },
 };

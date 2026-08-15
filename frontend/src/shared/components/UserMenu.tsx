@@ -26,7 +26,7 @@ export function UserMenu({ profilePath, roleLabel }: { profilePath: ProfilePath;
       </Menu.Target>
       <Menu.Dropdown>
         <Menu.Label>{roleLabel}</Menu.Label>
-        <Menu.Item leftSection={<IconUser size="0.9rem" />} onClick={() => navigate({ to: profilePath as never })}>
+        <Menu.Item leftSection={<IconUser size="0.9rem" />} onClick={() => navigate({ to: profilePath })}>
           Profile
         </Menu.Item>
         <Menu.Item leftSection={<IconLogout size="0.9rem" />} color="red" onClick={handleLogout}>
