@@ -330,7 +330,10 @@ export function UsersPage() {
                         avatarUrl={user.avatarUrl}
                         size="sm"
                       />
-                      <Text size="sm">{user.type === 'company' ? (user.name ?? user.email) : `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()}</Text>
+                      <Stack gap={0}>
+                        <Text size="sm">{user.type === 'company' ? (user.name ?? user.email) : `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()}</Text>
+                        <Text size="xs" c="dimmed">{user.email}</Text>
+                      </Stack>
                     </Group>
                   </Table.Td>
                   <Table.Td>

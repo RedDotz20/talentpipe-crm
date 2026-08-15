@@ -272,11 +272,11 @@ export function UserManagementPage() {
               label="Email"
               placeholder={slug ? `john@${slug}.com` : 'john@company.com'}
               required
-              onChange={(event) => {
-                setEmailTouched(true);
-                form.setFieldValue('email', event.currentTarget.value);
-              }}
-              {...form.getInputProps('email')}
+              {...form.getInputProps('email', {
+                onChange: () => {
+                  setEmailTouched(true);
+                },
+              })}
             />
             <Select
               label="Role"
