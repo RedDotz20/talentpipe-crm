@@ -80,6 +80,7 @@ describe('CandidateAccountService', () => {
   };
   const resumesService = {
     upload: jest.fn(),
+    getFile: jest.fn(),
   };
   const tenantRepo = {
     findById: jest.fn().mockResolvedValue({ status: 'active' }),
@@ -879,6 +880,20 @@ describe('CandidateAccountService', () => {
 
       expect(skillRepo.findByIds).toHaveBeenCalledWith(['s1', 'invalid']);
       expect(candidateSkillRepo.replaceAll).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getResumeFile', () => {
+    it('delegates to ResumesService.getFile', async () => {
+      const file = {
+        buffer: Buffer.from('%PDF-1.4'),
+        contentType: 'application/pdf',
+        filename: 'resume.pdf',
+      };
+      resumesService.getFile.mockResolvedValue(file);
+
+      await expect(service.getResumeFile('candidate-1')).resolves.toEqual(file);
+      expect(resumesService.getFile).toHaveBeenCalledWith('candidate-1');
     });
   });
 });

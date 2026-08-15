@@ -533,6 +533,10 @@ export class CandidateAccountService {
     return this.resumesService.remove(candidateAccountId);
   }
 
+  async getResumeFile(candidateAccountId: string) {
+    return this.resumesService.getFile(candidateAccountId);
+  }
+
   async uploadResumeFile(
     candidateAccountId: string,
     file: Express.Multer.File,
