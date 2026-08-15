@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Alert,
   Button,
+  FileButton,
   FileInput,
   Group,
   MultiSelect,
@@ -10,14 +11,18 @@ import {
   TextInput,
   Title,
 } from '@mantine/core';
+import { IconUpload } from '@tabler/icons-react';
 import { DetailSkeleton } from '@/shared/components/Skeletons';
+import { UserAvatar } from '@/shared/components/UserAvatar';
 import { candidateApi } from '../api/candidateApi';
 import {
   useAllSkills,
   useProfile,
+  useRemoveAvatar,
   useRemoveResume,
   useSetCandidateSkills,
   useUpdateProfile,
+  useUploadAvatar,
   useUploadResume,
 } from '../hooks';
 
@@ -26,6 +31,8 @@ const RESUME_ACCEPT = [
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ];
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+const AVATAR_ACCEPT = ['image/png', 'image/jpeg', 'image/webp'];
 
 export function SettingsPage() {
   const { data: profile, isLoading, error } = useProfile();
@@ -34,6 +41,8 @@ export function SettingsPage() {
   const setSkills = useSetCandidateSkills();
   const uploadResume = useUploadResume();
   const removeResume = useRemoveResume();
+  const uploadAvatar = useUploadAvatar();
+  const removeAvatar = useRemoveAvatar();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -41,6 +50,8 @@ export function SettingsPage() {
   const [skillIds, setSkillIds] = useState<string[]>([]);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumeError, setResumeError] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profile) return;
@@ -95,6 +106,21 @@ export function SettingsPage() {
     setResumeFile(null);
   };
 
+  const handleAvatarFileChange = (file: File | null) => {
+    setAvatarFile(file);
+    setAvatarError(null);
+    if (!file) return;
+    if (!AVATAR_ACCEPT.includes(file.type)) {
+      setAvatarError('Only PNG, JPEG and WebP images are allowed.');
+      setAvatarFile(null);
+      return;
+    }
+    if (file.size > AVATAR_MAX_BYTES) {
+      setAvatarError('Avatar must be 5MB or smaller.');
+      setAvatarFile(null);
+    }
+  };
+
   const handleViewResume = async () => {
     try {
       setResumeError(null);
@@ -110,6 +136,45 @@ export function SettingsPage() {
     <Stack maw={560}>
       <Title order={2}>Profile Settings</Title>
       <Text size="sm" c="dimmed" mb="md">Member since {memberSince}</Text>
+      <Stack gap="xs" mb="md">
+        <Text fw={500}>Profile picture</Text>
+        <Group align="center" gap="lg">
+          <UserAvatar name={`${profile.firstName} ${profile.lastName}`} avatarUrl={profile.avatarUrl} size="xl" />
+          <Stack gap="xs">
+            <Group gap="xs">
+              <FileButton onChange={handleAvatarFileChange} accept="image/png,image/jpeg,image/webp">
+                {(props) => (
+                  <Button {...props} variant="light" leftSection={<IconUpload size="1rem" />}>
+                    Choose image
+                  </Button>
+                )}
+              </FileButton>
+              {profile.avatarUrl && (
+                <Button variant="subtle" color="red" loading={removeAvatar.isPending} onClick={() => removeAvatar.mutate()}>
+                  Remove
+                </Button>
+              )}
+            </Group>
+            {avatarFile && (
+              <Button
+                size="xs"
+                onClick={async () => {
+                  await uploadAvatar.mutateAsync(avatarFile);
+                  setAvatarFile(null);
+                }}
+                loading={uploadAvatar.isPending}
+                disabled={!avatarFile}
+              >
+                Upload
+              </Button>
+            )}
+            {avatarError && <Text size="xs" c="red">{avatarError}</Text>}
+            {uploadAvatar.error && (
+              <Text size="xs" c="red">Upload failed: {(uploadAvatar.error as Error).message}</Text>
+            )}
+          </Stack>
+        </Group>
+      </Stack>
       <TextInput label="First Name" value={firstName} onChange={(event) => setFirstName(event.currentTarget.value)} required />
       <TextInput label="Last Name" value={lastName} onChange={(event) => setLastName(event.currentTarget.value)} required />
       <TextInput label="Email" type="email" value={email} onChange={(event) => setEmail(event.currentTarget.value)} required />

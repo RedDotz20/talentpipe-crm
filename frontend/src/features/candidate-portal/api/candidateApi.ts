@@ -97,7 +97,7 @@ export const candidateApi = {
   },
 
   updateProfile: async (
-    profile: Omit<Profile, 'id' | 'skills' | 'resumeFileUrl' | 'resumeUploadedAt' | 'createdAt'>,
+    profile: Omit<Profile, 'id' | 'skills' | 'resumeFileUrl' | 'resumeUploadedAt' | 'avatarUrl' | 'createdAt'>,
   ): Promise<ApiEnvelope<Profile>> => {
     const { data } = await apiClient.put('/candidate/profile', profile);
     return data as ApiEnvelope<Profile>;
@@ -114,6 +114,19 @@ export const candidateApi = {
 
   removeResume: async (): Promise<void> => {
     await apiClient.delete('/candidate/resume');
+  },
+
+  uploadAvatar: async (file: File): Promise<ApiEnvelope<{ avatarUrl: string | null }>> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data } = await apiClient.post('/candidate/profile/avatar', formData, {
+      headers: { 'Content-Type': undefined },
+    });
+    return data as ApiEnvelope<{ avatarUrl: string | null }>;
+  },
+
+  removeAvatar: async (): Promise<void> => {
+    await apiClient.delete('/candidate/profile/avatar');
   },
 
   getResumeFile: async (): Promise<string> => {

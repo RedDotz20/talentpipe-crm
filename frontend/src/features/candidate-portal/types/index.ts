@@ -49,6 +49,7 @@ export interface Profile {
   skills: Skill[];
   resumeFileUrl: string | null;
   resumeUploadedAt: string | null;
+  avatarUrl: string | null;
   createdAt: string;
 }
 
