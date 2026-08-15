@@ -22,11 +22,13 @@ import { NoteRepository } from '../../repositories/note.repository';
 import { SkillMatchingService } from '../skill-matching/skill-matching.service';
 import { ResumesService } from '../../modules/resumes/resumes.service';
 import { CacheService } from '../../common/cache/cache.service';
+import { AvatarsService } from '../../common/avatars/avatars.service';
 
 describe('CandidateAccountService', () => {
   let service: CandidateAccountService;
   const candidateAccountRepo = {
     findById: jest.fn(),
+    updateAvatarUrl: jest.fn(),
   };
   const candidateBookmarkRepo = {
     findByCandidate: jest.fn(),
@@ -96,6 +98,7 @@ describe('CandidateAccountService', () => {
     findByApplicationId: jest.fn(),
   };
   const cacheService = { invalidateCompanyDashboard: jest.fn() };
+  const avatarsService = { store: jest.fn(), delete: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -125,6 +128,7 @@ describe('CandidateAccountService', () => {
         { provide: SkillMatchingService, useValue: skillMatching },
         { provide: ResumesService, useValue: resumesService },
         { provide: CacheService, useValue: cacheService },
+        { provide: AvatarsService, useValue: avatarsService },
       ],
     }).compile();
     service = module.get<CandidateAccountService>(CandidateAccountService);
@@ -894,6 +898,59 @@ describe('CandidateAccountService', () => {
 
       await expect(service.getResumeFile('candidate-1')).resolves.toEqual(file);
       expect(resumesService.getFile).toHaveBeenCalledWith('candidate-1');
+    });
+  });
+
+  describe('avatar', () => {
+    it('uploads an avatar, persists the key, and deletes the old object', async () => {
+      candidateAccountRepo.findById.mockResolvedValue({
+        id: 'c1',
+        avatarUrl: 'candidate-avatars/c1/old.png',
+      });
+      avatarsService.store.mockResolvedValue('candidate-avatars/c1/new.png');
+      candidateAccountRepo.updateAvatarUrl.mockResolvedValue({
+        id: 'c1',
+        avatarUrl: 'candidate-avatars/c1/new.png',
+      });
+
+      const result = await service.uploadAvatar('c1', {
+        mimetype: 'image/png',
+      } as Express.Multer.File);
+
+      expect(avatarsService.store).toHaveBeenCalledWith(
+        { type: 'candidate', id: 'c1' },
+        { mimetype: 'image/png' },
+      );
+      expect(avatarsService.delete).toHaveBeenCalledWith(
+        'candidate-avatars/c1/old.png',
+      );
+      expect(candidateAccountRepo.updateAvatarUrl).toHaveBeenCalledWith(
+        'c1',
+        'candidate-avatars/c1/new.png',
+      );
+      expect(result).toEqual({ avatarUrl: 'candidate-avatars/c1/new.png' });
+    });
+
+    it('removes an avatar: deletes the object and nulls the column', async () => {
+      candidateAccountRepo.findById.mockResolvedValue({
+        id: 'c1',
+        avatarUrl: 'candidate-avatars/c1/x.png',
+      });
+      candidateAccountRepo.updateAvatarUrl.mockResolvedValue({
+        id: 'c1',
+        avatarUrl: null,
+      });
+
+      const result = await service.removeAvatar('c1');
+
+      expect(avatarsService.delete).toHaveBeenCalledWith(
+        'candidate-avatars/c1/x.png',
+      );
+      expect(candidateAccountRepo.updateAvatarUrl).toHaveBeenCalledWith(
+        'c1',
+        null,
+      );
+      expect(result).toEqual({ avatarUrl: null });
     });
   });
 });

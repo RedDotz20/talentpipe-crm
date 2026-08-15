@@ -17,6 +17,7 @@ import { JobPostingRepository } from '../../repositories/job-posting.repository'
 import { CompanyRepository } from '../../repositories/company.repository';
 import { SkillMatchingService } from '../skill-matching/skill-matching.service';
 import { ResumesService } from '../resumes/resumes.service';
+import { AvatarsService } from '../../common/avatars/avatars.service';
 import { CacheService } from '../../common/cache/cache.service';
 import { UserEmailRepository } from '../../repositories/user-email.repository';
 import { InterviewRepository } from '../../repositories/interview.repository';
@@ -97,6 +98,7 @@ export class CandidateAccountService {
     private readonly tenantRepo: CompanyRepository,
     private readonly skillMatching: SkillMatchingService,
     private readonly resumesService: ResumesService,
+    private readonly avatarsService: AvatarsService,
     private readonly cacheService: CacheService,
     private readonly userEmailRepo: UserEmailRepository,
     private readonly interviewRepo: InterviewRepository,
@@ -497,6 +499,7 @@ export class CandidateAccountService {
       phone: account.phone,
       resumeFileUrl: account.resumeFileUrl ?? null,
       resumeUploadedAt: account.resumeUploadedAt ?? null,
+      avatarUrl: account.avatarUrl ?? null,
       skills,
       createdAt: account.createdAt,
       role: 'Candidate',
@@ -543,5 +546,31 @@ export class CandidateAccountService {
   ) {
     const result = await this.resumesService.upload(candidateAccountId, file);
     return { fileUrl: result.fileUrl, uploadedAt: result.uploadedAt };
+  }
+
+  async uploadAvatar(candidateAccountId: string, file: Express.Multer.File) {
+    const account =
+      await this.candidateAccountRepo.findById(candidateAccountId);
+    if (!account) throw new NotFoundException('Candidate account not found');
+    const key = await this.avatarsService.store(
+      { type: 'candidate', id: candidateAccountId },
+      file,
+    );
+    if (account.avatarUrl) await this.avatarsService.delete(account.avatarUrl);
+    const updated = await this.candidateAccountRepo.updateAvatarUrl(
+      candidateAccountId,
+      key,
+    );
+    if (!updated) throw new NotFoundException('Candidate account not found');
+    return { avatarUrl: updated.avatarUrl };
+  }
+
+  async removeAvatar(candidateAccountId: string) {
+    const account =
+      await this.candidateAccountRepo.findById(candidateAccountId);
+    if (!account) throw new NotFoundException('Candidate account not found');
+    if (account.avatarUrl) await this.avatarsService.delete(account.avatarUrl);
+    await this.candidateAccountRepo.updateAvatarUrl(candidateAccountId, null);
+    return { avatarUrl: null };
   }
 }

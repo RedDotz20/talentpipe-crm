@@ -176,6 +176,24 @@ export class CandidateAccountController {
     return this.candidateAccountService.updateProfile(user.userId, body);
   }
 
+  @Post('profile/avatar')
+  @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
+  async uploadAvatar(
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: CompanyContext,
+  ) {
+    return this.candidateAccountService.uploadAvatar(user.userId, file);
+  }
+
+  @Delete('profile/avatar')
+  @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
+  async removeAvatar(@CurrentUser() user: CompanyContext) {
+    return this.candidateAccountService.removeAvatar(user.userId);
+  }
+
   @Post('resume')
   @UseGuards(AuthGuard('jwt'), CandidateAuthGuard)
   @UseInterceptors(
