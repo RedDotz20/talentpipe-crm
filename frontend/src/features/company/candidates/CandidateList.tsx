@@ -1,7 +1,8 @@
-import { Group, Pagination, Stack, Table, Title } from '@mantine/core';
+import { Group, Pagination, Stack, Table, Text, Title } from '@mantine/core';
 import { ListControls } from '@/shared/components/ListControls';
 import { TableSkeleton } from '@/shared/components/Skeletons';
 import { ExportCsvButton } from '@/shared/components/ExportCsvButton';
+import { UserAvatar } from '@/shared/components/UserAvatar';
 import { useListQuery } from '@/shared/hooks/useListQuery';
 import { useCandidates } from './hooks/useCandidates';
 import { candidatesApi } from '@/api/candidatesApi';
@@ -19,7 +20,12 @@ export function CandidateList({ onSelect }: { onSelect: (id: string) => void }) 
       style={{ cursor: 'pointer' }}
       onClick={() => onSelect(c.id)}
     >
-      <Table.Td>{c.name}</Table.Td>
+      <Table.Td>
+        <Group gap="sm">
+          <UserAvatar name={c.name} avatarUrl={c.avatarUrl} size="sm" />
+          <Text>{c.name}</Text>
+        </Group>
+      </Table.Td>
       <Table.Td>{c.email ?? '—'}</Table.Td>
       <Table.Td>{c.phone ?? '—'}</Table.Td>
       <Table.Td>{new Date(c.createdAt).toLocaleDateString()}</Table.Td>

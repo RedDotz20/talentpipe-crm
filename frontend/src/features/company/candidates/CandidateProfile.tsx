@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { resumesApi } from '@/api/resumesApi';
 import { useCandidate } from './hooks/useCandidates';
 import { MatchScoreBadge } from './MatchScoreBadge';
+import { UserAvatar } from '@/shared/components/UserAvatar';
 
 interface Props {
   candidateId: string | null;
@@ -35,8 +36,13 @@ export function CandidateProfile({ candidateId, onClose }: Props) {
         <Loader />
       ) : (
         <Stack>
-          <Title order={3}>{candidate.name}</Title>
-          <Text>Email: {candidate.email ?? '—'}</Text>
+          <Group gap="md" mb="md">
+            <UserAvatar name={candidate.name} avatarUrl={candidate.avatarUrl} size="xl" />
+            <Stack gap={0}>
+              <Text fw={600} size="lg">{candidate.name}</Text>
+              <Text size="sm" c="dimmed">{candidate.email ?? '—'}</Text>
+            </Stack>
+          </Group>
           <Text>Phone: {candidate.phone ?? '—'}</Text>
           <Text>Added: {new Date(candidate.createdAt).toLocaleDateString()}</Text>
 

@@ -46,7 +46,9 @@ export interface PlatformDashboard {
 export interface PlatformUser {
   type: 'company' | 'candidate';
   id: string;
+  name: string | null;
   email: string;
+  avatarUrl: string | null;
   role: string;
   status: 'active' | 'suspended' | null;
   companyId: string | null;
