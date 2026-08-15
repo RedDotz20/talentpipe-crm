@@ -25,6 +25,16 @@ const SUPERADMINS = [
   { email: 'platform@talentpipe.com', name: 'Platform Admin' },
 ];
 
+const SEED_NAMES = [
+  'Ada Lovelace',
+  'Grace Hopper',
+  'Katherine Johnson',
+  'Alan Turing',
+  'Edsger Dijkstra',
+  'Linus Torvalds',
+  'Margaret Hamilton',
+];
+
 const COMPANIES = [
   { name: 'Acme Corp', slug: 'acme-corp', adminEmail: 'admin@acme.com' },
   { name: 'Globex', slug: 'globex', adminEmail: 'admin@globex.com' },
@@ -197,13 +207,14 @@ async function createUser(
   email: string,
   role: string,
   password: string,
+  name?: string,
 ): Promise<string> {
   const userId = randomUUID();
   const passwordHash = await hash(password);
   await client.query(
-    `INSERT INTO "company_${companyId}"."users" (id, email, password_hash, role)
-     VALUES ($1, $2, $3, $4)`,
-    [userId, email, passwordHash, role],
+    `INSERT INTO "company_${companyId}"."users" (id, email, password_hash, role, name)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [userId, email, passwordHash, role, name ?? null],
   );
   await client.query(
     `INSERT INTO public.user_emails (id, email, company_id, user_id)
@@ -463,16 +474,16 @@ async function seedCompany(
     stageIds.set(stage.name, stageId);
   }
 
-  const adminId = await createUser(client, companyId, company.adminEmail, 'CompanyAdmin', 'Admin123!');
+  const adminId = await createUser(client, companyId, company.adminEmail, 'CompanyAdmin', 'Admin123!', SEED_NAMES[0]);
   const interviewers = [
-    await createUser(client, companyId, `iv1@${company.slug}.com`, 'Interviewer', 'Interviewer123!'),
-    await createUser(client, companyId, `iv2@${company.slug}.com`, 'Interviewer', 'Interviewer123!'),
+    await createUser(client, companyId, `iv1@${company.slug}.com`, 'Interviewer', 'Interviewer123!', SEED_NAMES[1]),
+    await createUser(client, companyId, `iv2@${company.slug}.com`, 'Interviewer', 'Interviewer123!', SEED_NAMES[2]),
   ];
   for (let i = 1; i <= 2; i++) {
-    await createUser(client, companyId, `hm${i}@${company.slug}.com`, 'HiringManager', 'HiringManager123!');
+    await createUser(client, companyId, `hm${i}@${company.slug}.com`, 'HiringManager', 'HiringManager123!', SEED_NAMES[2 + i]);
   }
   for (let i = 1; i <= 2; i++) {
-    await createUser(client, companyId, `rec${i}@${company.slug}.com`, 'Recruiter', 'Recruiter123!');
+    await createUser(client, companyId, `rec${i}@${company.slug}.com`, 'Recruiter', 'Recruiter123!', SEED_NAMES[4 + i]);
   }
 
   const jobs = JOB_POOL.slice(companyIndex * 6, companyIndex * 6 + 6);
