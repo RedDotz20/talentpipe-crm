@@ -1,4 +1,4 @@
-# TalentPipe — Multi-Company Recruitment CRM / ATS
+# TalentPipe — Multi-Company ATS
 
 **Purpose:** High-level architectural scaffold — entity model, module boundaries, API surface shape, Redis usage, infra, and build order. This is a *narrative overview*; the authoritative, conflict-resolved build reference is `00_PROJECT_INSTRUCTIONS.md`.
 

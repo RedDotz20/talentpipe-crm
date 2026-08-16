@@ -114,7 +114,7 @@ Small and mid-sized companies without budget for enterprise ATS platforms (Green
 ## 1. Introduction
 
 ### 1.1 Purpose
-This SRS defines the functional and non-functional requirements for TalentPipe v1, a multi-company recruitment CRM/ATS, to guide implementation and serve as a reference for scoping and testing.
+This SRS defines the functional and non-functional requirements for TalentPipe v1, a multi-company Applicant Tracking System (ATS), to guide implementation and serve as a reference for scoping and testing.
 
 ### 1.2 Scope
 Covers backend (NestJS API), frontend (React + Mantine), data layer (PostgreSQL, Redis, S3/MinIO), and background processing (BullMQ), as defined in the accompanying architecture document.

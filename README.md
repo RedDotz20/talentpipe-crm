@@ -76,7 +76,7 @@ docker compose up -d
 
 # 2. Apply the migrations under backend/drizzle/<timestamp>_<name>/migration.sql
 #    in chronological order, then the template schema — run via:
-#    Get-Content <file> | docker exec -i talentpipe-crm-postgres-1 psql -U devuser -d talentpipe
+#    Get-Content <file> | docker exec -i talentpipe-ats-postgres-1 psql -U devuser -d talentpipe
 #    (bash: docker exec -i ... psql ... < file.sql)
 #    Order: 20260722095156_bright_iron_fist, 20260723191416_fresh_blindfold,
 #    20260727163000_smooth_spitfire, 20260803085856_redundant_tyrannus,
@@ -85,7 +85,7 @@ docker compose up -d
 #    20260808090000_platform_user_suspend, 20260808100000_platform_account_cascades
 
 # 3. Apply the company schema template (cloned on every company signup)
-Get-Content backend/drizzle/template-schema.sql | docker exec -i talentpipe-crm-postgres-1 psql -U devuser -d talentpipe
+Get-Content backend/drizzle/template-schema.sql | docker exec -i talentpipe-ats-postgres-1 psql -U devuser -d talentpipe
 
 # 4. Seed 6 sample accounts (backend/.env must point at local infra)
 cd backend && npm install && npm run seed

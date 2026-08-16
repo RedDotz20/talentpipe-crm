@@ -1,6 +1,6 @@
 {
   "info": {
-    "name": "TalentPipe CRM API",
+    "name": "TalentPipe ATS API",
     "description": "Multi-company ATS — schema-per-company applicant tracking system.\n\n**Auth:** Bearer JWT in `Authorization` header for internal endpoints.\n**Base URL:** http://localhost:3000/api\n\n**Variables to set:**\n- `base_url`: http://localhost:3000/api\n- `access_token`: auto-set from signin/signup/refresh responses\n- `refresh_token`: auto-set from signin/signup/refresh responses\n- `candidate_access_token` / `candidate_refresh_token`: auto-set from candidate signin/signup\n- `companyId`, `jobPostingId`, `candidateId`, `applicationId`, `bookmarkId`: auto-captured from list/create responses where possible\n\nCross-company convention: resource exists-but-other-company → `404 Not Found` (never 403).\nError shape: `{ \"error\": { \"code\": \"...\", \"message\": \"...\" } }`\n\nRoles: SA = SuperAdmin, OA = Company Admin, R = Recruiter, HM = Hiring Manager, C = Candidate\n\nEndpoints implemented (M1 + job board):\n- Auth: company signup, signin, candidate signup, refresh, logout\n- Candidate job board: list jobs, job detail, apply, applications, bookmarks, profile\n- Internal: candidates CRUD, job-postings CRUD + publish/close, skills search",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "talentpipe"
