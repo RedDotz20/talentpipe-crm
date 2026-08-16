@@ -1,5 +1,8 @@
+import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { DRIZZLE_PROVIDER } from './database/drizzle.provider';
+import { initDatabase } from './database/database-init';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -25,6 +28,10 @@ async function bootstrap() {
   });
 
   app.setGlobalPrefix('api');
+
+  // Create schema (and optionally demo data) before serving any request.
+  await initDatabase(app.get(DRIZZLE_PROVIDER), new Logger('DatabaseInit'));
+
   await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
 }
 void bootstrap();
