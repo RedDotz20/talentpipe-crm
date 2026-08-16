@@ -123,8 +123,10 @@ boot — migrations always run; only the seed is gated.
    - **Build output directory:** `dist`
    - **Environment variable:** `VITE_API_URL=https://<service>.onrender.com/api`
 3. **Save and Deploy** → `https://<project>.pages.dev`.
-   - SPA routing works out of the box: `frontend/public/_redirects`
-     (`/* /index.html 200`) ships with the build.
+   - SPA fallback is automatic: the build ships no top-level `404.html`, so
+     Pages serves `index.html` for every unmatched path (200). Do **not** add
+     a `_redirects` SPA rule — the current Pages engine rejects
+     `/* /index.html 200` as an infinite loop (error 100324).
 
 ## Step 6 — Finish wiring + verify
 
