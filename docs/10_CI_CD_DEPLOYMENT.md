@@ -62,13 +62,13 @@ docker compose -f docker-compose.prod.yml exec -T postgres pg_dump -U $POSTGRES_
 | PostgreSQL 16 | Neon | 0.5 GB, auto-sleeps | Avoid Render's free Postgres (expires after 90 days) |
 | Redis (rate-limit, cache, BullMQ) | Upstash | 5k commands/day | No card; ioredis handles `rediss://` TLS |
 | Resume storage (S3) | Cloudflare R2 | 10 GB, free egress | S3 path-style compatible — pure env swap |
-| Frontend (Vite SPA) | Cloudflare Pages | Unlimited requests | Static build + SPA fallback via `_redirects` |
+| Frontend (Vite SPA) | Cloudflare Pages | Unlimited requests | Static build + automatic SPA fallback (no top-level `404.html`) |
 
 BullMQ worker runs in-process (`onModuleInit`) → one Render service suffices; no separate worker.
 
 ### Required code changes (none — already committed)
 
-- `frontend/public/_redirects` with `/* /index.html 200` (Pages SPA fallback — there is no nginx proxy here) is already in the repo.
+- SPA fallback needs **no config**: Pages auto-serves `index.html` for unmatched paths because the build ships no top-level `404.html`. Do **not** add a `_redirects` rule (`/* /index.html 200`) — the current Pages engine rejects it as an infinite loop (error 100324).
 
 Storage needs **no code change**: `storage.provider.ts` is generic `@aws-sdk/client-s3` with `forcePathStyle: true`, which R2 accepts.
 
