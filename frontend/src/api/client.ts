@@ -1,6 +1,7 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from './useAuth';
 import { queryClient } from './queryClient';
+import { router } from '@/app/router';
 
 export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api',
@@ -35,9 +36,7 @@ async function refreshAccessToken(): Promise<string> {
 function forceLogout() {
   useAuthStore.getState().logout();
   queryClient.clear();
-  if (typeof window !== 'undefined') {
-    window.location.href = '/auth/signin';
-  }
+  router.navigate({ to: '/auth/signin' });
 }
 
 interface RetriableConfig extends InternalAxiosRequestConfig {
@@ -54,6 +53,11 @@ apiClient.interceptors.response.use(
     const config = error.config as RetriableConfig | undefined;
 
     if (error.response?.status === 401 && !isAuthRoute && config && !config._retried) {
+      // Already logged out (e.g. mid-logout refetches) — no token to refresh or
+      // session to force-logout. Reject and let the in-flight navigation win.
+      if (!useAuthStore.getState().accessToken) {
+        return Promise.reject(error);
+      }
       config._retried = true;
       try {
         refreshPromise ??= refreshAccessToken().finally(() => {
@@ -66,7 +70,9 @@ apiClient.interceptors.response.use(
         forceLogout();
       }
     } else if (error.response?.status === 401 && url.includes('/auth/refresh')) {
-      forceLogout();
+      if (useAuthStore.getState().accessToken) {
+        forceLogout();
+      }
     }
     return Promise.reject(error);
   },
