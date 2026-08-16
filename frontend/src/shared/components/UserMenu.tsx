@@ -13,8 +13,11 @@ export function UserMenu({ profilePath, roleLabel }: { profilePath: ProfilePath;
   const { mutateAsync: logout } = useLogout();
 
   const handleLogout = async () => {
-    await logout();
-    navigate({ to: '/auth/signin' });
+    try {
+      await logout();
+    } catch {
+      // onSettled in useLogout already cleared tokens and redirected.
+    }
   };
 
   return (
