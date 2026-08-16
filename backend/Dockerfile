@@ -11,6 +11,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY tsconfig.json tsconfig.build.json nest-cli.json ./
 COPY src ./src
+COPY drizzle ./drizzle
 RUN npm run build
 
 FROM node:20-alpine AS runtime
@@ -18,5 +19,6 @@ ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
+COPY --from=build /app/drizzle ./drizzle
 EXPOSE 3000
 CMD ["node", "dist/main.js"]
