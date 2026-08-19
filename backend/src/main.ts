@@ -1,8 +1,8 @@
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
-import { DRIZZLE_PROVIDER } from './database/drizzle.provider';
-import { initDatabase } from './database/database-init';
+import { AppModule } from '@/app.module';
+import { DRIZZLE_PROVIDER } from '@/database/drizzle.provider';
+import { initDatabase } from '@/database/database-init';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);

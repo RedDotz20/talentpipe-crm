@@ -10,12 +10,12 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import type { Response } from 'express';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { SkipEnvelope } from '../../common/decorators/skip-envelope.decorator';
-import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { sendCsv } from '../../common/csv.helper';
-import { ListQuerySchema, ListQueryDto } from '../../common/dto/list-query.dto';
-import { PlatformService } from './platform.service';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { SkipEnvelope } from '@/common/decorators/skip-envelope.decorator';
+import { ZodValidationPipe } from '@/common/pipes/zod-validation.pipe';
+import { sendCsv } from '@/common/csv.helper';
+import { ListQuerySchema, ListQueryDto } from '@/common/dto/list-query.dto';
+import { PlatformService } from '@/modules/platform/platform.service';
 
 @Controller('platform')
 @UseGuards(AuthGuard('jwt'))

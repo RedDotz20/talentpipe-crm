@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { SkillMatchingService } from './skill-matching.service';
+import { SkillMatchingService } from '@/modules/skill-matching/skill-matching.service';
 
 @Module({
   providers: [SkillMatchingService],

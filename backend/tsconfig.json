@@ -14,6 +14,9 @@
     "removeComments": true,
     "sourceMap": true,
     "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/*"]
+    },
     "incremental": true
   },
   "include": ["src/**/*"]

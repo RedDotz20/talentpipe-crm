@@ -8,21 +8,21 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { AuthService } from './auth.service';
-import { LoginRateLimiterGuard } from '../../common/middlewares/login-rate-limiter.guard';
-import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { CompanyContext } from '../../common/context/company-context';
+import { AuthService } from '@/modules/auth/auth.service';
+import { LoginRateLimiterGuard } from '@/common/middlewares/login-rate-limiter.guard';
+import { ZodValidationPipe } from '@/common/pipes/zod-validation.pipe';
+import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { CompanyContext } from '@/common/context/company-context';
 import {
   CompanySignupSchema,
   CompanySignupDto,
-} from './dto/company-signup.dto';
-import { SigninSchema, SigninDto } from './dto/signin.dto';
-import { RefreshSchema, RefreshDto } from './dto/refresh.dto';
+} from '@/modules/auth/dto/company-signup.dto';
+import { SigninSchema, SigninDto } from '@/modules/auth/dto/signin.dto';
+import { RefreshSchema, RefreshDto } from '@/modules/auth/dto/refresh.dto';
 import {
   CandidateSignupSchema,
   CandidateSignupDto,
-} from './dto/candidate-auth.dto';
+} from '@/modules/auth/dto/candidate-auth.dto';
 
 @Controller('auth')
 export class AuthController {

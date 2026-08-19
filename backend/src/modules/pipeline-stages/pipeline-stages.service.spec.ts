@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { PipelineStagesService } from './pipeline-stages.service';
-import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
-import { CacheService } from '../../common/cache/cache.service';
-import { asyncStorage } from '../../common/context/company-context';
+import { PipelineStagesService } from '@/modules/pipeline-stages/pipeline-stages.service';
+import { PipelineStageRepository } from '@/repositories/pipeline-stage.repository';
+import { CacheService } from '@/common/cache/cache.service';
+import { asyncStorage } from '@/common/context/company-context';
 
 const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
   asyncStorage.run({ companyId: 't1', userId: 'u1', role: 'CompanyAdmin' }, fn);

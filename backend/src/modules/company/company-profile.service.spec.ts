@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
-import { asyncStorage } from '../../common/context/company-context';
-import { UserRepository } from '../../repositories/user.repository';
-import { AvatarsService } from '../../common/avatars/avatars.service';
-import { CompanyProfileService } from './company-profile.service';
+import { asyncStorage } from '@/common/context/company-context';
+import { UserRepository } from '@/repositories/user.repository';
+import { AvatarsService } from '@/common/avatars/avatars.service';
+import { CompanyProfileService } from '@/modules/company/company-profile.service';
 
 describe('CompanyProfileService', () => {
   let service: CompanyProfileService;

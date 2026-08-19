@@ -3,11 +3,11 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
-import { PlatformPermissionsService } from './platform-permissions.service';
-import { PermissionRepository } from '../../repositories/permission.repository';
-import { CompanyRepository } from '../../repositories/company.repository';
-import { UserRepository } from '../../repositories/user.repository';
-import { AuditService } from '../../common/audit/audit.service';
+import { PlatformPermissionsService } from '@/modules/platform/platform-permissions.service';
+import { PermissionRepository } from '@/repositories/permission.repository';
+import { CompanyRepository } from '@/repositories/company.repository';
+import { UserRepository } from '@/repositories/user.repository';
+import { AuditService } from '@/common/audit/audit.service';
 
 describe('PlatformPermissionsService', () => {
   let service: PlatformPermissionsService;

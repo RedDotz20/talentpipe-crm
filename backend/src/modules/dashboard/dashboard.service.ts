@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { CacheService } from '../../common/cache/cache.service';
-import { dashboardSummaryKey } from '../../common/cache/cache.constants';
-import { getCompanyId } from '../../common/context/company-context';
+import { CacheService } from '@/common/cache/cache.service';
+import { dashboardSummaryKey } from '@/common/cache/cache.constants';
+import { getCompanyId } from '@/common/context/company-context';
 import {
   DashboardRepository,
   DashboardSummary,
-} from '../../repositories/dashboard.repository';
+} from '@/repositories/dashboard.repository';
 
 const SUMMARY_TTL_SECONDS = 60;
 

@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { PlatformService } from './platform.service';
-import { CompanyRepository } from '../../repositories/company.repository';
-import { UsageRepository } from '../../repositories/usage.repository';
-import { UserRepository } from '../../repositories/user.repository';
-import { AuditService } from '../../common/audit/audit.service';
+import { PlatformService } from '@/modules/platform/platform.service';
+import { CompanyRepository } from '@/repositories/company.repository';
+import { UsageRepository } from '@/repositories/usage.repository';
+import { UserRepository } from '@/repositories/user.repository';
+import { AuditService } from '@/common/audit/audit.service';
 
 describe('PlatformService', () => {
   let service: PlatformService;

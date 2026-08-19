@@ -1,5 +1,5 @@
 import { ExecutionContext } from '@nestjs/common';
-import { CandidateAuthGuard } from './candidate-auth.guard';
+import { CandidateAuthGuard } from '@/common/guards/candidate-auth.guard';
 
 function makeContext(user?: { role?: string }): ExecutionContext {
   return {

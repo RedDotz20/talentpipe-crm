@@ -1,10 +1,10 @@
 import 'reflect-metadata';
 import { Logger } from '@nestjs/common';
-import { RedisModule } from '../redis/redis.module';
-import { CacheService } from './cache.service';
-import { dashboardSummaryKey } from './cache.constants';
-import { CacheModule } from './cache.module';
-import { RedisService } from '../redis/redis.service';
+import { RedisModule } from '@/common/redis/redis.module';
+import { CacheService } from '@/common/cache/cache.service';
+import { dashboardSummaryKey } from '@/common/cache/cache.constants';
+import { CacheModule } from '@/common/cache/cache.module';
+import { RedisService } from '@/common/redis/redis.service';
 
 describe('CacheService', () => {
   let redis: {

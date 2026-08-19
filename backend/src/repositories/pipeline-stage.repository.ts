@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
-import { pipelineStages, applications } from '../database/schema';
-import { BaseRepository } from './base.repository';
+import { pipelineStages, applications } from '@/database/schema';
+import { BaseRepository } from '@/repositories/base.repository';
 
 @Injectable()
 export class PipelineStageRepository extends BaseRepository {

@@ -3,11 +3,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { CacheService } from '../../common/cache/cache.service';
-import { getCompanyId } from '../../common/context/company-context';
-import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
-import { CreatePipelineStageDto } from './dto/create-pipeline-stage.dto';
-import { UpdatePipelineStageDto } from './dto/update-pipeline-stage.dto';
+import { CacheService } from '@/common/cache/cache.service';
+import { getCompanyId } from '@/common/context/company-context';
+import { PipelineStageRepository } from '@/repositories/pipeline-stage.repository';
+import { CreatePipelineStageDto } from '@/modules/pipeline-stages/dto/create-pipeline-stage.dto';
+import { UpdatePipelineStageDto } from '@/modules/pipeline-stages/dto/update-pipeline-stage.dto';
 
 @Injectable()
 export class PipelineStagesService {

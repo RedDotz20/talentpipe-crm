@@ -1,6 +1,6 @@
 import { and, asc, desc, ilike, or, type SQL } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
-import type { ListQueryDto } from '../common/dto/list-query.dto';
+import type { ListQueryDto } from '@/common/dto/list-query.dto';
 
 export interface ListQuerySortOptions {
   sortMap: Record<string, PgColumn>;

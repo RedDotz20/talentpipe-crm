@@ -4,19 +4,19 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { hashPassword, verifyPassword } from '../../common/password';
-import { TokenService } from './services/token.service';
-import { CompanyProvisioningService } from './services/company-provisioning.service';
-import { CompanySignupDto } from './dto/company-signup.dto';
-import { SigninDto } from './dto/signin.dto';
-import { RefreshDto } from './dto/refresh.dto';
-import { CandidateSignupDto } from './dto/candidate-auth.dto';
-import { UserEmailRepository } from '../../repositories/user-email.repository';
-import { UserRepository } from '../../repositories/user.repository';
-import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
-import { SuperAdminRepository } from '../../repositories/super-admin.repository';
-import { CompanyRepository } from '../../repositories/company.repository';
-import { CompanyContext } from '../../common/context/company-context';
+import { hashPassword, verifyPassword } from '@/common/password';
+import { TokenService } from '@/modules/auth/services/token.service';
+import { CompanyProvisioningService } from '@/modules/auth/services/company-provisioning.service';
+import { CompanySignupDto } from '@/modules/auth/dto/company-signup.dto';
+import { SigninDto } from '@/modules/auth/dto/signin.dto';
+import { RefreshDto } from '@/modules/auth/dto/refresh.dto';
+import { CandidateSignupDto } from '@/modules/auth/dto/candidate-auth.dto';
+import { UserEmailRepository } from '@/repositories/user-email.repository';
+import { UserRepository } from '@/repositories/user.repository';
+import { CandidateAccountRepository } from '@/repositories/candidate-account.repository';
+import { SuperAdminRepository } from '@/repositories/super-admin.repository';
+import { CompanyRepository } from '@/repositories/company.repository';
+import { CompanyContext } from '@/common/context/company-context';
 
 @Injectable()
 export class AuthService {

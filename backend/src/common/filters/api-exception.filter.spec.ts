@@ -1,6 +1,6 @@
 import { ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
 import { MulterError } from 'multer';
-import { ApiExceptionFilter } from './api-exception.filter';
+import { ApiExceptionFilter } from '@/common/filters/api-exception.filter';
 
 function makeHost(): ArgumentsHost {
   const json = jest.fn();

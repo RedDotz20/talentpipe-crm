@@ -1,9 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { getCompanyId } from '../../common/context/company-context';
-import { CompanyRepository } from '../../repositories/company.repository';
-import { JobPostingRepository } from '../../repositories/job-posting.repository';
-import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
-import { UpdateCompanyDto } from './dto/update-company.dto';
+import { getCompanyId } from '@/common/context/company-context';
+import { CompanyRepository } from '@/repositories/company.repository';
+import { JobPostingRepository } from '@/repositories/job-posting.repository';
+import { JobListingsIndexRepository } from '@/repositories/job-listings-index.repository';
+import { UpdateCompanyDto } from '@/modules/company/dto/update-company.dto';
 
 @Injectable()
 export class CompanyService {

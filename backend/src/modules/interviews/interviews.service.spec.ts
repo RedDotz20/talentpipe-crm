@@ -5,13 +5,13 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { InterviewsService } from './interviews.service';
-import { InterviewRepository } from '../../repositories/interview.repository';
-import { InterviewFeedbackRepository } from '../../repositories/interview-feedback.repository';
-import { ApplicationRepository } from '../../repositories/application.repository';
-import { UserRepository } from '../../repositories/user.repository';
-import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
-import { ApplicationsService } from '../applications/applications.service';
+import { InterviewsService } from '@/modules/interviews/interviews.service';
+import { InterviewRepository } from '@/repositories/interview.repository';
+import { InterviewFeedbackRepository } from '@/repositories/interview-feedback.repository';
+import { ApplicationRepository } from '@/repositories/application.repository';
+import { UserRepository } from '@/repositories/user.repository';
+import { PipelineStageRepository } from '@/repositories/pipeline-stage.repository';
+import { ApplicationsService } from '@/modules/applications/applications.service';
 
 describe('InterviewsService', () => {
   let service: InterviewsService;

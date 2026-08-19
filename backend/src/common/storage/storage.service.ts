@@ -13,7 +13,7 @@ import {
   HeadBucketCommand,
   CreateBucketCommand,
 } from '@aws-sdk/client-s3';
-import { STORAGE_PROVIDER } from './storage.provider';
+import { STORAGE_PROVIDER } from '@/common/storage/storage.provider';
 
 @Injectable()
 export class StorageService implements OnApplicationBootstrap {

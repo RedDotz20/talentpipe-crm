@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException } from '@nestjs/common';
-import { CompanyProvisioningService } from './company-provisioning.service';
-import { CompanyRepository } from '../../../repositories/company.repository';
-import { UserRepository } from '../../../repositories/user.repository';
-import { UserEmailRepository } from '../../../repositories/user-email.repository';
-import { PipelineStageRepository } from '../../../repositories/pipeline-stage.repository';
+import { CompanyProvisioningService } from '@/modules/auth/services/company-provisioning.service';
+import { CompanyRepository } from '@/repositories/company.repository';
+import { UserRepository } from '@/repositories/user.repository';
+import { UserEmailRepository } from '@/repositories/user-email.repository';
+import { PipelineStageRepository } from '@/repositories/pipeline-stage.repository';
 
 jest.mock('crypto', () => ({ randomUUID: jest.fn(() => 'uuid-1') }));
 jest.mock('argon2', () => ({

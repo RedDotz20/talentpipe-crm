@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { auditLogs } from '../database/schema';
-import { BaseRepository } from './base.repository';
+import { auditLogs } from '@/database/schema';
+import { BaseRepository } from '@/repositories/base.repository';
 
 @Injectable()
 export class AuditLogRepository extends BaseRepository {

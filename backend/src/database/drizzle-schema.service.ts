@@ -1,8 +1,8 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { Pool } from 'pg';
 import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { DRIZZLE_PROVIDER } from './drizzle.provider';
-import { getSchema } from '../common/context/company-context';
+import { DRIZZLE_PROVIDER } from '@/database/drizzle.provider';
+import { getSchema } from '@/common/context/company-context';
 
 export type DrizzleDB = NodePgDatabase;
 

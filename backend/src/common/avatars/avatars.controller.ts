@@ -9,8 +9,8 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import type { Response } from 'express';
-import { SkipEnvelope } from '../decorators/skip-envelope.decorator';
-import { AvatarsService } from './avatars.service';
+import { SkipEnvelope } from '@/common/decorators/skip-envelope.decorator';
+import { AvatarsService } from '@/common/avatars/avatars.service';
 
 @Controller('avatars')
 export class AvatarsController {

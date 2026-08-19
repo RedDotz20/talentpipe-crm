@@ -1,8 +1,8 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { PermissionsGuard } from './permissions.guard';
-import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
-import { PermissionRepository } from '../../repositories/permission.repository';
+import { PermissionsGuard } from '@/common/guards/permissions.guard';
+import { PERMISSIONS_KEY } from '@/common/decorators/permissions.decorator';
+import { PermissionRepository } from '@/repositories/permission.repository';
 
 function makeContext(req: Record<string, unknown>): ExecutionContext {
   return {

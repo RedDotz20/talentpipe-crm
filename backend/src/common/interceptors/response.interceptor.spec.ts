@@ -1,6 +1,6 @@
 import { CallHandler, ExecutionContext } from '@nestjs/common';
 import { firstValueFrom, of } from 'rxjs';
-import { ResponseInterceptor } from './response.interceptor';
+import { ResponseInterceptor } from '@/common/interceptors/response.interceptor';
 
 function makeHandler(value: unknown): CallHandler {
   return { handle: () => of(value) };

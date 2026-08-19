@@ -5,27 +5,27 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { AuditService } from '../../common/audit/audit.service';
-import { toCsv } from '../../common/csv.helper';
-import { CacheService } from '../../common/cache/cache.service';
-import { CompanyRepository } from '../../repositories/company.repository';
-import { ApplicationRepository } from '../../repositories/application.repository';
-import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
-import { CandidateApplicationsIndexRepository } from '../../repositories/candidate-applications-index.repository';
-import { InterviewRepository } from '../../repositories/interview.repository';
-import { JobPostingRepository } from '../../repositories/job-posting.repository';
-import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
-import { SkillRepository } from '../../repositories/skill.repository';
-import { MoveApplicationStageDto } from './dto/move-application-stage.dto';
-import { RescheduleInterviewDto } from './dto/reschedule-interview.dto';
-import { CreatePlatformJobDto } from './dto/create-platform-job.dto';
-import { UpdatePlatformJobDto } from './dto/update-platform-job.dto';
+import { AuditService } from '@/common/audit/audit.service';
+import { toCsv } from '@/common/csv.helper';
+import { CacheService } from '@/common/cache/cache.service';
+import { CompanyRepository } from '@/repositories/company.repository';
+import { ApplicationRepository } from '@/repositories/application.repository';
+import { PipelineStageRepository } from '@/repositories/pipeline-stage.repository';
+import { CandidateApplicationsIndexRepository } from '@/repositories/candidate-applications-index.repository';
+import { InterviewRepository } from '@/repositories/interview.repository';
+import { JobPostingRepository } from '@/repositories/job-posting.repository';
+import { JobListingsIndexRepository } from '@/repositories/job-listings-index.repository';
+import { SkillRepository } from '@/repositories/skill.repository';
+import { MoveApplicationStageDto } from '@/modules/platform/dto/move-application-stage.dto';
+import { RescheduleInterviewDto } from '@/modules/platform/dto/reschedule-interview.dto';
+import { CreatePlatformJobDto } from '@/modules/platform/dto/create-platform-job.dto';
+import { UpdatePlatformJobDto } from '@/modules/platform/dto/update-platform-job.dto';
 import {
   inMemorySearch,
   listEnvelope,
   sortAndPageInMemory,
-} from '../../repositories/list-query.helper';
-import type { ListQueryDto } from '../../common/dto/list-query.dto';
+} from '@/repositories/list-query.helper';
+import type { ListQueryDto } from '@/common/dto/list-query.dto';
 
 interface PlatformFilters {
   companyId?: string;

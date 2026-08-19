@@ -13,28 +13,28 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import type { Response } from 'express';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { SkipEnvelope } from '../../common/decorators/skip-envelope.decorator';
-import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { sendCsv } from '../../common/csv.helper';
-import { PlatformDataService } from './platform-data.service';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { SkipEnvelope } from '@/common/decorators/skip-envelope.decorator';
+import { ZodValidationPipe } from '@/common/pipes/zod-validation.pipe';
+import { sendCsv } from '@/common/csv.helper';
+import { PlatformDataService } from '@/modules/platform/platform-data.service';
 import {
   MoveApplicationStageSchema,
   MoveApplicationStageDto,
-} from './dto/move-application-stage.dto';
+} from '@/modules/platform/dto/move-application-stage.dto';
 import {
   RescheduleInterviewSchema,
   RescheduleInterviewDto,
-} from './dto/reschedule-interview.dto';
+} from '@/modules/platform/dto/reschedule-interview.dto';
 import {
   CreatePlatformJobSchema,
   CreatePlatformJobDto,
-} from './dto/create-platform-job.dto';
+} from '@/modules/platform/dto/create-platform-job.dto';
 import {
   UpdatePlatformJobSchema,
   UpdatePlatformJobDto,
-} from './dto/update-platform-job.dto';
-import { ListQuerySchema, ListQueryDto } from '../../common/dto/list-query.dto';
+} from '@/modules/platform/dto/update-platform-job.dto';
+import { ListQuerySchema, ListQueryDto } from '@/common/dto/list-query.dto';
 
 @Controller('platform')
 @UseGuards(AuthGuard('jwt'))

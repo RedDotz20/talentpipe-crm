@@ -5,8 +5,8 @@ import {
   candidates,
   jobPostings,
   pipelineStages,
-} from '../database/schema';
-import { BaseRepository } from './base.repository';
+} from '@/database/schema';
+import { BaseRepository } from '@/repositories/base.repository';
 
 const selectAppRow = {
   id: applications.id,

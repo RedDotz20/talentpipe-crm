@@ -1,9 +1,9 @@
 import { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
-import { ROLES_KEY } from '../../common/decorators/roles.decorator';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { DashboardController } from './dashboard.controller';
+import { ROLES_KEY } from '@/common/decorators/roles.decorator';
+import { RolesGuard } from '@/common/guards/roles.guard';
+import { DashboardController } from '@/modules/dashboard/dashboard.controller';
 
 const INTERNAL_ROLES = [
   'CompanyAdmin',

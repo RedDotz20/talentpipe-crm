@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 import { Pool } from 'pg';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
-import { seedDatabase } from './seed-data';
+import { seedDatabase } from '@/database/seed-data';
 
 // ponytail: ports scripts/prod-migrate.sh into the boot path — same semantics
 // (guard → run drizzle/*/migration.sql in order → template-schema.sql), no psql

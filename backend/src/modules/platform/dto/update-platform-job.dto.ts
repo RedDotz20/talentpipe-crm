@@ -2,7 +2,7 @@ import { z } from 'zod';
 import {
   EMPLOYMENT_TYPES,
   WORK_SETUPS,
-} from '../../job-postings/dto/create-job-posting.dto';
+} from '@/modules/job-postings/dto/create-job-posting.dto';
 
 export const UpdatePlatformJobSchema = z
   .object({

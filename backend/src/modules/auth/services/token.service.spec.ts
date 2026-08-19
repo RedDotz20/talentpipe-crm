@@ -2,11 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException } from '@nestjs/common';
-import { TokenService } from './token.service';
-import { RefreshTokenRepository } from '../../../repositories/refresh-token.repository';
-import { CompanyRepository } from '../../../repositories/company.repository';
-import { UserRepository } from '../../../repositories/user.repository';
-import { PermissionRepository } from '../../../repositories/permission.repository';
+import { TokenService } from '@/modules/auth/services/token.service';
+import { RefreshTokenRepository } from '@/repositories/refresh-token.repository';
+import { CompanyRepository } from '@/repositories/company.repository';
+import { UserRepository } from '@/repositories/user.repository';
+import { PermissionRepository } from '@/repositories/permission.repository';
 
 jest.mock('argon2', () => ({
   hash: jest.fn().mockResolvedValue('hashed-value'),

@@ -5,7 +5,7 @@ import {
   NestInterceptor,
 } from '@nestjs/common';
 import { Observable, map } from 'rxjs';
-import { SKIP_ENVELOPE } from '../decorators/skip-envelope.decorator';
+import { SKIP_ENVELOPE } from '@/common/decorators/skip-envelope.decorator';
 
 export interface ApiResponse<T> {
   data: T;

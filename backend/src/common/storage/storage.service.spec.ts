@@ -1,4 +1,4 @@
-import { StorageService } from './storage.service';
+import { StorageService } from '@/common/storage/storage.service';
 
 describe('StorageService', () => {
   const sent: Array<{ cmd: string; input: Record<string, unknown> }> = [];

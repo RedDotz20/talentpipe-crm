@@ -1,15 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { eq, and, count, inArray, sql } from 'drizzle-orm';
-import { jobListingsIndex, companies } from '../database/schema';
-import { BaseRepository } from './base.repository';
+import { jobListingsIndex, companies } from '@/database/schema';
+import { BaseRepository } from '@/repositories/base.repository';
 import {
   andConditions,
   listEnvelope,
   toOrderBy,
   toPagination,
   toWhere,
-} from './list-query.helper';
-import type { ListQueryDto } from '../common/dto/list-query.dto';
+} from '@/repositories/list-query.helper';
+import type { ListQueryDto } from '@/common/dto/list-query.dto';
 
 @Injectable()
 export class JobListingsIndexRepository extends BaseRepository {

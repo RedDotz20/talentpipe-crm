@@ -12,27 +12,27 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { Permissions } from '../../common/decorators/permissions.decorator';
-import { SkipEnvelope } from '../../common/decorators/skip-envelope.decorator';
-import { sendCsv } from '../../common/csv.helper';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { CompanyContext } from '../../common/context/company-context';
-import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { ListQuerySchema, ListQueryDto } from '../../common/dto/list-query.dto';
-import { InterviewsService } from './interviews.service';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { Permissions } from '@/common/decorators/permissions.decorator';
+import { SkipEnvelope } from '@/common/decorators/skip-envelope.decorator';
+import { sendCsv } from '@/common/csv.helper';
+import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { CompanyContext } from '@/common/context/company-context';
+import { ZodValidationPipe } from '@/common/pipes/zod-validation.pipe';
+import { ListQuerySchema, ListQueryDto } from '@/common/dto/list-query.dto';
+import { InterviewsService } from '@/modules/interviews/interviews.service';
 import {
   CreateInterviewSchema,
   CreateInterviewDto,
-} from './dto/create-interview.dto';
+} from '@/modules/interviews/dto/create-interview.dto';
 import {
   UpdateInterviewSchema,
   UpdateInterviewDto,
-} from './dto/update-interview.dto';
+} from '@/modules/interviews/dto/update-interview.dto';
 import {
   SubmitFeedbackSchema,
   SubmitFeedbackDto,
-} from './dto/submit-feedback.dto';
+} from '@/modules/interviews/dto/submit-feedback.dto';
 
 const VIEW_ROLES = [
   'CompanyAdmin',

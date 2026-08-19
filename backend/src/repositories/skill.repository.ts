@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ilike, inArray } from 'drizzle-orm';
-import { skills } from '../database/schema';
-import { BaseRepository } from './base.repository';
+import { skills } from '@/database/schema';
+import { BaseRepository } from '@/repositories/base.repository';
 
 @Injectable()
 export class SkillRepository extends BaseRepository {

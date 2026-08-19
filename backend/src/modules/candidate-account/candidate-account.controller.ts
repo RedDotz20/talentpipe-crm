@@ -16,23 +16,29 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
 import type { Response } from 'express';
-import { CandidateAuthGuard } from '../../common/guards/candidate-auth.guard';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { SkipEnvelope } from '../../common/decorators/skip-envelope.decorator';
-import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { ListQuerySchema, ListQueryDto } from '../../common/dto/list-query.dto';
-import { CompanyContext } from '../../common/context/company-context';
-import { CandidateAccountService } from './candidate-account.service';
-import { BookmarkJobSchema, BookmarkJobDto } from './dto/bookmark.dto';
-import { ApplyJobSchema, ApplyJobDto } from './dto/apply.dto';
+import { CandidateAuthGuard } from '@/common/guards/candidate-auth.guard';
+import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { SkipEnvelope } from '@/common/decorators/skip-envelope.decorator';
+import { ZodValidationPipe } from '@/common/pipes/zod-validation.pipe';
+import { ListQuerySchema, ListQueryDto } from '@/common/dto/list-query.dto';
+import { CompanyContext } from '@/common/context/company-context';
+import { CandidateAccountService } from '@/modules/candidate-account/candidate-account.service';
+import {
+  BookmarkJobSchema,
+  BookmarkJobDto,
+} from '@/modules/candidate-account/dto/bookmark.dto';
+import {
+  ApplyJobSchema,
+  ApplyJobDto,
+} from '@/modules/candidate-account/dto/apply.dto';
 import {
   SetCandidateSkillsSchema,
   SetCandidateSkillsDto,
-} from './dto/skills.dto';
+} from '@/modules/candidate-account/dto/skills.dto';
 import {
   UpdateProfileSchema,
   UpdateProfileDto,
-} from './dto/profile-update.dto';
+} from '@/modules/candidate-account/dto/profile-update.dto';
 
 @Controller('candidate')
 export class CandidateAccountController {

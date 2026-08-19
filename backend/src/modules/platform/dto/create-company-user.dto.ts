@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { INTERNAL_USER_ROLES } from '../../company/dto/invite-user.dto';
+import { INTERNAL_USER_ROLES } from '@/modules/company/dto/invite-user.dto';
 
 export const CreateCompanyUserSchema = z.object({
   email: z.string().email('Invalid email').max(255),

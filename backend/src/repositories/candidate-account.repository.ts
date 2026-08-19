@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { desc, eq } from 'drizzle-orm';
-import { candidateAccounts } from '../database/schema';
-import { BaseRepository } from './base.repository';
+import { candidateAccounts } from '@/database/schema';
+import { BaseRepository } from '@/repositories/base.repository';
 
 @Injectable()
 export class CandidateAccountRepository extends BaseRepository {

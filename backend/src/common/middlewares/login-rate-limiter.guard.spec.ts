@@ -1,10 +1,10 @@
 import { ExecutionContext } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import { RedisService } from '../redis/redis.service';
+import { RedisService } from '@/common/redis/redis.service';
 import {
   LoginRateLimiterGuard,
   TooManyRequestsException,
-} from './login-rate-limiter.guard';
+} from '@/common/middlewares/login-rate-limiter.guard';
 
 type LoginRequest = {
   body: { email?: unknown };

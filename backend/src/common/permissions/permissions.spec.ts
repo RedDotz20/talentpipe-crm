@@ -5,7 +5,7 @@ import {
   defaultPresetFor,
   isInternalRole,
   isPermission,
-} from './permissions';
+} from '@/common/permissions/permissions';
 
 describe('permissions catalog', () => {
   it('exposes 17 permissions and 4 roles', () => {

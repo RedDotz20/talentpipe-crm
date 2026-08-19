@@ -7,11 +7,11 @@ import {
   jobPostings,
   users,
   interviewFeedbacks,
-} from '../database/schema';
-import { BaseRepository } from './base.repository';
-import { listEnvelope, toPagination } from './list-query.helper';
-import type { ListQueryDto } from '../common/dto/list-query.dto';
-import type { DrizzleDB } from '../database/drizzle-schema.service';
+} from '@/database/schema';
+import { BaseRepository } from '@/repositories/base.repository';
+import { listEnvelope, toPagination } from '@/repositories/list-query.helper';
+import type { ListQueryDto } from '@/common/dto/list-query.dto';
+import type { DrizzleDB } from '@/database/drizzle-schema.service';
 
 const selectInterviewRow = {
   id: interviews.id,

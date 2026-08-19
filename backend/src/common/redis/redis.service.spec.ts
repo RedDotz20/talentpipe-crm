@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
 import Redis from 'ioredis';
-import { RedisModule } from './redis.module';
-import { RedisService } from './redis.service';
+import { RedisModule } from '@/common/redis/redis.module';
+import { RedisService } from '@/common/redis/redis.service';
 
 type MockRedis = {
   eval: jest.Mock;

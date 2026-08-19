@@ -5,31 +5,31 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { hashPassword } from '../../common/password';
-import { toCsv } from '../../common/csv.helper';
-import { AuditService } from '../../common/audit/audit.service';
-import { CompanyRepository } from '../../repositories/company.repository';
-import { UserRepository } from '../../repositories/user.repository';
-import { UserEmailRepository } from '../../repositories/user-email.repository';
-import { RefreshTokenRepository } from '../../repositories/refresh-token.repository';
-import { InterviewRepository } from '../../repositories/interview.repository';
-import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
-import { CandidateRepository } from '../../repositories/candidate.repository';
-import { CandidateApplicationsIndexRepository } from '../../repositories/candidate-applications-index.repository';
-import { ApplicationRepository } from '../../repositories/application.repository';
-import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
-import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
-import { PermissionRepository } from '../../repositories/permission.repository';
+import { hashPassword } from '@/common/password';
+import { toCsv } from '@/common/csv.helper';
+import { AuditService } from '@/common/audit/audit.service';
+import { CompanyRepository } from '@/repositories/company.repository';
+import { UserRepository } from '@/repositories/user.repository';
+import { UserEmailRepository } from '@/repositories/user-email.repository';
+import { RefreshTokenRepository } from '@/repositories/refresh-token.repository';
+import { InterviewRepository } from '@/repositories/interview.repository';
+import { CandidateAccountRepository } from '@/repositories/candidate-account.repository';
+import { CandidateRepository } from '@/repositories/candidate.repository';
+import { CandidateApplicationsIndexRepository } from '@/repositories/candidate-applications-index.repository';
+import { ApplicationRepository } from '@/repositories/application.repository';
+import { PipelineStageRepository } from '@/repositories/pipeline-stage.repository';
+import { JobListingsIndexRepository } from '@/repositories/job-listings-index.repository';
+import { PermissionRepository } from '@/repositories/permission.repository';
 import {
   inMemorySearch,
   listEnvelope,
   sortAndPageInMemory,
-} from '../../repositories/list-query.helper';
-import type { ListQueryDto } from '../../common/dto/list-query.dto';
-import { CreateCompanyUserDto } from './dto/create-company-user.dto';
-import { UpdateCompanyUserDto } from './dto/update-company-user.dto';
-import { CreateCandidateDto } from './dto/create-candidate.dto';
-import { UpdateCandidateDto } from './dto/update-candidate.dto';
+} from '@/repositories/list-query.helper';
+import type { ListQueryDto } from '@/common/dto/list-query.dto';
+import { CreateCompanyUserDto } from '@/modules/platform/dto/create-company-user.dto';
+import { UpdateCompanyUserDto } from '@/modules/platform/dto/update-company-user.dto';
+import { CreateCandidateDto } from '@/modules/platform/dto/create-candidate.dto';
+import { UpdateCandidateDto } from '@/modules/platform/dto/update-candidate.dto';
 
 @Injectable()
 export class PlatformAccountsService {

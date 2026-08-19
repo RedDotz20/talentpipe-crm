@@ -1,14 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { CandidateRepository } from '../../repositories/candidate.repository';
-import { ApplicationRepository } from '../../repositories/application.repository';
-import { CandidateSkillRepository } from '../../repositories/candidate-skill.repository';
-import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
-import { SkillRepository } from '../../repositories/skill.repository';
-import { CacheService } from '../../common/cache/cache.service';
-import { toCsv } from '../../common/csv.helper';
-import { getCompanyId } from '../../common/context/company-context';
-import { CreateCandidateDto } from './dto/create-candidate.dto';
-import type { ListQueryDto } from '../../common/dto/list-query.dto';
+import { CandidateRepository } from '@/repositories/candidate.repository';
+import { ApplicationRepository } from '@/repositories/application.repository';
+import { CandidateSkillRepository } from '@/repositories/candidate-skill.repository';
+import { CandidateAccountRepository } from '@/repositories/candidate-account.repository';
+import { SkillRepository } from '@/repositories/skill.repository';
+import { CacheService } from '@/common/cache/cache.service';
+import { toCsv } from '@/common/csv.helper';
+import { getCompanyId } from '@/common/context/company-context';
+import { CreateCandidateDto } from '@/modules/candidates/dto/create-candidate.dto';
+import type { ListQueryDto } from '@/common/dto/list-query.dto';
 
 @Injectable()
 export class CandidatesService {

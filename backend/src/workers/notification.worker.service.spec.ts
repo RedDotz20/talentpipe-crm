@@ -1,13 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Job } from 'bullmq';
-import { NotificationWorkerService } from './notification.worker.service';
-import { AuditLogRepository } from '../repositories/audit-log.repository';
+import { NotificationWorkerService } from '@/workers/notification.worker.service';
+import { AuditLogRepository } from '@/repositories/audit-log.repository';
 import {
   BULLMQ_CONNECTION,
   NOTIFICATION_QUEUE,
   STAGE_CHANGE_JOB,
   StageChangeNotificationPayload,
-} from '../queues/queues';
+} from '@/queues/queues';
 
 describe('NotificationWorkerService', () => {
   let service: NotificationWorkerService;

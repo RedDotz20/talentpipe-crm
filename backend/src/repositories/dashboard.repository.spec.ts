@@ -1,9 +1,9 @@
 import {
   DrizzleDB,
   DrizzleSchemaService,
-} from '../database/drizzle-schema.service';
-import { pipelineStages } from '../database/schema';
-import { DashboardRepository } from './dashboard.repository';
+} from '@/database/drizzle-schema.service';
+import { pipelineStages } from '@/database/schema';
+import { DashboardRepository } from '@/repositories/dashboard.repository';
 
 describe('DashboardRepository', () => {
   const forCurrentCompany = jest.fn();

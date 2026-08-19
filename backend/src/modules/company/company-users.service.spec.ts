@@ -1,13 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, ForbiddenException } from '@nestjs/common';
-import { asyncStorage } from '../../common/context/company-context';
-import { AuditService } from '../../common/audit/audit.service';
-import { CompanyUsersService } from './company-users.service';
-import { UserRepository } from '../../repositories/user.repository';
-import { UserEmailRepository } from '../../repositories/user-email.repository';
-import { RefreshTokenRepository } from '../../repositories/refresh-token.repository';
-import { InterviewRepository } from '../../repositories/interview.repository';
-import { PermissionRepository } from '../../repositories/permission.repository';
+import { asyncStorage } from '@/common/context/company-context';
+import { AuditService } from '@/common/audit/audit.service';
+import { CompanyUsersService } from '@/modules/company/company-users.service';
+import { UserRepository } from '@/repositories/user.repository';
+import { UserEmailRepository } from '@/repositories/user-email.repository';
+import { RefreshTokenRepository } from '@/repositories/refresh-token.repository';
+import { InterviewRepository } from '@/repositories/interview.repository';
+import { PermissionRepository } from '@/repositories/permission.repository';
 
 jest.mock('../../common/password', () => ({
   hashPassword: jest.fn().mockResolvedValue('hashed'),

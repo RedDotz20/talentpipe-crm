@@ -11,13 +11,13 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { PlatformProfileService } from './platform-profile.service';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { ZodValidationPipe } from '@/common/pipes/zod-validation.pipe';
+import { PlatformProfileService } from '@/modules/platform/platform-profile.service';
 import {
   UpdatePlatformProfileSchema,
   UpdatePlatformProfileDto,
-} from './dto/update-profile.dto';
+} from '@/modules/platform/dto/update-profile.dto';
 
 @Controller('platform/profile')
 @UseGuards(AuthGuard('jwt'))

@@ -10,18 +10,18 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { Permissions } from '../../common/decorators/permissions.decorator';
-import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { PipelineStagesService } from './pipeline-stages.service';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { Permissions } from '@/common/decorators/permissions.decorator';
+import { ZodValidationPipe } from '@/common/pipes/zod-validation.pipe';
+import { PipelineStagesService } from '@/modules/pipeline-stages/pipeline-stages.service';
 import {
   CreatePipelineStageSchema,
   CreatePipelineStageDto,
-} from './dto/create-pipeline-stage.dto';
+} from '@/modules/pipeline-stages/dto/create-pipeline-stage.dto';
 import {
   UpdatePipelineStageSchema,
   UpdatePipelineStageDto,
-} from './dto/update-pipeline-stage.dto';
+} from '@/modules/pipeline-stages/dto/update-pipeline-stage.dto';
 
 const INTERNAL_ROLES = [
   'CompanyAdmin',

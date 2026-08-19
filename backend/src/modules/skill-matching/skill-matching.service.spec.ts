@@ -1,4 +1,4 @@
-import { SkillMatchingService } from './skill-matching.service';
+import { SkillMatchingService } from '@/modules/skill-matching/skill-matching.service';
 
 describe('SkillMatchingService', () => {
   let service: SkillMatchingService;

@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { asyncStorage } from '../../common/context/company-context';
-import { ResumesService } from './resumes.service';
-import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
-import { StorageService } from '../../common/storage/storage.service';
+import { asyncStorage } from '@/common/context/company-context';
+import { ResumesService } from '@/modules/resumes/resumes.service';
+import { CandidateAccountRepository } from '@/repositories/candidate-account.repository';
+import { StorageService } from '@/common/storage/storage.service';
 
 const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
   asyncStorage.run(

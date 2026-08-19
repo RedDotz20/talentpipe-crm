@@ -2,10 +2,10 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as argon2 from 'argon2';
-import { RefreshTokenRepository } from '../../../repositories/refresh-token.repository';
-import { CompanyRepository } from '../../../repositories/company.repository';
-import { UserRepository } from '../../../repositories/user.repository';
-import { PermissionRepository } from '../../../repositories/permission.repository';
+import { RefreshTokenRepository } from '@/repositories/refresh-token.repository';
+import { CompanyRepository } from '@/repositories/company.repository';
+import { UserRepository } from '@/repositories/user.repository';
+import { PermissionRepository } from '@/repositories/permission.repository';
 
 const ACCESS_TTL = '15m';
 const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;

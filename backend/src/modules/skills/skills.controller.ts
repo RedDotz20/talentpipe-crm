@@ -1,6 +1,6 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { SkillsService } from './skills.service';
+import { SkillsService } from '@/modules/skills/skills.service';
 
 @Controller('skills')
 @UseGuards(AuthGuard('jwt'))
