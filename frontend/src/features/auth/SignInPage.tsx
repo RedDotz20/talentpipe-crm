@@ -92,6 +92,11 @@ export function SignInPage({ returnTo }: SignInPageProps) {
           Create a company account
         </Anchor>
       </Text>
+      <Text ta="center" mt="md">
+        <Anchor href="/" fw={500}>
+          ← Back to home
+        </Anchor>
+      </Text>
     </AuthLayout>
   );
 }
