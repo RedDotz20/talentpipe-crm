@@ -1,6 +1,6 @@
 # TalentPipe — AI Build Context & Project Instructions
 
-**Purpose:** Single canonical reference for an AI coding assistant building TalentPipe. Consolidates the 8 source spec documents (`08_FRONTEND_COMPONENT_STRUCTURE.md`, `04_ERD_DIAGRAM.md`, `07_API_ENDPOINT_DOCUMENTATION.md`, `06_ROLE_INTERACTIONS.md`, `02_TECHNICAL_OVERVIEW.md`, `05_DATA_ISOLATION_STRATEGY.md`, `03_RECRUITMENT_ATS_ARCHITECTURE.md`, `01_TALENTPIPE_PRD_SRS.md`). Load THIS file as the source of truth. The 8 originals remain for traceability.
+**Purpose:** Single canonical reference for an AI coding assistant building TalentPipe. Consolidates the 8 source spec documents (`09_FRONTEND_STRUCTURE.md`, `05_DATA_MODEL_ERD.md`, `08_API_REFERENCE.md`, `07_RBAC_AND_PERMISSIONS.md`, `03_TECHNICAL_OVERVIEW.md`, `06_MULTI_TENANCY.md`, `04_ARCHITECTURE.md`, `02_PRODUCT_REQUIREMENTS.md`). Load THIS file as the source of truth. The 8 originals remain for traceability.
 
 **Status:** v1 — portfolio + functional demo. Solo-built, self-tested, no external/real-user data.
 
@@ -27,7 +27,7 @@
 | C1 | Architecture doc originally listed "Module Breakdown (**NestJS**)" while earlier tech overview used Hono | **NestJS is canonical.** Hono references are deprecated. All stack docs updated to reflect NestJS + PostgreSQL. |
 | C2 | Architecture module list omits a Platform/SuperAdmin module, but `04` and `03` define `/platform/*` routes + SuperAdmin role | Add **`PlatformModule`** (cross-company, role-guarded, unscoped repositories). See §3. |
 | C3 | `04` describes interview feedback as a field on `Interview`; `02` ERD defines a separate `INTERVIEW_FEEDBACK` table | `INTERVIEW_FEEDBACK` is a **separate table** joined to `Interview` (1:1). Feedback is submitted via `POST /interviews/:id/feedback`. |
-| C4 | `03_RECRUITMENT_ATS_ARCHITECTURE.md` mentions "MVC-style convention" while PRD NFR-8 says route → service → repository | Use **route/controller → service → repository** layering (NFR-8 wins). No direct Drizzle client outside `/repositories`. |
+| C4 | `04_ARCHITECTURE.md` mentions "MVC-style convention" while PRD NFR-8 says route → service → repository | Use **route/controller → service → repository** layering (NFR-8 wins). No direct Drizzle client outside `/repositories`. |
 
 ---
 
