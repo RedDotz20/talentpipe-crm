@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { getCurrentUser } from '@/common/context/company-context';
-import { AvatarsService } from '@/common/avatars/avatars.service';
+import { AvatarsService } from '@/modules/avatars/avatars.service';
 import { SuperAdminRepository } from '@/repositories/super-admin.repository';
 import { UpdatePlatformProfileDto } from '@/modules/platform/dto/update-profile.dto';
 

@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { PermissionPresetsPage } from '../../features/company/permissions/PermissionPresetsPage';
-import { useAuthStore } from '../../api/useAuth';
+import { PermissionPresetsPage } from '@/features/company/permissions/PermissionPresetsPage';
+import { useAuthStore } from '@/api/useAuth';
 
 export const Route = createFileRoute('/company/permissions')({
   beforeLoad: () => {

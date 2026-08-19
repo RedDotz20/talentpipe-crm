@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { CandidatePlatform } from '@/features/candidate-portal/layout';
+import { CandidatePlatform } from '@/features/candidate-account/layout';
 import { useAuthStore } from '@/api/useAuth';
 
 export const Route = createFileRoute('/_candidate')({

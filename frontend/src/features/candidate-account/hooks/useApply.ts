@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { candidateApi } from '@/features/candidate-portal/api/candidateApi';
+import { candidateApi } from '@/api/candidateApi';
 import { queryKeys } from '@/api/queryKeys';
-import type { ApplyData } from '@/features/candidate-portal/types';
+import type { ApplyData } from '@/features/candidate-account/types';
 
 export function useApply() {
   const queryClient = useQueryClient();

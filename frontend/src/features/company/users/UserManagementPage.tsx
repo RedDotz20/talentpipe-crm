@@ -38,8 +38,8 @@ import {
   useSetUserStatus,
   useUpdateUserRole,
 } from './hooks/useCompanyUsers';
-import { useCompanyPermissionPresets } from '../permissions/hooks/useCompanyPermissions';
-import { useCompanySettings } from '../settings/hooks/useCompanySettings';
+import { useCompanyPermissionPresets } from '@/features/company/permissions/hooks/useCompanyPermissions';
+import { useCompanySettings } from '@/features/company/settings/hooks/useCompanySettings';
 
 const CreateSchema = z.object({
   name: z.string().optional(),

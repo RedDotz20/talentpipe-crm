@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { Alert, Container } from '@mantine/core';
-import { useApplications, useJobDetail } from '@/features/candidate-portal/hooks';
-import { JobDetailsView } from '@/features/candidate-portal/jobs/JobDetailsView';
-import { CandidateApplyModal } from '@/features/candidate-portal/applications/CandidateApplyModal';
+import { useApplications, useJobDetail } from '@/features/candidate-account/hooks';
+import { JobDetailsView } from '@/features/candidate-account/jobs/JobDetailsView';
+import { CandidateApplyModal } from '@/features/candidate-account/applications/CandidateApplyModal';
 import { DetailSkeleton } from '@/shared/components/Skeletons';
 
 export const Route = createFileRoute('/_candidate/jobs/$jobId')({

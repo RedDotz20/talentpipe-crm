@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { CandidateSignupPage } from '@/features/candidate-portal/signup/SignupPage';
+import { CandidateSignupPage } from '@/features/candidate-account/signup/SignupPage';
 import { useAuthStore } from '@/api/useAuth';
 import { z } from 'zod';
 

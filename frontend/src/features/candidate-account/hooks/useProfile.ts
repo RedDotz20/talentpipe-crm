@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { candidateApi } from '@/features/candidate-portal/api/candidateApi';
+import { candidateApi } from '@/api/candidateApi';
 import { queryKeys } from '@/api/queryKeys';
 import { useApiMutation } from '@/hooks/useApiMutation';
-import type { Profile } from '../types';
+import type { Profile } from '@/features/candidate-account/types';
 
 export function useProfile() {
   return useQuery({

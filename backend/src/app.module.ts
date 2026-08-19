@@ -19,7 +19,7 @@ import { RepositoriesModule } from '@/repositories/repositories.module';
 import { ApiExceptionFilter } from '@/common/filters/api-exception.filter';
 import { LoggerMiddleware } from '@/common/middlewares/logger.middleware';
 import { CacheModule } from '@/common/cache/cache.module';
-import { AvatarsModule } from '@/common/avatars/avatars.module';
+import { AvatarsModule } from '@/modules/avatars/avatars.module';
 import { DashboardModule } from '@/modules/dashboard/dashboard.module';
 import { QueuesModule } from '@/queues/queues.module';
 import { InterviewsModule } from '@/modules/interviews/interviews.module';

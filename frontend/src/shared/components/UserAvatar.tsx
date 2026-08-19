@@ -1,5 +1,5 @@
 import { Avatar } from '@mantine/core';
-import { useAvatarBlob } from '../hooks/useAvatarBlob';
+import { useAvatarBlob } from '@/shared/hooks/useAvatarBlob';
 
 export function initialsOf(name: string | null | undefined): string {
   const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);

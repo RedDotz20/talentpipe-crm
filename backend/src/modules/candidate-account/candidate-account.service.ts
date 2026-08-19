@@ -17,7 +17,7 @@ import { JobPostingRepository } from '@/repositories/job-posting.repository';
 import { CompanyRepository } from '@/repositories/company.repository';
 import { SkillMatchingService } from '@/modules/skill-matching/skill-matching.service';
 import { ResumesService } from '@/modules/resumes/resumes.service';
-import { AvatarsService } from '@/common/avatars/avatars.service';
+import { AvatarsService } from '@/modules/avatars/avatars.service';
 import { CacheService } from '@/common/cache/cache.service';
 import { UserEmailRepository } from '@/repositories/user-email.repository';
 import { InterviewRepository } from '@/repositories/interview.repository';

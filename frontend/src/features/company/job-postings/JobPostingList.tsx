@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Badge, Button, Group, Pagination, Stack, Table, Title } from '@mantine/core';
-import { useAuthStore } from '../../../api/useAuth';
+import { useAuthStore } from '@/api/useAuth';
 import { ListControls } from '@/shared/components/ListControls';
 import { TableSkeleton } from '@/shared/components/Skeletons';
 import { TableAction } from '@/shared/components/TableAction';

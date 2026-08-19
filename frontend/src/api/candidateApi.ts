@@ -9,7 +9,7 @@ import type {
   ApplyData,
   ResumeUpload,
   Skill,
-} from '@/features/candidate-portal/types';
+} from '@/features/candidate-account/types';
 import type {
   ListQueryParams,
   Paginated,

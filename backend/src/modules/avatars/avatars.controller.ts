@@ -10,7 +10,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import type { Response } from 'express';
 import { SkipEnvelope } from '@/common/decorators/skip-envelope.decorator';
-import { AvatarsService } from '@/common/avatars/avatars.service';
+import { AvatarsService } from '@/modules/avatars/avatars.service';
 
 @Controller('avatars')
 export class AvatarsController {

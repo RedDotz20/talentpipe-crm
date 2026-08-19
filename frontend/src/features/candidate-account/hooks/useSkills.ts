@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { candidateApi } from '../api/candidateApi';
+import { candidateApi } from '@/api/candidateApi';
 import { queryKeys } from '@/api/queryKeys';
-import type { Skill } from '../types';
+import type { Skill } from '@/features/candidate-account/types';
 
 export function useCandidateSkills() {
   return useQuery<Skill[]>({

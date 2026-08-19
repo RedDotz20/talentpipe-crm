@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { candidateApi } from '@/features/candidate-portal/api/candidateApi';
+import { candidateApi } from '@/api/candidateApi';
 import { queryKeys, type CandidateJobsParams } from '@/api/queryKeys';
 
 export function useJobs(params?: CandidateJobsParams) {

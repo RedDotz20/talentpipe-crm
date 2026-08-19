@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { asyncStorage } from '@/common/context/company-context';
 import { SuperAdminRepository } from '@/repositories/super-admin.repository';
-import { AvatarsService } from '@/common/avatars/avatars.service';
+import { AvatarsService } from '@/modules/avatars/avatars.service';
 import { PlatformProfileService } from '@/modules/platform/platform-profile.service';
 
 describe('PlatformProfileService', () => {

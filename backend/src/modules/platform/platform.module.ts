@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthCoreModule } from '@/common/auth/auth-core.module';
 import { AuditModule } from '@/common/audit/audit.module';
-import { AvatarsModule } from '@/common/avatars/avatars.module';
+import { AvatarsModule } from '@/modules/avatars/avatars.module';
 import { CacheModule } from '@/common/cache/cache.module';
 import { RepositoriesModule } from '@/repositories/repositories.module';
 import { PlatformController } from '@/modules/platform/platform.controller';

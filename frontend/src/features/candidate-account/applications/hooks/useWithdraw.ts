@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { candidateApi } from '../../api/candidateApi';
+import { candidateApi } from '@/api/candidateApi';
 import { queryKeys } from '@/api/queryKeys';
 import { useApiMutation } from '@/hooks/useApiMutation';
 

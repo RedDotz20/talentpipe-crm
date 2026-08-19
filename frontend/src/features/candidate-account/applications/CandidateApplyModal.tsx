@@ -10,8 +10,8 @@ import {
   Textarea,
 } from '@mantine/core';
 import { isAxiosError } from 'axios';
-import { useApply, useAllSkills, useProfile } from '../hooks';
-import type { Job, Skill } from '../types';
+import { useApply, useAllSkills, useProfile } from '@/features/candidate-account/hooks';
+import type { Job, Skill } from '@/features/candidate-account/types';
 
 interface CandidateApplyModalProps {
   opened: boolean;

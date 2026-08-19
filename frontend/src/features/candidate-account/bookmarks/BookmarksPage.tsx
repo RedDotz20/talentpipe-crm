@@ -2,8 +2,8 @@ import { Card, Text, Title, Button, Group, Stack, Alert, Pagination } from '@man
 import { ListControls } from '@/shared/components/ListControls';
 import { CardGridSkeleton } from '@/shared/components/Skeletons';
 import { useListQuery } from '@/shared/hooks/useListQuery';
-import { useBookmarks, useRemoveBookmark } from '../hooks';
-import type { Bookmark } from '../types';
+import { useBookmarks, useRemoveBookmark } from '@/features/candidate-account/hooks';
+import type { Bookmark } from '@/features/candidate-account/types';
 
 export function BookmarksPage() {
   const listQuery = useListQuery({ sortBy: 'createdAt', sortDir: 'desc' });

@@ -21,15 +21,15 @@ import { CardGridSkeleton } from '@/shared/components/Skeletons';
 import { ListControls } from '@/shared/components/ListControls';
 import { useListQuery } from '@/shared/hooks/useListQuery';
 import { timeAgo } from '@/shared/utils/timeAgo';
-import { CandidateApplyModal } from '../applications/CandidateApplyModal';
+import { CandidateApplyModal } from '@/features/candidate-account/applications/CandidateApplyModal';
 import {
   useApplications,
   useAddBookmark,
   useBookmarks,
   useJobs,
   useRemoveBookmark,
-} from '../hooks';
-import type { Bookmark, Job } from '../types';
+} from '@/features/candidate-account/hooks';
+import type { Bookmark, Job } from '@/features/candidate-account/types';
 
 const EMPLOYMENT_TYPES = ['full-time', 'part-time', 'contract', 'intern'];
 const WORK_SETUPS = ['on-site', 'hybrid', 'work-from-home'];

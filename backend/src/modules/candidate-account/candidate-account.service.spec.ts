@@ -22,7 +22,7 @@ import { NoteRepository } from '@/repositories/note.repository';
 import { SkillMatchingService } from '@/modules/skill-matching/skill-matching.service';
 import { ResumesService } from '@/modules/resumes/resumes.service';
 import { CacheService } from '@/common/cache/cache.service';
-import { AvatarsService } from '@/common/avatars/avatars.service';
+import { AvatarsService } from '@/modules/avatars/avatars.service';
 
 describe('CandidateAccountService', () => {
   let service: CandidateAccountService;

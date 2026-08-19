@@ -3,7 +3,7 @@ import { Button, Modal, Select, Stack, TextInput, Textarea } from '@mantine/core
 import { useForm, schemaResolver } from '@mantine/form';
 import { z } from 'zod';
 import { RequiredSkillsPicker } from './RequiredSkillsPicker';
-import type { CreateJobPostingInput, JobPosting } from '../../../api/jobPostingsApi';
+import type { CreateJobPostingInput, JobPosting } from '@/api/jobPostingsApi';
 
 const schema = z.object({
   title: z.string().min(1, 'Title is required'),

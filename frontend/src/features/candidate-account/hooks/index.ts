@@ -8,7 +8,7 @@ export { useAddBookmark } from './useAddBookmark';
 export { useRemoveBookmark } from './useRemoveBookmark';
 export { useProfile, useUpdateProfile, useUploadResume, useRemoveResume, useUploadAvatar, useRemoveAvatar } from './useProfile';
 export { useCandidateSkills, useSetCandidateSkills, useAllSkills } from './useSkills';
-export { useWithdrawApplication } from '../applications/hooks/useWithdraw';
+export { useWithdrawApplication } from '@/features/candidate-account/applications/hooks/useWithdraw';
 
 export type {
   Job,
@@ -19,4 +19,4 @@ export type {
   ApplyData,
   Skill,
   ResumeUpload,
-} from '../types';
+} from '@/features/candidate-account/types';

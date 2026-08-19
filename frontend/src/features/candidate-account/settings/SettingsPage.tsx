@@ -14,7 +14,7 @@ import {
 import { IconUpload } from '@tabler/icons-react';
 import { DetailSkeleton } from '@/shared/components/Skeletons';
 import { UserAvatar } from '@/shared/components/UserAvatar';
-import { candidateApi } from '../api/candidateApi';
+import { candidateApi } from '@/api/candidateApi';
 import {
   useAllSkills,
   useProfile,
@@ -24,7 +24,7 @@ import {
   useUpdateProfile,
   useUploadAvatar,
   useUploadResume,
-} from '../hooks';
+} from '@/features/candidate-account/hooks';
 
 const RESUME_MAX_BYTES = 10 * 1024 * 1024;
 const RESUME_ACCEPT = [

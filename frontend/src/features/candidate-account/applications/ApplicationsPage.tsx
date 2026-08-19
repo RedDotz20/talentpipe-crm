@@ -20,8 +20,8 @@ import { DetailSkeleton, TableSkeleton } from '@/shared/components/Skeletons';
 import { TableAction } from '@/shared/components/TableAction';
 import { IconCircleX, IconEye } from '@tabler/icons-react';
 import { useListQuery } from '@/shared/hooks/useListQuery';
-import { useApplicationDetail, useApplications, useWithdrawApplication } from '../hooks';
-import type { Application } from '../types';
+import { useApplicationDetail, useApplications, useWithdrawApplication } from '@/features/candidate-account/hooks';
+import type { Application } from '@/features/candidate-account/types';
 
 const statusColors: Record<string, string> = {
   Applied: 'blue',

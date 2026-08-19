@@ -5,7 +5,7 @@ import {
   publicCareersApi,
   type PublicJobDetail,
   type PublicJobListing,
-} from '../api/publicCareersApi';
+} from '@/api/publicCareersApi';
 
 export function usePublicJobs(
   companySlug: string | undefined,
