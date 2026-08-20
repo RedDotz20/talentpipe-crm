@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import { RepositoriesModule } from '../../repositories/repositories.module';
-import { PublicCareersController } from './public-careers.controller';
-import { PublicJobsController } from './public-jobs.controller';
-import { PublicCareersService } from './public-careers.service';
+import { RepositoriesModule } from '@/repositories/repositories.module';
+import { PublicCareersController } from '@/modules/public-careers/public-careers.controller';
+import { PublicJobsController } from '@/modules/public-careers/public-jobs.controller';
+import { PublicCareersService } from '@/modules/public-careers/public-careers.service';
 
 @Module({
   imports: [RepositoriesModule],

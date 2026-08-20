@@ -6,24 +6,24 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { Queue } from 'bullmq';
-import { ApplicationRepository } from '../../repositories/application.repository';
-import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
-import { NoteRepository } from '../../repositories/note.repository';
-import { CandidateApplicationsIndexRepository } from '../../repositories/candidate-applications-index.repository';
+import { ApplicationRepository } from '@/repositories/application.repository';
+import { PipelineStageRepository } from '@/repositories/pipeline-stage.repository';
+import { NoteRepository } from '@/repositories/note.repository';
+import { CandidateApplicationsIndexRepository } from '@/repositories/candidate-applications-index.repository';
 import {
   getCurrentUser,
   getCompanyId,
   CompanyContext,
-} from '../../common/context/company-context';
-import type { ListQueryDto } from '../../common/dto/list-query.dto';
-import { CacheService } from '../../common/cache/cache.service';
+} from '@/common/context/company-context';
+import type { ListQueryDto } from '@/common/dto/list-query.dto';
+import { CacheService } from '@/common/cache/cache.service';
 import {
   NOTIFICATION_QUEUE,
   STAGE_CHANGE_JOB,
   StageChangeNotificationPayload,
-} from '../../queues/queues';
-import { UpdateStageDto } from './dto/update-stage.dto';
-import { CreateNoteDto } from './dto/create-note.dto';
+} from '@/queues/queues';
+import { UpdateStageDto } from '@/modules/applications/dto/update-stage.dto';
+import { CreateNoteDto } from '@/modules/applications/dto/create-note.dto';
 
 @Injectable()
 export class ApplicationsService {

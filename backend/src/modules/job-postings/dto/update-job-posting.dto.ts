@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { EMPLOYMENT_TYPES, WORK_SETUPS } from './create-job-posting.dto';
+import {
+  EMPLOYMENT_TYPES,
+  WORK_SETUPS,
+} from '@/modules/job-postings/dto/create-job-posting.dto';
 
 export const UpdateJobPostingSchema = z.object({
   title: z.string().min(1).max(255).optional(),

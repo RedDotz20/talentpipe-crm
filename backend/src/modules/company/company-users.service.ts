@@ -6,22 +6,22 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { hashPassword } from '../../common/password';
+import { hashPassword } from '@/common/password';
 import {
   getCurrentUser,
   getSchema,
   getCompanyId,
-} from '../../common/context/company-context';
-import { AuditService } from '../../common/audit/audit.service';
-import { UserRepository } from '../../repositories/user.repository';
-import { UserEmailRepository } from '../../repositories/user-email.repository';
-import { RefreshTokenRepository } from '../../repositories/refresh-token.repository';
-import { InterviewRepository } from '../../repositories/interview.repository';
-import { PermissionRepository } from '../../repositories/permission.repository';
-import { toCsv } from '../../common/csv.helper';
-import { CreateUserDto } from './dto/invite-user.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
-import { UpdateRoleDto } from './dto/update-role.dto';
+} from '@/common/context/company-context';
+import { AuditService } from '@/common/audit/audit.service';
+import { UserRepository } from '@/repositories/user.repository';
+import { UserEmailRepository } from '@/repositories/user-email.repository';
+import { RefreshTokenRepository } from '@/repositories/refresh-token.repository';
+import { InterviewRepository } from '@/repositories/interview.repository';
+import { PermissionRepository } from '@/repositories/permission.repository';
+import { toCsv } from '@/common/csv.helper';
+import { CreateUserDto } from '@/modules/company/dto/invite-user.dto';
+import { ResetPasswordDto } from '@/modules/company/dto/reset-password.dto';
+import { UpdateRoleDto } from '@/modules/company/dto/update-role.dto';
 
 @Injectable()
 export class CompanyUsersService {

@@ -6,10 +6,10 @@ import {
   toOrderBy,
   toPagination,
   toWhere,
-} from './list-query.helper';
+} from '@/repositories/list-query.helper';
 import { eq } from 'drizzle-orm';
 import { PgDialect } from 'drizzle-orm/pg-core';
-import { jobListingsIndex } from '../database/schema';
+import { jobListingsIndex } from '@/database/schema';
 
 const dialect = new PgDialect();
 const renderSql = (value: unknown) => dialect.sqlToQuery(value as never).sql;

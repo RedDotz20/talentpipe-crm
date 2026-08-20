@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   DrizzleSchemaService,
   DrizzleDB,
-} from '../database/drizzle-schema.service';
+} from '@/database/drizzle-schema.service';
 
 @Injectable()
 export abstract class BaseRepository {

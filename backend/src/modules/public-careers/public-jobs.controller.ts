@@ -1,7 +1,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
-import { PublicCareersService } from './public-careers.service';
-import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { ListQuerySchema, ListQueryDto } from '../../common/dto/list-query.dto';
+import { PublicCareersService } from '@/modules/public-careers/public-careers.service';
+import { ZodValidationPipe } from '@/common/pipes/zod-validation.pipe';
+import { ListQuerySchema, ListQueryDto } from '@/common/dto/list-query.dto';
 
 @Controller('public/jobs')
 export class PublicJobsController {

@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
-import { RepositoriesModule } from '../../repositories/repositories.module';
-import { SkillsController } from './skills.controller';
-import { SkillsService } from './skills.service';
+import { RepositoriesModule } from '@/repositories/repositories.module';
+import { SkillsController } from '@/modules/skills/skills.controller';
+import { SkillsService } from '@/modules/skills/skills.service';
 
 @Module({
   imports: [RepositoriesModule],

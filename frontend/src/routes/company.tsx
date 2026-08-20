@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { CompanyPlatform } from '../features/company/layout';
-import { useAuthStore } from '../api/useAuth';
+import { CompanyPlatform } from '@/features/company/layout';
+import { useAuthStore } from '@/api/useAuth';
 
 export const Route = createFileRoute('/company')({
   beforeLoad: () => {

@@ -1,10 +1,10 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { hashPassword } from '../../../common/password';
-import { CompanyRepository } from '../../../repositories/company.repository';
-import { UserRepository } from '../../../repositories/user.repository';
-import { UserEmailRepository } from '../../../repositories/user-email.repository';
-import { PipelineStageRepository } from '../../../repositories/pipeline-stage.repository';
+import { hashPassword } from '@/common/password';
+import { CompanyRepository } from '@/repositories/company.repository';
+import { UserRepository } from '@/repositories/user.repository';
+import { UserEmailRepository } from '@/repositories/user-email.repository';
+import { PipelineStageRepository } from '@/repositories/pipeline-stage.repository';
 
 const DEFAULT_STAGES = [
   'Applied',

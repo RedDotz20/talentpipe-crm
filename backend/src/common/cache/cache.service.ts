@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { dashboardGenerationKey, dashboardSummaryKey } from './cache.constants';
-import { RedisService } from '../redis/redis.service';
+import {
+  dashboardGenerationKey,
+  dashboardSummaryKey,
+} from '@/common/cache/cache.constants';
+import { RedisService } from '@/common/redis/redis.service';
 
 @Injectable()
 export class CacheService {

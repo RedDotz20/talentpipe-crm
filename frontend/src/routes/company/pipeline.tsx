@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useDisclosure } from '@mantine/hooks';
 import { Button, Group, Modal, Title } from '@mantine/core';
-import { useAuthStore } from '../../api/useAuth';
-import { PipelineBoard } from '../../features/company/pipeline/PipelineBoard';
-import { StageEditor } from '../../features/company/pipeline/StageEditor';
+import { useAuthStore } from '@/api/useAuth';
+import { PipelineBoard } from '@/features/company/pipeline/PipelineBoard';
+import { StageEditor } from '@/features/company/pipeline/StageEditor';
 
 export const Route = createFileRoute('/company/pipeline')({
   component: PipelinePage,

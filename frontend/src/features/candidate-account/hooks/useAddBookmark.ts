@@ -1,0 +1,15 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { candidateApi } from '@/api/candidateApi';
+import { queryKeys } from '@/api/queryKeys';
+
+export function useAddBookmark() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ companyId, jobPostingId }: { companyId: string; jobPostingId: string }) =>
+      candidateApi.addBookmark(companyId, jobPostingId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.candidate.bookmarks() });
+    },
+  });
+}

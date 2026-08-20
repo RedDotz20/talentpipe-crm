@@ -4,9 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { getCompanyId } from '../../common/context/company-context';
-import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
-import { StorageService } from '../../common/storage/storage.service';
+import { getCompanyId } from '@/common/context/company-context';
+import { CandidateAccountRepository } from '@/repositories/candidate-account.repository';
+import { StorageService } from '@/common/storage/storage.service';
 
 const PDF_MIME = 'application/pdf';
 const DOCX_MIME =

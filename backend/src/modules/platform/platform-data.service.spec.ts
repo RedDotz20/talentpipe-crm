@@ -4,7 +4,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { PlatformDataService } from './platform-data.service';
+import { PlatformDataService } from '@/modules/platform/platform-data.service';
 
 describe('PlatformDataService', () => {
   const makeService = (overrides: Record<string, unknown> = {}) => {

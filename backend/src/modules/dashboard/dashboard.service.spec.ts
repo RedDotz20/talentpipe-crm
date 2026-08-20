@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { asyncStorage } from '../../common/context/company-context';
-import { CacheService } from '../../common/cache/cache.service';
-import { DashboardRepository } from '../../repositories/dashboard.repository';
-import { DashboardService } from './dashboard.service';
+import { asyncStorage } from '@/common/context/company-context';
+import { CacheService } from '@/common/cache/cache.service';
+import { DashboardRepository } from '@/repositories/dashboard.repository';
+import { DashboardService } from '@/modules/dashboard/dashboard.service';
 
 type DashboardSummary = {
   totalApplications: number;

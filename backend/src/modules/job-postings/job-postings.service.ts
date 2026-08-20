@@ -3,20 +3,17 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  getCompanyId,
-  CompanyContext,
-} from '../../common/context/company-context';
-import { CacheService } from '../../common/cache/cache.service';
-import { JobPostingRepository } from '../../repositories/job-posting.repository';
-import { SkillRepository } from '../../repositories/skill.repository';
-import { CompanyRepository } from '../../repositories/company.repository';
-import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
-import { ApplicationRepository } from '../../repositories/application.repository';
-import { toCsv } from '../../common/csv.helper';
-import { CreateJobPostingDto } from './dto/create-job-posting.dto';
-import { UpdateJobPostingDto } from './dto/update-job-posting.dto';
-import type { ListQueryDto } from '../../common/dto/list-query.dto';
+import { getCompanyId, CompanyContext } from '@/common/context/company-context';
+import { CacheService } from '@/common/cache/cache.service';
+import { JobPostingRepository } from '@/repositories/job-posting.repository';
+import { SkillRepository } from '@/repositories/skill.repository';
+import { CompanyRepository } from '@/repositories/company.repository';
+import { JobListingsIndexRepository } from '@/repositories/job-listings-index.repository';
+import { ApplicationRepository } from '@/repositories/application.repository';
+import { toCsv } from '@/common/csv.helper';
+import { CreateJobPostingDto } from '@/modules/job-postings/dto/create-job-posting.dto';
+import { UpdateJobPostingDto } from '@/modules/job-postings/dto/update-job-posting.dto';
+import type { ListQueryDto } from '@/common/dto/list-query.dto';
 
 @Injectable()
 export class JobPostingsService {

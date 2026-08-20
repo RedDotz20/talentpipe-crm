@@ -6,18 +6,18 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { InterviewRepository } from '../../repositories/interview.repository';
-import { InterviewFeedbackRepository } from '../../repositories/interview-feedback.repository';
-import { ApplicationRepository } from '../../repositories/application.repository';
-import { UserRepository } from '../../repositories/user.repository';
-import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
-import { CompanyContext } from '../../common/context/company-context';
-import { toCsv } from '../../common/csv.helper';
-import type { ListQueryDto } from '../../common/dto/list-query.dto';
-import { ApplicationsService } from '../applications/applications.service';
-import { CreateInterviewDto } from './dto/create-interview.dto';
-import { UpdateInterviewDto } from './dto/update-interview.dto';
-import { SubmitFeedbackDto } from './dto/submit-feedback.dto';
+import { InterviewRepository } from '@/repositories/interview.repository';
+import { InterviewFeedbackRepository } from '@/repositories/interview-feedback.repository';
+import { ApplicationRepository } from '@/repositories/application.repository';
+import { UserRepository } from '@/repositories/user.repository';
+import { PipelineStageRepository } from '@/repositories/pipeline-stage.repository';
+import { CompanyContext } from '@/common/context/company-context';
+import { toCsv } from '@/common/csv.helper';
+import type { ListQueryDto } from '@/common/dto/list-query.dto';
+import { ApplicationsService } from '@/modules/applications/applications.service';
+import { CreateInterviewDto } from '@/modules/interviews/dto/create-interview.dto';
+import { UpdateInterviewDto } from '@/modules/interviews/dto/update-interview.dto';
+import { SubmitFeedbackDto } from '@/modules/interviews/dto/submit-feedback.dto';
 
 @Injectable()
 export class InterviewsService {

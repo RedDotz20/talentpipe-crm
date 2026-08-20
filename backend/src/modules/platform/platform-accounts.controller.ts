@@ -13,33 +13,33 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import type { Response } from 'express';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { SkipEnvelope } from '../../common/decorators/skip-envelope.decorator';
-import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { sendCsv } from '../../common/csv.helper';
-import { ListQuerySchema, ListQueryDto } from '../../common/dto/list-query.dto';
-import { PlatformAccountsService } from './platform-accounts.service';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { SkipEnvelope } from '@/common/decorators/skip-envelope.decorator';
+import { ZodValidationPipe } from '@/common/pipes/zod-validation.pipe';
+import { sendCsv } from '@/common/csv.helper';
+import { ListQuerySchema, ListQueryDto } from '@/common/dto/list-query.dto';
+import { PlatformAccountsService } from '@/modules/platform/platform-accounts.service';
 import {
   CreateCompanyUserSchema,
   CreateCompanyUserDto,
-} from './dto/create-company-user.dto';
+} from '@/modules/platform/dto/create-company-user.dto';
 import {
   UpdateCompanyUserSchema,
   UpdateCompanyUserDto,
-} from './dto/update-company-user.dto';
+} from '@/modules/platform/dto/update-company-user.dto';
 import {
   CreateCandidateSchema,
   CreateCandidateDto,
-} from './dto/create-candidate.dto';
+} from '@/modules/platform/dto/create-candidate.dto';
 import {
   UpdateCandidateSchema,
   UpdateCandidateDto,
-} from './dto/update-candidate.dto';
+} from '@/modules/platform/dto/update-candidate.dto';
 import {
   AssignPresetSchema,
   AssignPresetDto,
-} from '../company/dto/assign-preset.dto';
-import { PlatformPermissionsService } from './platform-permissions.service';
+} from '@/modules/company/dto/assign-preset.dto';
+import { PlatformPermissionsService } from '@/modules/platform/platform-permissions.service';
 
 @Controller('platform')
 @UseGuards(AuthGuard('jwt'))

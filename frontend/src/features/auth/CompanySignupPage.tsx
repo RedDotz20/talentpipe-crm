@@ -53,6 +53,11 @@ export function CompanySignupPage() {
           Sign in
         </Anchor>
       </Text>
+      <Text ta="center" mt="xs">
+        <Anchor href="/" fw={500}>
+          ← Back to home
+        </Anchor>
+      </Text>
     </AuthLayout>
   );
 }

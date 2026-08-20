@@ -5,8 +5,8 @@ import {
   jobPostings,
   pipelineStages,
   users,
-} from '../database/schema';
-import { BaseRepository } from './base.repository';
+} from '@/database/schema';
+import { BaseRepository } from '@/repositories/base.repository';
 
 @Injectable()
 export class UsageRepository extends BaseRepository {

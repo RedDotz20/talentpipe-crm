@@ -14,7 +14,7 @@ import {
 import dayjs from 'dayjs';
 import type { Application } from '@/api/applicationsApi';
 import { useAddNote, useNotes } from './hooks/usePipeline';
-import { useInterviews } from '../interviews/hooks/useInterviews';
+import { useInterviews } from '@/features/company/interviews/hooks/useInterviews';
 
 export function ApplicationDetailDrawer({
   application,

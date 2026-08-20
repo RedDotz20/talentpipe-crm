@@ -9,11 +9,11 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import type { Response } from 'express';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { Permissions } from '../../common/decorators/permissions.decorator';
-import { SkipEnvelope } from '../../common/decorators/skip-envelope.decorator';
-import { CandidateRepository } from '../../repositories/candidate.repository';
-import { ResumesService } from './resumes.service';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { Permissions } from '@/common/decorators/permissions.decorator';
+import { SkipEnvelope } from '@/common/decorators/skip-envelope.decorator';
+import { CandidateRepository } from '@/repositories/candidate.repository';
+import { ResumesService } from '@/modules/resumes/resumes.service';
 
 const VIEW_ROLES = ['CompanyAdmin', 'Recruiter', 'HiringManager'];
 

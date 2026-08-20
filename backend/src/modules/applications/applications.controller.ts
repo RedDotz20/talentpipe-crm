@@ -10,15 +10,21 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { Permissions } from '../../common/decorators/permissions.decorator';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { CompanyContext } from '../../common/context/company-context';
-import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { ListQuerySchema, ListQueryDto } from '../../common/dto/list-query.dto';
-import { ApplicationsService } from './applications.service';
-import { UpdateStageSchema, UpdateStageDto } from './dto/update-stage.dto';
-import { CreateNoteSchema, CreateNoteDto } from './dto/create-note.dto';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { Permissions } from '@/common/decorators/permissions.decorator';
+import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { CompanyContext } from '@/common/context/company-context';
+import { ZodValidationPipe } from '@/common/pipes/zod-validation.pipe';
+import { ListQuerySchema, ListQueryDto } from '@/common/dto/list-query.dto';
+import { ApplicationsService } from '@/modules/applications/applications.service';
+import {
+  UpdateStageSchema,
+  UpdateStageDto,
+} from '@/modules/applications/dto/update-stage.dto';
+import {
+  CreateNoteSchema,
+  CreateNoteDto,
+} from '@/modules/applications/dto/create-note.dto';
 
 const VIEW_ROLES = ['CompanyAdmin', 'Recruiter', 'HiringManager'];
 

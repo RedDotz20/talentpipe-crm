@@ -4,10 +4,10 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { CompanyPermissionsService } from './company-permissions.service';
-import { PermissionRepository } from '../../repositories/permission.repository';
-import { UserRepository } from '../../repositories/user.repository';
-import { AuditService } from '../../common/audit/audit.service';
+import { CompanyPermissionsService } from '@/modules/company/company-permissions.service';
+import { PermissionRepository } from '@/repositories/permission.repository';
+import { UserRepository } from '@/repositories/user.repository';
+import { AuditService } from '@/common/audit/audit.service';
 
 jest.mock('../../common/context/company-context', () => ({
   getCurrentUser: jest.fn(() => ({

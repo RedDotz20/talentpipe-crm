@@ -1,13 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { CompanyProvisioningService } from './services/company-provisioning.service';
-import { TokenService } from './services/token.service';
-import { UserEmailRepository } from '../../repositories/user-email.repository';
-import { UserRepository } from '../../repositories/user.repository';
-import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
-import { SuperAdminRepository } from '../../repositories/super-admin.repository';
-import { CompanyRepository } from '../../repositories/company.repository';
+import { AuthService } from '@/modules/auth/auth.service';
+import { CompanyProvisioningService } from '@/modules/auth/services/company-provisioning.service';
+import { TokenService } from '@/modules/auth/services/token.service';
+import { UserEmailRepository } from '@/repositories/user-email.repository';
+import { UserRepository } from '@/repositories/user.repository';
+import { CandidateAccountRepository } from '@/repositories/candidate-account.repository';
+import { SuperAdminRepository } from '@/repositories/super-admin.repository';
+import { CompanyRepository } from '@/repositories/company.repository';
 
 jest.mock('argon2', () => ({
   hash: jest.fn(),

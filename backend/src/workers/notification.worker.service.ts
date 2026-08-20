@@ -13,8 +13,8 @@ import {
   NOTIFICATION_QUEUE_NAME,
   STAGE_CHANGE_JOB,
   StageChangeNotificationPayload,
-} from '../queues/queues';
-import { AuditLogRepository } from '../repositories/audit-log.repository';
+} from '@/queues/queues';
+import { AuditLogRepository } from '@/repositories/audit-log.repository';
 
 @Injectable()
 export class NotificationWorkerService

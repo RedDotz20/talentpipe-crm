@@ -5,7 +5,7 @@ import {
   CallHandler,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
-import { asyncStorage, CompanyContext } from '../context/company-context';
+import { asyncStorage, CompanyContext } from '@/common/context/company-context';
 
 @Injectable()
 export class CompanyContextInterceptor implements NestInterceptor {

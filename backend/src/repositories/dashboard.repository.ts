@@ -6,10 +6,10 @@ import {
   interviews,
   jobPostings,
   pipelineStages,
-} from '../database/schema';
-import type { DrizzleDB } from '../database/drizzle-schema.service';
-import { timeBucketedCounts } from './time-series.helper';
-import { BaseRepository } from './base.repository';
+} from '@/database/schema';
+import type { DrizzleDB } from '@/database/drizzle-schema.service';
+import { timeBucketedCounts } from '@/repositories/time-series.helper';
+import { BaseRepository } from '@/repositories/base.repository';
 
 export type DashboardSummary = {
   totalApplications: number;

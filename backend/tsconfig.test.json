@@ -9,6 +9,9 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/*"]
+    },
     "types": ["jest", "node", "supertest"]
   },
   "include": ["test/**/*"]

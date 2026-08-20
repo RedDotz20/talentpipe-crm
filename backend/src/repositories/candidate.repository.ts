@@ -1,15 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { eq, desc, count } from 'drizzle-orm';
-import { candidates, candidateAccounts } from '../database/schema';
-import { BaseRepository } from './base.repository';
+import { candidates, candidateAccounts } from '@/database/schema';
+import { BaseRepository } from '@/repositories/base.repository';
 import {
   andConditions,
   listEnvelope,
   toOrderBy,
   toPagination,
   toWhere,
-} from './list-query.helper';
-import type { ListQueryDto } from '../common/dto/list-query.dto';
+} from '@/repositories/list-query.helper';
+import type { ListQueryDto } from '@/common/dto/list-query.dto';
 
 const CANDIDATE_SELECT = {
   id: candidates.id,

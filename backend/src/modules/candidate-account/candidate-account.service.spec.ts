@@ -4,25 +4,25 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
-import { CandidateAccountService } from './candidate-account.service';
-import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
-import { CandidateBookmarkRepository } from '../../repositories/candidate-bookmark.repository';
-import { CandidateApplicationsIndexRepository } from '../../repositories/candidate-applications-index.repository';
-import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
-import { CandidateRepository } from '../../repositories/candidate.repository';
-import { ApplicationRepository } from '../../repositories/application.repository';
-import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
-import { CandidateSkillRepository } from '../../repositories/candidate-skill.repository';
-import { SkillRepository } from '../../repositories/skill.repository';
-import { JobPostingRepository } from '../../repositories/job-posting.repository';
-import { CompanyRepository } from '../../repositories/company.repository';
-import { UserEmailRepository } from '../../repositories/user-email.repository';
-import { InterviewRepository } from '../../repositories/interview.repository';
-import { NoteRepository } from '../../repositories/note.repository';
-import { SkillMatchingService } from '../skill-matching/skill-matching.service';
-import { ResumesService } from '../../modules/resumes/resumes.service';
-import { CacheService } from '../../common/cache/cache.service';
-import { AvatarsService } from '../../common/avatars/avatars.service';
+import { CandidateAccountService } from '@/modules/candidate-account/candidate-account.service';
+import { CandidateAccountRepository } from '@/repositories/candidate-account.repository';
+import { CandidateBookmarkRepository } from '@/repositories/candidate-bookmark.repository';
+import { CandidateApplicationsIndexRepository } from '@/repositories/candidate-applications-index.repository';
+import { JobListingsIndexRepository } from '@/repositories/job-listings-index.repository';
+import { CandidateRepository } from '@/repositories/candidate.repository';
+import { ApplicationRepository } from '@/repositories/application.repository';
+import { PipelineStageRepository } from '@/repositories/pipeline-stage.repository';
+import { CandidateSkillRepository } from '@/repositories/candidate-skill.repository';
+import { SkillRepository } from '@/repositories/skill.repository';
+import { JobPostingRepository } from '@/repositories/job-posting.repository';
+import { CompanyRepository } from '@/repositories/company.repository';
+import { UserEmailRepository } from '@/repositories/user-email.repository';
+import { InterviewRepository } from '@/repositories/interview.repository';
+import { NoteRepository } from '@/repositories/note.repository';
+import { SkillMatchingService } from '@/modules/skill-matching/skill-matching.service';
+import { ResumesService } from '@/modules/resumes/resumes.service';
+import { CacheService } from '@/common/cache/cache.service';
+import { AvatarsService } from '@/modules/avatars/avatars.service';
 
 describe('CandidateAccountService', () => {
   let service: CandidateAccountService;

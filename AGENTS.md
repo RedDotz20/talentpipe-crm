@@ -36,7 +36,7 @@
 - **M18:** Permission management — role-bound permission presets. `permission_presets` tables (public: 4 read-only seeded defaults + SuperAdmin globals; per-company: CompanyAdmin customs) + `users.preset_id` (null → role default; role change resets), ceiling rule (a preset is always a subset of its role's default — `ROLE_PERMISSIONS` in `common/permissions/permissions.ts` is the single source of truth; assignment requires role match). New `@Permissions('key')` decorator + global `PermissionsGuard` (stacks after `@Roles`, narrows it), 17-key catalog, effective set resolved per-request (preset join, no cache) + mirrored as a JWT claim. Company `/company/permissions` (CompanyAdmin) + platform `/platform/permissions` (SuperAdmin) pages, preset assignment in both users pages (company: non-CA rows; platform: all rows incl. CA). Enable/disable presets: `PATCH .../permissions/:id/disable|enable` + `POST .../permissions/bulk-status` (`{ ids, enabled }`) on company + platform; disabling reverts assigned users to their role default (`{ id, revertedUsers }`), defaults stay locked (400 on platform), disabled presets are unassignable (400), lists carry `isEnabled`. Phase18 e2e caught + fixed the new-company schema provision leak (`permission_presets` now cloned via the company template). Design: `docs/superpowers/specs/2026-08-12-permission-management-design.md`. E2e: `phase19.e2e-spec.ts`.
 - **M19:** Resume preview + upload hardening — new `GET /candidate/resume/file` (candidate self-preview, `Content-Disposition: inline`; PDF renders in-tab, DOCX downloads), Settings page View button + client-side pre-check (PDF/DOCX only, ≤10MB), multer upload errors now mapped in the global `ApiExceptionFilter` (`LIMIT_FILE_SIZE` → 413, other `MulterError` → 400, both `VALIDATION_ERROR`) instead of a silent 500. Upload limits were already enforced server-side (10MB multer limit + MIME/magic-byte check). (E2e: `phase20.e2e-spec.ts`.)
 - **M20:** Profile avatars + universal user menu — `users.name` + `avatar_url` (candidate_accounts/super_admins too, template-cloned), shared `AvatarsModule` (PNG/JPEG/WebP magic-byte validation, 5MB, second `avatars` S3 bucket via bucket-param on the single `StorageService`, authed `GET /avatars/file`), `GET /auth/me`, per-role profile+avatar endpoints (`/candidate`, `/company/profile`, `/platform/profile`), unified `UserMenu` (Profile + Logout) in all three layouts, profile pages for company users + SuperAdmins, candidate `/settings` avatar section, avatar thumbnails in company users/candidates + platform users tables, seed display names. E2e: `phase21.e2e-spec.ts`. (`ponytail:` the hand-written migration folder has no drizzle snapshot — the next `drizzle-kit generate` may re-sync.)
-- **Not yet built:** platform email/notifications, password-change flow, pipeline-stage management endpoints, anonymous apply, and automated resume parsing. CI runs via `.github/workflows/ci.yml` (lint → typecheck → unit → e2e release gates → build). Deployment: self-hosted `docker-compose.prod.yml` stack (backend/frontend Dockerfiles, one-shot migrate service, env-file secrets — see `09_IMPLEMENTATION_GUIDE.md` Phase 10) **or** the free managed stack (Neon + Upstash + Cloudflare R2 + Render + Cloudflare Pages — see `docs/10b_CLOUD_FREE_DEPLOY.md`). The backend auto-applies migrations at boot on an empty DB (`initDatabase`, guard on `public.companies`); `SEED_ON_BOOT=true` additionally seeds demo data on first boot (opt-in — demo passwords).
+- **Not yet built:** platform email/notifications, password-change flow, pipeline-stage management endpoints, anonymous apply, and automated resume parsing. CI runs via `.github/workflows/ci.yml` (lint → typecheck → unit → e2e release gates → build). Deployment: self-hosted `docker-compose.prod.yml` stack (backend/frontend Dockerfiles, one-shot migrate service, env-file secrets — see `09_IMPLEMENTATION_GUIDE.md` Phase 10) **or** the free managed stack (Neon + Upstash + Cloudflare R2 + Render + Cloudflare Pages — see `docs/12_CLOUD_DEPLOY.md`). The backend auto-applies migrations at boot on an empty DB (`initDatabase`, guard on `public.companies`); `SEED_ON_BOOT=true` additionally seeds demo data on first boot (opt-in — demo passwords).
 
 ## Commands
 
@@ -76,7 +76,7 @@ fresh DB you only need:
 On an already-migrated DB boot logs `Schema already present — skipping
 migrations`. The `migrate` service in `docker-compose.prod.yml` is only needed
 for self-hosted containers that don't ship `drizzle/`. Full runbook with
-checks after each step: `docs/00b_LOCAL_DEV_BOOTSTRAP.md`.
+checks after each step: `docs/01_LOCAL_DEV_SETUP.md`.
 
 Applied migration order includes:
 ```text
@@ -199,19 +199,21 @@ frontend/src/
 
 | # | File | Content | Agent Use |
 |---|------|---------|-----------|
-| 00 | `docs/00_PROJECT_INSTRUCTIONS.md` | **Canonical spec** — consolidates all 8 source docs into one single-source-of-truth | Read first when starting a new milestone. Overrides any contradiction in 01–09. |
-| 00b | `docs/00b_LOCAL_DEV_BOOTSTRAP.md` | **Local dev runbook** — docker up → migrations → template schema → seed → start backend/frontend → login. Includes checks after each step, daily loop, nuke-and-restart, and troubleshooting table. | Read first when you haven't run the project in a while, after `docker compose down -v`, or when something is broken and you forgot the sequence. |
-| 01 | `docs/01_TALENTPIPE_PRD_SRS.md` | Product requirements & software requirements spec | Understand feature scope, user stories, and acceptance criteria for a given milestone. |
-| 02 | `docs/02_TECHNICAL_OVERVIEW.md` | High-level architecture decisions, stack rationale | Context on *why* specific tech was chosen (NestJS, Drizzle, schema-per-company, etc.). |
-| 03 | `docs/03_RECRUITMENT_ATS_ARCHITECTURE.md` | System architecture — modules, data flow, integration points | Reference when wiring cross-module interactions (e.g., apply → resume parsing → pipeline). |
-| 04 | `docs/04_ERD_DIAGRAM.md` | Entity-relationship diagram (Mermaid) | Consult before creating or modifying any Drizzle table definition. |
-| 05 | `docs/05_DATA_ISOLATION_STRATEGY.md` | Schema-per-company isolation deep-dive | Debug multi-tenancy issues, understand search_path mechanics, verify isolation correctness. |
-| 06 | `docs/06_ROLE_INTERACTIONS.md` | Role hierarchy, permissions matrix, guard logic | Implement or audit RBAC guards, role decorators, and permission checks. |
-| 07 | `docs/07_API_ENDPOINT_DOCUMENTATION.md` | Full REST API reference — routes, DTOs, responses, status codes | Build or test API endpoints. Canonical reference for request/response shapes. |
-| 08 | `docs/08_FRONTEND_COMPONENT_STRUCTURE.md` | React component tree, routing, state management | Build frontend features — component hierarchy, data-fetching patterns, route design. |
-| 09 | `docs/09_IMPLEMENTATION_GUID.md` | Step-by-step build guide, migration patterns, testing strategy | Follow during implementation — contains concrete build steps, testing checklists, and common gotchas. |
-| 10b | `docs/10b_CLOUD_FREE_DEPLOY.md` | **Free cloud deploy runbook** — Neon (Postgres), Upstash (Redis), Cloudflare R2 (storage), Render (backend), Cloudflare Pages (frontend); uses boot-time auto-migrate + `SEED_ON_BOOT` | Follow when deploying to the free managed stack instead of self-hosted Docker. |
-| — | `docs/DATA_MODEL_DEFINITION.md` | Extended data model — column types, constraints, indexes, enums | Reference for precise column definitions beyond the ERD (e.g., varchar lengths, default values, unique constraints). |
+| 00 | `docs/00_PROJECT_INSTRUCTIONS.md` | **Canonical spec** — consolidates all source docs into one single-source-of-truth | Read first when starting a new milestone. Overrides any contradiction in01–14. |
+| 01 | `docs/01_LOCAL_DEV_SETUP.md` | **Local dev runbook** — docker up → migrations → template schema → seed → start backend/frontend → login | Read first when you haven't run the project in a while, after `docker compose down -v`, or when something is broken and you forgot the sequence. |
+| 02 | `docs/02_PRODUCT_REQUIREMENTS.md` | Product requirements & software requirements spec | Understand feature scope, user stories, and acceptance criteria for a given milestone. |
+| 03 | `docs/03_TECHNICAL_OVERVIEW.md` | High-level architecture decisions, stack rationale | Context on *why* specific tech was chosen (NestJS, Drizzle, schema-per-company, etc.). |
+| 04 | `docs/04_ARCHITECTURE.md` | System architecture — modules, data flow, integration points | Reference when wiring cross-module interactions (e.g., apply → resume parsing → pipeline). |
+| 05 | `docs/05_DATA_MODEL_ERD.md` | Entity-relationship diagram (Mermaid) | Consult before creating or modifying any Drizzle table definition. |
+| 06 | `docs/06_MULTI_TENANCY.md` | Schema-per-company isolation deep-dive | Debug multi-tenancy issues, understand search_path mechanics, verify isolation correctness. |
+| 07 | `docs/07_RBAC_AND_PERMISSIONS.md` | Role hierarchy, permissions matrix, guard logic | Implement or audit RBAC guards, role decorators, and permission checks. |
+| 08 | `docs/08_API_REFERENCE.md` | Full REST API reference — routes, DTOs, responses, status codes | Build or test API endpoints. Canonical reference for request/response shapes. |
+| 09 | `docs/09_FRONTEND_STRUCTURE.md` | React component tree, routing, state management | Build frontend features — component hierarchy, data-fetching patterns, route design. |
+| 10 | `docs/10_IMPLEMENTATION_GUIDE.md` | Step-by-step build guide, migration patterns, testing strategy | Follow during implementation — contains concrete build steps, testing checklists, and common gotchas. |
+| 11 | `docs/11_CI_CD.md` | CI/CD pipeline, GitHub Actions workflow | Reference for CI/CD configuration. |
+| 12 | `docs/12_CLOUD_DEPLOY.md` | **Free cloud deploy runbook** — Neon (Postgres), Upstash (Redis), Cloudflare R2 (storage), Render (backend), Cloudflare Pages (frontend); uses boot-time auto-migrate + `SEED_ON_BOOT` | Follow when deploying to the free managed stack instead of self-hosted Docker. |
+| 13 | `docs/13_DATA_MODEL.md` | Extended data model — column types, constraints, indexes, enums | Reference for precise column definitions beyond the ERD (e.g., varchar lengths, default values, unique constraints). |
+| 14 | `docs/14_SEED_ACCOUNTS.md` | Seed account credentials and demo data | Reference for test accounts and passwords. |
 
 ## Testing
 

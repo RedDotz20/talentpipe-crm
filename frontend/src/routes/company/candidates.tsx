@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
-import { CandidateList } from '../../features/company/candidates/CandidateList';
-import { CandidateProfile } from '../../features/company/candidates/CandidateProfile';
+import { CandidateList } from '@/features/company/candidates/CandidateList';
+import { CandidateProfile } from '@/features/company/candidates/CandidateProfile';
 
 export const Route = createFileRoute('/company/candidates')({
   component: CandidatesPage,

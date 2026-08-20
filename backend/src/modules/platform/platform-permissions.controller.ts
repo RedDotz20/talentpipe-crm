@@ -10,25 +10,25 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { PlatformPermissionsService } from './platform-permissions.service';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { ZodValidationPipe } from '@/common/pipes/zod-validation.pipe';
+import { PlatformPermissionsService } from '@/modules/platform/platform-permissions.service';
 import {
   CreatePlatformPresetSchema,
   CreatePlatformPresetDto,
-} from './dto/create-platform-preset.dto';
+} from '@/modules/platform/dto/create-platform-preset.dto';
 import {
   UpdatePlatformPresetSchema,
   UpdatePlatformPresetDto,
-} from './dto/update-platform-preset.dto';
+} from '@/modules/platform/dto/update-platform-preset.dto';
 import {
   BulkDeletePresetsSchema,
   BulkDeletePresetsDto,
-} from '../company/dto/bulk-delete-presets.dto';
+} from '@/modules/company/dto/bulk-delete-presets.dto';
 import {
   BulkSetEnabledSchema,
   BulkSetEnabledDto,
-} from '../company/dto/bulk-set-enabled.dto';
+} from '@/modules/company/dto/bulk-set-enabled.dto';
 
 @Controller('platform/permissions')
 @UseGuards(AuthGuard('jwt'))

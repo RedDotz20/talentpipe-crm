@@ -1,13 +1,13 @@
 import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { Permissions } from '../../common/decorators/permissions.decorator';
-import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { CompanyService } from './company.service';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { Permissions } from '@/common/decorators/permissions.decorator';
+import { ZodValidationPipe } from '@/common/pipes/zod-validation.pipe';
+import { CompanyService } from '@/modules/company/company.service';
 import {
   UpdateCompanyDto,
   UpdateCompanySchema,
-} from './dto/update-company.dto';
+} from '@/modules/company/dto/update-company.dto';
 
 const INTERNAL_ROLES = [
   'CompanyAdmin',

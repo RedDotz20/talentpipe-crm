@@ -10,26 +10,26 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { Permissions } from '../../common/decorators/permissions.decorator';
-import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { CompanyPermissionsService } from './company-permissions.service';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { Permissions } from '@/common/decorators/permissions.decorator';
+import { ZodValidationPipe } from '@/common/pipes/zod-validation.pipe';
+import { CompanyPermissionsService } from '@/modules/company/company-permissions.service';
 import {
   CreatePermissionPresetSchema,
   CreatePermissionPresetDto,
-} from './dto/create-permission-preset.dto';
+} from '@/modules/company/dto/create-permission-preset.dto';
 import {
   UpdatePermissionPresetSchema,
   UpdatePermissionPresetDto,
-} from './dto/update-permission-preset.dto';
+} from '@/modules/company/dto/update-permission-preset.dto';
 import {
   BulkDeletePresetsSchema,
   BulkDeletePresetsDto,
-} from './dto/bulk-delete-presets.dto';
+} from '@/modules/company/dto/bulk-delete-presets.dto';
 import {
   BulkSetEnabledSchema,
   BulkSetEnabledDto,
-} from './dto/bulk-set-enabled.dto';
+} from '@/modules/company/dto/bulk-set-enabled.dto';
 
 @Controller('company/permissions')
 @UseGuards(AuthGuard('jwt'))

@@ -1,9 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { JobPostingRepository } from '../../repositories/job-posting.repository';
-import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
-import { SkillRepository } from '../../repositories/skill.repository';
-import { CompanyRepository } from '../../repositories/company.repository';
-import type { ListQueryDto } from '../../common/dto/list-query.dto';
+import { JobPostingRepository } from '@/repositories/job-posting.repository';
+import { JobListingsIndexRepository } from '@/repositories/job-listings-index.repository';
+import { SkillRepository } from '@/repositories/skill.repository';
+import { CompanyRepository } from '@/repositories/company.repository';
+import type { ListQueryDto } from '@/common/dto/list-query.dto';
 
 export interface PublicSkill {
   id: string;

@@ -1,20 +1,23 @@
 import { useState } from 'react';
 import {
   Alert,
-  Badge,
+  Button,
   Card,
   Container,
   Group,
   Pagination,
+  SimpleGrid,
   Stack,
   Text,
   Title,
 } from '@mantine/core';
+import { IconEye } from '@tabler/icons-react';
 import { Link } from '@tanstack/react-router';
 import { JobMetaBadges } from '@/shared/components/JobMetaBadges';
 import { CardGridSkeleton } from '@/shared/components/Skeletons';
 import { ListControls } from '@/shared/components/ListControls';
 import { useListQuery } from '@/shared/hooks/useListQuery';
+import { timeAgo } from '@/shared/utils/timeAgo';
 import { usePublicJobs } from './hooks/usePublicCareers';
 
 interface JobListingPageProps {
@@ -49,7 +52,7 @@ export function JobListingPage({ companySlug }: JobListingPageProps) {
               Explore the latest opportunities and find your next role.
             </Text>
           </div>
-          <CardGridSkeleton count={3} cols={{ base: 1, sm: 1, xl: 1 }} />
+          <CardGridSkeleton count={6} cols={{ base: 1, sm: 2, xl: 3 }} />
         </Stack>
       </Container>
     );
@@ -126,33 +129,55 @@ export function JobListingPage({ companySlug }: JobListingPageProps) {
         {jobs.length === 0 ? (
           <Alert color="blue">There are no open positions matching your filters.</Alert>
         ) : (
-          jobs.map((job) => (
-            <Card key={job.id} withBorder padding="lg" radius="md">
-              <Stack gap="sm">
-                <Group justify="space-between" align="flex-start">
+          <SimpleGrid cols={{ base: 1, sm: 2, xl: 3 }} spacing="lg">
+            {jobs.map((job) => (
+              <Card
+                key={job.id}
+                shadow="sm"
+                padding="lg"
+                radius="md"
+                withBorder
+                h="100%"
+                style={{ display: 'flex', flexDirection: 'column' }}
+              >
+                <Group align="flex-start" justify="space-between" mb="xs">
                   <div>
-                    <Title order={3}>{job.title}</Title>
-                    <Text c="dimmed" size="sm">
-                      {job.companyName}
-                    </Text>
-                    <JobMetaBadges
-                      employmentType={job.employmentType}
-                      location={job.location}
-                      workSetup={job.workSetup}
-                    />
+                    <Group gap="sm">
+                      <Title order={4}>{job.title}</Title>
+                    </Group>
+                    <Group gap="xs" mt={2}>
+                      <Text size="sm" c="dimmed">
+                        {job.companyName}
+                      </Text>
+                    </Group>
+                    <Group gap="xs" mt={4}>
+                      <JobMetaBadges
+                        employmentType={job.employmentType}
+                        location={job.location}
+                        workSetup={job.workSetup}
+                      />
+                    </Group>
+                    {job.createdAt && (
+                      <Text size="xs" c="dimmed" mt={4}>
+                        Posted {timeAgo(job.createdAt)}
+                      </Text>
+                    )}
                   </div>
-                  <Badge color="green">Open</Badge>
                 </Group>
-                <Text lineClamp={3}>{job.description ?? 'No description provided.'}</Text>
-                <Link
-                  to="/careers/$companySlug/jobs/$jobId"
-                  params={{ companySlug: job.companySlug, jobId: job.id }}
-                >
-                  View job details
-                </Link>
-              </Stack>
-            </Card>
-          ))
+                <Group justify="flex-end" gap="sm" mt="auto" pt="sm">
+                  <Button
+                    component={Link}
+                    to="/careers/$companySlug/jobs/$jobId"
+                    params={{ companySlug: job.companySlug, jobId: job.id }}
+                    variant="light"
+                    leftSection={<IconEye size="1rem" />}
+                  >
+                    View job details
+                  </Button>
+                </Group>
+              </Card>
+            ))}
+          </SimpleGrid>
         )}
         <Group justify="center">
           <Pagination

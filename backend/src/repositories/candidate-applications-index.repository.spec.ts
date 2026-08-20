@@ -3,8 +3,8 @@ import { PgDialect } from 'drizzle-orm/pg-core/dialect';
 import {
   DrizzleDB,
   DrizzleSchemaService,
-} from '../database/drizzle-schema.service';
-import { CandidateApplicationsIndexRepository } from './candidate-applications-index.repository';
+} from '@/database/drizzle-schema.service';
+import { CandidateApplicationsIndexRepository } from '@/repositories/candidate-applications-index.repository';
 
 describe('CandidateApplicationsIndexRepository', () => {
   const forPublic = jest.fn();

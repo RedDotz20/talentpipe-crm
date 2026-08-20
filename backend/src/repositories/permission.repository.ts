@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { eq, sql } from 'drizzle-orm';
-import { permissionPresets, users } from '../database/schema';
-import { BaseRepository } from './base.repository';
-import { ROLE_PERMISSIONS } from '../common/permissions/permissions';
+import { permissionPresets, users } from '@/database/schema';
+import { BaseRepository } from '@/repositories/base.repository';
+import { ROLE_PERMISSIONS } from '@/common/permissions/permissions';
 
 export interface PermissionPresetRow {
   id: string;

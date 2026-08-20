@@ -9,7 +9,7 @@ import {
   Stack,
 } from '@mantine/core';
 import type { Interview } from '@/api/interviewsApi';
-import { useApplications } from '../pipeline/hooks/usePipeline';
+import { useApplications } from '@/features/company/pipeline/hooks/usePipeline';
 import { useCompanyUsers } from './hooks/useInterviews';
 
 const toLocalInput = (iso: string): string => {

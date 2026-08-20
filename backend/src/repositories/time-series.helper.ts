@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import type { DrizzleDB } from '../database/drizzle-schema.service';
+import type { DrizzleDB } from '@/database/drizzle-schema.service';
 
 export type TimeUnit = 'day' | 'week' | 'month';
 export type TimeSeries = Record<

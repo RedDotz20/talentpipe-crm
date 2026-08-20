@@ -4,15 +4,15 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { AuditService } from '../../common/audit/audit.service';
-import { PermissionRepository } from '../../repositories/permission.repository';
-import type { PermissionPresetRow } from '../../repositories/permission.repository';
-import { CompanyRepository } from '../../repositories/company.repository';
-import { UserRepository } from '../../repositories/user.repository';
-import { permissionsSubsetOfRole } from '../../common/permissions/permissions';
-import type { InternalRole } from '../../common/permissions/permissions';
-import type { CreatePlatformPresetDto } from './dto/create-platform-preset.dto';
-import type { UpdatePlatformPresetDto } from './dto/update-platform-preset.dto';
+import { AuditService } from '@/common/audit/audit.service';
+import { PermissionRepository } from '@/repositories/permission.repository';
+import type { PermissionPresetRow } from '@/repositories/permission.repository';
+import { CompanyRepository } from '@/repositories/company.repository';
+import { UserRepository } from '@/repositories/user.repository';
+import { permissionsSubsetOfRole } from '@/common/permissions/permissions';
+import type { InternalRole } from '@/common/permissions/permissions';
+import type { CreatePlatformPresetDto } from '@/modules/platform/dto/create-platform-preset.dto';
+import type { UpdatePlatformPresetDto } from '@/modules/platform/dto/update-platform-preset.dto';
 
 @Injectable()
 export class PlatformPermissionsService {

@@ -11,17 +11,17 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { Permissions } from '../../common/decorators/permissions.decorator';
-import { SkipEnvelope } from '../../common/decorators/skip-envelope.decorator';
-import { sendCsv } from '../../common/csv.helper';
-import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { ListQuerySchema, ListQueryDto } from '../../common/dto/list-query.dto';
-import { CandidatesService } from './candidates.service';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { Permissions } from '@/common/decorators/permissions.decorator';
+import { SkipEnvelope } from '@/common/decorators/skip-envelope.decorator';
+import { sendCsv } from '@/common/csv.helper';
+import { ZodValidationPipe } from '@/common/pipes/zod-validation.pipe';
+import { ListQuerySchema, ListQueryDto } from '@/common/dto/list-query.dto';
+import { CandidatesService } from '@/modules/candidates/candidates.service';
 import {
   CreateCandidateSchema,
   CreateCandidateDto,
-} from './dto/create-candidate.dto';
+} from '@/modules/candidates/dto/create-candidate.dto';
 
 const VIEW_ROLES = ['CompanyAdmin', 'Recruiter', 'HiringManager'];
 const EDIT_ROLES = ['CompanyAdmin', 'Recruiter'];

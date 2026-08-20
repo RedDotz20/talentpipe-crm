@@ -1,10 +1,10 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { JobPostingRepository } from '../../repositories/job-posting.repository';
-import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
-import { SkillRepository } from '../../repositories/skill.repository';
-import { CompanyRepository } from '../../repositories/company.repository';
-import { PublicCareersService } from './public-careers.service';
+import { JobPostingRepository } from '@/repositories/job-posting.repository';
+import { JobListingsIndexRepository } from '@/repositories/job-listings-index.repository';
+import { SkillRepository } from '@/repositories/skill.repository';
+import { CompanyRepository } from '@/repositories/company.repository';
+import { PublicCareersService } from '@/modules/public-careers/public-careers.service';
 
 describe('PublicCareersService', () => {
   let service: PublicCareersService;

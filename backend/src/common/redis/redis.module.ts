@@ -1,8 +1,8 @@
 import { Inject, Module, OnModuleDestroy } from '@nestjs/common';
 import Redis from 'ioredis';
-import { REDIS_PROVIDER } from './redis.constants';
-import { redisProvider } from './redis.provider';
-import { RedisService } from './redis.service';
+import { REDIS_PROVIDER } from '@/common/redis/redis.constants';
+import { redisProvider } from '@/common/redis/redis.provider';
+import { RedisService } from '@/common/redis/redis.service';
 
 @Module({
   providers: [redisProvider, RedisService],

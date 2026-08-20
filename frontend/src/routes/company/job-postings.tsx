@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { createFileRoute } from '@tanstack/react-router';
 import { useDisclosure } from '@mantine/hooks';
-import { JobPostingList } from '../../features/company/job-postings/JobPostingList';
-import { JobPostingForm } from '../../features/company/job-postings/JobPostingForm';
+import { JobPostingList } from '@/features/company/job-postings/JobPostingList';
+import { JobPostingForm } from '@/features/company/job-postings/JobPostingForm';
 import {
   useCreateJobPosting,
   useJobPosting,
   useUpdateJobPosting,
-} from '../../features/company/job-postings/hooks/useJobPostings';
-import type { JobPosting } from '../../api/jobPostingsApi';
+} from '@/features/company/job-postings/hooks/useJobPostings';
+import type { JobPosting } from '@/api/jobPostingsApi';
 
 export const Route = createFileRoute('/company/job-postings')({
   component: JobPostingsPage,

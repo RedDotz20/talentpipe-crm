@@ -1,7 +1,7 @@
 import { useDraggable } from '@dnd-kit/core';
 import { Card, Group, Stack, Text } from '@mantine/core';
 import type { Application } from '@/api/applicationsApi';
-import { MatchScoreBadge } from '../candidates/MatchScoreBadge';
+import { MatchScoreBadge } from '@/features/company/candidates/MatchScoreBadge';
 
 function ApplicationCardContent({ application }: { application: Application }) {
   return (

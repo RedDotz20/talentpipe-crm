@@ -1,16 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { eq, count } from 'drizzle-orm';
-import { companies } from '../database/schema';
-import { BaseRepository } from './base.repository';
+import { companies } from '@/database/schema';
+import { BaseRepository } from '@/repositories/base.repository';
 import {
   andConditions,
   listEnvelope,
   toOrderBy,
   toPagination,
   toWhere,
-} from './list-query.helper';
-import { timeBucketedCounts } from './time-series.helper';
-import type { ListQueryDto } from '../common/dto/list-query.dto';
+} from '@/repositories/list-query.helper';
+import { timeBucketedCounts } from '@/repositories/time-series.helper';
+import type { ListQueryDto } from '@/common/dto/list-query.dto';
 
 const COMPANY_TABLES = [
   'users',

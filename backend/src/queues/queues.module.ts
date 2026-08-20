@@ -4,9 +4,9 @@ import {
   NOTIFICATION_QUEUE,
   bullConnectionProvider,
   notificationQueueProvider,
-} from './queues';
-import { NotificationWorkerService } from '../workers/notification.worker.service';
-import { RepositoriesModule } from '../repositories/repositories.module';
+} from '@/queues/queues';
+import { NotificationWorkerService } from '@/workers/notification.worker.service';
+import { RepositoriesModule } from '@/repositories/repositories.module';
 
 @Module({
   imports: [RepositoriesModule],

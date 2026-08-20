@@ -1,13 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { asyncStorage } from '../../common/context/company-context';
-import { JobPostingsService } from './job-postings.service';
-import { JobPostingRepository } from '../../repositories/job-posting.repository';
-import { SkillRepository } from '../../repositories/skill.repository';
-import { CompanyRepository } from '../../repositories/company.repository';
-import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
-import { ApplicationRepository } from '../../repositories/application.repository';
-import { CacheService } from '../../common/cache/cache.service';
+import { asyncStorage } from '@/common/context/company-context';
+import { JobPostingsService } from '@/modules/job-postings/job-postings.service';
+import { JobPostingRepository } from '@/repositories/job-posting.repository';
+import { SkillRepository } from '@/repositories/skill.repository';
+import { CompanyRepository } from '@/repositories/company.repository';
+import { JobListingsIndexRepository } from '@/repositories/job-listings-index.repository';
+import { ApplicationRepository } from '@/repositories/application.repository';
+import { CacheService } from '@/common/cache/cache.service';
 
 const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
   asyncStorage.run({ companyId: 't1', userId: 'u1', role: 'CompanyAdmin' }, fn);

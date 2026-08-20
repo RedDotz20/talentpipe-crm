@@ -1,18 +1,18 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { PlatformAccountsService } from './platform-accounts.service';
-import { CompanyRepository } from '../../repositories/company.repository';
-import { UserRepository } from '../../repositories/user.repository';
-import { UserEmailRepository } from '../../repositories/user-email.repository';
-import { RefreshTokenRepository } from '../../repositories/refresh-token.repository';
-import { InterviewRepository } from '../../repositories/interview.repository';
-import { CandidateAccountRepository } from '../../repositories/candidate-account.repository';
-import { CandidateRepository } from '../../repositories/candidate.repository';
-import { CandidateApplicationsIndexRepository } from '../../repositories/candidate-applications-index.repository';
-import { ApplicationRepository } from '../../repositories/application.repository';
-import { PipelineStageRepository } from '../../repositories/pipeline-stage.repository';
-import { AuditService } from '../../common/audit/audit.service';
-import { JobListingsIndexRepository } from '../../repositories/job-listings-index.repository';
-import { PermissionRepository } from '../../repositories/permission.repository';
+import { PlatformAccountsService } from '@/modules/platform/platform-accounts.service';
+import { CompanyRepository } from '@/repositories/company.repository';
+import { UserRepository } from '@/repositories/user.repository';
+import { UserEmailRepository } from '@/repositories/user-email.repository';
+import { RefreshTokenRepository } from '@/repositories/refresh-token.repository';
+import { InterviewRepository } from '@/repositories/interview.repository';
+import { CandidateAccountRepository } from '@/repositories/candidate-account.repository';
+import { CandidateRepository } from '@/repositories/candidate.repository';
+import { CandidateApplicationsIndexRepository } from '@/repositories/candidate-applications-index.repository';
+import { ApplicationRepository } from '@/repositories/application.repository';
+import { PipelineStageRepository } from '@/repositories/pipeline-stage.repository';
+import { AuditService } from '@/common/audit/audit.service';
+import { JobListingsIndexRepository } from '@/repositories/job-listings-index.repository';
+import { PermissionRepository } from '@/repositories/permission.repository';
 
 jest.mock('../../common/password', () => ({
   hashPassword: jest.fn().mockResolvedValue('hashed'),

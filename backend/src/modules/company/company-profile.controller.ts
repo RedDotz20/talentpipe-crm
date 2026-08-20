@@ -11,14 +11,14 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { INTERNAL_ROLES } from '../../common/permissions/permissions';
-import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { CompanyProfileService } from './company-profile.service';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { INTERNAL_ROLES } from '@/common/permissions/permissions';
+import { ZodValidationPipe } from '@/common/pipes/zod-validation.pipe';
+import { CompanyProfileService } from '@/modules/company/company-profile.service';
 import {
   UpdateCompanyProfileSchema,
   UpdateCompanyProfileDto,
-} from './dto/update-profile.dto';
+} from '@/modules/company/dto/update-profile.dto';
 
 @Controller('company/profile')
 @UseGuards(AuthGuard('jwt'))

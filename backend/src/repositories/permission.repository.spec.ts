@@ -1,4 +1,4 @@
-import { resolveEffectivePermissions } from './permission.repository';
+import { resolveEffectivePermissions } from '@/repositories/permission.repository';
 
 describe('resolveEffectivePermissions', () => {
   it('prefers the local (company) preset', () => {

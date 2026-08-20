@@ -12,20 +12,29 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { Permissions } from '../../common/decorators/permissions.decorator';
-import { SkipEnvelope } from '../../common/decorators/skip-envelope.decorator';
-import { sendCsv } from '../../common/csv.helper';
-import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { CompanyUsersService } from './company-users.service';
-import { CompanyPermissionsService } from './company-permissions.service';
-import { CreateUserDto, CreateUserSchema } from './dto/invite-user.dto';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { Permissions } from '@/common/decorators/permissions.decorator';
+import { SkipEnvelope } from '@/common/decorators/skip-envelope.decorator';
+import { sendCsv } from '@/common/csv.helper';
+import { ZodValidationPipe } from '@/common/pipes/zod-validation.pipe';
+import { CompanyUsersService } from '@/modules/company/company-users.service';
+import { CompanyPermissionsService } from '@/modules/company/company-permissions.service';
+import {
+  CreateUserDto,
+  CreateUserSchema,
+} from '@/modules/company/dto/invite-user.dto';
 import {
   ResetPasswordDto,
   ResetPasswordSchema,
-} from './dto/reset-password.dto';
-import { UpdateRoleDto, UpdateRoleSchema } from './dto/update-role.dto';
-import { AssignPresetDto, AssignPresetSchema } from './dto/assign-preset.dto';
+} from '@/modules/company/dto/reset-password.dto';
+import {
+  UpdateRoleDto,
+  UpdateRoleSchema,
+} from '@/modules/company/dto/update-role.dto';
+import {
+  AssignPresetDto,
+  AssignPresetSchema,
+} from '@/modules/company/dto/assign-preset.dto';
 
 const PICKER_ROLES = ['CompanyAdmin', 'Recruiter', 'HiringManager'];
 

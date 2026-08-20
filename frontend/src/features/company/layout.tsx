@@ -20,9 +20,9 @@ import {
   IconUserPlus,
   IconShieldLock,
 } from '@tabler/icons-react';
-import { useAuthStore } from '../../api/useAuth';
-import { ColorSchemeToggle } from '../../components/ColorSchemeToggle';
-import { PageTransition } from '../../components/PageTransition';
+import { useAuthStore } from '@/api/useAuth';
+import { ColorSchemeToggle } from '@/components/ColorSchemeToggle';
+import { PageTransition } from '@/components/PageTransition';
 import { useMe } from '@/hooks/useMe';
 import { UserMenu } from '@/shared/components/UserMenu';
 import { UserAvatar } from '@/shared/components/UserAvatar';

@@ -5,19 +5,16 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  getCurrentUser,
-  getSchema,
-} from '../../common/context/company-context';
-import { AuditService } from '../../common/audit/audit.service';
-import { PermissionRepository } from '../../repositories/permission.repository';
-import type { PermissionPresetRow } from '../../repositories/permission.repository';
-import { UserRepository } from '../../repositories/user.repository';
-import { permissionsSubsetOfRole } from '../../common/permissions/permissions';
-import type { InternalRole } from '../../common/permissions/permissions';
-import type { CreatePermissionPresetDto } from './dto/create-permission-preset.dto';
-import type { UpdatePermissionPresetDto } from './dto/update-permission-preset.dto';
-import type { AssignPresetDto } from './dto/assign-preset.dto';
+import { getCurrentUser, getSchema } from '@/common/context/company-context';
+import { AuditService } from '@/common/audit/audit.service';
+import { PermissionRepository } from '@/repositories/permission.repository';
+import type { PermissionPresetRow } from '@/repositories/permission.repository';
+import { UserRepository } from '@/repositories/user.repository';
+import { permissionsSubsetOfRole } from '@/common/permissions/permissions';
+import type { InternalRole } from '@/common/permissions/permissions';
+import type { CreatePermissionPresetDto } from '@/modules/company/dto/create-permission-preset.dto';
+import type { UpdatePermissionPresetDto } from '@/modules/company/dto/update-permission-preset.dto';
+import type { AssignPresetDto } from '@/modules/company/dto/assign-preset.dto';
 
 @Injectable()
 export class CompanyPermissionsService {

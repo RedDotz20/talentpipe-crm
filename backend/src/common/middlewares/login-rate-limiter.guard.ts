@@ -6,7 +6,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import { RedisService } from '../redis/redis.service';
+import { RedisService } from '@/common/redis/redis.service';
 
 type SigninRequest = {
   body?: { email?: unknown };

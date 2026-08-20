@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { GUARDS_METADATA, PATH_METADATA } from '@nestjs/common/constants';
-import { RedisService } from '../../common/redis/redis.service';
-import { AuthController } from './auth.controller';
-import { AuthService } from './auth.service';
-import { LoginRateLimiterGuard } from '../../common/middlewares/login-rate-limiter.guard';
+import { RedisService } from '@/common/redis/redis.service';
+import { AuthController } from '@/modules/auth/auth.controller';
+import { AuthService } from '@/modules/auth/auth.service';
+import { LoginRateLimiterGuard } from '@/common/middlewares/login-rate-limiter.guard';
 
 type AuthControllerMethodName =
   'signin' | 'signup' | 'refresh' | 'companySignup' | 'logout';
